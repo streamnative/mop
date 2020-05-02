@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <groupId>io.streamnative.pulsar.handlers</groupId>
+    <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>StreamNative :: Pulsar Protocol Handler :: MoP Parent</name>
+    <description>Parent for MQTT on Pulsar implemented using Pulsar Protocol Handler.</description>
+
+    <parent>
+        <groupId>org.apache</groupId>
+        <artifactId>apache</artifactId>
+        <version>18</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>mqtt-impl</module>
+        <module>tests</module>
+    </modules>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <properties>
+        <lombok.version>1.18.4</lombok.version>
+        <mockito.version>2.22.0</mockito.version>
+        <testng.version>6.14.3</testng.version>
+        <pulsar.version>2.6.0-SNAPSHOT</pulsar.version>
+        <mqtt.codec.version>4.1.49.Final</mqtt.codec.version>
+        <commons-lang3.version>3.4</commons-lang3.version>
+        <log4j2.version>2.10.0</log4j2.version>
+        <lombok.version>1.18.4</lombok.version>
+        <mqtt.client.version>1.16</mqtt.client.version>
+        <javac.target>1.8</javac.target>
+        <puppycrawl.checkstyle.version>6.19</puppycrawl.checkstyle.version>
+        <maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
+        <maven-surefire-plugin.version>3.0.0-M1</maven-surefire-plugin.version>
+        <redirectTestOutputToFile>true</redirectTestOutputToFile>
+        <license-maven-plugin.version>3.0.rc1</license-maven-plugin.version>
+        <maven-checkstyle-plugin.version>3.0.0</maven-checkstyle-plugin.version>
+        <spotbugs-maven-plugin.version>3.1.8</spotbugs-maven-plugin.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.pulsar</groupId>
+            <artifactId>pulsar-broker</artifactId>
+            <version>${pulsar.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j2.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>${log4j2.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-mqtt</artifactId>
+            <version>${mqtt.codec.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>${testng.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <version>${maven-checkstyle-plugin.version}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.puppycrawl.tools</groupId>
+                            <artifactId>checkstyle</artifactId>
+                            <version>${puppycrawl.checkstyle.version}</version>
+                        </dependency>
+                    </dependencies>
+                    <configuration>
+                        <configLocation>resources/checkstyle.xml</configLocation>
+                        <suppressionsLocation>resources/suppressions.xml</suppressionsLocation>
+                        <encoding>UTF-8</encoding>
+                        <consoleOutput>true</consoleOutput>
+                        <failOnViolation>true</failOnViolation>
+                        <includeResources>false</includeResources>
+                        <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>checkstyle</id>
+                            <phase>validate</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs-maven-plugin.version}</version>
+                <configuration>
+                    <excludeFilterFile>resources/findbugsExclude.xml</excludeFilterFile>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <source>${javac.target}</source>
+                    <target>${javac.target}</target>
+                    <compilerArgs>
+                        <!--
+                        <compilerArg>-Werror</compilerArg>
+                        -->
+                        <compilerArg>-Xlint:deprecation</compilerArg>
+                        <compilerArg>-Xlint:unchecked</compilerArg>
+                        <!-- https://issues.apache.org/jira/browse/MCOMPILER-205 -->
+                        <compilerArg>-Xpkginfo:always</compilerArg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
+                <configuration>
+                    <argLine> -Xmx2G
+                        -Dpulsar.allocator.pooled=false
+                        -Dpulsar.allocator.leak_detection=Advanced
+                        -Dlog4j.configurationFile="log4j2.xml"
+                    </argLine>
+                    <reuseForks>false</reuseForks>
+                    <forkCount>1</forkCount>
+                    <redirectTestOutputToFile>${redirectTestOutputToFile}</redirectTestOutputToFile>
+                    <trimStackTrace>false</trimStackTrace>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>${license-maven-plugin.version}</version>
+                <configuration>
+                    <header>resources/license.template</header>
+
+                    <excludes>
+                        <exclude>LICENSE</exclude>
+                        <exclude>NOTICE</exclude>
+                        <exclude>Jenkinsfile</exclude>
+                        <exclude>resources/license.template</exclude>
+                        <exclude>**/build/**</exclude>
+                        <exclude>**/ahc.properties</exclude>
+                        <exclude>**/.idea/**</exclude>
+                        <exclude>**/.github/**</exclude>
+                    </excludes>
+                    <mapping>
+                        <proto>JAVADOC_STYLE</proto>
+                        <go>DOUBLESLASH_STYLE</go>
+                        <conf>SCRIPT_STYLE</conf>
+                        <ini>SCRIPT_STYLE</ini>
+                        <yaml>SCRIPT_STYLE</yaml>
+                        <tf>SCRIPT_STYLE</tf>
+                        <cfg>SCRIPT_STYLE</cfg>
+                        <Makefile>SCRIPT_STYLE</Makefile>
+                        <service>SCRIPT_STYLE</service>
+                        <cc>JAVADOC_STYLE</cc>
+                        <md>XML_STYLE</md>
+                        <txt>SCRIPT_STYLE</txt>
+                        <scss>JAVADOC_STYLE</scss>
+                        <Doxyfile>SCRIPT_STYLE</Doxyfile>
+                        <tfvars>SCRIPT_STYLE</tfvars>
+                    </mapping>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>templating-maven-plugin</artifactId>
+                <version>1.0.0</version>
+                <executions>
+                    <execution>
+                        <id>filtering-java-templates</id>
+                        <goals>
+                            <goal>filter-sources</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>pl.project13.maven</groupId>
+                <artifactId>git-commit-id-plugin</artifactId>
+                <version>4.0.0</version>
+                <executions>
+                    <execution>
+                        <id>get-the-git-infos</id>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                    </execution>
+                </executions>
+                <configuration>
+                    <generateGitPropertiesFile>true</generateGitPropertiesFile>
+                    <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
+                    <includeOnlyProperties>
+                        <includeOnlyProperty>^git.build.(host|time|version)$</includeOnlyProperty>
+                        <includeOnlyProperty>^git.commit.id.(abbrev|full)$</includeOnlyProperty>
+                        <includeOnlyProperty>^git.dirty$</includeOnlyProperty>
+                        <includeOnlyProperty>^git.build.user.(email|name)$</includeOnlyProperty>
+                    </includeOnlyProperties>
+                    <commitIdGenerationMode>full</commitIdGenerationMode>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
+    <repositories>
+        <repository>
+            <id>bintray-streamnative-maven</id>
+            <name>bintray</name>
+            <url>https://dl.bintray.com/streamnative/maven</url>
+        </repository>
+
+        <repository>
+            <id>central</id>
+            <layout>default</layout>
+            <url>https://repo1.maven.org/maven2</url>
+        </repository>
+
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>bintray-yahoo-maven</id>
+            <name>bintray</name>
+            <url>https://yahoo.bintray.com/maven</url>
+        </repository>
+
+    </repositories>
+</project>
