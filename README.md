@@ -71,7 +71,7 @@ add configurations in Pulsar's configuration file, such as `broker.conf` or `sta
     **Example**
 
     ```
-    listeners=mqtt://127.0.0.1:1883
+    mqttListeners=mqtt://127.0.0.1:1883
     advertisedAddress=127.0.0.1
     ```
    
