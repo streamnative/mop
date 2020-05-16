@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.apache.pulsar.broker.PulsarService;
@@ -23,7 +22,6 @@ import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.broker.service.nonpersistent.NonPersistentSubscription;
 import org.apache.pulsar.broker.service.nonpersistent.NonPersistentTopic;
 import org.apache.pulsar.common.api.proto.PulsarApi;
-import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 
 /**
@@ -31,21 +29,16 @@ import org.apache.pulsar.common.naming.TopicName;
  */
 public class PulsarTopicUtils {
 
-    public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService,
-        MQTTServerConfiguration configuration, String topicName) {
-        final TopicName topic = TopicName.get(
-                TopicDomain.non_persistent.toString(),
-                configuration.getDefaultTenant(),
-                configuration.getDefaultNamespace(),
-                topicName);
+    public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService, String topicName) {
+        final TopicName topic = TopicName.get(topicName);
         return pulsarService.getNamespaceService().getBrokerServiceUrlAsync(topic, false)
                 .thenCompose(lookupOp -> pulsarService.getBrokerService().getTopic(topic.toString(), true));
     }
 
     public static CompletableFuture<Subscription> getOrCreateSubscription(PulsarService pulsarService,
-        MQTTServerConfiguration configuration, String topicName, String subscriptionName) {
+              String topicName, String subscriptionName) {
         CompletableFuture<Subscription> promise = new CompletableFuture<>();
-        getTopicReference(pulsarService, configuration, topicName).thenAccept(topicOp -> {
+        getTopicReference(pulsarService, topicName).thenAccept(topicOp -> {
             if (!topicOp.isPresent()) {
                 promise.completeExceptionally(new BrokerServiceException.TopicNotFoundException(topicName));
             } else {

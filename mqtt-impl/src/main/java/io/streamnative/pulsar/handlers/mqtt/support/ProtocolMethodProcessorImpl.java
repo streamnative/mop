@@ -44,20 +44,26 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
+import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
+import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Subscription;
+import org.apache.pulsar.common.api.proto.PulsarApi;
 import org.apache.pulsar.common.util.FutureUtil;
 
 /**
@@ -70,11 +76,16 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
     private MQTTServerCnx serverCnx;
+    private final PacketIdGenerator packetIdGenerator;
+    private final OutstandingPacketContainer outstandingPacketContainer;
+
 
     public ProtocolMethodProcessorImpl(PulsarService pulsarService, MQTTServerConfiguration configuration) {
         this.pulsarService = pulsarService;
         this.configuration = configuration;
         this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration);
+        this.packetIdGenerator = PacketIdGenerator.newNonZeroGenerator();
+        this.outstandingPacketContainer = new OutstandingPacketContainerImpl();
     }
 
     @Override
@@ -138,6 +149,15 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
     public void processPubAck(Channel channel, MqttPubAckMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[PubAck] [{}] msg: {}", channel, msg);
+            int packetId = msg.variableHeader().messageId();
+            OutstandingPacket packet = outstandingPacketContainer.remove(packetId);
+            if (packet != null) {
+                packet.getConsumer().getSubscription().acknowledgeMessage(
+                        Collections.singletonList(PositionImpl.get(packet.getLedgerId(), packet.getEntryId())),
+                        PulsarApi.CommandAck.AckType.Individual, Collections.emptyMap());
+                packet.getConsumer().getPendingAcks().remove(packet.getLedgerId(), packet.getEntryId());
+                packet.getConsumer().addPermits();
+            }
         }
     }
 
@@ -247,11 +267,13 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         List<CompletableFuture<Subscription>> futures = new ArrayList<>();
         for (MqttTopicSubscription ackTopic : ackTopics) {
             CompletableFuture<Subscription> future = PulsarTopicUtils
-                    .getOrCreateSubscription(pulsarService, configuration, ackTopic.topicName(), clientID);
+                    .getOrCreateSubscription(pulsarService, ackTopic.topicName(), clientID);
             future.thenAccept(sub -> {
                     try {
-                        MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(), clientID, serverCnx);
+                        MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(), clientID, serverCnx,
+                                ackTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer);
                         sub.addConsumer(consumer);
+                        consumer.addAllPermits();
                     } catch (BrokerServiceException e) {
                         log.error("[{}] [{}] Failed to add consumer to Pulsar subscription.",
                                 ackTopic.topicName(), clientID, e);
@@ -281,14 +303,16 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         log.info("[Unsubscribe] [{}] msg: {}", channel, msg);
         List<String> topics = msg.payload().topics();
         String clientID = NettyUtils.clientID(channel);
+        final MqttQoS qos = msg.fixedHeader().qosLevel();
 
         for (String topic : topics) {
-            PulsarTopicUtils.getTopicReference(pulsarService, configuration, topic).thenAccept(topicOp -> {
+            PulsarTopicUtils.getTopicReference(pulsarService, topic).thenAccept(topicOp -> {
                 if (topicOp.isPresent()) {
                     Subscription subscription = topicOp.get().getSubscription(clientID);
                     if (subscription != null) {
                         try {
-                            MQTTConsumer consumer = new MQTTConsumer(subscription, topic, clientID, serverCnx);
+                            MQTTConsumer consumer = new MQTTConsumer(subscription, topic, clientID, serverCnx, qos,
+                                    packetIdGenerator, outstandingPacketContainer);
                             topicOp.get().getSubscription(clientID).removeConsumer(consumer);
                             topicOp.get().unsubscribe(clientID);
                         } catch (BrokerServiceException e) {

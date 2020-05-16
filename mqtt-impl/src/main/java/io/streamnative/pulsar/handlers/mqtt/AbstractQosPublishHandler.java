@@ -45,7 +45,7 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     }
 
     protected CompletableFuture<Optional<Topic>> getTopicReference(MqttPublishMessage msg) {
-        return PulsarTopicUtils.getTopicReference(pulsarService, configuration, msg.variableHeader().topicName());
+        return PulsarTopicUtils.getTopicReference(pulsarService, msg.variableHeader().topicName());
     }
 
     protected CompletableFuture<PositionImpl> writeToPulsarTopic(MqttPublishMessage msg) {
