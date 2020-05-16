@@ -15,7 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import com.google.common.collect.Sets;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTProtocolHandlerTestBase;
-
+import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.client.api.Consumer;
@@ -34,8 +34,6 @@ import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import java.util.Arrays;
 
 /**
  * Simple integration tests for MQTT protocol handler.
