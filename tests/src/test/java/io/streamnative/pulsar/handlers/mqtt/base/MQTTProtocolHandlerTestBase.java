@@ -89,24 +89,23 @@ public abstract class MQTTProtocolHandlerTestBase {
     }
 
     protected void resetConfig() {
-        MQTTServerConfiguration amqpConfig = new MQTTServerConfiguration();
-        amqpConfig.setBrokerServicePort(Optional.ofNullable(brokerPort));
-        amqpConfig.setAdvertisedAddress("localhost");
-        amqpConfig.setWebServicePort(Optional.ofNullable(brokerWebservicePort));
-        amqpConfig.setClusterName(configClusterName);
+        MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
+        mqtt.setBrokerServicePort(Optional.ofNullable(brokerPort));
+        mqtt.setAdvertisedAddress("localhost");
+        mqtt.setWebServicePort(Optional.ofNullable(brokerWebservicePort));
+        mqtt.setClusterName(configClusterName);
 
-        amqpConfig.setManagedLedgerCacheSizeMB(8);
-        amqpConfig.setActiveConsumerFailoverDelayTimeMillis(0);
-        amqpConfig.setDefaultRetentionTimeInMinutes(7);
-        amqpConfig.setDefaultNumberOfNamespaceBundles(1);
-        amqpConfig.setZookeeperServers("localhost:2181");
-        amqpConfig.setConfigurationStoreServers("localhost:3181");
+        mqtt.setManagedLedgerCacheSizeMB(8);
+        mqtt.setActiveConsumerFailoverDelayTimeMillis(0);
+        mqtt.setDefaultRetentionTimeInMinutes(7);
+        mqtt.setDefaultNumberOfNamespaceBundles(1);
+        mqtt.setZookeeperServers("localhost:2181");
+        mqtt.setConfigurationStoreServers("localhost:3181");
 
-        amqpConfig.setAuthenticationEnabled(false);
-        amqpConfig.setAuthorizationEnabled(false);
-        amqpConfig.setAllowAutoTopicCreation(true);
-        amqpConfig.setAllowAutoTopicCreationType("partitioned");
-        amqpConfig.setBrokerDeleteInactiveTopicsEnabled(false);
+        mqtt.setAuthenticationEnabled(false);
+        mqtt.setAuthorizationEnabled(false);
+        mqtt.setAllowAutoTopicCreation(true);
+        mqtt.setBrokerDeleteInactiveTopicsEnabled(false);
 
         // set protocol related config
         URL testHandlerUrl = this.getClass().getClassLoader().getResource("test-protocol-handler.nar");
@@ -120,12 +119,12 @@ public abstract class MQTTProtocolHandlerTestBase {
 
         String protocolHandlerDir = handlerPath.toFile().getParent();
 
-        amqpConfig.setProtocolHandlerDirectory(
+        mqtt.setProtocolHandlerDirectory(
             protocolHandlerDir
         );
-        amqpConfig.setMessagingProtocols(Sets.newHashSet("mqtt"));
+        mqtt.setMessagingProtocols(Sets.newHashSet("mqtt"));
 
-        this.conf = amqpConfig;
+        this.conf = mqtt;
     }
 
     protected final void internalSetup() throws Exception {

@@ -16,11 +16,18 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
+import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
+import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter;
+
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+
 import org.apache.bookkeeper.mledger.Entry;
+import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.EntryBatchSizes;
@@ -33,16 +40,31 @@ import org.apache.pulsar.common.api.proto.PulsarApi;
  */
 public class MQTTConsumer extends Consumer {
 
-    private AtomicInteger msgId = new AtomicInteger(1);
     private final String topicName;
     private final MQTTServerCnx cnx;
+    private final MqttQoS qos;
+    private final PacketIdGenerator packetIdGenerator;
+    private final OutstandingPacketContainer outstandingPacketContainer;
+    private static final AtomicIntegerFieldUpdater<MQTTConsumer> MESSAGE_PERMITS_UPDATER =
+            AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "availablePermits");
+    private volatile int availablePermits;
 
-    public MQTTConsumer(Subscription subscription, String topicName, String consumerName, MQTTServerCnx cnx)
+    private static final AtomicIntegerFieldUpdater<MQTTConsumer> ADD_PERMITS_UPDATER =
+            AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "addPermits");
+    private volatile int addPermits = 0;
+    private final int maxPermits = 1000;
+
+    public MQTTConsumer(Subscription subscription, String topicName, String consumerName, MQTTServerCnx cnx,
+                        MqttQoS qos, PacketIdGenerator packetIdGenerator,
+                        OutstandingPacketContainer outstandingPacketContainer)
             throws BrokerServiceException {
-        super(subscription, PulsarApi.CommandSubscribe.SubType.Exclusive, topicName, 0, 0, consumerName, 0, cnx,
+        super(subscription, PulsarApi.CommandSubscribe.SubType.Shared, topicName, 0, 0, consumerName, 0, cnx,
                 "", null, false, PulsarApi.CommandSubscribe.InitialPosition.Latest, null);
         this.topicName = topicName;
         this.cnx = cnx;
+        this.qos = qos;
+        this.packetIdGenerator = packetIdGenerator;
+        this.outstandingPacketContainer = outstandingPacketContainer;
     }
 
     @Override
@@ -50,20 +72,25 @@ public class MQTTConsumer extends Consumer {
                                        long totalBytes, RedeliveryTracker redeliveryTracker) {
         ChannelPromise promise = cnx.ctx().newPromise();
         for (Entry entry : entries) {
-            cnx.ctx().channel().write(PulsarMessageConverter.toMQTTMsg(topicName, entry, getMessageId(),
-                    MqttQoS.AT_MOST_ONCE));
+            int packetId = 0;
+            if (qos.value() > 0) {
+                packetId = packetIdGenerator.nextPackedId();
+            }
+            cnx.ctx().channel().write(PulsarMessageConverter.toMQTTMsg(topicName, entry,
+                    packetId, qos));
+            MESSAGE_PERMITS_UPDATER.addAndGet(this, -totalMessages);
+            if (qos.value() > 0) {
+                outstandingPacketContainer.add(new OutstandingPacket(this, packetId, entry.getLedgerId(),
+                        entry.getEntryId()));
+            } else {
+                this.getSubscription().acknowledgeMessage(
+                        Collections.singletonList(PositionImpl.get(entry.getLedgerId(), entry.getEntryId())),
+                        PulsarApi.CommandAck.AckType.Individual, Collections.emptyMap());
+                addPermits();
+            }
         }
         cnx.ctx().channel().writeAndFlush(Unpooled.EMPTY_BUFFER, promise);
         return promise;
-    }
-
-    private int getMessageId() {
-        if (msgId.get() < Integer.MAX_VALUE) {
-            msgId.incrementAndGet();
-        } else {
-            msgId.set(1);
-        }
-        return msgId.get();
     }
 
     @Override
@@ -73,11 +100,30 @@ public class MQTTConsumer extends Consumer {
 
     @Override
     public int getAvailablePermits() {
-        return 1000;
+        return availablePermits;
+    }
+
+    public void addPermits() {
+        int var = ADD_PERMITS_UPDATER.incrementAndGet(this);
+        if (var == maxPermits / 2) {
+            MESSAGE_PERMITS_UPDATER.addAndGet(this, var);
+            this.getSubscription().consumerFlow(this, availablePermits);
+            ADD_PERMITS_UPDATER.set(this, 0);
+        }
+    }
+
+    public void addAllPermits() {
+        this.availablePermits = maxPermits;
+        this.getSubscription().consumerFlow(this, availablePermits);
+    }
+
+    @Override
+    public boolean isBlocked() {
+        return false;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), msgId, topicName, cnx);
+        return Objects.hash(super.hashCode(), topicName, cnx);
     }
 }

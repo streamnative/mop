@@ -15,9 +15,12 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import com.google.common.collect.Sets;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTProtocolHandlerTestBase;
-
+import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.client.api.Consumer;
+import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.common.policies.data.ClusterData;
 import org.apache.pulsar.common.policies.data.RetentionPolicies;
 import org.apache.pulsar.common.policies.data.TenantInfo;
@@ -74,17 +77,88 @@ public class SimpleIntegrationTest extends MQTTProtocolHandlerTestBase {
     }
 
     @Test
-    public void test() throws Exception {
+    public void testSimpleMqttPubAndSubQos0() throws Exception {
+        final String topicName = "persistent://public/default/qos0";
         MQTT mqtt = new MQTT();
         mqtt.setHost("127.0.0.1", 1883);
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
-        Topic[] topics = { new Topic("foo", QoS.AT_LEAST_ONCE) };
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
         connection.subscribe(topics);
         String message = "Hello MQTT";
-        connection.publish("foo", message.getBytes(), QoS.AT_LEAST_ONCE, false);
+        connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
         Message received = connection.receive();
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
+        connection.disconnect();
+    }
+
+    @Test
+    public void testSimpleMqttPubAndSubQos1() throws Exception {
+        final String topicName = "persistent://public/default/qos1";
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", 1883);
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
+    }
+
+    @Test
+    public void testSendByMqttAndReceiveByPulsar() throws Exception {
+        final String topicName = "persistent://public/default/testReceiveByPulsar";
+        Consumer<byte[]> consumer = pulsarClient.newConsumer()
+                .topic(topicName)
+                .subscriptionName("my-sub")
+                .subscribe();
+
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", 1883);
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+
+        String message = "Hello MQTT";
+        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+
+        org.apache.pulsar.client.api.Message<byte[]> received = consumer.receive();
+        Assert.assertNotNull(received);
+        Assert.assertEquals(new String(received.getValue()), message);
+        consumer.acknowledge(received);
+
+        consumer.close();
+        connection.disconnect();
+    }
+
+    @Test
+    public void testSendByPulsarAndReceiveByMqtt() throws Exception {
+        final String topicName = "persistent://public/default/testSendByPulsarAndReceiveByMqtt";
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", 1883);
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection.subscribe(topics);
+
+        Producer<String> producer = pulsarClient.newProducer(Schema.STRING)
+                .topic(topicName)
+                .enableBatching(false)
+                .create();
+
+        String message = "Hello MQTT";
+
+        producer.newMessage().value(message).send();
+        Message received = connection.receive();
+        System.out.println(Arrays.toString(message.getBytes()));
+        System.out.println(Arrays.toString(received.getPayload()));
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
+        producer.close();
     }
 }
