@@ -156,7 +156,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
                         Collections.singletonList(PositionImpl.get(packet.getLedgerId(), packet.getEntryId())),
                         PulsarApi.CommandAck.AckType.Individual, Collections.emptyMap());
                 packet.getConsumer().getPendingAcks().remove(packet.getLedgerId(), packet.getEntryId());
-                packet.getConsumer().addPermits();
+                packet.getConsumer().incrementPermits();
             }
         }
     }

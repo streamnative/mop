@@ -15,6 +15,8 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import com.google.common.collect.Sets;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTProtocolHandlerTestBase;
+
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
@@ -160,5 +162,59 @@ public class SimpleIntegrationTest extends MQTTProtocolHandlerTestBase {
         received.ack();
         connection.disconnect();
         producer.close();
+    }
+
+    @Test
+    public void testBacklogShouldBeZeroWithQos0() throws Exception {
+        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0";
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", 1883);
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+
+        int messages = 10000;
+        for (int i = 0; i < messages; i++) {
+            connection.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
+        }
+
+        for (int i = 0; i < messages; i++) {
+            Message received = connection.receive();
+            Assert.assertEquals(new String(received.getPayload()), (message + i));
+        }
+
+        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
+        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
+        connection.disconnect();
+    }
+
+    @Test
+    public void testBacklogShouldBeZeroWithQos1() throws Exception {
+        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos1";
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", 1883);
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+
+        int messages = 10000;
+        for (int i = 0; i < messages; i++) {
+            connection.publish(topicName, (message + i).getBytes(), QoS.AT_LEAST_ONCE, false);
+        }
+
+        for (int i = 0; i < messages; i++) {
+            Message received = connection.receive();
+            Assert.assertEquals(new String(received.getPayload()), (message + i));
+            received.ack();
+        }
+
+        Thread.sleep(1000);
+        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
+        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
+        connection.disconnect();
     }
 }
