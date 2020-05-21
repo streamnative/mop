@@ -82,3 +82,30 @@ After you have installed the MoP protocol handler to Pulsar broker, you can rest
 ### Verify MoP
 
 There are many MQTT client can be used to verify MoP such as http://workswithweb.com/mqttbox.html, https://www.hivemq.com/mqtt-toolbox. You can choose a cli tool or interface tool to verify the MoP.
+
+#### Verify with fusesource mqtt-client
+
+```
+<dependency>
+    <groupId>org.fusesource.mqtt-client</groupId>
+    <artifactId>mqtt-client</artifactId>
+    <version>1.16</version>
+</dependency>
+```
+
+Publish messages and consume messages:
+
+```
+MQTT mqtt = new MQTT();
+mqtt.setHost("127.0.0.1", 1883);
+BlockingConnection connection = mqtt.blockingConnection();
+connection.connect();
+Topic[] topics = { new Topic("persistent://public/default/my-topic", QoS.AT_LEAST_ONCE) };
+connection.subscribe(topics);
+
+// publish message
+connection.publish("persistent://public/default/my-topic", "Hello MOP!".getBytes(), QoS.AT_LEAST_ONCE, false);
+
+// receive message
+Message received = connection.receive();
+```
