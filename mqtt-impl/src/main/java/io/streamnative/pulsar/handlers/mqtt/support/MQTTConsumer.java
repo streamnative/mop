@@ -27,7 +27,6 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import org.apache.bookkeeper.mledger.Entry;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.EntryBatchSizes;
@@ -71,22 +70,23 @@ public class MQTTConsumer extends Consumer {
     public ChannelPromise sendMessages(List<Entry> entries, EntryBatchSizes batchSizes, int totalMessages,
                                        long totalBytes, RedeliveryTracker redeliveryTracker) {
         ChannelPromise promise = cnx.ctx().newPromise();
+        MESSAGE_PERMITS_UPDATER.addAndGet(this, -totalMessages);
         for (Entry entry : entries) {
             int packetId = 0;
-            if (qos.value() > 0) {
+            if (MqttQoS.AT_MOST_ONCE != qos) {
                 packetId = packetIdGenerator.nextPackedId();
+                outstandingPacketContainer.add(new OutstandingPacket(this, packetId, entry.getLedgerId(),
+                        entry.getEntryId()));
             }
             cnx.ctx().channel().write(PulsarMessageConverter.toMQTTMsg(topicName, entry,
                     packetId, qos));
-            MESSAGE_PERMITS_UPDATER.addAndGet(this, -totalMessages);
-            if (qos.value() > 0) {
-                outstandingPacketContainer.add(new OutstandingPacket(this, packetId, entry.getLedgerId(),
-                        entry.getEntryId()));
-            } else {
-                this.getSubscription().acknowledgeMessage(
-                        Collections.singletonList(PositionImpl.get(entry.getLedgerId(), entry.getEntryId())),
-                        PulsarApi.CommandAck.AckType.Individual, Collections.emptyMap());
-                addPermits();
+        }
+        if (MqttQoS.AT_MOST_ONCE == qos) {
+            incrementPermits(totalMessages);
+            if (entries.size() > 0) {
+                getSubscription().acknowledgeMessage(
+                    Collections.singletonList(entries.get(entries.size() - 1).getPosition()),
+                    PulsarApi.CommandAck.AckType.Cumulative, Collections.emptyMap());
             }
         }
         cnx.ctx().channel().writeAndFlush(Unpooled.EMPTY_BUFFER, promise);
@@ -103,9 +103,13 @@ public class MQTTConsumer extends Consumer {
         return availablePermits;
     }
 
-    public void addPermits() {
-        int var = ADD_PERMITS_UPDATER.incrementAndGet(this);
-        if (var == maxPermits / 2) {
+    public void incrementPermits() {
+        incrementPermits(1);
+    }
+
+    public void incrementPermits(int permits) {
+        int var = ADD_PERMITS_UPDATER.addAndGet(this, permits);
+        if (var > maxPermits / 2) {
             MESSAGE_PERMITS_UPDATER.addAndGet(this, var);
             this.getSubscription().consumerFlow(this, availablePermits);
             ADD_PERMITS_UPDATER.set(this, 0);
