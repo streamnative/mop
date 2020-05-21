@@ -16,7 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt;
 import com.google.common.collect.Sets;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTProtocolHandlerTestBase;
 
-import java.net.URISyntaxException;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
@@ -186,7 +185,8 @@ public class SimpleIntegrationTest extends MQTTProtocolHandlerTestBase {
         }
 
         Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
-        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
+        Assert.assertEquals(admin.topics().getStats(topicName)
+                .subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
         connection.disconnect();
     }
 
@@ -214,7 +214,8 @@ public class SimpleIntegrationTest extends MQTTProtocolHandlerTestBase {
 
         Thread.sleep(1000);
         Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
-        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
+        Assert.assertEquals(admin.topics().getStats(topicName)
+                .subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
         connection.disconnect();
     }
 }
