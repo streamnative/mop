@@ -85,7 +85,7 @@ There are many MQTT client can be used to verify MoP such as http://workswithweb
 
 #### Verify with fusesource mqtt-client
 
-```
+```java
 <dependency>
     <groupId>org.fusesource.mqtt-client</groupId>
     <artifactId>mqtt-client</artifactId>
@@ -95,7 +95,7 @@ There are many MQTT client can be used to verify MoP such as http://workswithweb
 
 Publish messages and consume messages:
 
-```
+```java
 MQTT mqtt = new MQTT();
 mqtt.setHost("127.0.0.1", 1883);
 BlockingConnection connection = mqtt.blockingConnection();
