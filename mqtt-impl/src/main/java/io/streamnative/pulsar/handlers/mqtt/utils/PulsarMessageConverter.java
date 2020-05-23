@@ -19,6 +19,11 @@ import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Entry;
 import org.apache.pulsar.client.api.CompressionType;
 import org.apache.pulsar.client.api.Message;
@@ -31,6 +36,7 @@ import org.apache.pulsar.common.protocol.Commands;
 /**
  * Tools for converting MQTT message to Pulsar message and Pulsar message to MQTT message.
  */
+@Slf4j
 public class PulsarMessageConverter {
 
     private static final Schema<byte[]> SCHEMA = Schema.BYTES;
@@ -42,16 +48,43 @@ public class PulsarMessageConverter {
         return MessageImpl.create(metadataBuilder, mqttMsg.payload().nioBuffer(), SCHEMA);
     }
 
-    public static MqttPublishMessage toMQTTMsg(String topicName, Entry entry, int messageId, MqttQoS qos) {
+    public static List<MqttPublishMessage> toMqttMessages(String topicName, Entry entry, int messageId, MqttQoS qos) {
         ByteBuf metadataAndPayload = entry.getDataBuffer();
-        Commands.skipMessageMetadata(metadataAndPayload);
-        return MessageBuilder.publish()
+        PulsarApi.MessageMetadata metadata = Commands.parseMessageMetadata(metadataAndPayload);
+        if (metadata.hasNumMessagesInBatch()) {
+            int batchSize = metadata.getNumMessagesInBatch();
+            metadata.recycle();
+            List<MqttPublishMessage> response = new ArrayList<>(batchSize);
+            try {
+                for (int i = 0; i < batchSize; i++) {
+                    PulsarApi.SingleMessageMetadata.Builder single = PulsarApi.SingleMessageMetadata.newBuilder();
+                    ByteBuf singleMessagePayload = Commands.deSerializeSingleMessageInBatch(metadataAndPayload,
+                            single,
+                            i, batchSize);
+                    response.add(MessageBuilder.publish()
+                            .messageId(messageId)
+                            .payload(singleMessagePayload)
+                            .topicName(topicName)
+                            .qos(qos)
+                            .retained(false)
+                            .build());
+                    single.recycle();
+                }
+                return response;
+            } catch (IOException e) {
+                log.error("Error decoding batch for message {}. Whole batch will be included in output",
+                        entry.getPosition(), e);
+                return Collections.emptyList();
+            }
+        } else {
+            return Collections.singletonList(MessageBuilder.publish()
                     .messageId(messageId)
                     .payload(metadataAndPayload)
                     .topicName(topicName)
                     .qos(qos)
                     .retained(false)
-                    .build();
+                    .build());
+        }
     }
 
     // convert message to ByteBuf payload for ledger.addEntry.

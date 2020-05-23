@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
@@ -78,8 +79,10 @@ public class MQTTConsumer extends Consumer {
                 outstandingPacketContainer.add(new OutstandingPacket(this, packetId, entry.getLedgerId(),
                         entry.getEntryId()));
             }
-            cnx.ctx().channel().write(PulsarMessageConverter.toMQTTMsg(topicName, entry,
-                    packetId, qos));
+            for (MqttPublishMessage msg : PulsarMessageConverter.toMqttMessages(topicName, entry,
+                    packetId, qos)) {
+                cnx.ctx().channel().write(msg);
+            }
         }
         if (MqttQoS.AT_MOST_ONCE == qos) {
             incrementPermits(totalMessages);
