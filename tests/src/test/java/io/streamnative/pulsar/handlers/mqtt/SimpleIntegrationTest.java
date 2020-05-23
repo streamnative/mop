@@ -16,7 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt;
 import com.google.common.collect.Sets;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTProtocolHandlerTestBase;
 
-import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.client.api.Consumer;
@@ -34,6 +33,7 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
@@ -41,6 +41,7 @@ import org.testng.annotations.Test;
  */
 @Slf4j
 public class SimpleIntegrationTest extends MQTTProtocolHandlerTestBase {
+
     @BeforeClass
     @Override
     public void setup() throws Exception {
@@ -75,6 +76,14 @@ public class SimpleIntegrationTest extends MQTTProtocolHandlerTestBase {
     @Override
     public void cleanup() throws Exception {
         super.internalCleanup();
+    }
+
+    @DataProvider(name = "batchEnabled")
+    public Object[][] batchEnabled() {
+        return new Object[][] {
+                { true },
+                { false }
+        };
     }
 
     @Test
@@ -136,8 +145,8 @@ public class SimpleIntegrationTest extends MQTTProtocolHandlerTestBase {
         connection.disconnect();
     }
 
-    @Test
-    public void testSendByPulsarAndReceiveByMqtt() throws Exception {
+    @Test(dataProvider = "batchEnabled")
+    public void testSendByPulsarAndReceiveByMqtt(boolean batchEnabled) throws Exception {
         final String topicName = "persistent://public/default/testSendByPulsarAndReceiveByMqtt";
         MQTT mqtt = new MQTT();
         mqtt.setHost("127.0.0.1", 1883);
@@ -148,15 +157,13 @@ public class SimpleIntegrationTest extends MQTTProtocolHandlerTestBase {
 
         Producer<String> producer = pulsarClient.newProducer(Schema.STRING)
                 .topic(topicName)
-                .enableBatching(false)
+                .enableBatching(batchEnabled)
                 .create();
 
         String message = "Hello MQTT";
 
-        producer.newMessage().value(message).send();
+        producer.newMessage().value(message).sendAsync();
         Message received = connection.receive();
-        System.out.println(Arrays.toString(message.getBytes()));
-        System.out.println(Arrays.toString(received.getPayload()));
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
@@ -213,6 +220,39 @@ public class SimpleIntegrationTest extends MQTTProtocolHandlerTestBase {
         }
 
         Thread.sleep(1000);
+        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
+        Assert.assertEquals(admin.topics().getStats(topicName)
+                .subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
+        connection.disconnect();
+    }
+
+    @Test(dataProvider = "batchEnabled")
+    public void testBacklogShouldBeZeroWithQos0AndSendByPulsar(boolean batchEnabled) throws Exception {
+        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0AndSendByPulsar-"
+                + batchEnabled;
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", 1883);
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+
+        int messages = 10000;
+        Producer<String> producer = pulsarClient.newProducer(Schema.STRING)
+                .topic(topicName)
+                .blockIfQueueFull(true)
+                .enableBatching(batchEnabled)
+                .create();
+        for (int i = 0; i < messages; i++) {
+            producer.sendAsync(message + i);
+        }
+
+        for (int i = 0; i < messages; i++) {
+            Message received = connection.receive();
+            Assert.assertEquals(new String(received.getPayload()), (message + i));
+        }
+
         Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
         Assert.assertEquals(admin.topics().getStats(topicName)
                 .subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
