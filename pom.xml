@@ -19,7 +19,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <groupId>io.streamnative.pulsar.handlers</groupId>
     <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <name>StreamNative :: Pulsar Protocol Handler :: MoP Parent</name>
     <description>Parent for MQTT on Pulsar implemented using Pulsar Protocol Handler.</description>
 
