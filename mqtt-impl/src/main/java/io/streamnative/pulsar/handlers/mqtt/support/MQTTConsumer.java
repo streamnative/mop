@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.bookkeeper.mledger.Entry;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Consumer;
+import org.apache.pulsar.broker.service.EntryBatchIndexesAcks;
 import org.apache.pulsar.broker.service.EntryBatchSizes;
 import org.apache.pulsar.broker.service.RedeliveryTracker;
 import org.apache.pulsar.broker.service.Subscription;
@@ -67,9 +68,14 @@ public class MQTTConsumer extends Consumer {
         this.outstandingPacketContainer = outstandingPacketContainer;
     }
 
-    @Override
     public ChannelPromise sendMessages(List<Entry> entries, EntryBatchSizes batchSizes, int totalMessages,
-                                       long totalBytes, RedeliveryTracker redeliveryTracker) {
+                                             long totalBytes, RedeliveryTracker redeliveryTracker) {
+        return sendMessages(entries, batchSizes, null, totalMessages, totalBytes, 0, redeliveryTracker);
+    }
+
+    public ChannelPromise sendMessages(List<Entry> entries, EntryBatchSizes batchSizes,
+           EntryBatchIndexesAcks batchIndexesAcks, int totalMessages, long totalBytes, long totalChunkedMessages,
+           RedeliveryTracker redeliveryTracker) {
         ChannelPromise promise = cnx.ctx().newPromise();
         MESSAGE_PERMITS_UPDATER.addAndGet(this, -totalMessages);
         for (Entry entry : entries) {
