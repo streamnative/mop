@@ -73,8 +73,9 @@ public class MQTTConsumer extends Consumer {
         return sendMessages(entries, batchSizes, null, totalMessages, totalBytes, 0, redeliveryTracker);
     }
 
-    public ChannelPromise sendMessages(List<Entry> entries, EntryBatchSizes batchSizes, EntryBatchIndexesAcks batchIndexesAcks, int totalMessages,
-                                       long totalBytes, long totalChunkedMessages, RedeliveryTracker redeliveryTracker) {
+    public ChannelPromise sendMessages(List<Entry> entries, EntryBatchSizes batchSizes,
+           EntryBatchIndexesAcks batchIndexesAcks, int totalMessages, long totalBytes, long totalChunkedMessages,
+           RedeliveryTracker redeliveryTracker) {
         ChannelPromise promise = cnx.ctx().newPromise();
         MESSAGE_PERMITS_UPDATER.addAndGet(this, -totalMessages);
         for (Entry entry : entries) {
