@@ -68,11 +68,7 @@ public class MQTTConsumer extends Consumer {
         this.outstandingPacketContainer = outstandingPacketContainer;
     }
 
-    public ChannelPromise sendMessages(List<Entry> entries, EntryBatchSizes batchSizes, int totalMessages,
-                                             long totalBytes, RedeliveryTracker redeliveryTracker) {
-        return sendMessages(entries, batchSizes, null, totalMessages, totalBytes, 0, redeliveryTracker);
-    }
-
+    @Override
     public ChannelPromise sendMessages(List<Entry> entries, EntryBatchSizes batchSizes,
            EntryBatchIndexesAcks batchIndexesAcks, int totalMessages, long totalBytes, long totalChunkedMessages,
            RedeliveryTracker redeliveryTracker) {
