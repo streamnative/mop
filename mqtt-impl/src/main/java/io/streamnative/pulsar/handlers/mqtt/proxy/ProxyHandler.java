@@ -29,8 +29,6 @@ import lombok.extern.slf4j.Slf4j;
 import static com.google.common.base.Preconditions.checkState;
 import static io.netty.handler.codec.mqtt.MqttMessageType.CONNACK;
 
-
-// proxy -> MoP
 /**
  * Proxy handler is the bridge between proxy and MoP.
  */
