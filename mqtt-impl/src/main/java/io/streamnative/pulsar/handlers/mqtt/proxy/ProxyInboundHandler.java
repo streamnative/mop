@@ -13,9 +13,24 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.DISCONNECTED;
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SENDACK;
+
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.mqtt.*;
+import io.netty.handler.codec.mqtt.MqttConnAckMessage;
+import io.netty.handler.codec.mqtt.MqttConnAckVariableHeader;
+import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.handler.codec.mqtt.MqttConnectPayload;
+import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
+import io.netty.handler.codec.mqtt.MqttFixedHeader;
+import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttPubAckMessage;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import java.util.ArrayList;
@@ -25,12 +40,11 @@ import java.util.concurrent.CompletableFuture;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.naming.TopicName;
 
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.DISCONNECTED;
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SENDACK;
-
+/**
+ * Proxy inbound handler is the bridge between proxy and MoP.
+ */
 @Slf4j
 public class ProxyInboundHandler implements ProtocolMethodProcessor {
     private ProxyService proxyService;
@@ -66,7 +80,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         return true;
     }
 
-    public ProxyInboundHandler(ProxyService proxyService, ProxyConnection proxyConnection) throws PulsarClientException {
+    public ProxyInboundHandler(ProxyService proxyService, ProxyConnection proxyConnection) {
         log.info("ProxyConnection init ...");
         this.proxyService = proxyService;
         this.proxyConfig = proxyService.getProxyConfig();
@@ -110,7 +124,11 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         // 2. multi MoP, will have multi proxyHandler
         lookupResult.whenComplete((pair, throwable) -> {
             try {
-                ProxyHandler proxyHandler = new ProxyHandler(proxyService, proxyConnection,pair.getLeft(),pair.getRight(), connectMsgList);
+                ProxyHandler proxyHandler = new ProxyHandler(proxyService,
+                        proxyConnection,
+                        pair.getLeft(),
+                        pair.getRight(),
+                        connectMsgList);
                 proxyHandler.getBrokerChannel().writeAndFlush(msg);
             } catch (Exception e) {
                 e.printStackTrace();

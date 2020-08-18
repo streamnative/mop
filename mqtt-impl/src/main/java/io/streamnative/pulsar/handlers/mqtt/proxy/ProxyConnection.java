@@ -13,20 +13,25 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static com.google.common.base.Preconditions.checkState;
+import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
+
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.handler.codec.mqtt.*;
+import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.handler.codec.mqtt.MqttFixedHeader;
+import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttPubAckMessage;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.PulsarClientException;
-
-import static com.google.common.base.Preconditions.checkState;
-import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
-
-// client -> proxy
 
 /**
  * Proxy connection.

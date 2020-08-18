@@ -13,11 +13,21 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static com.google.common.base.Preconditions.checkState;
+import static io.netty.handler.codec.mqtt.MqttMessageType.CONNACK;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.mqtt.*;
+import io.netty.handler.codec.mqtt.MqttConnAckMessage;
+import io.netty.handler.codec.mqtt.MqttEncoder;
+import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
 
@@ -25,9 +35,6 @@ import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.google.common.base.Preconditions.checkState;
-import static io.netty.handler.codec.mqtt.MqttMessageType.CONNACK;
 
 /**
  * Proxy handler is the bridge between proxy and MoP.
@@ -122,6 +129,7 @@ public class ProxyHandler {
                         checkState(msg instanceof MqttConnAckMessage);
                         state = State.Connected;
                     }
+                    break;
                 case Failed:
                     Channel nettyChannel = ctx.channel();
                     checkState(nettyChannel.equals(this.cnx.channel()));
