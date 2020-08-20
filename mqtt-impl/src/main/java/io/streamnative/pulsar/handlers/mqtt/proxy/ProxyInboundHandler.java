@@ -13,6 +13,11 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.DISCONNECTED;
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.ESTABLISHED;
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SENDACK;
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SUBSCRIPTIONS_REMOVED;
+
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
@@ -41,9 +46,6 @@ import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.common.naming.TopicName;
-
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.*;
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SUBSCRIPTIONS_REMOVED;
 
 /**
  * Proxy inbound handler is the bridge between proxy and MoP.
@@ -265,6 +267,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
     @Override
     public void notifyChannelWritable(Channel channel) {
         log.info("notifyChannelWritable...");
+        channel.flush();
     }
 
     @Override

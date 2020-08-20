@@ -18,8 +18,6 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.streamnative.pulsar.handlers.mqtt.MQTTInboundHandler;
-import io.streamnative.pulsar.handlers.mqtt.support.ProtocolMethodProcessorImpl;
 
 /**
  * Proxy service channel initializer.
