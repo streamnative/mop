@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.netty.handler.codec.mqtt.MqttMessageType.CONNACK;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -25,9 +24,11 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
+import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
 
@@ -66,8 +67,10 @@ public class ProxyHandler {
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
-                        ch.pipeline().addLast("frameEncoder", MqttEncoder.INSTANCE);
-                        ch.pipeline().addLast("processor", new ProxyBackendHandler());
+                        ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(10, 0, 0));
+                        ch.pipeline().addLast("decoder", new MqttDecoder());
+                        ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
+                        ch.pipeline().addLast("handler", new ProxyBackendHandler());
                     }
                 });
         ChannelFuture channelFuture = bootstrap.connect(mqttBrokerHost, mqttBrokerPort);
@@ -104,10 +107,11 @@ public class ProxyHandler {
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
+            log.info("proxy handler active: {}", connectMsgList);
             this.cnx = ctx;
             super.channelActive(ctx);
             for (Object msg : connectMsgList) {
-                ((ByteBuf) msg).retain();
+//                ((ByteBuf) msg).retain();
                 brokerChannel.writeAndFlush(msg).syncUninterruptibly();
             }
             brokerChannel.read();
@@ -115,7 +119,7 @@ public class ProxyHandler {
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
-
+            log.info("channel read: {}", message);
             switch (state) {
                 case Init:
                     MqttMessage msg = (MqttMessage) message;
@@ -125,6 +129,7 @@ public class ProxyHandler {
                     }
 
                     if (messageType == CONNACK) {
+                        log.info("if messageType is CONNACK................");
                         checkState(msg instanceof MqttConnAckMessage);
                         state = State.Connected;
                     }
@@ -134,6 +139,7 @@ public class ProxyHandler {
                     checkState(nettyChannel.equals(this.cnx.channel()));
                     break;
                 case Connected:
+                    log.info("channelRead Connected: {}", message);
                     clientChannel.writeAndFlush(message);
                     break;
                 case Closed:

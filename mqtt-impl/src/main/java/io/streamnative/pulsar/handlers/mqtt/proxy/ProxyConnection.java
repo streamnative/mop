@@ -83,6 +83,8 @@ public class ProxyConnection extends ChannelInboundHandlerAdapter{
     public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
         MqttMessage msg = (MqttMessage) message;
         MqttMessageType messageType = msg.fixedHeader().messageType();
+
+        log.info("Processing MQTT message, type={}", messageType);
         if (log.isDebugEnabled()) {
             log.info("Processing MQTT message, type={}", messageType);
         }

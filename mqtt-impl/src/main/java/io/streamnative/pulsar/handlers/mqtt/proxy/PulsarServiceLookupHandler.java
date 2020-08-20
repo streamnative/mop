@@ -47,6 +47,12 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                 pulsarClient.getLookup().getBroker(topicName);
 
         lookup.whenComplete((pair, throwable) -> {
+            if (null != throwable) {
+                log.error("throwable message is: {}", throwable.getMessage());
+                lookupResult.completeExceptionally(throwable);
+                return;
+            }
+
             String hostName = pair.getLeft().getHostName();
             List<String> children = null;
             try {
@@ -55,6 +61,11 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                 e.printStackTrace();
             }
             int mqttBrokerPort;
+
+            if (null == children) {
+                log.error("no broker service, children is null");
+                return;
+            }
 
             for (String webService : children) {
                 try {

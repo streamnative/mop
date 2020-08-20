@@ -72,11 +72,11 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
     // client -> proxy
     @Override
     public void processConnect(Channel channel, MqttConnectMessage msg) {
-        log.info("processConnect...");
         MqttConnectPayload payload = msg.payload();
         String clientId = payload.clientIdentifier();
         log.info("process CONNECT message. CId={}, username={}", clientId, payload.userName());
 
+        connectMsgList.add(msg);
         ConnectionDescriptor descriptor = new ConnectionDescriptor(clientId, channel,
                 msg.variableHeader().isCleanSession());
 
@@ -96,12 +96,17 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         log.info("processPublish...");
         CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
         try {
-            lookupResult = lookupHandler.findBroker(TopicName.get(msg.variableHeader().topicName()), "mop");
+            lookupResult = lookupHandler.findBroker(TopicName.get(msg.variableHeader().topicName()), "mqtt");
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         lookupResult.whenComplete((pair, throwable) -> {
+            if (null != throwable) {
+                log.error("throwable: {} is null in proxy inbound handler", throwable.getMessage());
+                return;
+            }
+
             proxyHandler = proxyHandlerMap.computeIfAbsent(msg.variableHeader().topicName(), key -> {
                 try {
                     return new ProxyHandler(proxyService,
@@ -195,12 +200,11 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
 
     @Override
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
-        log.info("processSubscribe...");
         log.info("[Subscribe] [{}] msg: {}", channel, msg);
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
             CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
             try {
-                lookupResult = lookupHandler.findBroker(TopicName.get(req.topicName()), "mop");
+                lookupResult = lookupHandler.findBroker(TopicName.get(req.topicName()), "mqtt");
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -236,7 +240,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         for (String topic : topics) {
             CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
             try {
-                lookupResult = lookupHandler.findBroker(TopicName.get(topic), "mop");
+                lookupResult = lookupHandler.findBroker(TopicName.get(topic), "mqtt");
             } catch (Exception e) {
                 e.printStackTrace();
             }
