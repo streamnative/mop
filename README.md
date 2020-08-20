@@ -81,13 +81,13 @@ After you have installed the MoP protocol handler to Pulsar broker, you can rest
 
 ### How to use Proxy
 
-To use proxy, complete the following steps. If you do not know some detailed steps, refer to [Deploy a cluster on bare metal](http://pulsar.apache.org/docs/en/deploy-bare-metal/).
+To use proxy, complete the following steps. For detailed steps, refer to [Deploy a cluster on bare metal](http://pulsar.apache.org/docs/en/deploy-bare-metal/).
 
-1. Prepare ZooKeeper cluster.
+1. Prepare a ZooKeeper cluster.
 
-2. Initialize cluster metadata.
+2. Initialize the cluster metadata.
 
-3. Prepare bookkeeper cluster.
+3. Prepare a BookKeeper cluster.
 
 4. Copy the `pulsar-protocol-handler-mqtt-${version}.nar` to the `$PULSAR_HOME/protocols` directory.
 
