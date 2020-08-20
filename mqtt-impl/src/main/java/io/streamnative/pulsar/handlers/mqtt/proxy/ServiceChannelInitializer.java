@@ -15,7 +15,11 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
+import io.netty.handler.timeout.IdleStateHandler;
+import io.streamnative.pulsar.handlers.mqtt.MQTTInboundHandler;
+import io.streamnative.pulsar.handlers.mqtt.support.ProtocolMethodProcessorImpl;
 
 /**
  * Proxy service channel initializer.
@@ -30,7 +34,9 @@ public class ServiceChannelInitializer extends ChannelInitializer<SocketChannel>
 
     @Override
     protected void initChannel(SocketChannel ch) throws Exception {
-        ch.pipeline().addLast("frameEncoder", MqttEncoder.INSTANCE);
+        ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(10, 0, 0));
+        ch.pipeline().addLast("decoder", new MqttDecoder());
+        ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
         ch.pipeline().addLast("handler", new ProxyConnection(proxyService));
     }
 

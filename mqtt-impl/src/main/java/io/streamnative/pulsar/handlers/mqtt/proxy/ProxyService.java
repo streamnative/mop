@@ -16,18 +16,14 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.Maps;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Map;
-import java.util.Set;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
@@ -60,11 +56,6 @@ public class ProxyService implements Closeable {
     private static final int numThreads = Runtime.getRuntime().availableProcessors();
 
     private ZooKeeperClientFactory zkClientFactory = null;
-
-    @Getter
-    private static final Map<String, Pair<String, Integer>> vhostBrokerMap = Maps.newConcurrentMap();
-    @Getter
-    private static final Map<String, Set<ProxyConnection>> vhostConnectionMap = Maps.newConcurrentMap();
 
     private String tenant;
 
@@ -102,24 +93,6 @@ public class ProxyService implements Closeable {
                 .build();
 
         this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, pulsarClient);
-    }
-
-    private void releaseConnection(String namespaceName) {
-        log.info("release connection");
-        if (vhostConnectionMap.containsKey(namespaceName)) {
-            Set<ProxyConnection> proxyConnectionSet = vhostConnectionMap.get(namespaceName);
-            for (ProxyConnection proxyConnection : proxyConnectionSet) {
-                proxyConnection.close();
-            }
-        }
-    }
-
-    public void cacheVhostMap(String vhost, Pair<String, Integer> lookupData) {
-        this.vhostBrokerMap.put(vhost, lookupData);
-    }
-
-    public void cacheVhostMapRemove(String vhost) {
-        this.vhostBrokerMap.remove(vhost);
     }
 
     @Override

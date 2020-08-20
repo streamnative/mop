@@ -13,9 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.DISCONNECTED;
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SENDACK;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
@@ -30,17 +27,23 @@ import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
+import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
+import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.common.naming.TopicName;
+
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.*;
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SUBSCRIPTIONS_REMOVED;
 
 /**
  * Proxy inbound handler is the bridge between proxy and MoP.
@@ -49,43 +52,19 @@ import org.apache.pulsar.common.naming.TopicName;
 public class ProxyInboundHandler implements ProtocolMethodProcessor {
     private ProxyService proxyService;
     private ProxyConnection proxyConnection;
-    private ProxyConfiguration proxyConfig;
-    @Getter
-    private ChannelHandlerContext cnx;
-    // topic : ProxyHandler
-    private Map<String, ProxyHandler> proxyHandler;
+    private Map<String, ProxyHandler> proxyHandlerMap;
+    private ProxyHandler proxyHandler;
 
     private LookupHandler lookupHandler;
 
     private List<Object> connectMsgList = new ArrayList<>();
 
-    private MqttConnAckMessage connAck(MqttConnectReturnCode returnCode, boolean sessionPresent) {
-        MqttFixedHeader mqttFixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
-                false, 0);
-        MqttConnAckVariableHeader mqttConnAckVariableHeader = new MqttConnAckVariableHeader(returnCode, sessionPresent);
-        return new MqttConnAckMessage(mqttFixedHeader, mqttConnAckVariableHeader);
-    }
-
-    private boolean sendAck(ConnectionDescriptor descriptor, MqttConnectMessage msg, final String clientId) {
-        log.info("Sending connect ACK. CId={}", clientId);
-        final boolean success = descriptor.assignState(DISCONNECTED, SENDACK);
-        if (!success) {
-            return false;
-        }
-
-        MqttConnAckMessage okResp = connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED, false);
-
-        descriptor.writeAndFlush(okResp);
-        log.info("The connect ACK has been sent. CId={}", clientId);
-        return true;
-    }
-
     public ProxyInboundHandler(ProxyService proxyService, ProxyConnection proxyConnection) {
         log.info("ProxyConnection init ...");
         this.proxyService = proxyService;
-        this.proxyConfig = proxyService.getProxyConfig();
         this.proxyConnection = proxyConnection;
         lookupHandler = proxyService.getLookupHandler();
+        this.proxyHandlerMap = new HashMap<>();
     }
 
     // client -> proxy
@@ -120,19 +99,25 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
             e.printStackTrace();
         }
 
-        // 1. need to cache (cnx pool)
-        // 2. multi MoP, will have multi proxyHandler
         lookupResult.whenComplete((pair, throwable) -> {
-            try {
-                ProxyHandler proxyHandler = new ProxyHandler(proxyService,
-                        proxyConnection,
-                        pair.getLeft(),
-                        pair.getRight(),
-                        connectMsgList);
-                proxyHandler.getBrokerChannel().writeAndFlush(msg);
-            } catch (Exception e) {
-                e.printStackTrace();
+            proxyHandler = proxyHandlerMap.computeIfAbsent(msg.variableHeader().topicName(), key -> {
+                try {
+                    return new ProxyHandler(proxyService,
+                            proxyConnection,
+                            pair.getLeft(),
+                            pair.getRight(),
+                            connectMsgList);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return null;
+                }
+            });
+
+            if (null == proxyHandler) {
+                return;
             }
+
+            proxyHandler.getBrokerChannel().writeAndFlush(msg);
         });
     }
 
@@ -153,22 +138,128 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
 
     @Override
     public void processDisconnect(Channel channel) throws InterruptedException {
-        log.info("processDisconnect...");
+        if (log.isDebugEnabled()) {
+            log.debug("[Disconnect] [{}] ", channel);
+        }
+        final String clientID = NettyUtils.clientID(channel);
+        log.info("Processing DISCONNECT message. CId={}", clientID);
+        channel.flush();
+
+        final ConnectionDescriptor existingDescriptor = ConnectionDescriptorStore.getInstance().getConnection(clientID);
+        if (existingDescriptor == null) {
+            // another client with same ID removed the descriptor, we must exit
+            channel.close();
+            return;
+        }
+
+        if (existingDescriptor.doesNotUseChannel(channel)) {
+            // another client saved it's descriptor, exit
+            log.warn("Another client is using the connection descriptor. Closing connection. CId={}", clientID);
+            existingDescriptor.abort();
+            return;
+        }
+
+        if (!removeSubscriptions(existingDescriptor, clientID)) {
+            log.warn("Unable to remove subscriptions. Closing connection. CId={}", clientID);
+            existingDescriptor.abort();
+            return;
+        }
+
+        if (!existingDescriptor.close()) {
+            log.info("The connection has been closed. CId={}", clientID);
+            return;
+        }
+
+        boolean stillPresent = ConnectionDescriptorStore.getInstance().removeConnection(existingDescriptor);
+        if (!stillPresent) {
+            // another descriptor was inserted
+            log.warn("Another descriptor has been inserted. CId={}", clientID);
+            return;
+        }
+
+        log.info("The DISCONNECT message has been processed. CId={}", clientID);
+
+        // clear the proxyHandlerMap, when the cnx is disconnected
+        proxyHandlerMap.clear();
     }
 
     @Override
     public void processConnectionLost(String clientID, Channel channel) {
-        log.info("processConnectionLost...");
+        log.info("[Connection Lost] [{}] clientId: {}", channel, clientID);
+        ConnectionDescriptor oldConnDescr = new ConnectionDescriptor(clientID, channel, true);
+        ConnectionDescriptorStore.getInstance().removeConnection(oldConnDescr);
+        removeSubscriptions(null, clientID);
     }
 
     @Override
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
         log.info("processSubscribe...");
+        log.info("[Subscribe] [{}] msg: {}", channel, msg);
+        for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
+            CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
+            try {
+                lookupResult = lookupHandler.findBroker(TopicName.get(req.topicName()), "mop");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            lookupResult.whenComplete((pair, throwable) -> {
+                proxyHandler = proxyHandlerMap.computeIfAbsent(req.topicName(), key -> {
+                    try {
+                        return new ProxyHandler(proxyService,
+                                proxyConnection,
+                                pair.getLeft(),
+                                pair.getRight(),
+                                connectMsgList);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return null;
+                    }
+                });
+
+                if (null == proxyHandler) {
+                    return;
+                }
+
+                proxyHandler.getBrokerChannel().writeAndFlush(msg);
+            });
+        }
     }
 
     @Override
     public void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg) {
         log.info("processUnSubscribe...");
+
+        List<String> topics = msg.payload().topics();
+        for (String topic : topics) {
+            CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
+            try {
+                lookupResult = lookupHandler.findBroker(TopicName.get(topic), "mop");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            lookupResult.whenComplete((pair, throwable) -> {
+                proxyHandler = proxyHandlerMap.computeIfAbsent(topic, key -> {
+                    try {
+                        return new ProxyHandler(proxyService,
+                                proxyConnection,
+                                pair.getLeft(),
+                                pair.getRight(),
+                                connectMsgList);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return null;
+                    }
+                });
+
+                if (null == proxyHandler) {
+                    return;
+                }
+
+                proxyHandler.getBrokerChannel().writeAndFlush(msg);
+            });
+        }
     }
 
     @Override
@@ -179,6 +270,38 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         log.info("channelActive...");
+    }
+
+    private MqttConnAckMessage connAck(MqttConnectReturnCode returnCode, boolean sessionPresent) {
+        MqttFixedHeader mqttFixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
+                false, 0);
+        MqttConnAckVariableHeader mqttConnAckVariableHeader = new MqttConnAckVariableHeader(returnCode, sessionPresent);
+        return new MqttConnAckMessage(mqttFixedHeader, mqttConnAckVariableHeader);
+    }
+
+    private boolean sendAck(ConnectionDescriptor descriptor, MqttConnectMessage msg, final String clientId) {
+        log.info("Sending connect ACK. CId={}", clientId);
+        final boolean success = descriptor.assignState(DISCONNECTED, SENDACK);
+        if (!success) {
+            return false;
+        }
+
+        MqttConnAckMessage okResp = connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED, false);
+
+        descriptor.writeAndFlush(okResp);
+        log.info("The connect ACK has been sent. CId={}", clientId);
+        return true;
+    }
+
+    private boolean removeSubscriptions(ConnectionDescriptor descriptor, String clientID) {
+        if (descriptor != null) {
+            final boolean success = descriptor.assignState(ESTABLISHED, SUBSCRIPTIONS_REMOVED);
+            if (!success) {
+                return false;
+            }
+        }
+        // todo remove subscriptions from Pulsar.
+        return true;
     }
 
 }

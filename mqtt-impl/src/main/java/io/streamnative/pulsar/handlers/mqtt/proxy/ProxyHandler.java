@@ -100,7 +100,6 @@ public class ProxyHandler {
                         brokerChannel, future.cause());
                 clientChannel.close();
             }
-
         }
 
         @Override
