@@ -200,7 +200,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
 
     @Override
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
-        log.info("[Subscribe] [{}] msg: {}", channel, msg);
+        log.info("[Proxy Subscribe] [{}] msg: {}", channel, msg);
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
             CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
             try {

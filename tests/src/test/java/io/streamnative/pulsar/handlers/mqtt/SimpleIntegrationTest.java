@@ -59,7 +59,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     public void testSimpleMqttPubAndSubQos0() throws Exception {
         final String topicName = "persistent://public/default/qos0";
         MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", 1883);
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
@@ -76,7 +76,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     public void testSimpleMqttPubAndSubQos1() throws Exception {
         final String topicName = "persistent://public/default/qos1";
         MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", 1883);
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -98,7 +98,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
                 .subscribe();
 
         MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", 1883);
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
 
@@ -118,7 +118,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     public void testSendByPulsarAndReceiveByMqtt(boolean batchEnabled) throws Exception {
         final String topicName = "persistent://public/default/testSendByPulsarAndReceiveByMqtt";
         MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", 1883);
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -143,7 +143,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     public void testBacklogShouldBeZeroWithQos0() throws Exception {
         final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0";
         MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", 1883);
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
@@ -170,7 +170,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     public void testBacklogShouldBeZeroWithQos1() throws Exception {
         final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos1";
         MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", 1883);
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -200,7 +200,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0AndSendByPulsar-"
                 + batchEnabled;
         MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", 1883);
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };

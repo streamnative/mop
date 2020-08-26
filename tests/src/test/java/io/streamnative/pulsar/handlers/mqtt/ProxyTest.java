@@ -41,7 +41,9 @@ public class ProxyTest extends MQTTTestBase {
 
     @Test
     public void MQTTProxyTest() throws Exception {
-        int proxyPort = PortManager.nextFreePort();
+        setBrokerCount(3);
+        int proxyPort = getProxyPort();
+        log.info("proxy port value: {}", proxyPort);
         final String topicName = "persistent://public/default/proxy";
         MQTT mqtt = new MQTT();
         mqtt.setHost("127.0.0.1", proxyPort);
@@ -49,7 +51,7 @@ public class ProxyTest extends MQTTTestBase {
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
         connection.subscribe(topics);
-        String message = "Hello MQTT";
+        String message = "Hello MQTT Proxy";
         connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
         Message received = connection.receive();
         Assert.assertEquals(new String(received.getPayload()), message);

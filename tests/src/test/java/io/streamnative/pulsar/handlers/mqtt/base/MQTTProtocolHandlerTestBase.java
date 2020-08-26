@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import lombok.Getter;
@@ -44,6 +45,7 @@ import org.apache.bookkeeper.client.EnsemblePlacementPolicy;
 import org.apache.bookkeeper.client.PulsarMockBookKeeper;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.bookkeeper.util.ZkUtils;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.pulsar.broker.BookKeeperClientFactory;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.ServiceConfiguration;
@@ -59,25 +61,38 @@ import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.MockZooKeeper;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.ACL;
+import org.mockito.Mockito;
 
 /**
- * Unit test to test AoP handler.
+ * Unit test to test MoP handler.
  */
 @Slf4j
 public abstract class MQTTProtocolHandlerTestBase {
 
     protected ServiceConfiguration conf;
-    protected PulsarService pulsar;
     protected PulsarAdmin admin;
     protected URL brokerUrl;
     protected URL brokerUrlTls;
     protected URI lookupUrl;
     protected PulsarClient pulsarClient;
 
-    protected int brokerWebservicePort = PortManager.nextFreePort();
-    protected int brokerWebservicePortTls = PortManager.nextFreePort();
     @Getter
-    protected int brokerPort = PortManager.nextFreePort();
+    protected int mqttBrokerPortTls = PortManager.nextFreePort();
+
+    private int brokerCount = 1;
+
+    @Getter
+    private List<Integer> brokerWebservicePortList = new ArrayList<>();
+    @Getter
+    private List<Integer> brokerWebServicePortTlsList = new ArrayList<>();
+    @Getter
+    protected List<PulsarService> pulsarServiceList = new ArrayList<>();
+    @Getter
+    protected List<Integer> brokerPortList = new ArrayList<>();
+    @Getter
+    private List<Integer> mqttBrokerPortList = new ArrayList<>();
+    @Getter
+    private List<Integer> mopProxyPortList = new ArrayList<>();
 
     protected MockZooKeeper mockZooKeeper;
     protected NonClosableMockBookKeeper mockBookKeeper;
@@ -93,9 +108,7 @@ public abstract class MQTTProtocolHandlerTestBase {
 
     protected void resetConfig() {
         MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
-        mqtt.setBrokerServicePort(Optional.ofNullable(brokerPort));
         mqtt.setAdvertisedAddress("localhost");
-        mqtt.setWebServicePort(Optional.ofNullable(brokerWebservicePort));
         mqtt.setClusterName(configClusterName);
 
         mqtt.setManagedLedgerCacheSizeMB(8);
@@ -109,6 +122,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqtt.setAuthorizationEnabled(false);
         mqtt.setAllowAutoTopicCreation(true);
         mqtt.setBrokerDeleteInactiveTopicsEnabled(false);
+        mqtt.setAllowAutoTopicCreationType("partitioned");
 
         // set protocol related config
         URL testHandlerUrl = this.getClass().getClassLoader().getResource("test-protocol-handler.nar");
@@ -134,7 +148,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         init();
         lookupUrl = new URI(brokerUrl.toString());
         if (isTcpLookup) {
-            lookupUrl = new URI("broker://localhost:" + brokerPort);
+            lookupUrl = new URI("broker://localhost:" + brokerPortList.get(0));
         }
         pulsarClient = newPulsarClient(lookupUrl.toString(), 0);
     }
@@ -155,8 +169,10 @@ public abstract class MQTTProtocolHandlerTestBase {
 
         startBroker();
 
-        brokerUrl = new URL("http://" + pulsar.getAdvertisedAddress() + ":" + brokerWebservicePort);
-        brokerUrlTls = new URL("https://" + pulsar.getAdvertisedAddress() + ":" + brokerWebservicePortTls);
+        brokerUrl = new URL("http://" + pulsarServiceList.get(0).getAdvertisedAddress() + ":"
+                + pulsarServiceList.get(0).getConfiguration().getWebServicePort().get());
+        brokerUrlTls = new URL("https://" + pulsarServiceList.get(0).getAdvertisedAddress() + ":"
+                + pulsarServiceList.get(0).getConfiguration().getWebServicePortTls().get());
 
         admin = spy(PulsarAdmin.builder().serviceHttpUrl(brokerUrl.toString()).build());
     }
@@ -171,7 +187,7 @@ public abstract class MQTTProtocolHandlerTestBase {
             if (pulsarClient != null) {
                 pulsarClient.close();
             }
-            if (pulsar != null) {
+            if (pulsarServiceList != null && !pulsarServiceList.isEmpty()) {
                 stopBroker();
             }
             if (mockBookKeeper != null) {
@@ -202,14 +218,56 @@ public abstract class MQTTProtocolHandlerTestBase {
     }
 
     protected void stopBroker() throws Exception {
-        pulsar.close();
+        for (PulsarService pulsarService : pulsarServiceList) {
+            pulsarService.close();
+        }
+        brokerPortList.clear();
+        brokerWebservicePortList.clear();
+        brokerWebServicePortTlsList.clear();
+        mopProxyPortList.clear();
+        pulsarServiceList.clear();
+        mqttBrokerPortList.clear();
+    }
+
+    public void stopBroker(int brokerIndex) throws Exception {
+        pulsarServiceList.get(brokerIndex).close();
+
+        brokerPortList.remove(brokerIndex);
+        brokerWebservicePortList.remove(brokerIndex);
+        brokerWebServicePortTlsList.remove(brokerIndex);
+        mopProxyPortList.remove(brokerIndex);
+        pulsarServiceList.remove(brokerIndex);
     }
 
     protected void startBroker() throws Exception {
-        int mopProxyPort = PortManager.nextFreePort();
-        ((MQTTServerConfiguration) conf).setMqttProxyEnable(true);
-        ((MQTTServerConfiguration) conf).setMqttProxyPort(mopProxyPort);
-        this.pulsar = startBroker(conf);
+        for (int i = 0; i < brokerCount; i++) {
+
+            int brokerPort = PortManager.nextFreePort();
+            brokerPortList.add(brokerPort);
+
+            int mqttBrokerPort = PortManager.nextFreePort();
+            mqttBrokerPortList.add(mqttBrokerPort);
+
+            int mopProxyPort = PortManager.nextFreePort();
+            mopProxyPortList.add(mopProxyPort);
+
+            int brokerWebServicePort = PortManager.nextFreePort();
+            brokerWebservicePortList.add(brokerWebServicePort);
+
+            int brokerWebServicePortTls = PortManager.nextFreePort();
+            brokerWebServicePortTlsList.add(brokerWebServicePortTls);
+
+            conf.setBrokerServicePort(Optional.of(brokerPort));
+            ((MQTTServerConfiguration) conf).setMqttListeners("mqtt://127.0.0.1:" + mqttBrokerPort);
+            ((MQTTServerConfiguration) conf).setMqttProxyPort(mopProxyPort);
+            ((MQTTServerConfiguration) conf).setMqttProxyEnable(true);
+            conf.setWebServicePort(Optional.of(brokerWebServicePort));
+            conf.setWebServicePortTls(Optional.of(brokerWebServicePortTls));
+
+            log.info("Start broker info [{}], brokerPort: {}, mqttBrokerPort: {}, mopProxyPort: {}",
+                    i, brokerPort, mqttBrokerPort, mopProxyPort);
+            this.pulsarServiceList.add(startBroker(conf));
+        }
     }
 
     protected PulsarService startBroker(ServiceConfiguration conf) throws Exception {
@@ -328,6 +386,43 @@ public abstract class MQTTProtocolHandlerTestBase {
         Field field = clazz.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(classObj, fieldValue);
+    }
+
+    public void checkPulsarServiceState() {
+        for (PulsarService pulsarService : pulsarServiceList) {
+            Mockito.when(pulsarService.getState()).thenReturn(PulsarService.State.Started);
+        }
+    }
+
+    /**
+     * Get available proxy port.
+     * @return random proxy port
+     */
+    public int getProxyPort() {
+        return getMopProxyPortList().get(RandomUtils.nextInt(0, getMopProxyPortList().size()));
+    }
+
+    /**
+     * Set the starting broker count for test.
+     */
+    public void setBrokerCount(int brokerCount) {
+        this.brokerCount = brokerCount;
+    }
+
+    public static String randExName() {
+        return randomName("ex-", 4);
+    }
+
+    public static String randQuName() {
+        return randomName("qu-", 4);
+    }
+
+    public static String randomName(String prefix, int numChars) {
+        StringBuilder sb = new StringBuilder(prefix);
+        for (int i = 0; i < numChars; i++) {
+            sb.append((char) (ThreadLocalRandom.current().nextInt(26) + 'a'));
+        }
+        return sb.toString();
     }
 
 }
