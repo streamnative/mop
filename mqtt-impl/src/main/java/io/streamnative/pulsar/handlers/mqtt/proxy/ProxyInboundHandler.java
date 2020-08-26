@@ -38,10 +38,7 @@ import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -75,6 +72,25 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         MqttConnectPayload payload = msg.payload();
         String clientId = payload.clientIdentifier();
         log.info("process CONNECT message. CId={}, username={}", clientId, payload.userName());
+
+        // Client must specify the client ID except enable clean session on the connection.
+        if (clientId == null || clientId.length() == 0) {
+            if (!msg.variableHeader().isCleanSession()) {
+                MqttConnAckMessage badId = connAck(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, false);
+
+                channel.writeAndFlush(badId);
+                channel.close();
+                log.error("The MQTT client ID cannot be empty. Username={}", payload.userName());
+                return;
+            }
+
+            // Generating client id.
+            clientId = UUID.randomUUID().toString().replace("-", "");
+            log.info("Client has connected with a server generated identifier. CId={}, username={}", clientId,
+                    payload.userName());
+        }
+
+        NettyUtils.clientID(channel, clientId);
 
         connectMsgList.add(msg);
         ConnectionDescriptor descriptor = new ConnectionDescriptor(clientId, channel,
