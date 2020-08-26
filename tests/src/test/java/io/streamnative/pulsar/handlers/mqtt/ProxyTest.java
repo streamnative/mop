@@ -14,16 +14,19 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import io.streamnative.pulsar.handlers.mqtt.base.PortManager;
 import lombok.extern.slf4j.Slf4j;
-import org.fusesource.mqtt.client.*;
+import org.fusesource.mqtt.client.BlockingConnection;
+import org.fusesource.mqtt.client.MQTT;
+import org.fusesource.mqtt.client.Message;
+import org.fusesource.mqtt.client.QoS;
+import org.fusesource.mqtt.client.Topic;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
- * MQTT proxy related test
+ * MQTT proxy related test.
  */
 @Slf4j
 public class ProxyTest extends MQTTTestBase {
@@ -40,7 +43,7 @@ public class ProxyTest extends MQTTTestBase {
     }
 
     @Test
-    public void MQTTProxyTest() throws Exception {
+    public void mqttProxyTest() throws Exception {
         setBrokerCount(3);
         int proxyPort = getProxyPort();
         log.info("proxy port value: {}", proxyPort);
