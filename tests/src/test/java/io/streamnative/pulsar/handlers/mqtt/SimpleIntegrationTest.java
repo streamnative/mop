@@ -89,30 +89,30 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test
-    public void testSendByMqttAndReceiveByPulsar() throws Exception {
-        final String topicName = "persistent://public/default/testReceiveByPulsar";
-        Consumer<byte[]> consumer = pulsarClient.newConsumer()
-                .topic(topicName)
-                .subscriptionName("my-sub")
-                .subscribe();
-
-        MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
-        BlockingConnection connection = mqtt.blockingConnection();
-        connection.connect();
-
-        String message = "Hello MQTT";
-        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
-
-        org.apache.pulsar.client.api.Message<byte[]> received = consumer.receive();
-        Assert.assertNotNull(received);
-        Assert.assertEquals(new String(received.getValue()), message);
-        consumer.acknowledge(received);
-
-        consumer.close();
-        connection.disconnect();
-    }
+//    @Test
+//    public void testSendByMqttAndReceiveByPulsar() throws Exception {
+//        final String topicName = "persistent://public/default/testReceiveByPulsar";
+//        Consumer<byte[]> consumer = pulsarClient.newConsumer()
+//                .topic(topicName)
+//                .subscriptionName("my-sub")
+//                .subscribe();
+//
+//        MQTT mqtt = new MQTT();
+//        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+//        BlockingConnection connection = mqtt.blockingConnection();
+//        connection.connect();
+//
+//        String message = "Hello MQTT";
+//        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+//
+//        org.apache.pulsar.client.api.Message<byte[]> received = consumer.receive();
+//        Assert.assertNotNull(received);
+//        Assert.assertEquals(new String(received.getValue()), message);
+//        consumer.acknowledge(received);
+//
+//        consumer.close();
+//        connection.disconnect();
+//    }
 
     @Test(dataProvider = "batchEnabled")
     public void testSendByPulsarAndReceiveByMqtt(boolean batchEnabled) throws Exception {
