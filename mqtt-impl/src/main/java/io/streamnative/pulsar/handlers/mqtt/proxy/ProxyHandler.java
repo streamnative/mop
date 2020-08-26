@@ -111,7 +111,6 @@ public class ProxyHandler {
             this.cnx = ctx;
             super.channelActive(ctx);
             for (Object msg : connectMsgList) {
-//                ((ByteBuf) msg).retain();
                 brokerChannel.writeAndFlush(msg).syncUninterruptibly();
             }
             brokerChannel.read();
@@ -125,11 +124,11 @@ public class ProxyHandler {
                     MqttMessage msg = (MqttMessage) message;
                     MqttMessageType messageType = msg.fixedHeader().messageType();
                     if (log.isDebugEnabled()) {
-                        log.info("Processing MQTT message, type={}", messageType);
+                        log.info("Processing Proxy Handler message, type={}", messageType);
                     }
 
                     if (messageType == CONNACK) {
-                        log.info("if messageType is CONNACK................");
+                        log.info("The messageType is CONNACK, set the state to Connected.");
                         checkState(msg instanceof MqttConnAckMessage);
                         state = State.Connected;
                     }

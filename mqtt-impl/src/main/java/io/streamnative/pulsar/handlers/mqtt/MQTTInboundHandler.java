@@ -48,7 +48,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
         MqttMessage msg = (MqttMessage) message;
         MqttMessageType messageType = msg.fixedHeader().messageType();
         if (log.isDebugEnabled()) {
-            log.info("Processing MQTT message, type={}", messageType);
+            log.info("Processing MQTT Inbound handler message, type={}", messageType);
         }
         try {
             switch (messageType) {
