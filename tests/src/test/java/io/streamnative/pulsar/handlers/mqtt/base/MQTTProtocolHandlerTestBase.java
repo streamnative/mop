@@ -206,6 +206,9 @@ public abstract class MQTTProtocolHandlerTestBase {
     }
 
     protected void startBroker() throws Exception {
+        int mopProxyPort = PortManager.nextFreePort();
+        ((MQTTServerConfiguration) conf).setMqttProxyEnable(true);
+        ((MQTTServerConfiguration) conf).setMqttProxyPort(mopProxyPort);
         this.pulsar = startBroker(conf);
     }
 
