@@ -84,7 +84,6 @@ public class ProxyConnection extends ChannelInboundHandlerAdapter{
         MqttMessage msg = (MqttMessage) message;
         MqttMessageType messageType = msg.fixedHeader().messageType();
 
-        log.info("Processing MQTT message, type={}", messageType);
         if (log.isDebugEnabled()) {
             log.info("Processing MQTT message, type={}", messageType);
         }
@@ -151,7 +150,6 @@ public class ProxyConnection extends ChannelInboundHandlerAdapter{
     }
 
     public void close() {
-        log.info("ProxyConnection close.");
         if (log.isDebugEnabled()) {
             log.debug("ProxyConnection close.");
         }

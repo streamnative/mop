@@ -227,6 +227,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                     return;
                 }
 
+
                 proxyHandler.getBrokerChannel().writeAndFlush(msg);
             });
         }

@@ -75,7 +75,7 @@ public class ProxyHandler {
                 });
         ChannelFuture channelFuture = bootstrap.connect(mqttBrokerHost, mqttBrokerPort);
         brokerChannel = channelFuture.channel();
-        channelFuture.addListener(future -> {
+        channelFuture.await().addListener(future -> {
             if (!future.isSuccess()) {
                 // Close the connection if the connection attempt has failed.
                 clientChannel.close();
