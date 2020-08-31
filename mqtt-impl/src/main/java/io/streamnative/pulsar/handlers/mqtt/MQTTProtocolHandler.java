@@ -17,11 +17,14 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
+import io.streamnative.pulsar.handlers.mqtt.proxy.ProxyConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.proxy.ProxyService;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.ServiceConfigurationUtils;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
@@ -81,6 +84,26 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Override
     public void start(BrokerService brokerService) {
         this.brokerService = brokerService;
+
+        if (mqttConfig.isMqttProxyEnable()) {
+            ProxyConfiguration proxyConfig = new ProxyConfiguration();
+            proxyConfig.setMqttTenant(mqttConfig.getDefaultTenant());
+            proxyConfig.setMqttMaxNoOfChannels(mqttConfig.getMaxNoOfChannels());
+            proxyConfig.setMqttMaxFrameSize(mqttConfig.getMaxFrameSize());
+            proxyConfig.setMqttHeartBeat(mqttConfig.getHeartBeat());
+            proxyConfig.setMqttProxyPort(mqttConfig.getMqttProxyPort());
+            proxyConfig.setBrokerServiceURL("pulsar://" + PulsarService.advertisedAddress(mqttConfig) + ":"
+                    + mqttConfig.getBrokerServicePort().get());
+            log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
+            ProxyService proxyService = new ProxyService(proxyConfig, brokerService.getPulsar());
+            try {
+                proxyService.start();
+                log.info("Start amqp proxy service at port: {}", proxyConfig.getMqttProxyPort());
+            } catch (Exception e) {
+                log.error("Failed to start amqp proxy service.");
+            }
+        }
+
 
         log.info("Starting AmqpProtocolHandler, aop version is: '{}'", MopVersion.getVersion());
         log.info("Git Revision {}", MopVersion.getGitSha());

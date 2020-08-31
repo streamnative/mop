@@ -11,71 +11,54 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.common.configuration.Category;
 import org.apache.pulsar.common.configuration.FieldContext;
 
 /**
- * MQTT on Pulsar service configuration object.
+ * Configuration for MQTT proxy service.
  */
 @Getter
 @Setter
-public class MQTTServerConfiguration extends ServiceConfiguration {
+public class ProxyConfiguration {
 
     @Category
     private static final String CATEGORY_MQTT = "MQTT on Pulsar";
     @Category
     private static final String CATEGORY_MQTT_PROXY = "MQTT Proxy";
-
-    //
-    // --- MQTT on Pulsar Broker configuration ---
-    //
+    @Category
+    private static final String CATEGORY_BROKER_DISCOVERY = "Broker Discovery";
 
     @FieldContext(
             category = CATEGORY_MQTT,
             required = true,
-            doc = "Listener for the MQTT Server."
+            doc = "Mqtt on Pulsar Broker tenant"
     )
-    private String mqttListeners = "mqtt://127.0.0.1:1883";
+    private String mqttTenant = "public";
 
     @FieldContext(
             category = CATEGORY_MQTT,
             required = true,
             doc = "The maximum number of channels which can exist concurrently on a connection."
     )
-    private int maxNoOfChannels = 64;
-
-    @FieldContext(
-            category = CATEGORY_MQTT,
-            required = true,
-            doc = "The default heartbeat timeout on broker"
-    )
-    private int heartBeat = 60 * 1000;
+    private int mqttMaxNoOfChannels = 64;
 
     @FieldContext(
             category = CATEGORY_MQTT,
             required = true,
             doc = "The maximum frame size on a connection."
     )
-    private int maxFrameSize = 4 * 1024 * 1024;
+    private int mqttMaxFrameSize = 4 * 1024 * 1024;
 
     @FieldContext(
             category = CATEGORY_MQTT,
             required = true,
-            doc = "Default Pulsar tenant that the MQTT server used."
+            doc = "The default heartbeat timeout on broker"
     )
-    private String defaultTenant = "public";
-
-    @FieldContext(
-            category = CATEGORY_MQTT,
-            required = true,
-            doc = "Default Pulsar namespace that the MQTT server used."
-    )
-    private String defaultNamespace = "default";
+    private int mqttHeartBeat = 60 * 1000;
 
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
@@ -85,9 +68,9 @@ public class MQTTServerConfiguration extends ServiceConfiguration {
     private int mqttProxyPort = 5682;
 
     @FieldContext(
-            category = CATEGORY_MQTT_PROXY,
-            required = false,
-            doc = "Whether start mqtt protocol handler with proxy"
+            category = CATEGORY_BROKER_DISCOVERY,
+            doc = "The service url points to the broker cluster"
     )
-    private boolean mqttProxyEnable = false;
+    private String brokerServiceURL;
+
 }

@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
 
-import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -27,33 +26,71 @@ import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
-import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
+import java.util.ArrayList;
+import java.util.List;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.client.api.PulsarClientException;
 
 /**
- * MQTT in bound handler.
+ * Proxy connection.
  */
-@Sharable
 @Slf4j
-public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
-
+public class ProxyConnection extends ChannelInboundHandlerAdapter{
     private final ProtocolMethodProcessor processor;
+    private ProxyService proxyService;
+    private ProxyConfiguration proxyConfig;
+    @Getter
+    private ChannelHandlerContext cnx;
+    private State state;
+    private ProxyHandler proxyHandler;
 
-    public MQTTInboundHandler(ProtocolMethodProcessor processor) {
-        this.processor = processor;
+    private LookupHandler lookupHandler;
+
+    private List<Object> connectMsgList = new ArrayList<>();
+
+    private enum State {
+        Init,
+        RedirectLookup,
+        RedirectToBroker,
+        Closed
+    }
+
+    public ProxyConnection(ProxyService proxyService) throws PulsarClientException {
+        log.info("ProxyConnection init ...");
+        this.proxyService = proxyService;
+        this.proxyConfig = proxyService.getProxyConfig();
+        lookupHandler = proxyService.getLookupHandler();
+        processor = new ProxyInboundHandler(proxyService, this);
+        state = State.Init;
     }
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object message) {
+    public void channelActive(ChannelHandlerContext cnx) throws Exception {
+        super.channelActive(cnx);
+        this.cnx = cnx;
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        super.channelInactive(ctx);
+        this.close();
+    }
+
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
         MqttMessage msg = (MqttMessage) message;
         MqttMessageType messageType = msg.fixedHeader().messageType();
+
         if (log.isDebugEnabled()) {
-            log.info("Processing MQTT Inbound handler message, type={}", messageType);
+            log.info("Processing MQTT message, type={}", messageType);
         }
         try {
             switch (messageType) {
                 case CONNECT:
-                    checkState(msg instanceof  MqttConnectMessage);
+                    checkState(msg instanceof MqttConnectMessage);
                     processor.processConnect(ctx.channel(), (MqttConnectMessage) msg);
                     break;
                 case SUBSCRIBE:
@@ -105,39 +142,25 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        super.channelActive(ctx);
-        processor.channelActive(ctx);
-    }
-
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        String clientID = NettyUtils.clientID(ctx.channel());
-        if (clientID != null && !clientID.isEmpty()) {
-            log.info("Notifying connection lost event. MqttClientId = {}.", clientID);
-            processor.processConnectionLost(clientID, ctx.channel());
+    public void resetProxyHandler() {
+        if (proxyHandler != null) {
+            proxyHandler.close();
+            proxyHandler = null;
         }
-        ctx.close();
     }
 
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        log.warn(
-                "An unexpected exception was caught while processing MQTT message. "
-                + "Closing Netty channel. MqttClientId = {}, cause = {}, errorMessage = {}.",
-                NettyUtils.clientID(ctx.channel()),
-                cause.getCause(),
-                cause.getMessage());
-        ctx.close();
-    }
-
-    @Override
-    public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
-        if (ctx.channel().isWritable()) {
-            processor.notifyChannelWritable(ctx.channel());
+    public void close() {
+        if (log.isDebugEnabled()) {
+            log.debug("ProxyConnection close.");
         }
-        ctx.fireChannelWritabilityChanged();
+
+        if (proxyHandler != null) {
+            resetProxyHandler();
+        }
+        if (cnx != null) {
+            cnx.close();
+        }
+        state = State.Closed;
     }
 
 }

@@ -79,6 +79,33 @@ add configurations in Pulsar's configuration file, such as `broker.conf` or `sta
 
 After you have installed the MoP protocol handler to Pulsar broker, you can restart the Pulsar brokers to load MoP.
 
+### How to use Proxy
+
+To use proxy, complete the following steps. For detailed steps, refer to [Deploy a cluster on bare metal](http://pulsar.apache.org/docs/en/deploy-bare-metal/).
+
+1. Prepare a ZooKeeper cluster.
+
+2. Initialize the cluster metadata.
+
+3. Prepare a BookKeeper cluster.
+
+4. Copy the `pulsar-protocol-handler-mqtt-${version}.nar` to the `$PULSAR_HOME/protocols` directory.
+
+5. Start broker.
+
+    broker config
+
+    ```yaml
+    messagingProtocols=mqtt
+    protocolHandlerDirectory=./protocols
+    brokerServicePort=6651
+    mqttListeners=mqtt://127.0.0.1:1883
+    advertisedAddress=127.0.0.1
+    
+    mqttProxyEnable=true
+    mqttProxyPort=5682
+    ```
+
 ### Verify MoP
 
 There are many MQTT client can be used to verify MoP such as http://workswithweb.com/mqttbox.html, https://www.hivemq.com/mqtt-toolbox. You can choose a cli tool or interface tool to verify the MoP.
