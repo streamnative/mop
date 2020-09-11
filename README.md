@@ -21,38 +21,42 @@
 
 [![LICENSE](https://img.shields.io/hexpm/l/pulsar.svg)](https://github.com/streamnative/aop/blob/master/LICENSE)
 
-
 # MQTT on Pulsar (MoP)
-MQTT-on-Pulsar (aka MoP) was developed to support MQTT protocol natively on Apache Pulsar.
+
+MQTT-on-Pulsar (aka MoP) is developed to support MQTT protocol natively on Apache Pulsar.
 
 ## Get started
+
 ### Download or build MoP protocol handler
-1. clone this project from GitHub to your local.
 
-```bash
-git clone https://github.com/streamnative/mop.git
-cd mop
-```
+1. Clone the MoP project from GitHub to your local.
 
-2. build the project.
-```bash
-mvn clean install -DskipTests
-```
+    ```bash
+    git clone https://github.com/streamnative/mop.git
+    cd mop
+    ```
 
-3. the nar file can be found at this location.
-```bash
-./mqtt-impl/target/pulsar-protocol-handler-mqtt-${version}.nar
-```
+2. Build the project.
+
+    ```bash
+    mvn clean install -DskipTests
+    ```
+
+3. The NAR file can be found at this location.
+
+    ```bash
+    ./mqtt-impl/target/pulsar-protocol-handler-mqtt-${version}.nar
+    ```
 
 ### Install MoP protocol handler
-All what you need to do is to configure the Pulsar broker to run the Mop protocol handler as a plugin, that is,
-add configurations in Pulsar's configuration file, such as `broker.conf` or `standalone.conf`.
+
+Configure the Pulsar broker to run the MoP protocol handler as a plugin by adding configurations to the Pulsar configuration file, such as `broker.conf` or `standalone.conf`.
 
 1. Set the configuration of the MoP protocol handler.
     
-    Add the following properties and set their values in Pulsar configuration file, such as `conf/broker.conf` or `conf/standalone.conf`.
+    Add the following properties and set their values in the Pulsar configuration file, such as `conf/broker.conf` or `conf/standalone.conf`.
 
-    Property | Set it to the following value | Default value
+    | Property | Suggested value | Default value |
     |---|---|---
     `messagingProtocols` | mqtt | null
     `protocolHandlerDirectory`| Location of MoP NAR file | ./protocols
@@ -63,7 +67,7 @@ add configurations in Pulsar's configuration file, such as `broker.conf` or `sta
     messagingProtocols=mqtt
     protocolHandlerDirectory=./protocols
     ```
-2. Set MQTT server listeners.
+2. Set the MQTT server listeners.
 
     > #### Note
     > The hostname in listeners should be the same as Pulsar broker's `advertisedAddress`.
@@ -74,14 +78,14 @@ add configurations in Pulsar's configuration file, such as `broker.conf` or `sta
     mqttListeners=mqtt://127.0.0.1:1883
     advertisedAddress=127.0.0.1
     ```
-   
-### Restart Pulsar brokers to load MoP
 
-After you have installed the MoP protocol handler to Pulsar broker, you can restart the Pulsar brokers to load MoP.
+### Load MoP protocol handler
+
+After you install the MoP protocol handler to Pulsar broker, you can restart the Pulsar brokers to load the MoP protocol handler.
 
 ### How to use Proxy
 
-To use proxy, complete the following steps. For detailed steps, refer to [Deploy a cluster on bare metal](http://pulsar.apache.org/docs/en/deploy-bare-metal/).
+To use the proxy, follow the following steps. For detailed steps, refer to [Deploy a cluster on bare metal](http://pulsar.apache.org/docs/en/deploy-bare-metal/).
 
 1. Prepare a ZooKeeper cluster.
 
@@ -91,9 +95,9 @@ To use proxy, complete the following steps. For detailed steps, refer to [Deploy
 
 4. Copy the `pulsar-protocol-handler-mqtt-${version}.nar` to the `$PULSAR_HOME/protocols` directory.
 
-5. Start broker.
+5. Start the Pulsar broker.
 
-    broker config
+   Here is an example of the Pulsar broker configuration.
 
     ```yaml
     messagingProtocols=mqtt
@@ -106,33 +110,35 @@ To use proxy, complete the following steps. For detailed steps, refer to [Deploy
     mqttProxyPort=5682
     ```
 
-### Verify MoP
+### Verify MoP protocol handler
 
-There are many MQTT client can be used to verify MoP such as http://workswithweb.com/mqttbox.html, https://www.hivemq.com/mqtt-toolbox. You can choose a cli tool or interface tool to verify the MoP.
+There are many MQTT client that can be used to verify the MoP protocol handler, such as [MQTTBox](http://workswithweb.com/mqttbox.html), [MQTT Toolbox](https://www.hivemq.com/mqtt-toolbox). You can choose a CLI tool or interface tool to verify the MoP protocol handler.
 
-#### Verify with fusesource mqtt-client
+The following example shows how to verify the MoP protocol handler with FuseSource MqttClient.
 
-```java
-<dependency>
-    <groupId>org.fusesource.mqtt-client</groupId>
-    <artifactId>mqtt-client</artifactId>
-    <version>1.16</version>
-</dependency>
-```
+1. Add the dependency.
 
-Publish messages and consume messages:
+    ```java
+    <dependency>
+        <groupId>org.fusesource.mqtt-client</groupId>
+        <artifactId>mqtt-client</artifactId>
+        <version>1.16</version>
+    </dependency>
+    ```
 
-```java
-MQTT mqtt = new MQTT();
-mqtt.setHost("127.0.0.1", 1883);
-BlockingConnection connection = mqtt.blockingConnection();
-connection.connect();
-Topic[] topics = { new Topic("persistent://public/default/my-topic", QoS.AT_LEAST_ONCE) };
-connection.subscribe(topics);
+2. Publish messages and consume messages.
 
-// publish message
-connection.publish("persistent://public/default/my-topic", "Hello MOP!".getBytes(), QoS.AT_LEAST_ONCE, false);
+    ```java
+    MQTT mqtt = new MQTT();
+    mqtt.setHost("127.0.0.1", 1883);
+    BlockingConnection connection = mqtt.blockingConnection();
+    connection.connect();
+    Topic[] topics = { new Topic("persistent://public/default/my-topic", QoS.AT_LEAST_ONCE) };
+    connection.subscribe(topics);
 
-// receive message
-Message received = connection.receive();
-```
+    // publish message
+    connection.publish("persistent://public/default/my-topic", "Hello MOP!".getBytes(), QoS.AT_LEAST_ONCE, false);
+
+    // receive message
+    Message received = connection.receive();
+    ```
