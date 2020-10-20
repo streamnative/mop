@@ -32,7 +32,8 @@ public class PulsarTopicUtils {
 
     public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService, String topicName) {
         final TopicName topic = TopicName.get(topicName);
-        return pulsarService.getNamespaceService().getBrokerServiceUrlAsync(topic, LookupOptions.builder().authoritative(false).loadTopicsInBundle(false).build())
+        return pulsarService.getNamespaceService().getBrokerServiceUrlAsync(topic,
+                LookupOptions.builder().authoritative(false).loadTopicsInBundle(false).build())
                 .thenCompose(lookupOp -> pulsarService.getBrokerService().getTopic(topic.toString(), true));
     }
 
