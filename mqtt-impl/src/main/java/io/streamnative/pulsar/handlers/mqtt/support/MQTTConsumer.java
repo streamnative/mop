@@ -81,8 +81,9 @@ public class MQTTConsumer extends Consumer {
                 outstandingPacketContainer.add(new OutstandingPacket(this, packetId, entry.getLedgerId(),
                         entry.getEntryId()));
             }
-            for (MqttPublishMessage msg : PulsarMessageConverter.toMqttMessages(topicName, entry,
-                    packetId, qos)) {
+            List<MqttPublishMessage> messages = PulsarMessageConverter.toMqttMessages(topicName, entry,
+                    packetId, qos);
+            for (MqttPublishMessage msg : messages) {
                 cnx.ctx().channel().write(msg);
             }
         }
