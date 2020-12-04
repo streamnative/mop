@@ -302,6 +302,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertTrue(connection1.isConnected());
         connection1.disconnect();
 
+        Awaitility.await().atMost(3, TimeUnit.SECONDS).untilAsserted(() ->
+                Assert.assertFalse(connection1.isConnected()));
+
         BlockingConnection connection2 = mqtt.blockingConnection();
         connection2.connect();
         connection2.subscribe(topics);
