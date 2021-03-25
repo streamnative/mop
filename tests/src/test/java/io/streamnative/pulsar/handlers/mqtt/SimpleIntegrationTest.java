@@ -94,9 +94,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
     @Test
     public void testSendByMqttAndReceiveByPulsar() throws Exception {
-        final String topicName = "persistent://public/default/testReceiveByPulsar";
+        final String topic = "persistent://public/default/testReceiveByPulsar";
         Consumer<byte[]> consumer = pulsarClient.newConsumer()
-                .topic(topicName)
+                .topic(topic)
                 .subscriptionName("my-sub")
                 .subscribe();
 
@@ -106,7 +106,8 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.connect();
 
         String message = "Hello MQTT";
-        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+
+        connection.publish(topic, message.getBytes(), QoS.AT_LEAST_ONCE, false);
 
         org.apache.pulsar.client.api.Message<byte[]> received = consumer.receive();
         Assert.assertNotNull(received);
