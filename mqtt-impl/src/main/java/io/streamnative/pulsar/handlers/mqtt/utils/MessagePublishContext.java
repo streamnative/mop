@@ -86,7 +86,7 @@ public final class MessagePublishContext implements PublishContext {
     }
 
     /**
-     * publish amqp message to pulsar topic, no batch.
+     * publish mqtt message to pulsar topic, no batch.
      */
     public static CompletableFuture<PositionImpl> publishMessages(Message<byte[]> message, Topic topic) {
         CompletableFuture<PositionImpl> future = new CompletableFuture<>();
