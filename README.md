@@ -19,7 +19,7 @@
 
 -->
 
-[![LICENSE](https://img.shields.io/hexpm/l/pulsar.svg)](https://github.com/streamnative/aop/blob/master/LICENSE)
+[![LICENSE](https://img.shields.io/hexpm/l/pulsar.svg)](https://github.com/streamnative/mop/blob/master/LICENSE)
 
 # MQTT on Pulsar (MoP)
 

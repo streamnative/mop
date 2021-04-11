@@ -98,14 +98,14 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             ProxyService proxyService = new ProxyService(proxyConfig, brokerService.getPulsar());
             try {
                 proxyService.start();
-                log.info("Start amqp proxy service at port: {}", proxyConfig.getMqttProxyPort());
+                log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());
             } catch (Exception e) {
-                log.error("Failed to start amqp proxy service.");
+                log.error("Failed to start MQTT proxy service.");
             }
         }
 
 
-        log.info("Starting AmqpProtocolHandler, aop version is: '{}'", MopVersion.getVersion());
+        log.info("Starting MqttProtocolHandler, MoP version is: '{}'", MopVersion.getVersion());
         log.info("Git Revision {}", MopVersion.getGitSha());
         log.info("Built by {} on {} at {}",
                 MopVersion.getBuildUser(),
