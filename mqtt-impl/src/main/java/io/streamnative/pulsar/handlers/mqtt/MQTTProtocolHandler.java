@@ -12,8 +12,8 @@
  * limitations under the License.
  */
 package io.streamnative.pulsar.handlers.mqtt;
-import static com.google.common.base.Preconditions.checkState;
 
+import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;

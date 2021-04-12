@@ -14,14 +14,11 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter.messageToByteBuf;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.util.Recycler;
 import io.netty.util.Recycler.Handle;
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.service.Topic;

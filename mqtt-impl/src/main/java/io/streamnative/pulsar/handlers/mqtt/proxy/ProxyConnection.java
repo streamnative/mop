@@ -15,7 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
-
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;

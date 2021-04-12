@@ -29,7 +29,6 @@ import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribePayload;
 import io.netty.handler.codec.mqtt.MqttVersion;
-
 import java.util.ArrayList;
 import java.util.List;
 

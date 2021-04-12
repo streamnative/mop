@@ -15,7 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.netty.handler.codec.mqtt.MqttMessageType.CONNACK;
-
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -31,7 +30,6 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
-
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import java.util.List;
 import lombok.Getter;
