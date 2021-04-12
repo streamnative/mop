@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
-
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;

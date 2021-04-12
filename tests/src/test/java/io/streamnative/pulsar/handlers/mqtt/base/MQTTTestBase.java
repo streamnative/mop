@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.base;
 
 import com.google.common.collect.Sets;
-
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.policies.data.ClusterData;
 import org.apache.pulsar.common.policies.data.RetentionPolicies;
