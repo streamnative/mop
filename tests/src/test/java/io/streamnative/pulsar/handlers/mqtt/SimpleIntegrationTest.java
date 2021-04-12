@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Consumer;
@@ -269,7 +270,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     public void testSubscribeRejectionWithSameClientId() throws Exception {
         final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
         MQTT mqtt = new MQTT();
-        mqtt.setClientId("my-client-id");
+        mqtt.setClientId("client-id-0");
         mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection1 = mqtt.blockingConnection();
         connection1.connect();
@@ -293,7 +294,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     public void testSubscribeWithSameClientId() throws Exception {
         final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
         MQTT mqtt = new MQTT();
-        mqtt.setClientId("my-client-id");
+        mqtt.setClientId("client-id-1");
         mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection1 = mqtt.blockingConnection();
         connection1.connect();
@@ -311,5 +312,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection2.subscribe(topics);
 
         Assert.assertTrue(connection2.isConnected());
+
+        connection2.disconnect();
     }
 }

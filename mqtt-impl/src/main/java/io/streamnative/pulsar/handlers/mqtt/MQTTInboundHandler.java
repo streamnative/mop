@@ -53,7 +53,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
         try {
             switch (messageType) {
                 case CONNECT:
-                    checkState(msg instanceof  MqttConnectMessage);
+                    checkState(msg instanceof MqttConnectMessage);
                     processor.processConnect(ctx.channel(), (MqttConnectMessage) msg);
                     break;
                 case SUBSCRIBE:
