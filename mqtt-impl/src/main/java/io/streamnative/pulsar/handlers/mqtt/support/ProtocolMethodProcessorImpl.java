@@ -410,7 +410,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
 
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
             MqttQoS qos = req.qualityOfService();
-            ackTopics.add(new MqttTopicSubscription(req.topicName(), qos));
+            ackTopics.add(new MqttTopicSubscription(PulsarTopicUtils.getPulsarTopicName(req.topicName()), qos));
         }
         return ackTopics;
     }

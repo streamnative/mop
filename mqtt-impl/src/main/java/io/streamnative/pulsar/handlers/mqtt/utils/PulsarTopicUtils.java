@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.namespace.LookupOptions;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -31,7 +32,7 @@ import org.apache.pulsar.common.naming.TopicName;
 public class PulsarTopicUtils {
 
     public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService, String topicName) {
-        final TopicName topic = TopicName.get(topicName);
+        final TopicName topic = TopicName.get(getPulsarTopicName(topicName));
         return pulsarService.getNamespaceService().getBrokerServiceUrlAsync(topic,
                 LookupOptions.builder().authoritative(false).loadTopicsInBundle(false).build())
                 .thenCompose(lookupOp -> pulsarService.getBrokerService().getTopic(topic.toString(), true));
@@ -66,5 +67,9 @@ public class PulsarTopicUtils {
             }
         });
         return promise;
+    }
+
+    public static String getPulsarTopicName(String mqttTopicName) {
+        return StringUtils.strip(mqttTopicName, "/");
     }
 }
