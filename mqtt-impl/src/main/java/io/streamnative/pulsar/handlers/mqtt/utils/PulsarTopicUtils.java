@@ -15,7 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.namespace.LookupOptions;
