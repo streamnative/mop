@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 import static org.apache.pulsar.common.util.FieldParser.setEmptyValue;
 import static org.apache.pulsar.common.util.FieldParser.value;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,9 +24,9 @@ import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.common.configuration.PulsarConfiguration;
+
 /**
  * Configuration Utils.
  */

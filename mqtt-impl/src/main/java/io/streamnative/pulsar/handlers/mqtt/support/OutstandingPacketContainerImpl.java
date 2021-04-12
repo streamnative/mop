@@ -15,7 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
-
 import java.util.concurrent.ConcurrentHashMap;
 
 /**

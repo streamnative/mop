@@ -23,6 +23,31 @@ what the following rules do, please see the checkstyle configuration
 page at http://checkstyle.sourceforge.net/config.html -->
 
 <module name="Checker">
+    <!--
+
+    LENGTH and CODING CHECKS
+
+    -->
+
+    <module name="LineLength">
+        <!-- Checks if a line is too long. -->
+        <property name="max" value="120"/>
+        <property name="severity" value="error"/>
+
+        <!--
+          The default ignore pattern exempts the following elements:
+            - import statements
+            - long URLs inside comments
+        -->
+
+        <property name="ignorePattern"
+                  value="^(package .*;\s*)|(import .*;\s*)|( *\* .*https?://.*)$"/>
+    </module>
+
+    <!-- Required to support SuppressWarningsComment -->
+    <!--    <module name="FileContentsHolder"/>-->
+
+    <module name="SuppressWarningsFilter"/>
 
     <module name="FileTabCharacter">
         <!-- Checks that there are no tab characters in the file. -->
@@ -30,7 +55,7 @@ page at http://checkstyle.sourceforge.net/config.html -->
 
     <module name="RegexpSingleline">
         <!-- Checks that TODOs don't have stuff in parenthesis, e.g., username. -->
-        <property name="format" value="((//.*)|(\*.*))TODO\(" />
+        <property name="format" value="((//.*)|(\*.*))TODO\("/>
         <property name="message" value="TODO comments must not include usernames." />
         <property name="severity" value="error" />
     </module>
@@ -52,12 +77,6 @@ page at http://checkstyle.sourceforge.net/config.html -->
         <property name="fileNamePattern" value=".*Tests\.java$" />
     </module>
 
-    <!-- Allow use of comment to suppress javadocstyle -->
-    <module name="SuppressionCommentFilter">
-        <property name="offCommentFormat" value="CHECKSTYLE.OFF\: ([\w\|]+)"/>
-        <property name="onCommentFormat" value="CHECKSTYLE.ON\: ([\w\|]+)"/>
-        <property name="checkFormat" value="$1"/>
-    </module>
     <module name="SuppressionFilter">
         <property name="file" value="${checkstyle.suppressions.file}" default="suppressions.xml" />
     </module>
@@ -67,6 +86,14 @@ page at http://checkstyle.sourceforge.net/config.html -->
 
     <!-- All Java AST specific tests live under TreeWalker module. -->
     <module name="TreeWalker">
+
+        <module name="SuppressionCommentFilter">
+            <property name="offCommentFormat" value="CHECKSTYLE.OFF\: ([\w\|]+)"/>
+            <property name="onCommentFormat" value="CHECKSTYLE.ON\: ([\w\|]+)"/>
+            <property name="checkFormat" value="$1"/>
+        </module>
+
+        <module name="SuppressWarningsHolder" />
 
         <module name="TodoComment">
             <!-- Checks that disallowed strings are not used in comments.  -->
@@ -101,7 +128,8 @@ page at http://checkstyle.sourceforge.net/config.html -->
         </module>
 
         <module name="IllegalImport">
-            <property name="illegalPkgs" value="autovalue.shaded, avro.shaded, bk-shade, com.google.api.client.repackaged, com.google.appengine.repackaged, io.netty.util.internal"/>
+            <property name="illegalPkgs"
+                      value="autovalue.shaded, avro.shaded, bk-shade, com.google.api.client.repackaged, com.google.appengine.repackaged, io.netty.util.internal"/>
         </module>
 
         <module name="RedundantModifier">
@@ -145,16 +173,12 @@ page at http://checkstyle.sourceforge.net/config.html -->
         <module name="JavadocMethod">
             <property name="scope" value="protected"/>
             <property name="severity" value="error"/>
-            <property name="allowMissingJavadoc" value="true"/>
             <property name="allowMissingParamTags" value="true"/>
             <property name="allowMissingReturnTag" value="true"/>
-            <property name="allowMissingThrowsTags" value="true"/>
-            <property name="allowThrowsTagsForSubclasses" value="true"/>
-            <property name="allowUndeclaredRTE" value="true"/>
         </module>
 
         <!-- Check that paragraph tags are used correctly in Javadoc. -->
-        <module name="JavadocParagraph"/>
+        <!--        <module name="JavadocParagraph"/>-->
 
         <module name="JavadocType">
             <property name="scope" value="protected"/>
@@ -272,27 +296,6 @@ page at http://checkstyle.sourceforge.net/config.html -->
             <property name="severity" value="error"/>
         </module>
 
-        <!--
-
-        LENGTH and CODING CHECKS
-
-        -->
-
-        <module name="LineLength">
-            <!-- Checks if a line is too long. -->
-            <property name="max" value="120"/>
-            <property name="severity" value="error"/>
-
-            <!--
-              The default ignore pattern exempts the following elements:
-                - import statements
-                - long URLs inside comments
-            -->
-
-            <property name="ignorePattern"
-                      value="^(package .*;\s*)|(import .*;\s*)|( *\* .*https?://.*)$"/>
-        </module>
-
         <module name="LeftCurly">
             <!-- Checks for placement of the left curly brace ('{'). -->
             <property name="severity" value="error"/>
@@ -346,22 +349,6 @@ page at http://checkstyle.sourceforge.net/config.html -->
 
         <!-- Detects empty statements (standalone ";" semicolon). -->
         <module name="EmptyStatement"/>
-
-        <!--
-
-        MODIFIERS CHECKS
-
-        -->
-
-        <module name="ModifierOrder">
-            <!-- Warn if modifier order is inconsistent with JLS3 8.1.1, 8.3.1, and
-                 8.4.3.  The prescribed order is:
-                 public, protected, private, abstract, static, final, transient, volatile,
-                 synchronized, native, strictfp
-              -->
-            <property name="severity" value="error"/>
-        </module>
-
 
         <!--
 
@@ -433,8 +420,6 @@ page at http://checkstyle.sourceforge.net/config.html -->
             <property name="severity" value="error"/>
         </module>
 
-        <!-- Required to support SuppressWarningsComment -->
-        <module name="FileContentsHolder"/>
 
     </module>
 </module>

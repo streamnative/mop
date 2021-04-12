@@ -16,11 +16,9 @@ package io.streamnative.pulsar.handlers.mqtt;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
-
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
 import lombok.extern.slf4j.Slf4j;
 
 /**
