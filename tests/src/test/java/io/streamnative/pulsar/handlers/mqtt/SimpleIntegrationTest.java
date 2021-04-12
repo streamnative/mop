@@ -14,11 +14,16 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.Schema;
+import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
+import org.fusesource.mqtt.client.MQTTException;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
@@ -88,30 +93,31 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-//    @Test
-//    public void testSendByMqttAndReceiveByPulsar() throws Exception {
-//        final String topicName = "persistent://public/default/testReceiveByPulsar";
-//        Consumer<byte[]> consumer = pulsarClient.newConsumer()
-//                .topic(topicName)
-//                .subscriptionName("my-sub")
-//                .subscribe();
-//
-//        MQTT mqtt = new MQTT();
-//        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
-//        BlockingConnection connection = mqtt.blockingConnection();
-//        connection.connect();
-//
-//        String message = "Hello MQTT";
-//        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
-//
-//        org.apache.pulsar.client.api.Message<byte[]> received = consumer.receive();
-//        Assert.assertNotNull(received);
-//        Assert.assertEquals(new String(received.getValue()), message);
-//        consumer.acknowledge(received);
-//
-//        consumer.close();
-//        connection.disconnect();
-//    }
+    @Test
+    public void testSendByMqttAndReceiveByPulsar() throws Exception {
+        final String topic = "persistent://public/default/testReceiveByPulsar";
+        Consumer<byte[]> consumer = pulsarClient.newConsumer()
+                .topic(topic)
+                .subscriptionName("my-sub")
+                .subscribe();
+
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+
+        String message = "Hello MQTT";
+
+        connection.publish(topic, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+
+        org.apache.pulsar.client.api.Message<byte[]> received = consumer.receive();
+        Assert.assertNotNull(received);
+        Assert.assertEquals(new String(received.getValue()), message);
+        consumer.acknowledge(received);
+
+        consumer.close();
+        connection.disconnect();
+    }
 
     @Test(dataProvider = "batchEnabled")
     public void testSendByPulsarAndReceiveByMqtt(boolean batchEnabled) throws Exception {
@@ -194,10 +200,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test(dataProvider = "batchEnabled")
-    public void testBacklogShouldBeZeroWithQos0AndSendByPulsar(boolean batchEnabled) throws Exception {
-        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0AndSendByPulsar-"
-                + batchEnabled;
+    @Test
+    public void testBacklogShouldBeZeroWithQos0AndSendByPulsar() throws Exception {
+        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0AndSendByPulsar-";
         MQTT mqtt = new MQTT();
         mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection = mqtt.blockingConnection();
@@ -210,7 +215,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Producer<String> producer = pulsarClient.newProducer(Schema.STRING)
                 .topic(topicName)
                 .blockIfQueueFull(true)
-                .enableBatching(batchEnabled)
+                .enableBatching(false)
                 .create();
         for (int i = 0; i < messages; i++) {
             producer.sendAsync(message + i);
@@ -225,5 +230,89 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertEquals(admin.topics().getStats(topicName)
                 .subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
         connection.disconnect();
+    }
+
+    @Test
+    public void testBacklogShouldBeZeroWithQos1AndSendByPulsar() throws Exception {
+        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos1AndSendByPulsar";
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+
+        int messages = 10000;
+        Producer<String> producer = pulsarClient.newProducer(Schema.STRING)
+                .topic(topicName)
+                .blockIfQueueFull(true)
+                .enableBatching(false)
+                .create();
+        for (int i = 0; i < messages; i++) {
+            producer.sendAsync(message + i);
+        }
+
+        for (int i = 0; i < messages; i++) {
+            Message received = connection.receive();
+            Assert.assertEquals(new String(received.getPayload()), (message + i));
+            received.ack();
+        }
+
+        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
+        Awaitility.await().atMost(3, TimeUnit.SECONDS).untilAsserted(() ->
+                Assert.assertEquals(admin.topics().getStats(topicName)
+                .subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0));
+        connection.disconnect();
+    }
+
+    @Test
+    public void testSubscribeRejectionWithSameClientId() throws Exception {
+        final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
+        MQTT mqtt = new MQTT();
+        mqtt.setClientId("client-id-0");
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        BlockingConnection connection1 = mqtt.blockingConnection();
+        connection1.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection1.subscribe(topics);
+
+        Assert.assertTrue(connection1.isConnected());
+
+        BlockingConnection connection2;
+        try {
+            connection2 = mqtt.blockingConnection();
+            connection2.connect();
+            connection2.subscribe(topics);
+            Assert.fail("Should failed with CONNECTION_REFUSED_IDENTIFIER_REJECTED");
+        } catch (MQTTException e){
+            Assert.assertTrue(e.getMessage().contains("CONNECTION_REFUSED_IDENTIFIER_REJECTED"));
+        }
+    }
+
+    @Test
+    public void testSubscribeWithSameClientId() throws Exception {
+        final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
+        MQTT mqtt = new MQTT();
+        mqtt.setClientId("client-id-1");
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        BlockingConnection connection1 = mqtt.blockingConnection();
+        connection1.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection1.subscribe(topics);
+
+        Assert.assertTrue(connection1.isConnected());
+        connection1.disconnect();
+
+        Awaitility.await().atMost(3, TimeUnit.SECONDS).untilAsserted(() ->
+                Assert.assertFalse(connection1.isConnected()));
+
+        BlockingConnection connection2 = mqtt.blockingConnection();
+        connection2.connect();
+        connection2.subscribe(topics);
+
+        Assert.assertTrue(connection2.isConnected());
+
+        connection2.disconnect();
     }
 }

@@ -122,7 +122,6 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqtt.setAuthorizationEnabled(false);
         mqtt.setAllowAutoTopicCreation(true);
         mqtt.setBrokerDeleteInactiveTopicsEnabled(false);
-        mqtt.setAllowAutoTopicCreationType("partitioned");
 
         // set protocol related config
         URL testHandlerUrl = this.getClass().getClassLoader().getResource("test-protocol-handler.nar");
