@@ -59,9 +59,18 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         };
     }
 
-    @Test
-    public void testSimpleMqttPubAndSubQos0() throws Exception {
-        final String topicName = "persistent://public/default/qos0";
+    @DataProvider(name = "mqttTopicNames")
+    public Object[][] mqttTopicNames() {
+        return new Object[][] {
+                { "public/default/t0" },
+                { "/public/default/t0" },
+                { "public/default/t0/" },
+                { "/public/default/t0/" }
+        };
+    }
+
+    @Test(dataProvider = "mqttTopicNames")
+    public void testSimpleMqttPubAndSubQos0(String topicName) throws Exception {
         MQTT mqtt = new MQTT();
         mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection = mqtt.blockingConnection();
@@ -76,9 +85,8 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test
-    public void testSimpleMqttPubAndSubQos1() throws Exception {
-        final String topicName = "persistent://public/default/qos1";
+    @Test(dataProvider = "mqttTopicNames")
+    public void testSimpleMqttPubAndSubQos1(String topicName) throws Exception {
         MQTT mqtt = new MQTT();
         mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection = mqtt.blockingConnection();
