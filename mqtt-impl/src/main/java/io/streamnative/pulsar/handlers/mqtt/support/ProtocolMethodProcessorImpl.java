@@ -129,12 +129,13 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         if (existing != null) {
             log.info("The client ID is being used in an existing connection. It will be closed. CId={}", clientId);
             existing.abort();
+            sendAck(descriptor, MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, clientId);
             return;
         }
 
         initializeKeepAliveTimeout(channel, msg, clientId);
 
-        if (!sendAck(descriptor, msg, clientId)) {
+        if (!sendAck(descriptor, MqttConnectReturnCode.CONNECTION_ACCEPTED, clientId)) {
             channel.close();
             return;
         }
@@ -382,14 +383,14 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         return new MqttConnAckMessage(mqttFixedHeader, mqttConnAckVariableHeader);
     }
 
-    private boolean sendAck(ConnectionDescriptor descriptor, MqttConnectMessage msg, final String clientId) {
+    private boolean sendAck(ConnectionDescriptor descriptor, MqttConnectReturnCode returnCode, final String clientId) {
         log.info("Sending connect ACK. CId={}", clientId);
         final boolean success = descriptor.assignState(DISCONNECTED, SENDACK);
         if (!success) {
             return false;
         }
 
-        MqttConnAckMessage okResp = connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED);
+        MqttConnAckMessage okResp = connAck(returnCode);
 
         descriptor.writeAndFlush(okResp);
         log.info("The connect ACK has been sent. CId={}", clientId);

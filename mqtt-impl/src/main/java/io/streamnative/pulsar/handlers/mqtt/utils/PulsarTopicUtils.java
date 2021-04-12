@@ -60,6 +60,8 @@ public class PulsarTopicUtils {
                                 promise.completeExceptionally(e);
                                 return null;
                             });
+                } else {
+                    promise.complete(subscription);
                 }
             }
         });
