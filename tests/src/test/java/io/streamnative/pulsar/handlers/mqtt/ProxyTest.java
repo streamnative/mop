@@ -21,8 +21,8 @@ import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -31,13 +31,13 @@ import org.testng.annotations.Test;
  */
 @Slf4j
 public class ProxyTest extends MQTTTestBase {
-    @BeforeClass
+    @BeforeMethod
     @Override
     protected void setup() throws Exception {
         super.setup();
     }
 
-    @AfterClass
+    @AfterMethod
     @Override
     protected void cleanup() throws Exception {
         super.cleanup();
