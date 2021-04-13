@@ -26,6 +26,8 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.service.BrokerServiceException;
+import org.apache.zookeeper.KeeperException;
 
 /**
  * Publish handler implementation for Qos 1.
@@ -50,6 +52,13 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                 sendPubAck(topic, clientId, msg.variableHeader().packetId());
             } else {
                 log.error("[{}] Write {} to Pulsar topic failed.", topic, msg, e);
+                Throwable cause = e.getCause();
+                if (cause instanceof BrokerServiceException.ServerMetadataException) {
+                    cause = cause.getCause();
+                    if (cause instanceof KeeperException.NoNodeException) {
+                        channel.close();
+                    }
+                }
             }
         });
     }
