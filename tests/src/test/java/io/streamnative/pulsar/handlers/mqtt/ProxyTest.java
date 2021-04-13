@@ -23,6 +23,7 @@ import org.fusesource.mqtt.client.Topic;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
@@ -42,12 +43,21 @@ public class ProxyTest extends MQTTTestBase {
         super.cleanup();
     }
 
-    @Test
-    public void mqttProxyTest() throws Exception {
+    @DataProvider(name = "mqttTopicNames")
+    public Object[][] mqttTopicNames() {
+        return new Object[][] {
+                { "public/default/t0" },
+                { "/public/default/t0" },
+                { "public/default/t0/" },
+                { "/public/default/t0/" }
+        };
+    }
+
+    @Test(dataProvider = "mqttTopicNames")
+    public void mqttProxyTest(String topicName) throws Exception {
         setBrokerCount(3);
         int proxyPort = getProxyPort();
         log.info("proxy port value: {}", proxyPort);
-        final String topicName = "persistent://public/default/proxy";
         MQTT mqtt = new MQTT();
         mqtt.setHost("127.0.0.1", proxyPort);
         BlockingConnection connection = mqtt.blockingConnection();
