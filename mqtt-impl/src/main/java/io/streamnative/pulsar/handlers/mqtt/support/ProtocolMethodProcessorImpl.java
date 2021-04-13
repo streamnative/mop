@@ -268,7 +268,8 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
                     .getOrCreateSubscription(pulsarService, ackTopic.topicName(), clientID);
             future.thenAccept(sub -> {
                     try {
-                        MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(), clientID, serverCnx,
+                        MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(),
+                                PulsarTopicUtils.getPulsarTopicName(ackTopic.topicName()), clientID, serverCnx,
                                 ackTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer);
                         sub.addConsumer(consumer);
                         consumer.addAllPermits();
@@ -309,7 +310,8 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
                     Subscription subscription = topicOp.get().getSubscription(clientID);
                     if (subscription != null) {
                         try {
-                            MQTTConsumer consumer = new MQTTConsumer(subscription, topic, clientID, serverCnx, qos,
+                            MQTTConsumer consumer = new MQTTConsumer(subscription, topic,
+                                    PulsarTopicUtils.getPulsarTopicName(topic), clientID, serverCnx, qos,
                                     packetIdGenerator, outstandingPacketContainer);
                             topicOp.get().getSubscription(clientID).removeConsumer(consumer);
                             topicOp.get().unsubscribe(clientID);
@@ -410,7 +412,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
 
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
             MqttQoS qos = req.qualityOfService();
-            ackTopics.add(new MqttTopicSubscription(PulsarTopicUtils.getPulsarTopicName(req.topicName()), qos));
+            ackTopics.add(new MqttTopicSubscription(req.topicName(), qos));
         }
         return ackTopics;
     }

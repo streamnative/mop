@@ -39,7 +39,8 @@ import org.apache.pulsar.common.api.proto.PulsarApi;
  */
 public class MQTTConsumer extends Consumer {
 
-    private final String topicName;
+    private final String pulsarTopicName;
+    private final String mqttTopicName;
     private final MQTTServerCnx cnx;
     private final MqttQoS qos;
     private final PacketIdGenerator packetIdGenerator;
@@ -53,13 +54,14 @@ public class MQTTConsumer extends Consumer {
     private volatile int addPermits = 0;
     private final int maxPermits = 1000;
 
-    public MQTTConsumer(Subscription subscription, String topicName, String consumerName, MQTTServerCnx cnx,
-                        MqttQoS qos, PacketIdGenerator packetIdGenerator,
+    public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, String consumerName,
+                        MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
                         OutstandingPacketContainer outstandingPacketContainer)
             throws BrokerServiceException {
-        super(subscription, PulsarApi.CommandSubscribe.SubType.Shared, topicName, 0, 0, consumerName, 0, cnx,
+        super(subscription, PulsarApi.CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
                 "", null, false, PulsarApi.CommandSubscribe.InitialPosition.Latest, null);
-        this.topicName = topicName;
+        this.pulsarTopicName = pulsarTopicName;
+        this.mqttTopicName = mqttTopicName;
         this.cnx = cnx;
         this.qos = qos;
         this.packetIdGenerator = packetIdGenerator;
@@ -79,7 +81,7 @@ public class MQTTConsumer extends Consumer {
                 outstandingPacketContainer.add(new OutstandingPacket(this, packetId, entry.getLedgerId(),
                         entry.getEntryId()));
             }
-            List<MqttPublishMessage> messages = PulsarMessageConverter.toMqttMessages(topicName, entry,
+            List<MqttPublishMessage> messages = PulsarMessageConverter.toMqttMessages(mqttTopicName, entry,
                     packetId, qos);
             for (MqttPublishMessage msg : messages) {
                 cnx.ctx().channel().write(msg);
@@ -132,6 +134,6 @@ public class MQTTConsumer extends Consumer {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), topicName, cnx);
+        return Objects.hash(super.hashCode(), pulsarTopicName, cnx);
     }
 }
