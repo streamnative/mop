@@ -38,6 +38,7 @@ import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -116,7 +117,8 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         log.info("processPublish...");
         CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
         try {
-            lookupResult = lookupHandler.findBroker(TopicName.get(msg.variableHeader().topicName()), "mqtt");
+            lookupResult = lookupHandler.findBroker(
+                    TopicName.get(PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName())), "mqtt");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -127,7 +129,8 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                 return;
             }
 
-            proxyHandler = proxyHandlerMap.computeIfAbsent(msg.variableHeader().topicName(), key -> {
+            proxyHandler = proxyHandlerMap.computeIfAbsent
+                    (PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName()), key -> {
                 try {
                     return new ProxyHandler(proxyService,
                             proxyConnection,
@@ -224,13 +227,15 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
             CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
             try {
-                lookupResult = lookupHandler.findBroker(TopicName.get(req.topicName()), "mqtt");
+                lookupResult = lookupHandler.findBroker(
+                        TopicName.get(PulsarTopicUtils.getPulsarTopicName(req.topicName())), "mqtt");
             } catch (Exception e) {
                 e.printStackTrace();
             }
 
             lookupResult.whenComplete((pair, throwable) -> {
-                proxyHandler = proxyHandlerMap.computeIfAbsent(req.topicName(), key -> {
+                proxyHandler = proxyHandlerMap.computeIfAbsent(
+                        PulsarTopicUtils.getPulsarTopicName(req.topicName()), key -> {
                     try {
                         return new ProxyHandler(proxyService,
                                 proxyConnection,
