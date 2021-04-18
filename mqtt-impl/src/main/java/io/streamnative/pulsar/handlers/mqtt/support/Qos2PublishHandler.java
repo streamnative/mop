@@ -18,12 +18,14 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 
 
 /**
  * Publish handler implementation for Qos 2.
  */
+@Slf4j
 public class Qos2PublishHandler extends AbstractQosPublishHandler {
 
     public Qos2PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration,
@@ -33,6 +35,7 @@ public class Qos2PublishHandler extends AbstractQosPublishHandler {
 
     @Override
     public void receivePublish(Channel channel, MqttPublishMessage msg) {
-
+        log.error("[{}] Failed to write data due to QoS2 does not support.", msg.variableHeader().topicName());
+        channel.close();
     }
 }
