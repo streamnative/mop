@@ -142,3 +142,31 @@ The following example shows how to verify the MoP protocol handler with FuseSour
     // receive message
     Message received = connection.receive();
     ```
+
+### Enabling Authentication
+
+MoP currently supports `basic` and `token` authentication methods. The `token` authentication method works
+with any of the token based Pulsar authentication providers such as the built-in JWT provider and external token
+authentication providers like [biscuit-pulsar](https://github.com/CleverCloud/biscuit-pulsar).
+
+To use authentication for MQTT connections your Pulsar cluster must already have authentication enabled with your
+chosen authentication provider(s) configured.
+
+You can then enable MQTT configuration with the following configuration properties:
+```yaml
+mqttAuthenticationEnabled=true
+mqttAuthenticationMethods=token
+```
+
+`mqttAuthenticationMethods` can be set to a comma delimited list if you wish to enable multiple authentication providers.
+MoP will attempt each in order when authenticating client connections.
+
+With authentication enabled MoP will not allow anonymous connections currently.
+
+#### Authenticating client connections
+
+##### Basic Authentication
+Set the MQTT username and password client settings.
+
+##### Token Authentication
+Set the MQTT password to the token body, currently username will be disregarded but MUST be set to some value as this is required by the MQTT specification.

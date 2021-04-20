@@ -70,8 +70,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
     @Test(dataProvider = "mqttTopicNames")
     public void testSimpleMqttPubAndSubQos0(String topicName) throws Exception {
-        MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        MQTT mqtt = createMQTTClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
@@ -86,8 +85,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
     @Test(dataProvider = "mqttTopicNames")
     public void testSimpleMqttPubAndSubQos1(String topicName) throws Exception {
-        MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        MQTT mqtt = createMQTTClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -108,8 +106,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
                 .subscriptionName("my-sub")
                 .subscribe();
 
-        MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        MQTT mqtt = createMQTTClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
 
@@ -129,8 +126,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test(dataProvider = "batchEnabled")
     public void testSendByPulsarAndReceiveByMqtt(boolean batchEnabled) throws Exception {
         final String topicName = "persistent://public/default/testSendByPulsarAndReceiveByMqtt";
-        MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        MQTT mqtt = createMQTTClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -154,8 +150,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test
     public void testBacklogShouldBeZeroWithQos0() throws Exception {
         final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0";
-        MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        MQTT mqtt = createMQTTClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
@@ -181,8 +176,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test
     public void testBacklogShouldBeZeroWithQos1() throws Exception {
         final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos1";
-        MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        MQTT mqtt = createMQTTClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -210,8 +204,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test
     public void testBacklogShouldBeZeroWithQos0AndSendByPulsar() throws Exception {
         final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0AndSendByPulsar-";
-        MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        MQTT mqtt = createMQTTClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
@@ -242,8 +235,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test
     public void testBacklogShouldBeZeroWithQos1AndSendByPulsar() throws Exception {
         final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos1AndSendByPulsar";
-        MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        MQTT mqtt = createMQTTClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -276,9 +268,8 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test
     public void testSubscribeRejectionWithSameClientId() throws Exception {
         final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
-        MQTT mqtt = new MQTT();
+        MQTT mqtt = createMQTTClient();
         mqtt.setClientId("client-id-0");
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection1 = mqtt.blockingConnection();
         connection1.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -300,9 +291,8 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test
     public void testSubscribeWithSameClientId() throws Exception {
         final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
-        MQTT mqtt = new MQTT();
+        MQTT mqtt = createMQTTClient();
         mqtt.setClientId("client-id-1");
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
         BlockingConnection connection1 = mqtt.blockingConnection();
         connection1.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -321,5 +311,20 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertTrue(connection2.isConnected());
 
         connection2.disconnect();
+    }
+
+    @Test(dataProvider = "mqttTopicNames", timeOut = 120000)
+    public void testConnectionViaProxy(String topicName) throws Exception {
+        MQTT mqtt = createMQTTProxyClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT Proxy";
+        connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
     }
 }
