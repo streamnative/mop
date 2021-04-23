@@ -245,6 +245,9 @@ public abstract class MQTTProtocolHandlerTestBase {
             int mqttBrokerPort = PortManager.nextFreePort();
             mqttBrokerPortList.add(mqttBrokerPort);
 
+            int mqttBrokerTlsPort = PortManager.nextFreePort();
+            mqttBrokerPortList.add(mqttBrokerTlsPort);
+
             int mopProxyPort = PortManager.nextFreePort();
             mopProxyPortList.add(mopProxyPort);
 
@@ -255,7 +258,7 @@ public abstract class MQTTProtocolHandlerTestBase {
             brokerWebServicePortTlsList.add(brokerWebServicePortTls);
 
             conf.setBrokerServicePort(Optional.of(brokerPort));
-            ((MQTTServerConfiguration) conf).setMqttListeners("mqtt://127.0.0.1:" + mqttBrokerPort);
+            ((MQTTServerConfiguration) conf).setMqttListeners("mqtt://127.0.0.1:" + mqttBrokerPort + ",mqtt+ssl://127.0.0.1:" + mqttBrokerTlsPort);
             ((MQTTServerConfiguration) conf).setMqttProxyPort(mopProxyPort);
             ((MQTTServerConfiguration) conf).setMqttProxyEnable(true);
             conf.setWebServicePort(Optional.of(brokerWebServicePort));
