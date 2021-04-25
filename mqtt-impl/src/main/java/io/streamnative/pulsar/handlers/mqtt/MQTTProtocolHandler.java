@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.internal.tcnative.SSL;
 import io.streamnative.pulsar.handlers.mqtt.proxy.ProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.ProxyService;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;

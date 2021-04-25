@@ -14,6 +14,13 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.net.URI;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Consumer;
@@ -31,6 +38,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 
 /**
  * Simple integration tests for MQTT protocol handler.
@@ -72,6 +82,35 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     public void testSimpleMqttPubAndSubQos0(String topicName) throws Exception {
         MQTT mqtt = new MQTT();
         mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
+    }
+
+    @Test(dataProvider = "mqttTopicNames")
+    public void testSimpleMqttPubAndSubQos0Tls(String topicName) throws Exception {
+        MQTT mqtt = new MQTT();
+        mqtt.setHost(URI.create("ssl://127.0.0.1:" + getMqttBrokerPortList().get(1)));
+
+
+        File crtFile = new File(TLS_SERVER_CERT_FILE_PATH);
+        Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(null, null);
+        keyStore.setCertificateEntry("server", certificate);
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        trustManagerFactory.init(keyStore);
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+        mqtt.setSslContext(sslContext);
+
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
