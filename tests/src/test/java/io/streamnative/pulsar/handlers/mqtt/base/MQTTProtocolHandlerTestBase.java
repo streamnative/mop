@@ -66,10 +66,10 @@ import org.mockito.Mockito;
  */
 @Slf4j
 public abstract class MQTTProtocolHandlerTestBase {
-    public final String TLS_SERVER_CERT_FILE_PATH = "./src/test/resources/certificate/server.crt";
-    public final String TLS_SERVER_KEY_FILE_PATH = "./src/test/resources/certificate/server.key";
-    public final String TLS_CLIENT_CERT_FILE_PATH = "./src/test/resources/certificate/client.crt";
-    public final String TLS_CLIENT_KEY_FILE_PATH = "./src/test/resources/certificate/client.key";
+    public static final String TLS_SERVER_CERT_FILE_PATH = "./src/test/resources/certificate/server.crt";
+    public static final String TLS_SERVER_KEY_FILE_PATH = "./src/test/resources/certificate/server.key";
+    public static final String TLS_CLIENT_CERT_FILE_PATH = "./src/test/resources/certificate/client.crt";
+    public static final String TLS_CLIENT_KEY_FILE_PATH = "./src/test/resources/certificate/client.key";
 
     protected ServiceConfiguration conf;
     protected PulsarAdmin admin;
@@ -269,7 +269,9 @@ public abstract class MQTTProtocolHandlerTestBase {
             brokerWebServicePortTlsList.add(brokerWebServicePortTls);
 
             conf.setBrokerServicePort(Optional.of(brokerPort));
-            ((MQTTServerConfiguration) conf).setMqttListeners("mqtt://127.0.0.1:" + mqttBrokerPort + ",mqtt+ssl://127.0.0.1:" + mqttBrokerTlsPort);
+            String plaintextListener = "mqtt://127.0.0.1:" + mqttBrokerPort;
+            String tlsListener = "mqtt+ssl://127.0.0.1:" + mqttBrokerTlsPort;
+            ((MQTTServerConfiguration) conf).setMqttListeners(plaintextListener + "," + tlsListener);
             ((MQTTServerConfiguration) conf).setMqttProxyPort(mopProxyPort);
             ((MQTTServerConfiguration) conf).setMqttProxyEnable(true);
             conf.setBrokerServicePortTls(Optional.of(brokerPortTls));

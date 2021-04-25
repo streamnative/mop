@@ -68,12 +68,15 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
                     mqttConfig.getTlsProtocols(),
                     mqttConfig.getTlsCertRefreshCheckDurationSec());
             } else {
-                sslCtxRefresher = new NettyServerSslContextBuilder(mqttConfig.isTlsAllowInsecureConnection(),
-                                                                   mqttConfig.getTlsTrustCertsFilePath(), mqttConfig.getTlsCertificateFilePath(),
-                                                                   mqttConfig.getTlsKeyFilePath(),
-                                                                   mqttConfig.getTlsCiphers(), mqttConfig.getTlsProtocols(),
-                                                                   mqttConfig.isTlsRequireTrustedClientCertOnConnect(),
-                                                                   mqttConfig.getTlsCertRefreshCheckDurationSec());
+                sslCtxRefresher = new NettyServerSslContextBuilder(
+                    mqttConfig.isTlsAllowInsecureConnection(),
+                    mqttConfig.getTlsTrustCertsFilePath(),
+                    mqttConfig.getTlsCertificateFilePath(),
+                    mqttConfig.getTlsKeyFilePath(),
+                    mqttConfig.getTlsCiphers(),
+                    mqttConfig.getTlsProtocols(),
+                    mqttConfig.isTlsRequireTrustedClientCertOnConnect(),
+                    mqttConfig.getTlsCertRefreshCheckDurationSec());
             }
         } else {
             this.sslCtxRefresher = null;
