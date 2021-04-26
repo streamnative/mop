@@ -38,8 +38,9 @@ public class MQTTProtocolHandler implements ProtocolHandler {
 
     public static final String PROTOCOL_NAME = "mqtt";
     public static final String PLAINTEXT_PREFIX = "mqtt://";
+    public static final String SSL_PREFIX = "mqtt+ssl://";
     public static final String LISTENER_DEL = ",";
-    public static final String LISTENER_PATTEN = "^(mqtt)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
+    public static final String LISTENER_PATTEN = "^(mqtt)(\\+ssl)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
 
     @Getter
     private MQTTServerConfiguration mqttConfig;
@@ -129,11 +130,14 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                 if (listener.startsWith(PLAINTEXT_PREFIX)) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(brokerService.pulsar(),
-                                    mqttConfig));
+                            new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, false));
+                } else if (listener.startsWith(SSL_PREFIX)) {
+                    builder.put(
+                        new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
+                        new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, true));
                 } else {
-                    log.error("MQTT listener {} not supported. supports {}",
-                            listener, PLAINTEXT_PREFIX);
+                    log.error("MQTT listener {} not supported. supports {} or {}",
+                              listener, PLAINTEXT_PREFIX, SSL_PREFIX);
                 }
             }
 
