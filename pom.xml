@@ -67,7 +67,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.pulsar</groupId>
+            <groupId>io.streamnative</groupId>
             <artifactId>pulsar-broker</artifactId>
             <version>${pulsar.version}</version>
         </dependency>
