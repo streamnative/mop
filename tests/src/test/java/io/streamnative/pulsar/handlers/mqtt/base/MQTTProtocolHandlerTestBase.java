@@ -66,8 +66,7 @@ import org.mockito.Mockito;
  */
 @Slf4j
 public abstract class MQTTProtocolHandlerTestBase {
-
-    protected ServiceConfiguration conf;
+    protected MQTTServerConfiguration conf;
     protected PulsarAdmin admin;
     protected URL brokerUrl;
     protected URL brokerUrlTls;
@@ -148,6 +147,7 @@ public abstract class MQTTProtocolHandlerTestBase {
             lookupUrl = new URI("broker://localhost:" + brokerPortList.get(0));
         }
         pulsarClient = newPulsarClient(lookupUrl.toString(), 0);
+        admin = spy(PulsarAdmin.builder().serviceHttpUrl(brokerUrl.toString()).build());
     }
 
     protected PulsarClient newPulsarClient(String url, int intervalInSecs) throws PulsarClientException {
@@ -170,8 +170,6 @@ public abstract class MQTTProtocolHandlerTestBase {
                 + pulsarServiceList.get(0).getConfiguration().getWebServicePort().get());
         brokerUrlTls = new URL("https://" + pulsarServiceList.get(0).getAdvertisedAddress() + ":"
                 + pulsarServiceList.get(0).getConfiguration().getWebServicePortTls().get());
-
-        admin = spy(PulsarAdmin.builder().serviceHttpUrl(brokerUrl.toString()).build());
     }
 
     protected final void internalCleanup() throws Exception {

@@ -24,7 +24,7 @@ import io.netty.handler.timeout.IdleStateHandler;
  */
 public class ServiceChannelInitializer extends ChannelInitializer<SocketChannel> {
 
-    private ProxyService proxyService;
+    private final ProxyService proxyService;
 
     public ServiceChannelInitializer(ProxyService proxyService) {
         this.proxyService = proxyService;
