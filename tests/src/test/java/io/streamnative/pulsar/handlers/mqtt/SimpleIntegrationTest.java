@@ -37,7 +37,7 @@ import org.testng.annotations.Test;
  */
 @Slf4j
 public class SimpleIntegrationTest extends MQTTTestBase {
-
+    private final int numMessages = 1000;
     @BeforeClass
     @Override
     public void setup() throws Exception {
@@ -157,12 +157,11 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.subscribe(topics);
         String message = "Hello MQTT";
 
-        int messages = 10000;
-        for (int i = 0; i < messages; i++) {
+        for (int i = 0; i < numMessages; i++) {
             connection.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
         }
 
-        for (int i = 0; i < messages; i++) {
+        for (int i = 0; i < numMessages; i++) {
             Message received = connection.receive();
             Assert.assertEquals(new String(received.getPayload()), (message + i));
         }
@@ -183,12 +182,11 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.subscribe(topics);
         String message = "Hello MQTT";
 
-        int messages = 10000;
-        for (int i = 0; i < messages; i++) {
+        for (int i = 0; i < numMessages; i++) {
             connection.publish(topicName, (message + i).getBytes(), QoS.AT_LEAST_ONCE, false);
         }
 
-        for (int i = 0; i < messages; i++) {
+        for (int i = 0; i < numMessages; i++) {
             Message received = connection.receive();
             Assert.assertEquals(new String(received.getPayload()), (message + i));
             received.ack();
@@ -211,17 +209,16 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.subscribe(topics);
         String message = "Hello MQTT";
 
-        int messages = 10000;
         Producer<String> producer = pulsarClient.newProducer(Schema.STRING)
                 .topic(topicName)
                 .blockIfQueueFull(true)
                 .enableBatching(false)
                 .create();
-        for (int i = 0; i < messages; i++) {
+        for (int i = 0; i < numMessages; i++) {
             producer.sendAsync(message + i);
         }
 
-        for (int i = 0; i < messages; i++) {
+        for (int i = 0; i < numMessages; i++) {
             Message received = connection.receive();
             Assert.assertEquals(new String(received.getPayload()), (message + i));
         }
@@ -242,17 +239,16 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.subscribe(topics);
         String message = "Hello MQTT";
 
-        int messages = 10000;
         Producer<String> producer = pulsarClient.newProducer(Schema.STRING)
                 .topic(topicName)
                 .blockIfQueueFull(true)
                 .enableBatching(false)
                 .create();
-        for (int i = 0; i < messages; i++) {
+        for (int i = 0; i < numMessages; i++) {
             producer.sendAsync(message + i);
         }
 
-        for (int i = 0; i < messages; i++) {
+        for (int i = 0; i < numMessages; i++) {
             Message received = connection.receive();
             Assert.assertEquals(new String(received.getPayload()), (message + i));
             received.ack();
