@@ -21,11 +21,15 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Map;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.client.api.AuthenticationFactory;
+import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
+import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
 import org.apache.pulsar.zookeeper.ZooKeeperClientFactory;
 
@@ -56,14 +60,22 @@ public class ProxyService implements Closeable {
 
     private ZooKeeperClientFactory zkClientFactory = null;
 
+    @Getter
+    private Map<String, AuthenticationProvider> authProviders;
+
     private String tenant;
 
-    public ProxyService(ProxyConfiguration proxyConfig, PulsarService pulsarService) {
+    public ProxyService(
+        ProxyConfiguration proxyConfig,
+        PulsarService pulsarService,
+        Map<String, AuthenticationProvider> authProviders
+    ) {
         configValid(proxyConfig);
 
         this.proxyConfig = proxyConfig;
         this.pulsarService = pulsarService;
         this.tenant = this.proxyConfig.getMqttTenant();
+        this.authProviders = authProviders;
         acceptorGroup = EventLoopUtil.newEventLoopGroup(1, false, acceptorThreadFactory);
         workerGroup = EventLoopUtil.newEventLoopGroup(numThreads, false, workerThreadFactory);
     }
@@ -87,10 +99,7 @@ public class ProxyService implements Closeable {
             throw new IOException("Failed to bind Pulsar Proxy on port " + proxyConfig.getMqttProxyPort(), e);
         }
 
-        this.pulsarClient = (PulsarClientImpl) PulsarClient.builder()
-                .serviceUrl(proxyConfig.getBrokerServiceURL())
-                .build();
-
+        this.pulsarClient = new PulsarClientImpl(createClientConfiguration());
         this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, pulsarClient);
     }
 
@@ -99,5 +108,18 @@ public class ProxyService implements Closeable {
         if (listenChannel != null) {
             listenChannel.close();
         }
+    }
+
+    private ClientConfigurationData createClientConfiguration()
+        throws PulsarClientException.UnsupportedAuthenticationException {
+        ClientConfigurationData clientConf = new ClientConfigurationData();
+        clientConf.setServiceUrl(proxyConfig.getBrokerServiceURL());
+        if (proxyConfig.getBrokerClientAuthenticationPlugin() != null) {
+            clientConf.setAuthentication(AuthenticationFactory.create(
+                proxyConfig.getBrokerClientAuthenticationPlugin(),
+                proxyConfig.getBrokerClientAuthenticationParameters())
+            );
+        }
+        return clientConf;
     }
 }

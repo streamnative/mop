@@ -105,8 +105,8 @@ public class PulsarMessageConverter {
     }
 
     // convert message to ByteBuf payload for ledger.addEntry.
-    // parameter message is converted from passed in Kafka record.
-    // called when publish received Kafka Record into Pulsar.
+    // parameter message is converted from passed in MQTT message.
+    // called when publish receives MQTT message to write into Pulsar.
     public static ByteBuf messageToByteBuf(Message<byte[]> message) {
         checkArgument(message instanceof MessageImpl);
 
