@@ -166,9 +166,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
             Assert.assertEquals(new String(received.getPayload()), (message + i));
         }
 
-        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
+        Assert.assertEquals(admin.topics().getStats(topicName).getSubscriptions().size(), 1);
         Assert.assertEquals(admin.topics().getStats(topicName)
-                .subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
+                .getSubscriptions().entrySet().iterator().next().getValue().getMsgBacklog(), 0);
         connection.disconnect();
     }
 
@@ -193,9 +193,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         }
 
         Thread.sleep(1000);
-        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
+        Assert.assertEquals(admin.topics().getStats(topicName).getSubscriptions().size(), 1);
         Assert.assertEquals(admin.topics().getStats(topicName)
-                .subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
+                .getSubscriptions().entrySet().iterator().next().getValue().getMsgBacklog(), 0);
         connection.disconnect();
     }
 
@@ -223,9 +223,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
             Assert.assertEquals(new String(received.getPayload()), (message + i));
         }
 
-        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
+        Assert.assertEquals(admin.topics().getStats(topicName).getSubscriptions().size(), 1);
         Assert.assertEquals(admin.topics().getStats(topicName)
-                .subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0);
+                .getSubscriptions().entrySet().iterator().next().getValue().getMsgBacklog(), 0);
         connection.disconnect();
     }
 
@@ -254,10 +254,10 @@ public class SimpleIntegrationTest extends MQTTTestBase {
             received.ack();
         }
 
-        Assert.assertEquals(admin.topics().getStats(topicName).subscriptions.size(), 1);
+        Assert.assertEquals(admin.topics().getStats(topicName).getSubscriptions().size(), 1);
         Awaitility.await().atMost(3, TimeUnit.SECONDS).untilAsserted(() ->
                 Assert.assertEquals(admin.topics().getStats(topicName)
-                .subscriptions.entrySet().iterator().next().getValue().msgBacklog, 0));
+                .getSubscriptions().entrySet().iterator().next().getValue().getMsgBacklog(), 0));
         connection.disconnect();
     }
 

@@ -76,8 +76,8 @@ public class ProxyService implements Closeable {
         this.pulsarService = pulsarService;
         this.tenant = this.proxyConfig.getMqttTenant();
         this.authProviders = authProviders;
-        acceptorGroup = EventLoopUtil.newEventLoopGroup(1, acceptorThreadFactory);
-        workerGroup = EventLoopUtil.newEventLoopGroup(numThreads, workerThreadFactory);
+        acceptorGroup = EventLoopUtil.newEventLoopGroup(1, false, acceptorThreadFactory);
+        workerGroup = EventLoopUtil.newEventLoopGroup(numThreads, false, workerThreadFactory);
     }
 
     private void configValid(ProxyConfiguration proxyConfig) {
