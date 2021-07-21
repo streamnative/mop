@@ -13,6 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import com.google.common.collect.ImmutableList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.pulsar.common.configuration.Category;
@@ -31,6 +33,10 @@ public class ProxyConfiguration {
     private static final String CATEGORY_MQTT_PROXY = "MQTT Proxy";
     @Category
     private static final String CATEGORY_BROKER_DISCOVERY = "Broker Discovery";
+    @Category(
+        description = "the settings are for configuring how proxies authenticates with Pulsar brokers"
+    )
+    private static final String CATEGORY_CLIENT_AUTHENTICATION = "Broker Client Authorization";
 
     @FieldContext(
             category = CATEGORY_MQTT,
@@ -38,6 +44,19 @@ public class ProxyConfiguration {
             doc = "Mqtt on Pulsar Broker tenant"
     )
     private String mqttTenant = "public";
+
+    @FieldContext(
+        category = CATEGORY_MQTT,
+        required = false,
+        doc = "Whether enable authentication for MQTT."
+    )
+    private boolean mqttAuthenticationEnabled = false;
+
+    @FieldContext(
+        category = CATEGORY_MQTT,
+        doc = "A comma-separated list of authentication methods to enable."
+    )
+    private List<String> mqttAuthenticationMethods = ImmutableList.of();
 
     @FieldContext(
             category = CATEGORY_MQTT,
@@ -73,4 +92,14 @@ public class ProxyConfiguration {
     )
     private String brokerServiceURL;
 
+    @FieldContext(
+        category = CATEGORY_CLIENT_AUTHENTICATION,
+        doc = "The authentication plugin used by the Pulsar proxy to authenticate with Pulsar brokers"
+    )
+    private String brokerClientAuthenticationPlugin;
+    @FieldContext(
+        category = CATEGORY_CLIENT_AUTHENTICATION,
+        doc = "The authentication parameters used by the Pulsar proxy to authenticate with Pulsar brokers"
+    )
+    private String brokerClientAuthenticationParameters;
 }

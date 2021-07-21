@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.pulsar.broker.ServiceConfiguration;
@@ -41,6 +42,19 @@ public class MQTTServerConfiguration extends ServiceConfiguration {
             doc = "Listener for the MQTT Server."
     )
     private String mqttListeners = "mqtt://127.0.0.1:1883";
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            required = false,
+            doc = "Whether enable authentication for MQTT."
+    )
+    private boolean mqttAuthenticationEnabled = false;
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            doc = "A comma-separated list of authentication methods to enable."
+    )
+    private List<String> mqttAuthenticationMethods;
 
     @FieldContext(
             category = CATEGORY_MQTT,
@@ -90,4 +104,6 @@ public class MQTTServerConfiguration extends ServiceConfiguration {
             doc = "Whether start mqtt protocol handler with proxy"
     )
     private boolean mqttProxyEnable = false;
+
+
 }

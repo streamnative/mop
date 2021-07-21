@@ -48,48 +48,59 @@ import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
+import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Subscription;
-import org.apache.pulsar.common.api.proto.PulsarApi;
+import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.util.FutureUtil;
+
 
 /**
  * Default implementation of protocol method processor.
  */
 @Slf4j
 public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
-
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
     private MQTTServerCnx serverCnx;
     private final PacketIdGenerator packetIdGenerator;
     private final OutstandingPacketContainer outstandingPacketContainer;
+    private final Map<String, AuthenticationProvider> authProviders;
 
 
-    public ProtocolMethodProcessorImpl(PulsarService pulsarService, MQTTServerConfiguration configuration) {
+    public ProtocolMethodProcessorImpl(
+        PulsarService pulsarService,
+        MQTTServerConfiguration configuration,
+        Map<String, AuthenticationProvider> authProviders
+    ) {
         this.pulsarService = pulsarService;
         this.configuration = configuration;
         this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration);
         this.packetIdGenerator = PacketIdGenerator.newNonZeroGenerator();
         this.outstandingPacketContainer = new OutstandingPacketContainerImpl();
+        this.authProviders = authProviders;
     }
 
     @Override
     public void processConnect(Channel channel, MqttConnectMessage msg) {
         MqttConnectPayload payload = msg.payload();
         String clientId = payload.clientIdentifier();
-        log.info("process CONNECT message. CId={}, username={}", clientId, payload.userName());
+        String username = payload.userName();
+        log.info("process CONNECT message. CId={}, username={}", clientId, username);
 
         // Check MQTT protocol version.
         if (msg.variableHeader().version() != MqttVersion.MQTT_3_1.protocolLevel()
@@ -110,14 +121,42 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
 
                 channel.writeAndFlush(badId);
                 channel.close();
-                log.error("The MQTT client ID cannot be empty. Username={}", payload.userName());
+                log.error("The MQTT client ID cannot be empty. Username={}", username);
                 return;
             }
 
             // Generating client id.
             clientId = UUID.randomUUID().toString().replace("-", "");
             log.info("Client has connected with a server generated identifier. CId={}, username={}", clientId,
-                    payload.userName());
+                     username
+            );
+        }
+
+        // Authenticate the client
+        if (!configuration.isMqttAuthenticationEnabled()) {
+            log.info("Authentication is disabled, allowing client. CId={}, username={}", clientId, username);
+        } else {
+            boolean authenticated = false;
+            for (Map.Entry<String, AuthenticationProvider> entry : this.authProviders.entrySet()) {
+                String authMethod = entry.getKey();
+                try {
+                    String authRole = entry.getValue().authenticate(AuthUtils.getAuthData(authMethod, payload));
+                    authenticated = true;
+                    log.info("Authenticated with method: {}, role: {}. CId={}, username={}",
+                             authMethod, authRole, clientId, username);
+                    break;
+                } catch (AuthenticationException e) {
+                    log.info("Authentication failed with method: {}. CId={}, username={}",
+                             authMethod, clientId, username
+                    );
+                }
+            }
+            if (!authenticated) {
+                channel.writeAndFlush(connAck(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD));
+                channel.close();
+                log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
+                return;
+            }
         }
 
         ConnectionDescriptor descriptor = new ConnectionDescriptor(clientId, channel,
@@ -140,7 +179,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         final boolean success = descriptor.assignState(SENDACK, ESTABLISHED);
 
         log.info("The CONNECT message has been processed. CId={}, username={} success={}",
-                clientId, payload.userName(), success);
+                 clientId, username, success);
     }
 
     @Override
@@ -152,7 +191,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
             if (packet != null) {
                 packet.getConsumer().getSubscription().acknowledgeMessage(
                         Collections.singletonList(PositionImpl.get(packet.getLedgerId(), packet.getEntryId())),
-                        PulsarApi.CommandAck.AckType.Individual, Collections.emptyMap());
+                        CommandAck.AckType.Individual, Collections.emptyMap());
                 packet.getConsumer().getPendingAcks().remove(packet.getLedgerId(), packet.getEntryId());
                 packet.getConsumer().incrementPermits();
             }

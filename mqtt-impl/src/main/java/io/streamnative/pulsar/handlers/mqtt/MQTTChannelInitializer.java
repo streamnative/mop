@@ -19,8 +19,10 @@ import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.ProtocolMethodProcessorImpl;
+import java.util.Map;
 import lombok.Getter;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 
 /**
  * A channel initializer that initialize channels for MQTT protocol.
@@ -32,12 +34,15 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
     @Getter
     private final MQTTServerConfiguration mqttConfig;
 
+    private final Map<String, AuthenticationProvider> authProviders;
+
     public MQTTChannelInitializer(PulsarService pulsarService,
-                                  MQTTServerConfiguration mqttConfig)
-            throws Exception {
+                                  MQTTServerConfiguration mqttConfig,
+                                  Map<String, AuthenticationProvider> authProviders) {
         super();
         this.pulsarService = pulsarService;
         this.mqttConfig = mqttConfig;
+        this.authProviders = authProviders;
     }
 
     @Override
@@ -46,6 +51,6 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
         ch.pipeline().addLast("handler",
-                new MQTTInboundHandler(new ProtocolMethodProcessorImpl(pulsarService, mqttConfig)));
+                new MQTTInboundHandler(new ProtocolMethodProcessorImpl(pulsarService, mqttConfig, authProviders)));
     }
 }

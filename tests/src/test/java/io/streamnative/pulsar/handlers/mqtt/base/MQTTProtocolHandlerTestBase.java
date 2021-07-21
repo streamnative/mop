@@ -17,7 +17,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.netty.channel.EventLoopGroup;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -30,8 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -41,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.EnsemblePlacementPolicy;
 import org.apache.bookkeeper.client.PulsarMockBookKeeper;
+import org.apache.bookkeeper.common.util.OrderedExecutor;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.bookkeeper.util.ZkUtils;
 import org.apache.commons.lang3.RandomUtils;
@@ -53,6 +52,7 @@ import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.compaction.Compactor;
+import org.apache.pulsar.metadata.impl.ZKMetadataStore;
 import org.apache.pulsar.zookeeper.ZooKeeperClientFactory;
 import org.apache.pulsar.zookeeper.ZookeeperClientFactoryImpl;
 import org.apache.zookeeper.CreateMode;
@@ -66,8 +66,7 @@ import org.mockito.Mockito;
  */
 @Slf4j
 public abstract class MQTTProtocolHandlerTestBase {
-
-    protected ServiceConfiguration conf;
+    protected MQTTServerConfiguration conf;
     protected PulsarAdmin admin;
     protected URL brokerUrl;
     protected URL brokerUrlTls;
@@ -98,7 +97,7 @@ public abstract class MQTTProtocolHandlerTestBase {
     protected final String configClusterName = "test";
 
     private SameThreadOrderedSafeExecutor sameThreadOrderedSafeExecutor;
-    private ExecutorService bkExecutor;
+    private OrderedExecutor bkExecutor;
 
     public MQTTProtocolHandlerTestBase() {
         resetConfig();
@@ -148,6 +147,7 @@ public abstract class MQTTProtocolHandlerTestBase {
             lookupUrl = new URI("broker://localhost:" + brokerPortList.get(0));
         }
         pulsarClient = newPulsarClient(lookupUrl.toString(), 0);
+        admin = spy(PulsarAdmin.builder().serviceHttpUrl(brokerUrl.toString()).build());
     }
 
     protected PulsarClient newPulsarClient(String url, int intervalInSecs) throws PulsarClientException {
@@ -156,13 +156,10 @@ public abstract class MQTTProtocolHandlerTestBase {
 
     protected final void init() throws Exception {
         sameThreadOrderedSafeExecutor = new SameThreadOrderedSafeExecutor();
-        bkExecutor = Executors.newSingleThreadExecutor(
-            new ThreadFactoryBuilder().setNameFormat("mock-pulsar-bk")
-                .setUncaughtExceptionHandler((thread, ex) -> log.info("Uncaught exception", ex))
-                .build());
+        bkExecutor = OrderedExecutor.newBuilder().numThreads(1).name("mock-pulsar-bk").build();
 
         mockZooKeeper = createMockZooKeeper();
-        mockBookKeeper = createMockBookKeeper(mockZooKeeper, bkExecutor);
+        mockBookKeeper = createMockBookKeeper(bkExecutor);
 
         startBroker();
 
@@ -170,8 +167,6 @@ public abstract class MQTTProtocolHandlerTestBase {
                 + pulsarServiceList.get(0).getConfiguration().getWebServicePort().get());
         brokerUrlTls = new URL("https://" + pulsarServiceList.get(0).getAdvertisedAddress() + ":"
                 + pulsarServiceList.get(0).getConfiguration().getWebServicePortTls().get());
-
-        admin = spy(PulsarAdmin.builder().serviceHttpUrl(brokerUrl.toString()).build());
     }
 
     protected final void internalCleanup() throws Exception {
@@ -283,6 +278,8 @@ public abstract class MQTTProtocolHandlerTestBase {
         // Override default providers with mocked ones
         doReturn(mockZooKeeperClientFactory).when(pulsar).getZooKeeperClientFactory();
         doReturn(mockBookKeeperClientFactory).when(pulsar).newBookKeeperClientFactory();
+        doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar).createLocalMetadataStore();
+        doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar).createConfigurationMetadataStore();
 
         Supplier<NamespaceService> namespaceServiceSupplier = () -> spy(new NamespaceService(pulsar));
         doReturn(namespaceServiceSupplier).when(pulsar).getNamespaceServiceProvider();
@@ -304,9 +301,8 @@ public abstract class MQTTProtocolHandlerTestBase {
         return zk;
     }
 
-    public static NonClosableMockBookKeeper createMockBookKeeper(ZooKeeper zookeeper,
-                                                                 ExecutorService executor) throws Exception {
-        return spy(new NonClosableMockBookKeeper(zookeeper, executor));
+    public static NonClosableMockBookKeeper createMockBookKeeper(OrderedExecutor executor) throws Exception {
+        return spy(new NonClosableMockBookKeeper(executor));
     }
 
     /**
@@ -314,8 +310,8 @@ public abstract class MQTTProtocolHandlerTestBase {
      */
     public static class NonClosableMockBookKeeper extends PulsarMockBookKeeper {
 
-        public NonClosableMockBookKeeper(ZooKeeper zk, ExecutorService executor) throws Exception {
-            super(zk, executor);
+        public NonClosableMockBookKeeper(OrderedExecutor executor) throws Exception {
+            super(executor);
         }
 
         @Override
@@ -347,24 +343,23 @@ public abstract class MQTTProtocolHandlerTestBase {
     private BookKeeperClientFactory mockBookKeeperClientFactory = new BookKeeperClientFactory() {
 
         @Override
-        public BookKeeper create(ServiceConfiguration conf, ZooKeeper zkClient,
+        public BookKeeper create(ServiceConfiguration conf, ZooKeeper zkClient, EventLoopGroup eventLoopGroup,
                                  Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
-                                 Map<String, Object> properties) {
-            // Always return the same instance (so that we don't loose the mock BK content on broker restart
+                                 Map<String, Object> ensemblePlacementPolicyProperties) throws IOException {
             return mockBookKeeper;
         }
 
         @Override
-        public BookKeeper create(ServiceConfiguration serviceConfiguration, ZooKeeper zooKeeper,
-             Optional<Class<? extends EnsemblePlacementPolicy>> optional, Map<String, Object> map,
-             StatsLogger statsLogger) throws IOException {
-            // Always return the same instance (so that we don't loose the mock BK content on broker restart
+        public BookKeeper create(ServiceConfiguration conf, ZooKeeper zkClient, EventLoopGroup eventLoopGroup,
+                                 Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
+                                 Map<String, Object> ensemblePlacementPolicyProperties, StatsLogger statsLogger)
+                throws IOException {
             return mockBookKeeper;
         }
 
         @Override
         public void close() {
-            // no-op
+
         }
     };
 

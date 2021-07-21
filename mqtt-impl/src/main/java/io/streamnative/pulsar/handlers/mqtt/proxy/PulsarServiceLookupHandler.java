@@ -14,15 +14,20 @@
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.loadbalance.LoadManager;
+import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.common.naming.TopicName;
-import org.apache.pulsar.policies.data.loadbalancer.ServiceLookupData;
+import org.apache.pulsar.common.util.FutureUtil;
+import org.apache.pulsar.metadata.api.MetadataCache;
+import org.apache.pulsar.policies.data.loadbalancer.LocalBrokerData;
 
 /**
  * The proxy start with broker, use this lookup handler to find broker.
@@ -30,13 +35,12 @@ import org.apache.pulsar.policies.data.loadbalancer.ServiceLookupData;
 @Slf4j
 public class PulsarServiceLookupHandler implements LookupHandler {
 
-    private PulsarService pulsarService;
-
-    private PulsarClientImpl pulsarClient;
+    private final PulsarClientImpl pulsarClient;
+    private final MetadataCache<LocalBrokerData> localBrokerDataCache;
 
     public PulsarServiceLookupHandler(PulsarService pulsarService, PulsarClientImpl pulsarClient) {
-        this.pulsarService = pulsarService;
         this.pulsarClient = pulsarClient;
+        this.localBrokerDataCache = pulsarService.getLocalMetadataStore().getMetadataCache(LocalBrokerData.class);
     }
 
     @Override
@@ -48,48 +52,47 @@ public class PulsarServiceLookupHandler implements LookupHandler {
 
         lookup.whenComplete((pair, throwable) -> {
             if (null != throwable) {
-                log.error("throwable message is: {}", throwable.getMessage());
+                log.error("Failed to perform lookup request for topic {}", topicName, throwable);
                 lookupResult.completeExceptionally(throwable);
-                return;
-            }
-
-            String hostName = pair.getLeft().getHostName();
-            List<String> children = null;
-            try {
-                children = pulsarService.getZkClient().getChildren(LoadManager.LOADBALANCE_BROKERS_ROOT, null);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            int mqttBrokerPort;
-
-            if (null == children) {
-                log.error("no broker service, children is null");
-                return;
-            }
-
-            for (String webService : children) {
-                try {
-                    byte[] content = pulsarService.getZkClient().getData(LoadManager.LOADBALANCE_BROKERS_ROOT
-                            + "/" + webService, null, null);
-                    ServiceLookupData serviceLookupData = pulsarService.getLoadManager().get()
-                            .getLoadReportDeserializer().deserialize("", content);
-                    if (serviceLookupData.getPulsarServiceUrl().contains("" + pair.getLeft().getPort())) {
-                        if (serviceLookupData.getProtocol(protocolHandlerName).isPresent()) {
-                            String mqttBrokerUrl = serviceLookupData.getProtocol(protocolHandlerName).get();
-                            String[] splits = mqttBrokerUrl.split(":");
-                            String port = splits[splits.length - 1];
-                            mqttBrokerPort = Integer.parseInt(port);
-                            lookupResult.complete(Pair.of(hostName, mqttBrokerPort));
-                            break;
-                        }
+            } else {
+                localBrokerDataCache.getChildren(LoadManager.LOADBALANCE_BROKERS_ROOT).thenAccept(list -> {
+                    List<CompletableFuture<Optional<LocalBrokerData>>> futures = new ArrayList<>(list.size());
+                    for (String webServiceUrl : list) {
+                        final String path = String.format("%s/%s", LoadManager.LOADBALANCE_BROKERS_ROOT, webServiceUrl);
+                        futures.add(localBrokerDataCache.get(path));
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                    FutureUtil.waitForAll(futures).thenAccept(__ -> {
+                        boolean foundOwner = false;
+                        for (CompletableFuture<Optional<LocalBrokerData>> future : futures) {
+                            try {
+                                Optional<LocalBrokerData> op = future.get();
+                                if (op.isPresent()
+                                    && op.get().getPulsarServiceUrl().equals("pulsar://" + pair.getLeft().toString())
+                                    && op.get().getProtocol(protocolHandlerName).isPresent()) {
+                                    String mqttBrokerUrl = op.get().getProtocol(protocolHandlerName).get();
+                                    String[] splits = mqttBrokerUrl.split(":");
+                                    String port = splits[splits.length - 1];
+                                    int mqttBrokerPort = Integer.parseInt(port);
+                                    lookupResult.complete(Pair.of(pair.getLeft().getHostName(), mqttBrokerPort));
+                                    foundOwner = true;
+                                    break;
+                                }
+                            } catch (Exception e) {
+                                lookupResult.completeExceptionally(e);
+                            }
+                        }
+                        if (!foundOwner) {
+                            lookupResult.completeExceptionally(
+                                    new BrokerServiceException(
+                                            "The broker does not enabled the mqtt protocol handler."));
+                        }
+                    }).exceptionally(e -> {
+                        lookupResult.completeExceptionally(e);
+                        return null;
+                    });
+                });
             }
-
         });
-
         return lookupResult;
     }
 }
