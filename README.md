@@ -23,7 +23,7 @@
 
 # MQTT on Pulsar (MoP)
 
-MQTT-on-Pulsar (aka MoP) is developed to support MQTT protocol natively on Apache Pulsar.
+MQTT-on-Pulsar (aka MoP) is developed to support MQTT protocol natively on Apache Pulsar. Currently, only 3.1.1 supported.
 
 ## Get started
 
