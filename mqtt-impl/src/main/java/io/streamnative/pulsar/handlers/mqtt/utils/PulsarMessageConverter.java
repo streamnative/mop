@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.util.concurrent.FastThreadLocal;
 import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,7 +29,8 @@ import org.apache.pulsar.client.api.CompressionType;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.impl.MessageImpl;
-import org.apache.pulsar.common.api.proto.PulsarApi;
+import org.apache.pulsar.common.api.proto.MessageMetadata;
+import org.apache.pulsar.common.api.proto.SingleMessageMetadata;
 import org.apache.pulsar.common.compression.CompressionCodecProvider;
 import org.apache.pulsar.common.protocol.Commands;
 
@@ -41,22 +43,39 @@ public class PulsarMessageConverter {
     private static final Schema<byte[]> SCHEMA = Schema.BYTES;
     private static final String FAKE_MQTT_PRODUCER_NAME = "fake_mqtt_producer_name";
 
+    private static final FastThreadLocal<SingleMessageMetadata> LOCAL_SINGLE_MESSAGE_METADATA = //
+            new FastThreadLocal<SingleMessageMetadata>() {
+                @Override
+                protected SingleMessageMetadata initialValue() throws Exception {
+                    return new SingleMessageMetadata();
+                }
+            };
+
+    private static final FastThreadLocal<MessageMetadata> LOCAL_MESSAGE_METADATA = //
+            new FastThreadLocal<MessageMetadata>() {
+                @Override
+                protected MessageMetadata initialValue() throws Exception {
+                    return new MessageMetadata();
+                }
+            };
+
     // Convert MQTT message to Pulsar message.
     public static MessageImpl<byte[]> toPulsarMsg(MqttPublishMessage mqttMsg) {
-        PulsarApi.MessageMetadata.Builder metadataBuilder = PulsarApi.MessageMetadata.newBuilder();
-        return MessageImpl.create(metadataBuilder, mqttMsg.payload().nioBuffer(), SCHEMA);
+        MessageMetadata metadata = LOCAL_MESSAGE_METADATA.get();
+        metadata.clear();
+        return MessageImpl.create(metadata, mqttMsg.payload().nioBuffer(), SCHEMA);
     }
 
     public static List<MqttPublishMessage> toMqttMessages(String topicName, Entry entry, int messageId, MqttQoS qos) {
         ByteBuf metadataAndPayload = entry.getDataBuffer();
-        PulsarApi.MessageMetadata metadata = Commands.parseMessageMetadata(metadataAndPayload);
+        MessageMetadata metadata = Commands.parseMessageMetadata(metadataAndPayload);
         if (metadata.hasNumMessagesInBatch()) {
             int batchSize = metadata.getNumMessagesInBatch();
-            metadata.recycle();
             List<MqttPublishMessage> response = new ArrayList<>(batchSize);
             try {
                 for (int i = 0; i < batchSize; i++) {
-                    PulsarApi.SingleMessageMetadata.Builder single = PulsarApi.SingleMessageMetadata.newBuilder();
+                    SingleMessageMetadata single = LOCAL_SINGLE_MESSAGE_METADATA.get();
+                    single.clear();
                     ByteBuf singleMessagePayload = Commands.deSerializeSingleMessageInBatch(metadataAndPayload,
                             single,
                             i, batchSize);
@@ -67,7 +86,6 @@ public class PulsarMessageConverter {
                             .qos(qos)
                             .retained(false)
                             .build());
-                    single.recycle();
                 }
                 return response;
             } catch (IOException e) {
@@ -93,29 +111,26 @@ public class PulsarMessageConverter {
         checkArgument(message instanceof MessageImpl);
 
         MessageImpl<byte[]> msg = (MessageImpl<byte[]>) message;
-        PulsarApi.MessageMetadata.Builder msgMetadataBuilder = msg.getMessageBuilder();
+        MessageMetadata metadata = LOCAL_MESSAGE_METADATA.get();
+        metadata.clear();
         ByteBuf payload = msg.getDataBuffer();
 
         // filled in required fields
-        if (!msgMetadataBuilder.hasSequenceId()) {
-            msgMetadataBuilder.setSequenceId(-1);
+        if (!metadata.hasSequenceId()) {
+            metadata.setSequenceId(-1);
         }
-        if (!msgMetadataBuilder.hasPublishTime()) {
-            msgMetadataBuilder.setPublishTime(System.currentTimeMillis());
+        if (!metadata.hasPublishTime()) {
+            metadata.setPublishTime(System.currentTimeMillis());
         }
-        if (!msgMetadataBuilder.hasProducerName()) {
-            msgMetadataBuilder.setProducerName(FAKE_MQTT_PRODUCER_NAME);
+        if (!metadata.hasProducerName()) {
+            metadata.setProducerName(FAKE_MQTT_PRODUCER_NAME);
         }
 
-        msgMetadataBuilder.setCompression(
+        metadata.setCompression(
                 CompressionCodecProvider.convertToWireProtocol(CompressionType.NONE));
-        msgMetadataBuilder.setUncompressedSize(payload.readableBytes());
-        PulsarApi.MessageMetadata msgMetadata = msgMetadataBuilder.build();
+        metadata.setUncompressedSize(payload.readableBytes());
 
-        ByteBuf buf = Commands.serializeMetadataAndPayload(Commands.ChecksumType.Crc32c, msgMetadata, payload);
-
-        msgMetadataBuilder.recycle();
-        msgMetadata.recycle();
+        ByteBuf buf = Commands.serializeMetadataAndPayload(Commands.ChecksumType.Crc32c, metadata, payload);
 
         return buf;
     }

@@ -32,7 +32,8 @@ import org.apache.pulsar.broker.service.EntryBatchIndexesAcks;
 import org.apache.pulsar.broker.service.EntryBatchSizes;
 import org.apache.pulsar.broker.service.RedeliveryTracker;
 import org.apache.pulsar.broker.service.Subscription;
-import org.apache.pulsar.common.api.proto.PulsarApi;
+import org.apache.pulsar.common.api.proto.CommandAck;
+import org.apache.pulsar.common.api.proto.CommandSubscribe;
 
 /**
  * MQTT consumer.
@@ -58,8 +59,8 @@ public class MQTTConsumer extends Consumer {
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
                         OutstandingPacketContainer outstandingPacketContainer)
             throws BrokerServiceException {
-        super(subscription, PulsarApi.CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
-                "", null, false, PulsarApi.CommandSubscribe.InitialPosition.Latest, null);
+        super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
+                "", null, false, CommandSubscribe.InitialPosition.Latest, null);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
         this.cnx = cnx;
@@ -92,7 +93,7 @@ public class MQTTConsumer extends Consumer {
             if (entries.size() > 0) {
                 getSubscription().acknowledgeMessage(
                     Collections.singletonList(entries.get(entries.size() - 1).getPosition()),
-                    PulsarApi.CommandAck.AckType.Cumulative, Collections.emptyMap());
+                    CommandAck.AckType.Cumulative, Collections.emptyMap());
             }
         }
         cnx.ctx().channel().writeAndFlush(Unpooled.EMPTY_BUFFER, promise);

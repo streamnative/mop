@@ -60,7 +60,7 @@ import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Subscription;
-import org.apache.pulsar.common.api.proto.PulsarApi;
+import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.util.FutureUtil;
 
 /**
@@ -152,7 +152,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
             if (packet != null) {
                 packet.getConsumer().getSubscription().acknowledgeMessage(
                         Collections.singletonList(PositionImpl.get(packet.getLedgerId(), packet.getEntryId())),
-                        PulsarApi.CommandAck.AckType.Individual, Collections.emptyMap());
+                        CommandAck.AckType.Individual, Collections.emptyMap());
                 packet.getConsumer().getPendingAcks().remove(packet.getLedgerId(), packet.getEntryId());
                 packet.getConsumer().incrementPermits();
             }

@@ -113,18 +113,24 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
     // proxy -> MoP
     @Override
     public void processPublish(Channel channel, MqttPublishMessage msg) {
-        log.info("processPublish...");
+        if (log.isDebugEnabled()) {
+            log.debug("[Proxy Publish] [{}] handle processPublish", msg.variableHeader().topicName());
+        }
         CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
         try {
             lookupResult = lookupHandler.findBroker(
                     TopicName.get(PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName())), "mqtt");
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
+                    msg.variableHeader().topicName(), e);
+            channel.close();
         }
 
         lookupResult.whenComplete((pair, throwable) -> {
             if (null != throwable) {
-                log.error("throwable: {} is null in proxy inbound handler", throwable.getMessage());
+                log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
+                        msg.variableHeader().topicName(), throwable);
+                channel.close();
                 return;
             }
 
@@ -137,12 +143,14 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                             pair.getRight(),
                             connectMsgList);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    log.error("[Proxy Publish] Failed to create proxy handler for topic {}",
+                            msg.variableHeader().topicName(), e);
                     return null;
                 }
             });
 
             if (null == proxyHandler) {
+                channel.close();
                 return;
             }
 
@@ -229,10 +237,18 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                 lookupResult = lookupHandler.findBroker(
                         TopicName.get(PulsarTopicUtils.getPulsarTopicName(req.topicName())), "mqtt");
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("[Proxy Subscribe] Failed to perform lookup request", e);
+                channel.close();
             }
 
             lookupResult.whenComplete((pair, throwable) -> {
+
+                if (null != throwable) {
+                    log.error("[Proxy Subscribe] Failed to perform lookup request", throwable);
+                    channel.close();
+                    return;
+                }
+
                 proxyHandler = proxyHandlerMap.computeIfAbsent(
                         PulsarTopicUtils.getPulsarTopicName(req.topicName()), key -> {
                     try {
@@ -242,12 +258,13 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                                 pair.getRight(),
                                 connectMsgList);
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        log.error("[Proxy Subscribe] Failed to perform lookup request", e);
                         return null;
                     }
                 });
 
                 if (null == proxyHandler) {
+                    channel.close();
                     return;
                 }
 
@@ -267,10 +284,16 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
             try {
                 lookupResult = lookupHandler.findBroker(TopicName.get(topic), "mqtt");
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("[Proxy UnSubscribe] Failed to perform lookup request", e);
+                channel.close();
             }
 
             lookupResult.whenComplete((pair, throwable) -> {
+                if (null != throwable) {
+                    log.error("[Proxy UnSubscribe] Failed to perform lookup request", throwable);
+                    channel.close();
+                    return;
+                }
                 proxyHandler = proxyHandlerMap.computeIfAbsent(topic, key -> {
                     try {
                         return new ProxyHandler(proxyService,
@@ -279,12 +302,13 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                                 pair.getRight(),
                                 connectMsgList);
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        log.error("[Proxy UnSubscribe] Failed to perform lookup request", e);
                         return null;
                     }
                 });
 
                 if (null == proxyHandler) {
+                    channel.close();
                     return;
                 }
 
