@@ -117,6 +117,9 @@ public class ProxyHandler {
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
             log.info("channel read: {}", message);
+            if (message instanceof MqttMessage && ((MqttMessage) message).decoderResult().isFailure()) {
+                log.error("Failed to decode mqttMessage.", ((MqttMessage) message).decoderResult().cause());
+            }
             switch (state) {
                 case Init:
                     MqttMessage msg = (MqttMessage) message;
