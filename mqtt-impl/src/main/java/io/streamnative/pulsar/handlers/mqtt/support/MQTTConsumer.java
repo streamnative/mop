@@ -60,7 +60,7 @@ public class MQTTConsumer extends Consumer {
                         OutstandingPacketContainer outstandingPacketContainer)
             throws BrokerServiceException {
         super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
-                "", null, false, CommandSubscribe.InitialPosition.Latest, null);
+                "", null, false, CommandSubscribe.InitialPosition.Latest, null, null);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
         this.cnx = cnx;

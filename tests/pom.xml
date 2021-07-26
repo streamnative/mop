@@ -35,13 +35,13 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.pulsar</groupId>
+            <groupId>io.streamnative</groupId>
             <artifactId>testmocks</artifactId>
             <version>${pulsar.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.pulsar</groupId>
+            <groupId>io.streamnative</groupId>
             <artifactId>pulsar-broker</artifactId>
             <version>${pulsar.version}</version>
             <type>test-jar</type>
