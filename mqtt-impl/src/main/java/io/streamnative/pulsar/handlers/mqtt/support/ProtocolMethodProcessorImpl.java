@@ -186,15 +186,15 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
     public void processPubAck(Channel channel, MqttPubAckMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[PubAck] [{}] msg: {}", channel, msg);
-            int packetId = msg.variableHeader().messageId();
-            OutstandingPacket packet = outstandingPacketContainer.remove(packetId);
-            if (packet != null) {
-                packet.getConsumer().getSubscription().acknowledgeMessage(
-                        Collections.singletonList(PositionImpl.get(packet.getLedgerId(), packet.getEntryId())),
-                        CommandAck.AckType.Individual, Collections.emptyMap());
-                packet.getConsumer().getPendingAcks().remove(packet.getLedgerId(), packet.getEntryId());
-                packet.getConsumer().incrementPermits();
-            }
+        }
+        int packetId = msg.variableHeader().messageId();
+        OutstandingPacket packet = outstandingPacketContainer.remove(packetId);
+        if (packet != null) {
+            packet.getConsumer().getSubscription().acknowledgeMessage(
+                    Collections.singletonList(PositionImpl.get(packet.getLedgerId(), packet.getEntryId())),
+                    CommandAck.AckType.Individual, Collections.emptyMap());
+            packet.getConsumer().getPendingAcks().remove(packet.getLedgerId(), packet.getEntryId());
+            packet.getConsumer().incrementPermits();
         }
     }
 
