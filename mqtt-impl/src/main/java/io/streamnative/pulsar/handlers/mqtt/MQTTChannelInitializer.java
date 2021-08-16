@@ -21,11 +21,13 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.ProtocolMethodProcessorImpl;
+import java.util.Map;
 import lombok.Getter;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
 import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
 import org.apache.pulsar.common.util.keystoretls.NettySSLContextAutoRefreshBuilder;
+import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 
 /**
  * A channel initializer that initialize channels for MQTT protocol.
@@ -41,6 +43,8 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
     private final boolean tlsEnabledWithKeyStore;
     private SslContextAutoRefreshBuilder<SslContext> sslCtxRefresher;
     private NettySSLContextAutoRefreshBuilder nettySSLContextAutoRefreshBuilder;
+
+    private final Map<String, AuthenticationProvider> authProviders;
 
     public MQTTChannelInitializer(PulsarService pulsarService,
                                   MQTTServerConfiguration mqttConfig,
@@ -97,6 +101,6 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
         ch.pipeline().addLast("handler",
-                new MQTTInboundHandler(new ProtocolMethodProcessorImpl(pulsarService, mqttConfig)));
+                new MQTTInboundHandler(new ProtocolMethodProcessorImpl(pulsarService, mqttConfig, authProviders)));
     }
 }

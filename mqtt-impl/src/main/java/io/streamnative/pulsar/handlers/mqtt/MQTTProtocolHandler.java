@@ -19,14 +19,15 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.proxy.ProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.ProxyService;
+import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.ServiceConfigurationUtils;
+import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
 import org.apache.pulsar.broker.service.BrokerService;
 
@@ -41,6 +42,8 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     public static final String SSL_PREFIX = "mqtt+ssl://";
     public static final String LISTENER_DEL = ",";
     public static final String LISTENER_PATTEN = "^(mqtt)(\\+ssl)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
+
+    private Map<String, AuthenticationProvider> authProviders;
 
     @Getter
     private MQTTServerConfiguration mqttConfig;
@@ -65,7 +68,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     public void initialize(ServiceConfiguration conf) throws Exception {
     // init config
         if (conf instanceof MQTTServerConfiguration) {
-            // in unit test, passed in conf will be AmqpServiceConfiguration
+            // in unit test, passed in conf will be MQTTServerConfiguration
             mqttConfig = (MQTTServerConfiguration) conf;
         } else {
             // when loaded with PulsarService as NAR, `conf` will be type of ServiceConfiguration
@@ -77,7 +80,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Override
     public String getProtocolDataToAdvertise() {
         if (log.isDebugEnabled()) {
-            log.debug("Get configured listener", mqttConfig.getMqttListeners());
+            log.debug("Get configured listener: {}", mqttConfig.getMqttListeners());
         }
         return mqttConfig.getMqttListeners();
     }
@@ -85,6 +88,10 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Override
     public void start(BrokerService brokerService) {
         this.brokerService = brokerService;
+        if (mqttConfig.isMqttAuthenticationEnabled()) {
+            this.authProviders = AuthUtils.configureAuthProviders(brokerService.getAuthenticationService(),
+                                                                  mqttConfig.getMqttAuthenticationMethods());
+        }
 
         if (mqttConfig.isMqttProxyEnable()) {
             ProxyConfiguration proxyConfig = new ProxyConfiguration();
@@ -93,10 +100,15 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setMqttMaxFrameSize(mqttConfig.getMaxFrameSize());
             proxyConfig.setMqttHeartBeat(mqttConfig.getHeartBeat());
             proxyConfig.setMqttProxyPort(mqttConfig.getMqttProxyPort());
-            proxyConfig.setBrokerServiceURL("pulsar://" + PulsarService.advertisedAddress(mqttConfig) + ":"
-                    + mqttConfig.getBrokerServicePort().get());
+            proxyConfig.setBrokerServiceURL("pulsar://"
+                    + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig)
+                    + ":" + mqttConfig.getBrokerServicePort().get());
+            proxyConfig.setMqttAuthenticationEnabled(mqttConfig.isMqttAuthenticationEnabled());
+            proxyConfig.setMqttAuthenticationMethods(mqttConfig.getMqttAuthenticationMethods());
+            proxyConfig.setBrokerClientAuthenticationPlugin(mqttConfig.getBrokerClientAuthenticationPlugin());
+            proxyConfig.setBrokerClientAuthenticationParameters(mqttConfig.getBrokerClientAuthenticationParameters());
             log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
-            ProxyService proxyService = new ProxyService(proxyConfig, brokerService.getPulsar());
+            ProxyService proxyService = new ProxyService(proxyConfig, brokerService.getPulsar(), authProviders);
             try {
                 proxyService.start();
                 log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());
@@ -143,7 +155,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
 
             return builder.build();
         } catch (Exception e){
-            log.error("AmqpProtocolHandler newChannelInitializers failed with", e);
+            log.error("MQTTProtocolHandler newChannelInitializers failed with", e);
             return null;
         }
     }

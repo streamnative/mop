@@ -23,7 +23,7 @@ import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.broker.service.nonpersistent.NonPersistentSubscription;
 import org.apache.pulsar.broker.service.nonpersistent.NonPersistentTopic;
-import org.apache.pulsar.common.api.proto.PulsarApi;
+import org.apache.pulsar.common.api.proto.CommandSubscribe;
 import org.apache.pulsar.common.naming.TopicName;
 
 /**
@@ -49,7 +49,7 @@ public class PulsarTopicUtils {
                 Subscription subscription = topic.getSubscription(subscriptionName);
                 if (subscription == null) {
                     topic.createSubscription(subscriptionName,
-                        PulsarApi.CommandSubscribe.InitialPosition.Latest, false)
+                        CommandSubscribe.InitialPosition.Latest, false)
                             .thenAccept(sub -> {
                                 if (topic instanceof NonPersistentTopic) {
                                     ((NonPersistentTopic) topic).getSubscriptions().put(subscriptionName,

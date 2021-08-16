@@ -14,10 +14,12 @@
 package io.streamnative.pulsar.handlers.mqtt.base;
 
 import com.google.common.collect.Sets;
+import java.net.URISyntaxException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.policies.data.ClusterData;
 import org.apache.pulsar.common.policies.data.RetentionPolicies;
 import org.apache.pulsar.common.policies.data.TenantInfo;
+import org.fusesource.mqtt.client.MQTT;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -31,21 +33,28 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
     protected void setup() throws Exception {
         super.internalSetup();
         log.info("success internal setup");
+        setupClusterNamespaces();
+        checkPulsarServiceState();
+    }
 
+    protected void setupClusterNamespaces() throws Exception {
+        ClusterData clusterData = ClusterData.builder()
+                .serviceUrl("http://127.0.0.1:" + getBrokerWebservicePortList().get(0))
+                .build();
         if (!admin.clusters().getClusters().contains(configClusterName)) {
             // so that clients can test short names
-            admin.clusters().createCluster(configClusterName,
-                    new ClusterData("http://127.0.0.1:" + getBrokerWebservicePortList().get(0)));
+            admin.clusters().createCluster(configClusterName, clusterData);
         } else {
-            admin.clusters().updateCluster(configClusterName,
-                    new ClusterData("http://127.0.0.1:" + getBrokerWebServicePortTlsList().get(0)));
+            admin.clusters().updateCluster(configClusterName, clusterData);
         }
+        TenantInfo tenantInfo = TenantInfo.builder()
+                .adminRoles(Sets.newHashSet("appid1", "appid2"))
+                .allowedClusters(Sets.newHashSet("test"))
+                .build();
         if (!admin.tenants().getTenants().contains("public")) {
-            admin.tenants().createTenant("public",
-                    new TenantInfo(Sets.newHashSet("appid1", "appid2"), Sets.newHashSet("test")));
+            admin.tenants().createTenant("public", tenantInfo);
         } else {
-            admin.tenants().updateTenant("public",
-                    new TenantInfo(Sets.newHashSet("appid1", "appid2"), Sets.newHashSet("test")));
+            admin.tenants().updateTenant("public", tenantInfo);
         }
 
         if (!admin.namespaces().getNamespaces("public").contains("public/default")) {
@@ -53,13 +62,23 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
             admin.namespaces().setRetention("public/default",
                     new RetentionPolicies(60, 1000));
         }
-
-        checkPulsarServiceState();
     }
 
     @AfterClass
     @Override
     protected void cleanup() throws Exception {
         super.internalCleanup();
+    }
+
+    public MQTT createMQTTClient() throws URISyntaxException {
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        return mqtt;
+    }
+
+    public MQTT createMQTTProxyClient() throws URISyntaxException {
+        MQTT mqtt = createMQTTClient();
+        mqtt.setHost("127.0.0.1", getProxyPort());
+        return mqtt;
     }
 }
