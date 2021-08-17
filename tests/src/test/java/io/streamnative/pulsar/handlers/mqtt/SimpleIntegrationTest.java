@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Consumer;
@@ -44,7 +45,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         super.setup();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     @Override
     public void cleanup() throws Exception {
         super.cleanup();
@@ -64,7 +65,13 @@ public class SimpleIntegrationTest extends MQTTTestBase {
                 { "public/default/t0" },
                 { "/public/default/t0" },
                 { "public/default/t0/" },
-                { "/public/default/t0/" }
+                { "/public/default/t0/" },
+                { "persistent://public/default/t0" },
+                { "persistent://public/default/a/b" },
+                { "persistent://public/default//a/b" },
+                { "non-persistent://public/default/t0" },
+                { "non-persistent://public/default/a/b" },
+                { "non-persistent://public/default//a/b" },
         };
     }
 
@@ -98,11 +105,10 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test
-    public void testSendByMqttAndReceiveByPulsar() throws Exception {
-        final String topic = "persistent://public/default/testReceiveByPulsar";
+    @Test(dataProvider = "mqttTopicNames")
+    public void testSendByMqttAndReceiveByPulsar(String topic) throws Exception {
         Consumer<byte[]> consumer = pulsarClient.newConsumer()
-                .topic(topic)
+                .topic(PulsarTopicUtils.getPulsarTopicName(topic, "public", "default"))
                 .subscriptionName("my-sub")
                 .subscribe();
 

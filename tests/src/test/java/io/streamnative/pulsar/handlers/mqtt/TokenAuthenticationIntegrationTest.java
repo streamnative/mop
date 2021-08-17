@@ -84,7 +84,7 @@ public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
     super.checkPulsarServiceState();
   }
 
-  @AfterClass
+  @AfterClass(alwaysRun = true)
   @Override
   public void cleanup() throws Exception {
     super.cleanup();

@@ -61,7 +61,7 @@ public class ProxyConnection extends ChannelInboundHandlerAdapter{
         this.proxyService = proxyService;
         this.proxyConfig = proxyService.getProxyConfig();
         lookupHandler = proxyService.getLookupHandler();
-        processor = new ProxyInboundHandler(proxyService, this);
+        processor = new ProxyInboundHandler(proxyService, this, proxyConfig);
         state = State.Init;
     }
 

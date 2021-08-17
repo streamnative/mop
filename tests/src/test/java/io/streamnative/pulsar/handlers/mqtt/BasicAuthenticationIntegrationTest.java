@@ -41,6 +41,7 @@ import org.testng.annotations.Test;
  */
 @Slf4j
 public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
+
   @BeforeClass
   @Override
   public void setup() throws Exception {
@@ -73,7 +74,7 @@ public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
     super.checkPulsarServiceState();
   }
 
-  @AfterClass
+  @AfterClass(alwaysRun = true)
   @Override
   public void cleanup() throws Exception {
     super.cleanup();

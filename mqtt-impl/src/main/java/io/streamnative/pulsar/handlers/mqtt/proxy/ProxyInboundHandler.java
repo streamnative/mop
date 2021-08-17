@@ -61,15 +61,18 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
     private Map<String, ProxyHandler> proxyHandlerMap;
     private ProxyHandler proxyHandler;
     private LookupHandler lookupHandler;
+    private final ProxyConfiguration proxyConfig;
 
     private List<Object> connectMsgList = new ArrayList<>();
 
-    public ProxyInboundHandler(ProxyService proxyService, ProxyConnection proxyConnection) {
+    public ProxyInboundHandler(ProxyService proxyService, ProxyConnection proxyConnection,
+           ProxyConfiguration proxyConfig) {
         log.info("ProxyConnection init ...");
         this.proxyService = proxyService;
         this.proxyConnection = proxyConnection;
         lookupHandler = proxyService.getLookupHandler();
         this.proxyHandlerMap = new HashMap<>();
+        this.proxyConfig = proxyConfig;
     }
 
     // client -> proxy
@@ -145,7 +148,8 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
         try {
             lookupResult = lookupHandler.findBroker(
-                    TopicName.get(PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName())), "mqtt");
+                    TopicName.get(PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName(),
+                            proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace())), "mqtt");
         } catch (Exception e) {
             log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
                     msg.variableHeader().topicName(), e);
@@ -159,9 +163,19 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                 channel.close();
                 return;
             }
+            final String topicName;
+            try {
+                topicName = PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName(),
+                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
+            } catch (Exception e) {
+                log.error("[Proxy Publish] Failed to get Pulsar topic name for topic {}",
+                        msg.variableHeader().topicName(), e);
+                channel.close();
+                return;
+            }
 
             proxyHandler = proxyHandlerMap.computeIfAbsent
-                    (PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName()), key -> {
+                    (topicName, key -> {
                 try {
                     return new ProxyHandler(proxyService,
                             proxyConnection,
@@ -259,9 +273,19 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         log.info("[Proxy Subscribe] [{}] msg: {}", channel, msg);
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
             CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
+            final String topicName;
+            try {
+                topicName = PulsarTopicUtils.getPulsarTopicName(req.topicName(),
+                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
+            } catch (Exception e) {
+                log.error("[Proxy Publish] Failed to get Pulsar topic name for topic {}",
+                        req.topicName(), e);
+                channel.close();
+                return;
+            }
             try {
                 lookupResult = lookupHandler.findBroker(
-                        TopicName.get(PulsarTopicUtils.getPulsarTopicName(req.topicName())), "mqtt");
+                        TopicName.get(topicName), "mqtt");
             } catch (Exception e) {
                 log.error("[Proxy Subscribe] Failed to perform lookup request", e);
                 channel.close();
@@ -276,7 +300,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                 }
 
                 proxyHandler = proxyHandlerMap.computeIfAbsent(
-                        PulsarTopicUtils.getPulsarTopicName(req.topicName()), key -> {
+                        topicName, key -> {
                     try {
                         return new ProxyHandler(proxyService,
                                 proxyConnection,
