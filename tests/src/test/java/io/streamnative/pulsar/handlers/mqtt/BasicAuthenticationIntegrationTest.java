@@ -88,13 +88,13 @@ public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
     return mqtt;
   }
 
-  @Test
+  @Test(timeOut = TIMEOUT)
   public void testAuthenticateAndPublish() throws Exception {
     MQTT mqtt = createMQTTClient();
     authenticateAndPublish(mqtt);
   }
 
-  @Test
+  @Test(timeOut = TIMEOUT)
   public void testAuthenticateAndPublishViaProxy() throws Exception {
     MQTT mqtt = createMQTTProxyClient();
     authenticateAndPublish(mqtt);
@@ -114,7 +114,7 @@ public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
     connection.disconnect();
   }
 
-  @Test(expectedExceptions = { MQTTException.class })
+  @Test(expectedExceptions = { MQTTException.class }, timeOut = TIMEOUT)
   public void testInvalidCredentials() throws Exception {
     MQTT mqtt = createMQTTClient();
     mqtt.setPassword("invalid");

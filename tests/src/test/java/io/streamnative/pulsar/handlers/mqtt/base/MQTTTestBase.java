@@ -28,6 +28,9 @@ import org.testng.annotations.BeforeClass;
  */
 @Slf4j
 public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
+
+    public static final int TIMEOUT = 60 * 1000;
+
     @BeforeClass
     @Override
     protected void setup() throws Exception {
