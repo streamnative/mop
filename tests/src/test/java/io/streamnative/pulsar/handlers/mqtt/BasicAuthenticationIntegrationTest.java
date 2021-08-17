@@ -2,9 +2,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -42,83 +42,83 @@ import org.testng.annotations.Test;
 @Slf4j
 public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
 
-  @BeforeClass
-  @Override
-  public void setup() throws Exception {
-    System.setProperty("pulsar.auth.basic.conf", "./src/test/resources/htpasswd");
-    String authParams = "{\"userId\":\"superUser\",\"password\":\"supepass\"}";
+    @BeforeClass
+    @Override
+    public void setup() throws Exception {
+        System.setProperty("pulsar.auth.basic.conf", "./src/test/resources/htpasswd");
+        String authParams = "{\"userId\":\"superUser\",\"password\":\"supepass\"}";
 
-    conf.setAuthenticationEnabled(true);
-    conf.setMqttAuthenticationEnabled(true);
-    conf.setMqttAuthenticationMethods(ImmutableList.of("basic"));
-    conf.setSuperUserRoles(ImmutableSet.of("superUser"));
-    conf.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderBasic.class.getName()));
-    conf.setBrokerClientAuthenticationPlugin(AuthenticationBasic.class.getName());
-    conf.setBrokerClientAuthenticationParameters(authParams);
-    super.init();
+        conf.setAuthenticationEnabled(true);
+        conf.setMqttAuthenticationEnabled(true);
+        conf.setMqttAuthenticationMethods(ImmutableList.of("basic"));
+        conf.setSuperUserRoles(ImmutableSet.of("superUser"));
+        conf.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderBasic.class.getName()));
+        conf.setBrokerClientAuthenticationPlugin(AuthenticationBasic.class.getName());
+        conf.setBrokerClientAuthenticationParameters(authParams);
+        super.init();
 
-    AuthenticationBasic authPassword = new AuthenticationBasic();
-    authPassword.configure(authParams);
+        AuthenticationBasic authPassword = new AuthenticationBasic();
+        authPassword.configure(authParams);
 
-    pulsarClient = PulsarClient.builder()
-                               .serviceUrl(brokerUrl.toString())
-                               .authentication(authPassword)
-                               .statsInterval(0, TimeUnit.SECONDS)
-                               .build();
-    admin = spy(PulsarAdmin.builder()
-                           .serviceHttpUrl(brokerUrl.toString())
-                           .authentication(authPassword)
-                           .build());
+        pulsarClient = PulsarClient.builder()
+                .serviceUrl(brokerUrl.toString())
+                .authentication(authPassword)
+                .statsInterval(0, TimeUnit.SECONDS)
+                .build();
+        admin = spy(PulsarAdmin.builder()
+                .serviceHttpUrl(brokerUrl.toString())
+                .authentication(authPassword)
+                .build());
 
-    super.setupClusterNamespaces();
-    super.checkPulsarServiceState();
-  }
+        super.setupClusterNamespaces();
+        super.checkPulsarServiceState();
+    }
 
-  @AfterClass(alwaysRun = true)
-  @Override
-  public void cleanup() throws Exception {
-    super.cleanup();
-  }
+    @AfterClass(alwaysRun = true)
+    @Override
+    public void cleanup() throws Exception {
+        super.cleanup();
+    }
 
-  @Override
-  public MQTT createMQTTClient() throws URISyntaxException {
-    MQTT mqtt = super.createMQTTClient();
-    mqtt.setUserName("superUser");
-    mqtt.setPassword("supepass");
-    return mqtt;
-  }
+    @Override
+    public MQTT createMQTTClient() throws URISyntaxException {
+        MQTT mqtt = super.createMQTTClient();
+        mqtt.setUserName("superUser");
+        mqtt.setPassword("supepass");
+        return mqtt;
+    }
 
-  @Test(timeOut = TIMEOUT)
-  public void testAuthenticateAndPublish() throws Exception {
-    MQTT mqtt = createMQTTClient();
-    authenticateAndPublish(mqtt);
-  }
+    @Test(timeOut = TIMEOUT)
+    public void testAuthenticateAndPublish() throws Exception {
+        MQTT mqtt = createMQTTClient();
+        authenticateAndPublish(mqtt);
+    }
 
-  @Test(timeOut = TIMEOUT)
-  public void testAuthenticateAndPublishViaProxy() throws Exception {
-    MQTT mqtt = createMQTTProxyClient();
-    authenticateAndPublish(mqtt);
-  }
+    @Test(timeOut = TIMEOUT)
+    public void testAuthenticateAndPublishViaProxy() throws Exception {
+        MQTT mqtt = createMQTTProxyClient();
+        authenticateAndPublish(mqtt);
+    }
 
-  public void authenticateAndPublish(MQTT mqtt) throws Exception {
-    String topicName = "persistent://public/default/testAuthentication";
-    BlockingConnection connection = mqtt.blockingConnection();
-    connection.connect();
-    Topic[] topics = {new Topic(topicName, QoS.AT_LEAST_ONCE) };
-    connection.subscribe(topics);
-    String message = "Hello MQTT";
-    connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
-    Message received = connection.receive();
-    Assert.assertEquals(new String(received.getPayload()), message);
-    received.ack();
-    connection.disconnect();
-  }
+    public void authenticateAndPublish(MQTT mqtt) throws Exception {
+        String topicName = "persistent://public/default/testAuthentication";
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = {new Topic(topicName, QoS.AT_LEAST_ONCE)};
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
+    }
 
-  @Test(expectedExceptions = { MQTTException.class }, timeOut = TIMEOUT)
-  public void testInvalidCredentials() throws Exception {
-    MQTT mqtt = createMQTTClient();
-    mqtt.setPassword("invalid");
-    BlockingConnection connection = mqtt.blockingConnection();
-    connection.connect();
-  }
+    @Test(expectedExceptions = {MQTTException.class}, timeOut = TIMEOUT)
+    public void testInvalidCredentials() throws Exception {
+        MQTT mqtt = createMQTTClient();
+        mqtt.setPassword("invalid");
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+    }
 }
