@@ -22,6 +22,7 @@ import org.apache.pulsar.common.policies.data.TenantInfo;
 import org.fusesource.mqtt.client.MQTT;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 
 /**
  * Base test class for MQTT Client.
@@ -30,6 +31,22 @@ import org.testng.annotations.BeforeClass;
 public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
     public static final int TIMEOUT = 60 * 1000;
+
+    @DataProvider(name = "mqttTopicNames")
+    public Object[][] mqttTopicNames() {
+        return new Object[][] {
+                { "public/default/t0" },
+                { "/public/default/t0" },
+                { "public/default/t0/" },
+                { "/public/default/t0/" },
+                { "persistent://public/default/t0" },
+                { "persistent://public/default/a/b" },
+                { "persistent://public/default//a/b" },
+                { "non-persistent://public/default/t0" },
+                { "non-persistent://public/default/a/b" },
+                { "non-persistent://public/default//a/b" },
+        };
+    }
 
     @BeforeClass
     @Override

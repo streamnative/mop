@@ -59,22 +59,6 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         };
     }
 
-    @DataProvider(name = "mqttTopicNames")
-    public Object[][] mqttTopicNames() {
-        return new Object[][] {
-                { "public/default/t0" },
-                { "/public/default/t0" },
-                { "public/default/t0/" },
-                { "/public/default/t0/" },
-                { "persistent://public/default/t0" },
-                { "persistent://public/default/a/b" },
-                { "persistent://public/default//a/b" },
-                { "non-persistent://public/default/t0" },
-                { "non-persistent://public/default/a/b" },
-                { "non-persistent://public/default//a/b" },
-        };
-    }
-
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
     public void testSimpleMqttPubAndSubQos0(String topicName) throws Exception {
         MQTT mqtt = createMQTTClient();
@@ -313,20 +297,5 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertTrue(connection2.isConnected());
 
         connection2.disconnect();
-    }
-
-    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
-    public void testConnectionViaProxy(String topicName) throws Exception {
-        MQTT mqtt = createMQTTProxyClient();
-        BlockingConnection connection = mqtt.blockingConnection();
-        connection.connect();
-        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
-        connection.subscribe(topics);
-        String message = "Hello MQTT Proxy";
-        connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
-        Message received = connection.receive();
-        Assert.assertEquals(new String(received.getPayload()), message);
-        received.ack();
-        connection.disconnect();
     }
 }
