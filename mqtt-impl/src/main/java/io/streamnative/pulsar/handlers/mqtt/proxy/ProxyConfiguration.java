@@ -97,9 +97,24 @@ public class ProxyConfiguration {
         doc = "The authentication plugin used by the Pulsar proxy to authenticate with Pulsar brokers"
     )
     private String brokerClientAuthenticationPlugin;
+
     @FieldContext(
         category = CATEGORY_CLIENT_AUTHENTICATION,
         doc = "The authentication parameters used by the Pulsar proxy to authenticate with Pulsar brokers"
     )
     private String brokerClientAuthenticationParameters;
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            required = true,
+            doc = "Default Pulsar tenant that the MQTT server used."
+    )
+    private String defaultTenant = "public";
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            required = true,
+            doc = "Default Pulsar namespace that the MQTT server used."
+    )
+    private String defaultNamespace = "default";
 }

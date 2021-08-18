@@ -30,7 +30,6 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
-import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +39,6 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class ProxyHandler {
-    private final ProtocolMethodProcessor processor;
     private ProxyService proxyService;
     private ProxyConnection proxyConnection;
     // client -> proxy
@@ -57,7 +55,6 @@ public class ProxyHandler {
         this.proxyConnection = proxyConnection;
         clientChannel = this.proxyConnection.getCnx().channel();
         this.connectMsgList = connectMsgList;
-        processor = new ProxyInboundHandler(proxyService, proxyConnection);
 
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(clientChannel.eventLoop())
