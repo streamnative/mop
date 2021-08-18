@@ -35,10 +35,10 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
     @DataProvider(name = "mqttTopicNames")
     public Object[][] mqttTopicNames() {
         return new Object[][] {
-                { "public/default/t0" },
-                { "/public/default/t0" },
-                { "public/default/t0/" },
-                { "/public/default/t0/" },
+                { "a/b/c" },
+                { "/a/b/c" },
+                { "a/b/c/" },
+                { "/a/b/c/" },
                 { "persistent://public/default/t0" },
                 { "persistent://public/default/a/b" },
                 { "persistent://public/default//a/b" },
