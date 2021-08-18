@@ -14,6 +14,8 @@
 package io.streamnative.pulsar.handlers.mqtt.untils;
 
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -23,12 +25,21 @@ import org.testng.annotations.Test;
 public class PulsarTopicUtilsTest {
 
     @Test
-    public void testMqttTopicNameToPulsarTopicName() {
+    public void testMqttTopicNameToPulsarTopicName() throws UnsupportedEncodingException {
         String t0 = "/aaa/bbb/ccc";
-        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0), "aaa/bbb/ccc");
+        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0, "public", "default"),
+                "persistent://public/default/" + URLEncoder.encode(t0));
         t0 = "aaa/bbb/ccc/";
-        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0), "aaa/bbb/ccc");
+        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0, "public", "default"),
+                "persistent://public/default/" + URLEncoder.encode(t0));
         t0 = "/aaa/bbb/ccc/";
-        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0), "aaa/bbb/ccc");
+        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0, "public", "default"),
+                "persistent://public/default/" + URLEncoder.encode(t0));
+        t0 = "persistent://public/default/aaa/bbb/ccc";
+        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0, "public", "default"),
+                "persistent://public/default/" + URLEncoder.encode("aaa/bbb/ccc"));
+        t0 = "persistent://public/default//aaa/bbb/ccc";
+        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0, "public", "default"),
+                "persistent://public/default/" + URLEncoder.encode("/aaa/bbb/ccc"));
     }
 }

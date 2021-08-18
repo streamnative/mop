@@ -62,7 +62,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
-import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.util.FutureUtil;
@@ -304,15 +303,18 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         List<CompletableFuture<Subscription>> futures = new ArrayList<>();
         for (MqttTopicSubscription ackTopic : ackTopics) {
             CompletableFuture<Subscription> future = PulsarTopicUtils
-                    .getOrCreateSubscription(pulsarService, ackTopic.topicName(), clientID);
+                    .getOrCreateSubscription(pulsarService, ackTopic.topicName(), clientID,
+                            configuration.getDefaultTenant(), configuration.getDefaultNamespace());
             future.thenAccept(sub -> {
                     try {
                         MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(),
-                                PulsarTopicUtils.getPulsarTopicName(ackTopic.topicName()), clientID, serverCnx,
+                                PulsarTopicUtils.getPulsarTopicName(ackTopic.topicName(),
+                                        configuration.getDefaultTenant(), configuration.getDefaultNamespace()),
+                                clientID, serverCnx,
                                 ackTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer);
                         sub.addConsumer(consumer);
                         consumer.addAllPermits();
-                    } catch (BrokerServiceException e) {
+                    } catch (Exception e) {
                         log.error("[{}] [{}] Failed to add consumer to Pulsar subscription.",
                                 ackTopic.topicName(), clientID, e);
                         channel.close();
@@ -344,22 +346,30 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         final MqttQoS qos = msg.fixedHeader().qosLevel();
 
         for (String topic : topics) {
-            PulsarTopicUtils.getTopicReference(pulsarService, topic).thenAccept(topicOp -> {
+            PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
+                    configuration.getDefaultNamespace()).thenAccept(topicOp -> {
                 if (topicOp.isPresent()) {
                     Subscription subscription = topicOp.get().getSubscription(clientID);
                     if (subscription != null) {
                         try {
                             MQTTConsumer consumer = new MQTTConsumer(subscription, topic,
-                                    PulsarTopicUtils.getPulsarTopicName(topic), clientID, serverCnx, qos,
+                                    PulsarTopicUtils.getPulsarTopicName(topic, configuration.getDefaultTenant(),
+                                            configuration.getDefaultNamespace()), clientID, serverCnx, qos,
                                     packetIdGenerator, outstandingPacketContainer);
                             topicOp.get().getSubscription(clientID).removeConsumer(consumer);
                             topicOp.get().unsubscribe(clientID);
-                        } catch (BrokerServiceException e) {
-                            log.error("[{}] [{}] Failed to unsubscribe the topic.", topic, clientID);
+                        } catch (RuntimeException e) {
+                            throw e;
+                        } catch (Exception e) {
+                            log.error("[{}] [{}] Failed to unsubscribe the topic.", topic, clientID, e);
                             channel.close();
                         }
                     }
                 }
+            }).exceptionally(ex -> {
+                log.error("[{}] [{}] Failed to get topic reference when process UNSUB.", topic, clientID, ex);
+                channel.close();
+                return null;
             });
         }
 
