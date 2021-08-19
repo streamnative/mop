@@ -71,15 +71,16 @@ public class ProxyHandler {
                     }
                 });
         ChannelFuture channelFuture = bootstrap.connect(mqttBrokerHost, mqttBrokerPort);
-        brokerChannel = channelFuture.channel();
-        channelFuture.addListener(future -> {
+        channelFuture.await().addListener(future -> {
             if (!future.isSuccess()) {
                 // Close the connection if the connection attempt has failed.
                 clientChannel.close();
+            } else {
+                brokerChannel = channelFuture.channel();
+                log.info("Broker channel connect. broker: {}:{}, isOpen: {}",
+                        mqttBrokerHost, mqttBrokerPort, brokerChannel.isOpen());
             }
         });
-        log.info("Broker channel connect. broker: {}:{}, isOpen: {}",
-                 mqttBrokerHost, mqttBrokerPort, brokerChannel.isOpen());
     }
 
     private class ProxyBackendHandler extends ChannelInboundHandlerAdapter implements FutureListener<Void> {
