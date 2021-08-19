@@ -171,7 +171,6 @@ public class MQTTServerConfiguration extends ServiceConfiguration {
     )
     private boolean tlsRequireTrustedClientCertOnConnect = false;
 
-    //############
     @FieldContext(
             category = CATEGORY_KEYSTORE_TLS,
             doc = "Enable TLS with KeyStore type configuration for proxy"
