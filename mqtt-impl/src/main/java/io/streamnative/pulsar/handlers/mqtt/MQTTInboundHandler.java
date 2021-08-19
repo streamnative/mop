@@ -124,10 +124,9 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         log.warn(
                 "An unexpected exception was caught while processing MQTT message. "
-                + "Closing Netty channel. MqttClientId = {}, cause = {}, errorMessage = {}.",
+                + "Closing Netty channel. MqttClientId = {}",
                 NettyUtils.clientID(ctx.channel()),
-                cause.getCause(),
-                cause.getMessage());
+                cause);
         ctx.close();
     }
 

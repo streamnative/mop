@@ -251,7 +251,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test(timeOut = TIMEOUT)
+    @Test(timeOut = TIMEOUT, enabled = false)
     public void testSubscribeRejectionWithSameClientId() throws Exception {
         final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
         MQTT mqtt = createMQTTClient();
@@ -272,6 +272,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         } catch (MQTTException e){
             Assert.assertTrue(e.getMessage().contains("CONNECTION_REFUSED_IDENTIFIER_REJECTED"));
         }
+        System.out.println("---------------------------");
     }
 
     @Test(timeOut = TIMEOUT)
