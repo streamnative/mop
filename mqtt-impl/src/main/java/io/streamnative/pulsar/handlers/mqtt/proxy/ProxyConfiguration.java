@@ -93,6 +93,13 @@ public class ProxyConfiguration {
     private int mqttProxyPort = 5682;
 
     @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
+            doc = "The mqtt proxy tls port"
+    )
+    private int mqttProxyTlsPort = 5683;
+
+    @FieldContext(
             category = CATEGORY_BROKER_DISCOVERY,
             doc = "The service url points to the broker cluster"
     )

@@ -98,7 +98,7 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
     public MQTT createMQTTProxyClient() throws URISyntaxException {
         MQTT mqtt = createMQTTClient();
-        mqtt.setHost("127.0.0.1", getProxyPort());
+        mqtt.setHost("127.0.0.1", mqttProxyPortList.get(0));
         return mqtt;
     }
 }

@@ -41,10 +41,10 @@ public class ServiceChannelInitializer extends ChannelInitializer<SocketChannel>
     private SslContextAutoRefreshBuilder<SslContext> serverSslCtxRefresher;
     private NettySSLContextAutoRefreshBuilder serverSSLContextAutoRefreshBuilder;
 
-    public ServiceChannelInitializer(ProxyService proxyService, ProxyConfiguration proxyConfig) throws Exception {
+    public ServiceChannelInitializer(ProxyService proxyService, ProxyConfiguration proxyConfig, boolean enableTls) {
         this.proxyService = proxyService;
         this.proxyConfig = proxyConfig;
-        this.enableTls = proxyConfig.isTlsEnabledInProxy();
+        this.enableTls = enableTls;
         this.tlsEnabledWithKeyStore = proxyConfig.isTlsEnabledWithKeyStore();
         if (this.enableTls) {
             if (tlsEnabledWithKeyStore) {
@@ -80,14 +80,16 @@ public class ServiceChannelInitializer extends ChannelInitializer<SocketChannel>
     @Override
     protected void initChannel(SocketChannel ch) throws Exception {
         ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(10, 0, 0));
-        if (serverSslCtxRefresher != null && this.enableTls) {
-            SslContext sslContext = serverSslCtxRefresher.get();
-            if (sslContext != null) {
-                ch.pipeline().addLast(TLS_HANDLER, sslContext.newHandler(ch.alloc()));
+        if (this.enableTls) {
+            if (serverSslCtxRefresher != null) {
+                SslContext sslContext = serverSslCtxRefresher.get();
+                if (sslContext != null) {
+                    ch.pipeline().addLast(TLS_HANDLER, sslContext.newHandler(ch.alloc()));
+                }
+            } else if (this.tlsEnabledWithKeyStore && serverSSLContextAutoRefreshBuilder != null) {
+                ch.pipeline().addLast(TLS_HANDLER,
+                        new SslHandler(serverSSLContextAutoRefreshBuilder.get().createSSLEngine()));
             }
-        } else if (this.tlsEnabledWithKeyStore && serverSSLContextAutoRefreshBuilder != null) {
-            ch.pipeline().addLast(TLS_HANDLER,
-                    new SslHandler(serverSSLContextAutoRefreshBuilder.get().createSSLEngine()));
         }
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);

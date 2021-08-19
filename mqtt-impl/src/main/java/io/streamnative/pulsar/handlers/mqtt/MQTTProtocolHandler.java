@@ -66,7 +66,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
 
     @Override
     public void initialize(ServiceConfiguration conf) throws Exception {
-    // init config
+        // init config
         if (conf instanceof MQTTServerConfiguration) {
             // in unit test, passed in conf will be MQTTServerConfiguration
             mqttConfig = (MQTTServerConfiguration) conf;
@@ -100,6 +100,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setMqttMaxFrameSize(mqttConfig.getMaxFrameSize());
             proxyConfig.setMqttHeartBeat(mqttConfig.getHeartBeat());
             proxyConfig.setMqttProxyPort(mqttConfig.getMqttProxyPort());
+            proxyConfig.setMqttProxyTlsPort(mqttConfig.getMqttProxyTlsPort());
             proxyConfig.setBrokerServiceURL("pulsar://"
                     + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig, true)
                     + ":" + mqttConfig.getBrokerServicePort().get());
