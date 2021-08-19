@@ -48,7 +48,11 @@ import java.util.concurrent.CompletableFuture;
 import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
+import org.apache.pulsar.common.naming.NamespaceName;
+import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 
 /**
@@ -272,6 +276,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
         log.info("[Proxy Subscribe] [{}] msg: {}", channel, msg);
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
+
             CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
             final String topicName;
             try {

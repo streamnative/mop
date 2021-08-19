@@ -19,6 +19,10 @@ import java.net.URLEncoder;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+
+import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
+import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.namespace.LookupOptions;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -27,6 +31,7 @@ import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.broker.service.nonpersistent.NonPersistentSubscription;
 import org.apache.pulsar.broker.service.nonpersistent.NonPersistentTopic;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
+import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.FutureUtil;
@@ -108,6 +113,47 @@ public class PulsarTopicUtils {
         } else {
             return TopicName.get(TopicDomain.persistent.value(), defaultTenant, defaultNamespace,
                     URLEncoder.encode(mqttTopicName, UTF8)).toString();
+        }
+    }
+
+    public static Pair<TopicDomain,NamespaceName> getTopicDomainAndNamespaceFromTopicFilter(String mqttTopicFilter,
+            String defaultTenant, String defaultNamespace) {
+        if (mqttTopicFilter.startsWith(PERSISTENT_DOMAIN)
+                || mqttTopicFilter.startsWith(NON_PERSISTENT_DOMAIN)) {
+            List<String> parts = Splitter.on("://").limit(2).splitToList(mqttTopicFilter);
+            if (parts.size() < 2) {
+                throw new IllegalArgumentException("Invalid topic filter: " + mqttTopicFilter);
+            }
+            String domain = parts.get(0);
+            String rest = parts.get(1);
+            parts = Splitter.on("/").limit(3).splitToList(rest);
+            if (parts.size() < 3) {
+                throw new IllegalArgumentException("Invalid topic filter: " + mqttTopicFilter);
+            }
+            String tenant = parts.get(0);
+            String namespace = parts.get(1);
+            return Pair.of(TopicDomain.getEnum(domain), NamespaceName.get(tenant, namespace));
+        } else {
+            return Pair.of(TopicDomain.persistent, NamespaceName.get(defaultTenant, defaultNamespace));
+        }
+    }
+
+    public static TopicFilter getTopicFilter(String mqttTopicFilter) {
+        if (mqttTopicFilter.startsWith(PERSISTENT_DOMAIN)
+                || mqttTopicFilter.startsWith(NON_PERSISTENT_DOMAIN)) {
+            List<String> parts = Splitter.on("://").limit(2).splitToList(mqttTopicFilter);
+            if (parts.size() < 2) {
+                throw new IllegalArgumentException("Invalid topic filter: " + mqttTopicFilter);
+            }
+            String rest = parts.get(1);
+            parts = Splitter.on("/").limit(3).splitToList(rest);
+            if (parts.size() < 3) {
+                throw new IllegalArgumentException("Invalid topic filter: " + mqttTopicFilter);
+            }
+            String localName = parts.get(2);
+            return new TopicFilterImpl(localName);
+        } else {
+            return new TopicFilterImpl(mqttTopicFilter);
         }
     }
 }
