@@ -47,7 +47,7 @@ public class ProxyHandler {
     @Getter
     // proxy -> MoP
     private Channel brokerChannel;
-    private State state;
+    private State state = State.Init;
     private List<Object> connectMsgList;
     private CompletableFuture<Void> brokerFuture = new CompletableFuture<>();
 
@@ -78,7 +78,6 @@ public class ProxyHandler {
                 clientChannel.close();
             }
         });
-        state = State.Init;
         log.info("Broker channel connect. broker: {}:{}, isOpen: {}",
                  mqttBrokerHost, mqttBrokerPort, brokerChannel.isOpen());
     }
