@@ -21,6 +21,7 @@ import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
+import lombok.Getter;
 import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
 import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
 import org.apache.pulsar.common.util.keystoretls.NettySSLContextAutoRefreshBuilder;
@@ -31,6 +32,7 @@ import org.apache.pulsar.common.util.keystoretls.NettySSLContextAutoRefreshBuild
 public class ServiceChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private final ProxyService proxyService;
+    @Getter
     private final ProxyConfiguration proxyConfig;
 
     private final boolean enableTls;

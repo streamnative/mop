@@ -131,7 +131,7 @@ public class ProxyConnection extends ChannelInboundHandlerAdapter{
                     ctx.writeAndFlush(pingResp);
                     break;
                 default:
-                    log.error("Unkonwn MessageType:{}", messageType);
+                    log.error("Unknown MessageType:{}", messageType);
                     break;
             }
         } catch (Throwable ex) {
