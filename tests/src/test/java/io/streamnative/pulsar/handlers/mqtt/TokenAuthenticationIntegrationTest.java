@@ -98,13 +98,13 @@ public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
         return mqtt;
     }
 
-    @Test
+    @Test(timeOut = TIMEOUT)
     public void testAuthenticateAndPublish() throws Exception {
         MQTT mqtt = createMQTTClient();
         authenticateAndPublish(mqtt);
     }
 
-    @Test
+    @Test(timeOut = TIMEOUT)
     public void testAuthenticateAndPublishViaProxy() throws Exception {
         MQTT mqtt = createMQTTProxyClient();
         authenticateAndPublish(mqtt);
@@ -130,5 +130,6 @@ public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
         mqtt.setPassword("invalid");
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
+        connection.disconnect();
     }
 }
