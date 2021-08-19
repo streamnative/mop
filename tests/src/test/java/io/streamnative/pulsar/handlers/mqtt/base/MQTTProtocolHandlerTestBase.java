@@ -182,7 +182,7 @@ public abstract class MQTTProtocolHandlerTestBase {
                 admin.close();
             }
             if (pulsarClient != null) {
-                pulsarClient.closeAsync();
+                pulsarClient.close();
             }
             if (pulsarServiceList != null && !pulsarServiceList.isEmpty()) {
                 stopBroker();
