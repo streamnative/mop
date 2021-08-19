@@ -100,6 +100,7 @@ public class ProxyService implements Closeable {
 
         if (proxyConfig.isTlsEnabledInProxy()) {
             ServerBootstrap tlsBootstrap = serverBootstrap.clone();
+            tlsBootstrap.childHandler(new ServiceChannelInitializer(this, proxyConfig, true));
             listenChannelTls = tlsBootstrap.bind(proxyConfig.getMqttProxyTlsPort()).sync().channel();
             log.info("Started MQTT TLS Proxy on {}", listenChannelTls.localAddress());
         }
