@@ -19,6 +19,7 @@ import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.base.PortManager;
 import java.io.File;
 import java.io.FileInputStream;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -128,8 +129,7 @@ public class ProxyTLSTest extends MQTTTestBase {
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
     public void testConnectionViaProxyUsingTLS(String topicName) throws Exception {
         MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", mqttProxyPortList.get(1));
-
+        mqtt.setHost(URI.create("ssl://127.0.0.1:" + getMqttProxyPortList().get(1)));
         File crtFile = new File(TLS_SERVER_CERT_FILE_PATH);
         Certificate certificate = CertificateFactory
                 .getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
