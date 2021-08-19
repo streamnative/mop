@@ -385,7 +385,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
             if (proxyHandler.getBrokerChannel().isWritable()) {
                 proxyHandler.getBrokerChannel().writeAndFlush(msg);
             } else {
-                log.error("The broker channel({}:{}) is not writable!", mqttBrokerHost, mqttBrokerPort, throwable);
+                log.error("The broker channel({}:{}) is not writable!", mqttBrokerHost, mqttBrokerPort);
                 channel.close();
                 proxyHandler.close();
             }
