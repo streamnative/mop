@@ -31,6 +31,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,6 +49,7 @@ public class ProxyHandler {
     private Channel brokerChannel;
     private State state;
     private List<Object> connectMsgList;
+    private CompletableFuture<Void> brokerFuture = new CompletableFuture<>();
 
     ProxyHandler(ProxyService proxyService, ProxyConnection proxyConnection,
                  String mqttBrokerHost, int mqttBrokerPort, List<Object> connectMsgList) throws Exception {
@@ -70,7 +72,7 @@ public class ProxyHandler {
                 });
         ChannelFuture channelFuture = bootstrap.connect(mqttBrokerHost, mqttBrokerPort);
         brokerChannel = channelFuture.channel();
-        channelFuture.await().addListener(future -> {
+        channelFuture.addListener(future -> {
             if (!future.isSuccess()) {
                 // Close the connection if the connection attempt has failed.
                 clientChannel.close();
@@ -129,6 +131,7 @@ public class ProxyHandler {
                         log.info("The messageType is CONNACK, set the state to Connected.");
                         checkState(msg instanceof MqttConnAckMessage);
                         state = State.Connected;
+                        brokerFuture.complete(null);
                     }
                     break;
                 case Failed:
@@ -146,8 +149,9 @@ public class ProxyHandler {
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-            cause.printStackTrace();
+            log.error("Failed to create connection with MoP broker.", cause);
             state = State.Failed;
+            brokerFuture.completeExceptionally(cause);
         }
 
         @Override
@@ -167,6 +171,10 @@ public class ProxyHandler {
         Connected,
         Failed,
         Closed
+    }
+
+    public CompletableFuture<Void> brokerFuture() {
+        return this.brokerFuture;
     }
 
 }
