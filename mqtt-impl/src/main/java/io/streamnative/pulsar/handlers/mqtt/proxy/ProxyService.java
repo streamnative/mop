@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
@@ -41,7 +42,6 @@ public class ProxyService implements Closeable {
 
     @Getter
     private ProxyConfiguration proxyConfig;
-    private String serviceUrl;
     @Getter
     private PulsarService pulsarService;
     @Getter
@@ -66,10 +66,8 @@ public class ProxyService implements Closeable {
     private String tenant;
 
     public ProxyService(
-        ProxyConfiguration proxyConfig,
-        PulsarService pulsarService,
-        Map<String, AuthenticationProvider> authProviders
-    ) {
+        ProxyConfiguration proxyConfig, PulsarService pulsarService,
+        Map<String, AuthenticationProvider> authProviders) {
         configValid(proxyConfig);
 
         this.proxyConfig = proxyConfig;
@@ -92,7 +90,7 @@ public class ProxyService implements Closeable {
         serverBootstrap.group(acceptorGroup, workerGroup);
         serverBootstrap.channel(EventLoopUtil.getServerSocketChannelClass(workerGroup));
         EventLoopUtil.enableTriggeredMode(serverBootstrap);
-        serverBootstrap.childHandler(new ServiceChannelInitializer(this));
+        serverBootstrap.childHandler(new ServiceChannelInitializer(this, proxyConfig));
         try {
             listenChannel = serverBootstrap.bind(proxyConfig.getMqttProxyPort()).sync().channel();
         } catch (InterruptedException e) {

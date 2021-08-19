@@ -17,7 +17,14 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
+import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
+import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
+import org.apache.pulsar.common.util.keystoretls.NettySSLContextAutoRefreshBuilder;
+
+import static org.apache.pulsar.client.impl.PulsarChannelInitializer.TLS_HANDLER;
 
 /**
  * Proxy service channel initializer.
@@ -25,14 +32,62 @@ import io.netty.handler.timeout.IdleStateHandler;
 public class ServiceChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private final ProxyService proxyService;
+    private final ProxyConfiguration proxyConfig;
 
-    public ServiceChannelInitializer(ProxyService proxyService) {
+    private final boolean enableTls;
+    private final boolean tlsEnabledWithKeyStore;
+
+    private SslContextAutoRefreshBuilder<SslContext> serverSslCtxRefresher;
+    private NettySSLContextAutoRefreshBuilder serverSSLContextAutoRefreshBuilder;
+
+    public ServiceChannelInitializer(ProxyService proxyService, ProxyConfiguration proxyConfig) throws Exception {
         this.proxyService = proxyService;
+        this.proxyConfig = proxyConfig;
+        this.enableTls = proxyConfig.isTlsEnabledInProxy();
+        this.tlsEnabledWithKeyStore = proxyConfig.isTlsEnabledWithKeyStore();
+        if (this.enableTls) {
+            if (tlsEnabledWithKeyStore) {
+                serverSSLContextAutoRefreshBuilder = new NettySSLContextAutoRefreshBuilder(
+                        proxyConfig.getTlsProvider(),
+                        proxyConfig.getTlsKeyStoreType(),
+                        proxyConfig.getTlsKeyStore(),
+                        proxyConfig.getTlsKeyStorePassword(),
+                        proxyConfig.isTlsAllowInsecureConnection(),
+                        proxyConfig.getTlsTrustStoreType(),
+                        proxyConfig.getTlsTrustStore(),
+                        proxyConfig.getTlsTrustStorePassword(),
+                        proxyConfig.isTlsRequireTrustedClientCertOnConnect(),
+                        proxyConfig.getTlsCiphers(),
+                        proxyConfig.getTlsProtocols(),
+                        proxyConfig.getTlsCertRefreshCheckDurationSec());
+            } else {
+                serverSslCtxRefresher = new NettyServerSslContextBuilder(
+                        proxyConfig.isTlsAllowInsecureConnection(),
+                        proxyConfig.getTlsTrustCertsFilePath(),
+                        proxyConfig.getTlsCertificateFilePath(),
+                        proxyConfig.getTlsKeyFilePath(),
+                        proxyConfig.getTlsCiphers(),
+                        proxyConfig.getTlsProtocols(),
+                        proxyConfig.isTlsRequireTrustedClientCertOnConnect(),
+                        proxyConfig.getTlsCertRefreshCheckDurationSec());
+            }
+        } else {
+            this.serverSslCtxRefresher = null;
+        }
     }
 
     @Override
     protected void initChannel(SocketChannel ch) throws Exception {
         ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(10, 0, 0));
+        if (serverSslCtxRefresher != null && this.enableTls) {
+            SslContext sslContext = serverSslCtxRefresher.get();
+            if (sslContext != null) {
+                ch.pipeline().addLast(TLS_HANDLER, sslContext.newHandler(ch.alloc()));
+            }
+        } else if (this.tlsEnabledWithKeyStore && serverSSLContextAutoRefreshBuilder != null) {
+            ch.pipeline().addLast(TLS_HANDLER,
+                    new SslHandler(serverSSLContextAutoRefreshBuilder.get().createSSLEngine()));
+        }
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
         ch.pipeline().addLast("handler", new ProxyConnection(proxyService));
