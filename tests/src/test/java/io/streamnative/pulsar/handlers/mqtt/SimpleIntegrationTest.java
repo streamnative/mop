@@ -23,7 +23,6 @@ import org.apache.pulsar.client.api.Schema;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
-import org.fusesource.mqtt.client.MQTTException;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
@@ -251,7 +250,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test(timeOut = TIMEOUT, enabled = false)
+    @Test(timeOut = TIMEOUT)
     public void testSubscribeRejectionWithSameClientId() throws Exception {
         final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
         MQTT mqtt = createMQTTClient();
@@ -260,19 +259,17 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection1.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
         connection1.subscribe(topics);
-
         Assert.assertTrue(connection1.isConnected());
 
         BlockingConnection connection2;
-        try {
-            connection2 = mqtt.blockingConnection();
-            connection2.connect();
-            connection2.subscribe(topics);
-            Assert.fail("Should failed with CONNECTION_REFUSED_IDENTIFIER_REJECTED");
-        } catch (MQTTException e){
-            Assert.assertTrue(e.getMessage().contains("CONNECTION_REFUSED_IDENTIFIER_REJECTED"));
-        }
-        System.out.println("---------------------------");
+        MQTT mqtt2 = createMQTTClient();
+        mqtt.setClientId("client-id-0");
+        connection2 = mqtt2.blockingConnection();
+        connection2.connect();
+        Assert.assertTrue(connection2.isConnected());
+        Awaitility.await().untilAsserted(() -> Assert.assertTrue(connection1.isConnected()));
+        connection2.subscribe(topics);
+        connection2.disconnect();
     }
 
     @Test(timeOut = TIMEOUT)

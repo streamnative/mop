@@ -98,13 +98,13 @@ public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
         return mqtt;
     }
 
-    @Test
+    @Test(timeOut = TIMEOUT)
     public void testAuthenticateAndPublish() throws Exception {
         MQTT mqtt = createMQTTClient();
         authenticateAndPublish(mqtt);
     }
 
-    @Test
+    @Test(timeOut = TIMEOUT)
     public void testAuthenticateAndPublishViaProxy() throws Exception {
         MQTT mqtt = createMQTTProxyClient();
         authenticateAndPublish(mqtt);
