@@ -14,11 +14,9 @@
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import com.google.common.collect.ImmutableList;
-
+import com.google.common.collect.Sets;
 import java.util.List;
 import java.util.Set;
-
-import com.google.common.collect.Sets;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.pulsar.common.configuration.Category;

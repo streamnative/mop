@@ -13,10 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import com.google.common.collect.Sets;
 import java.util.List;
 import java.util.Set;
-
-import com.google.common.collect.Sets;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.pulsar.broker.ServiceConfiguration;
