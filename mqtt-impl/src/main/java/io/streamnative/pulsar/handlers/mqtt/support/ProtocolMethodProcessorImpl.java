@@ -164,7 +164,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         if (existing != null) {
             log.info("The client ID is being used in an existing connection. It will be closed. CId={}", clientId);
             existing.abort();
-            sendAck(descriptor, MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, clientId);
+            sendAck(descriptor, MqttConnectReturnCode.CONNECTION_ACCEPTED, clientId);
             return;
         }
 
@@ -248,7 +248,6 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         final String clientID = NettyUtils.clientID(channel);
         log.info("Processing DISCONNECT message. CId={}", clientID);
         channel.flush();
-
         final ConnectionDescriptor existingDescriptor = ConnectionDescriptorStore.getInstance().getConnection(clientID);
         if (existingDescriptor == null) {
             // another client with same ID removed the descriptor, we must exit
