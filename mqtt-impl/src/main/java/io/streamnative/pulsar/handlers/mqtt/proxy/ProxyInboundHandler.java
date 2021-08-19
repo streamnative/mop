@@ -174,27 +174,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                 return;
             }
 
-            proxyHandler = proxyHandlerMap.computeIfAbsent
-                    (topicName, key -> {
-                try {
-                    return new ProxyHandler(proxyService,
-                            proxyConnection,
-                            pair.getLeft(),
-                            pair.getRight(),
-                            connectMsgList);
-                } catch (Exception e) {
-                    log.error("[Proxy Publish] Failed to create proxy handler for topic {}",
-                            msg.variableHeader().topicName(), e);
-                    return null;
-                }
-            });
-
-            if (null == proxyHandler) {
-                channel.close();
-                return;
-            }
-
-            proxyHandler.getBrokerChannel().writeAndFlush(msg);
+            writeAndFlush(topicName, pair.getLeft(), pair.getRight(), channel, msg);
         });
     }
 
@@ -299,27 +279,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                     return;
                 }
 
-                proxyHandler = proxyHandlerMap.computeIfAbsent(
-                        topicName, key -> {
-                    try {
-                        return new ProxyHandler(proxyService,
-                                proxyConnection,
-                                pair.getLeft(),
-                                pair.getRight(),
-                                connectMsgList);
-                    } catch (Exception e) {
-                        log.error("[Proxy Subscribe] Failed to perform lookup request", e);
-                        return null;
-                    }
-                });
-
-                if (null == proxyHandler) {
-                    channel.close();
-                    return;
-                }
-
-
-                proxyHandler.getBrokerChannel().writeAndFlush(msg);
+                writeAndFlush(topicName, pair.getLeft(), pair.getRight(), channel, msg);
             });
         }
     }
@@ -344,25 +304,8 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                     channel.close();
                     return;
                 }
-                proxyHandler = proxyHandlerMap.computeIfAbsent(topic, key -> {
-                    try {
-                        return new ProxyHandler(proxyService,
-                                proxyConnection,
-                                pair.getLeft(),
-                                pair.getRight(),
-                                connectMsgList);
-                    } catch (Exception e) {
-                        log.error("[Proxy UnSubscribe] Failed to perform lookup request", e);
-                        return null;
-                    }
-                });
 
-                if (null == proxyHandler) {
-                    channel.close();
-                    return;
-                }
-
-                proxyHandler.getBrokerChannel().writeAndFlush(msg);
+                writeAndFlush(topic, pair.getLeft(), pair.getRight(), channel, msg);
             });
         }
     }
@@ -408,6 +351,45 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         }
         // todo remove subscriptions from Pulsar.
         return true;
+    }
+
+    private ProxyHandler getProxyHandler(String topic, String mqttBrokerHost, int mqttBrokerPort) {
+        return proxyHandlerMap.computeIfAbsent(topic, key -> {
+            try {
+                return new ProxyHandler(proxyService,
+                        proxyConnection,
+                        mqttBrokerHost,
+                        mqttBrokerPort,
+                        connectMsgList);
+            } catch (Exception e) {
+                log.error("[Proxy UnSubscribe] Failed to perform lookup request", e);
+                return null;
+            }
+        });
+    }
+
+    private void writeAndFlush(String topic, String mqttBrokerHost, int mqttBrokerPort,
+                               Channel channel, MqttMessage msg) {
+        ProxyHandler proxyHandler = getProxyHandler(topic, mqttBrokerHost, mqttBrokerPort);
+        if (null == proxyHandler) {
+            channel.close();
+            return;
+        }
+        proxyHandler.brokerFuture().whenComplete((ignored, throwable) -> {
+            if (throwable != null) {
+                log.error("[{}] MoP proxy failed to connect with MoP broker({}:{}).",
+                        msg.fixedHeader().messageType(), mqttBrokerHost, mqttBrokerPort, throwable);
+                channel.close();
+                return;
+            }
+            if (proxyHandler.getBrokerChannel().isWritable()) {
+                proxyHandler.getBrokerChannel().writeAndFlush(msg);
+            } else {
+                log.error("The broker channel({}:{}) is not writable!", mqttBrokerHost, mqttBrokerPort);
+                channel.close();
+                proxyHandler.close();
+            }
+        });
     }
 
 }
