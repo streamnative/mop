@@ -107,6 +107,13 @@ public class MQTTServerConfiguration extends ServiceConfiguration {
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
             required = false,
+            doc = "The mqtt proxy tls port"
+    )
+    private int mqttProxyTlsPort = 5683;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
             doc = "Whether start mqtt protocol handler with proxy"
     )
     private boolean mqttProxyEnable = false;

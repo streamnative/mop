@@ -19,7 +19,6 @@ import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.base.PortManager;
 import java.io.File;
 import java.io.FileInputStream;
-import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -101,6 +100,9 @@ public class ProxyTLSTest extends MQTTTestBase {
             int mqttProxyPort = PortManager.nextFreePort();
             mqttProxyPortList.add(mqttProxyPort);
 
+            int mqttProxyTlsPort = PortManager.nextFreePort();
+            mqttProxyPortList.add(mqttProxyTlsPort);
+
             int brokerWebServicePort = PortManager.nextFreePort();
             brokerWebservicePortList.add(brokerWebServicePort);
 
@@ -111,21 +113,22 @@ public class ProxyTLSTest extends MQTTTestBase {
             String plaintextListener = "mqtt://127.0.0.1:" + mqttBrokerPort;
             ((MQTTServerConfiguration) conf).setMqttListeners(plaintextListener);
             ((MQTTServerConfiguration) conf).setMqttProxyPort(mqttProxyPort);
-            ((MQTTServerConfiguration) conf).setMqttProxyEnable(true);
+            ((MQTTServerConfiguration) conf).setMqttProxyTlsPort(mqttProxyTlsPort);
             conf.setBrokerServicePortTls(Optional.of(brokerPortTls));
             conf.setWebServicePort(Optional.of(brokerWebServicePort));
             conf.setWebServicePortTls(Optional.of(brokerWebServicePortTls));
 
-            log.info("Start broker info [{}], brokerPort: {}, mqttBrokerPort: {}, mqttProxyPort: {}",
-                    i, brokerPort, mqttBrokerPort, mqttProxyPort);
+            log.info("Start broker info [{}], brokerPort: {}, mqttBrokerPort: {}, mqttProxyPort: {},"
+                            + " mqttProxyTlsPort: {}",
+                    i, brokerPort, mqttBrokerPort, mqttProxyPort, mqttProxyTlsPort);
             this.pulsarServiceList.add(startBroker(conf));
         }
     }
 
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
-    public void testConnectionViaProxy(String topicName) throws Exception {
+    public void testConnectionViaProxyUsingTLS(String topicName) throws Exception {
         MQTT mqtt = new MQTT();
-        mqtt.setHost(URI.create("ssl://127.0.0.1:" + mqttProxyPortList.get(0)));
+        mqtt.setHost("127.0.0.1", mqttProxyPortList.get(1));
 
         File crtFile = new File(TLS_SERVER_CERT_FILE_PATH);
         Certificate certificate = CertificateFactory
@@ -139,6 +142,21 @@ public class ProxyTLSTest extends MQTTTestBase {
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
         mqtt.setSslContext(sslContext);
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT Proxy";
+        connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
+    }
+
+    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
+    public void testConnectionViaProxy(String topicName) throws Exception {
+        MQTT mqtt = createMQTTProxyClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };

@@ -42,7 +42,6 @@ import org.apache.bookkeeper.client.PulsarMockBookKeeper;
 import org.apache.bookkeeper.common.util.OrderedExecutor;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.bookkeeper.util.ZkUtils;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.pulsar.broker.BookKeeperClientFactory;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.ServiceConfiguration;
@@ -183,7 +182,7 @@ public abstract class MQTTProtocolHandlerTestBase {
                 admin.close();
             }
             if (pulsarClient != null) {
-                pulsarClient.close();
+                pulsarClient.closeAsync();
             }
             if (pulsarServiceList != null && !pulsarServiceList.isEmpty()) {
                 stopBroker();
@@ -390,14 +389,6 @@ public abstract class MQTTProtocolHandlerTestBase {
         for (PulsarService pulsarService : pulsarServiceList) {
             Mockito.when(pulsarService.getState()).thenReturn(PulsarService.State.Started);
         }
-    }
-
-    /**
-     * Get available proxy port.
-     * @return random proxy port
-     */
-    public int getProxyPort() {
-        return mqttProxyPortList.get(RandomUtils.nextInt(0, mqttProxyPortList.size()));
     }
 
     /**
