@@ -14,14 +14,18 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import com.google.common.base.Splitter;
-import java.io.UnsupportedEncodingException;
+import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
+import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-
-import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
-import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.namespace.LookupOptions;
@@ -30,6 +34,7 @@ import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.broker.service.nonpersistent.NonPersistentSubscription;
 import org.apache.pulsar.broker.service.nonpersistent.NonPersistentTopic;
+import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicDomain;
@@ -41,15 +46,14 @@ import org.apache.pulsar.common.util.FutureUtil;
  */
 public class PulsarTopicUtils {
 
-    public static final String UTF8 = "UTF-8";
     public static final String PERSISTENT_DOMAIN = TopicDomain.persistent.value() + "://";
     public static final String NON_PERSISTENT_DOMAIN = TopicDomain.non_persistent.value() + "://";
 
     public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService, String topicName,
-           String defaultTenant, String defaultNamespace) {
+           String defaultTenant, String defaultNamespace, boolean encodeTopicName) {
         final TopicName topic;
         try {
-            topic = TopicName.get(getPulsarTopicName(topicName, defaultTenant, defaultNamespace));
+            topic = TopicName.get(getPulsarTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName));
         } catch (Exception e) {
             return FutureUtil.failedFuture(e);
         }
@@ -61,7 +65,7 @@ public class PulsarTopicUtils {
     public static CompletableFuture<Subscription> getOrCreateSubscription(PulsarService pulsarService,
               String topicName, String subscriptionName, String defaultTenant, String defaultNamespace) {
         CompletableFuture<Subscription> promise = new CompletableFuture<>();
-        getTopicReference(pulsarService, topicName, defaultTenant, defaultNamespace).thenAccept(topicOp -> {
+        getTopicReference(pulsarService, topicName, defaultTenant, defaultNamespace, false).thenAccept(topicOp -> {
             if (!topicOp.isPresent()) {
                 promise.completeExceptionally(new BrokerServiceException.TopicNotFoundException(topicName));
             } else {
@@ -92,8 +96,13 @@ public class PulsarTopicUtils {
         return promise;
     }
 
-    public static String getPulsarTopicName(String mqttTopicName, String defaultTenant, String defaultNamespace)
-            throws UnsupportedEncodingException {
+    public static String getEncodedPulsarTopicName(String mqttTopicName, String defaultTenant,
+           String defaultNamespace) {
+        return getPulsarTopicName(mqttTopicName, defaultTenant, defaultNamespace, true);
+    }
+
+    public static String getPulsarTopicName(String mqttTopicName, String defaultTenant, String defaultNamespace,
+            boolean urlEncoded) {
         if (mqttTopicName.startsWith(PERSISTENT_DOMAIN)
                 || mqttTopicName.startsWith(NON_PERSISTENT_DOMAIN)) {
             List<String> parts = Splitter.on("://").limit(2).splitToList(mqttTopicName);
@@ -109,14 +118,15 @@ public class PulsarTopicUtils {
             String tenant = parts.get(0);
             String namespace = parts.get(1);
             String localName = parts.get(2);
-            return TopicName.get(domain, tenant, namespace, URLEncoder.encode(localName, UTF8)).toString();
+            return TopicName.get(domain, tenant, namespace,
+                    urlEncoded ? URLEncoder.encode(localName) : localName).toString();
         } else {
             return TopicName.get(TopicDomain.persistent.value(), defaultTenant, defaultNamespace,
-                    URLEncoder.encode(mqttTopicName, UTF8)).toString();
+                    URLEncoder.encode(mqttTopicName)).toString();
         }
     }
 
-    public static Pair<TopicDomain,NamespaceName> getTopicDomainAndNamespaceFromTopicFilter(String mqttTopicFilter,
+    public static Pair<TopicDomain, NamespaceName> getTopicDomainAndNamespaceFromTopicFilter(String mqttTopicFilter,
             String defaultTenant, String defaultNamespace) {
         if (mqttTopicFilter.startsWith(PERSISTENT_DOMAIN)
                 || mqttTopicFilter.startsWith(NON_PERSISTENT_DOMAIN)) {
@@ -154,6 +164,53 @@ public class PulsarTopicUtils {
             return new TopicFilterImpl(localName);
         } else {
             return new TopicFilterImpl(mqttTopicFilter);
+        }
+    }
+
+    public static CompletableFuture<List<String>> asyncGetTopicsForSubscribeMsg(MqttSubscribeMessage msg,
+                 String defaultTenant, String defaultNamespace, PulsarService pulsarService) {
+        List<CompletableFuture<List<String>>> topicListFuture =
+                new ArrayList<>(msg.payload().topicSubscriptions().size());
+
+        for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
+            topicListFuture.add(asyncGetTopicListFromTopicSubscription(req, defaultTenant, defaultNamespace,
+                    pulsarService));
+        }
+
+        CompletableFuture<List<String>> completeTopicListFuture = null;
+        for (CompletableFuture<List<String>> future : topicListFuture) {
+            if (completeTopicListFuture == null) {
+                completeTopicListFuture = future;
+            } else {
+                completeTopicListFuture = completeTopicListFuture.thenCombine(future, (l, r) -> {
+                    List<String> topics = new ArrayList<>(l.size() + r.size());
+                    topics.addAll(l);
+                    topics.addAll(r);
+                    return topics;
+                });
+            }
+        }
+        return completeTopicListFuture;
+    }
+
+    public static CompletableFuture<List<String>> asyncGetTopicListFromTopicSubscription(MqttTopicSubscription sub,
+         String defaultTenant, String defaultNamespace, PulsarService pulsarService) {
+        if (sub.topicName().contains(TopicFilter.SINGLE_LEVEL)
+                || sub.topicName().contains(TopicFilter.MULTI_LEVEL)) {
+            TopicFilter filter = PulsarTopicUtils.getTopicFilter(sub.topicName());
+            Pair<TopicDomain, NamespaceName> domainNamespacePair =
+                    PulsarTopicUtils.getTopicDomainAndNamespaceFromTopicFilter(sub.topicName(), defaultTenant,
+                            defaultNamespace);
+            return pulsarService.getNamespaceService().getListOfTopics(
+                    domainNamespacePair.getRight(), domainNamespacePair.getLeft() == TopicDomain.persistent
+                            ? CommandGetTopicsOfNamespace.Mode.PERSISTENT
+                            : CommandGetTopicsOfNamespace.Mode.NON_PERSISTENT).thenCompose(topics ->
+                    CompletableFuture.completedFuture(topics.stream().filter(t ->
+                                    filter.test(URLDecoder.decode(TopicName.get(t).getLocalName())))
+                            .collect(Collectors.toList())));
+        } else {
+            return CompletableFuture.completedFuture(Collections.singletonList(
+                    PulsarTopicUtils.getEncodedPulsarTopicName(sub.topicName(), defaultTenant, defaultNamespace)));
         }
     }
 }

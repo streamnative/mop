@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Consumer;
@@ -91,7 +92,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
     public void testSendByMqttAndReceiveByPulsar(String topic) throws Exception {
         Consumer<byte[]> consumer = pulsarClient.newConsumer()
-                .topic(PulsarTopicUtils.getPulsarTopicName(topic, "public", "default"))
+                .topic(PulsarTopicUtils.getEncodedPulsarTopicName(topic, "public", "default"))
                 .subscriptionName("my-sub")
                 .subscribe();
 
@@ -295,5 +296,37 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertTrue(connection2.isConnected());
 
         connection2.disconnect();
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testSubscribeWithTopicFilter() throws Exception {
+        String t1 = "a/b/c";
+        String t2 = "a/b/c/d";
+
+        MQTT mqtt0 = createMQTTClient();
+        BlockingConnection connection0 = mqtt0.blockingConnection();
+        connection0.connect();
+        Topic[] topics0 = { new Topic(t1, QoS.AT_LEAST_ONCE), new Topic(t2, QoS.AT_LEAST_ONCE) };
+        connection0.subscribe(topics0);
+
+        byte[] message = "Hello MQTT Proxy".getBytes(StandardCharsets.UTF_8);
+        connection0.publish(t1, message, QoS.AT_MOST_ONCE, false);
+        connection0.publish(t2, message, QoS.AT_MOST_ONCE, false);
+        Message received = connection0.receive();
+        Assert.assertEquals(received.getPayload(), message);
+        received = connection0.receive();
+        Assert.assertEquals(received.getPayload(), message);
+
+        MQTT mqtt1 = createMQTTClient();
+        BlockingConnection connection1 = mqtt1.blockingConnection();
+        connection1.connect();
+        Topic[] topics1 = { new Topic("a/b/#", QoS.AT_LEAST_ONCE)};
+        connection1.subscribe(topics1);
+        connection1.publish(t1, message, QoS.AT_MOST_ONCE, false);
+        connection1.publish(t2, message, QoS.AT_MOST_ONCE, false);
+        received = connection1.receive();
+        Assert.assertEquals(received.getPayload(), message);
+        received = connection1.receive();
+        Assert.assertEquals(received.getPayload(), message);
     }
 }

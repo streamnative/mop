@@ -15,9 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.untils;
 
 import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicDomain;
@@ -30,21 +28,21 @@ import org.testng.annotations.Test;
 public class PulsarTopicUtilsTest {
 
     @Test
-    public void testMqttTopicNameToPulsarTopicName() throws UnsupportedEncodingException {
+    public void testMqttTopicNameToPulsarTopicName() {
         String t0 = "/aaa/bbb/ccc";
-        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0, "public", "default"),
+        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default"),
                 "persistent://public/default/" + URLEncoder.encode(t0));
         t0 = "aaa/bbb/ccc/";
-        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0, "public", "default"),
+        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default"),
                 "persistent://public/default/" + URLEncoder.encode(t0));
         t0 = "/aaa/bbb/ccc/";
-        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0, "public", "default"),
+        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default"),
                 "persistent://public/default/" + URLEncoder.encode(t0));
         t0 = "persistent://public/default/aaa/bbb/ccc";
-        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0, "public", "default"),
+        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default"),
                 "persistent://public/default/" + URLEncoder.encode("aaa/bbb/ccc"));
         t0 = "persistent://public/default//aaa/bbb/ccc";
-        Assert.assertEquals(PulsarTopicUtils.getPulsarTopicName(t0, "public", "default"),
+        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default"),
                 "persistent://public/default/" + URLEncoder.encode("/aaa/bbb/ccc"));
     }
 

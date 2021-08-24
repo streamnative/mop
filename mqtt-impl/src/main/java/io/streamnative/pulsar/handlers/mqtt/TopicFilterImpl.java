@@ -13,14 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 
 public class TopicFilterImpl implements TopicFilter {
-
-    private static final String SINGLE_LEVEL = "+";
-    private static final String MULTI_LEVEL = "#";
-    private static final String SPLITTER = "/";
 
     private final String[] filter;
 
@@ -32,7 +27,7 @@ public class TopicFilterImpl implements TopicFilter {
     }
 
     @Override
-    public boolean test(String localTopicName) throws UnsupportedEncodingException {
+    public boolean test(String localTopicName) {
         if (localTopicName.endsWith(SPLITTER)) {
             localTopicName = localTopicName + SINGLE_LEVEL;
         }
@@ -60,8 +55,12 @@ public class TopicFilterImpl implements TopicFilter {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         TopicFilterImpl that = (TopicFilterImpl) o;
         return Arrays.equals(filter, that.filter);
     }

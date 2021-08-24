@@ -18,12 +18,10 @@ import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.io.UnsupportedEncodingException;
-
 public class TopicFilterImplTest {
 
     @Test
-    public void testFilter() throws UnsupportedEncodingException {
+    public void testFilter() {
         TopicFilter filter = new TopicFilterImpl("a/b/c");
         Assert.assertFalse(filter.test("/a/b/c"));
         Assert.assertFalse(filter.test("/a"));

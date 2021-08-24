@@ -13,10 +13,21 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import java.io.UnsupportedEncodingException;
-
 public interface TopicFilter {
 
-    boolean test(String localTopicName) throws UnsupportedEncodingException;
+    TopicFilterDisabled DISABLED = new TopicFilterDisabled();
 
+    String SINGLE_LEVEL = "+";
+    String MULTI_LEVEL = "#";
+    String SPLITTER = "/";
+
+    boolean test(String localTopicName);
+
+    class TopicFilterDisabled implements TopicFilter {
+
+        @Override
+        public boolean test(String localTopicName) {
+            return true;
+        }
+    }
 }

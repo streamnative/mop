@@ -301,30 +301,31 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         List<MqttTopicSubscription> ackTopics = doVerify(clientID, username, msg);
         List<CompletableFuture<Subscription>> futures = new ArrayList<>();
         for (MqttTopicSubscription ackTopic : ackTopics) {
-            CompletableFuture<Subscription> future = PulsarTopicUtils
-                    .getOrCreateSubscription(pulsarService, ackTopic.topicName(), clientID,
-                            configuration.getDefaultTenant(), configuration.getDefaultNamespace());
-            future.thenAccept(sub -> {
-                    try {
-                        MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(),
-                                PulsarTopicUtils.getPulsarTopicName(ackTopic.topicName(),
-                                        configuration.getDefaultTenant(), configuration.getDefaultNamespace()),
-                                clientID, serverCnx,
-                                ackTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer);
-                        sub.addConsumer(consumer);
-                        consumer.addAllPermits();
-                    } catch (Exception e) {
-                        log.error("[{}] [{}] Failed to add consumer to Pulsar subscription.",
-                                ackTopic.topicName(), clientID, e);
-                        channel.close();
-                    }
-                }).exceptionally(e -> {
-                    log.error("[{}] [{}] Failed to create subscription on Pulsar topic.",
-                            ackTopic.topicName(), clientID, e);
-                    channel.close();
-                    return null;
+            CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
+                    ackTopic, configuration.getDefaultTenant(), configuration.getDefaultNamespace(), pulsarService);
+            topicListFuture.thenAccept(topics -> {
+                for (String topic : topics) {
+                    CompletableFuture<Subscription> future = PulsarTopicUtils
+                            .getOrCreateSubscription(pulsarService, topic, clientID,
+                                    configuration.getDefaultTenant(), configuration.getDefaultNamespace());
+                    future.thenAccept(sub -> {
+                        try {
+                            MQTTConsumer consumer = new MQTTConsumer(sub, topic,
+                                    PulsarTopicUtils.getEncodedPulsarTopicName(topic,
+                                            configuration.getDefaultTenant(), configuration.getDefaultNamespace()),
+                                    clientID, serverCnx,
+                                    ackTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer);
+                            sub.addConsumer(consumer);
+                            consumer.addAllPermits();
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                    futures.add(future);
+                }
+
             });
-            futures.add(future);
+
         }
         FutureUtil.waitForAll(futures).thenAccept(v -> {
             MqttSubAckMessage ackMessage = doAckMessageFromValidateFilters(ackTopics, messageID);
@@ -346,13 +347,13 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
 
         for (String topic : topics) {
             PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
-                    configuration.getDefaultNamespace()).thenAccept(topicOp -> {
+                    configuration.getDefaultNamespace(), true).thenAccept(topicOp -> {
                 if (topicOp.isPresent()) {
                     Subscription subscription = topicOp.get().getSubscription(clientID);
                     if (subscription != null) {
                         try {
                             MQTTConsumer consumer = new MQTTConsumer(subscription, topic,
-                                    PulsarTopicUtils.getPulsarTopicName(topic, configuration.getDefaultTenant(),
+                                    PulsarTopicUtils.getEncodedPulsarTopicName(topic, configuration.getDefaultTenant(),
                                             configuration.getDefaultNamespace()), clientID, serverCnx, qos,
                                     packetIdGenerator, outstandingPacketContainer);
                             topicOp.get().getSubscription(clientID).removeConsumer(consumer);
