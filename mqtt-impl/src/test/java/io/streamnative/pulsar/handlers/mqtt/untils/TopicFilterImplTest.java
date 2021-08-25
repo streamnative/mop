@@ -57,6 +57,7 @@ public class TopicFilterImplTest {
         Assert.assertTrue(filter.test("/a/b/c/"));
         Assert.assertTrue(filter.test("/a/b/c/d"));
         Assert.assertTrue(filter.test("/a/b///"));
+        Assert.assertTrue(filter.test("/a/b/"));
 
         filter = new TopicFilterImpl("a/b/#");
         Assert.assertFalse(filter.test("/a"));
