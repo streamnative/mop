@@ -34,6 +34,7 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -269,7 +270,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                 try {
                     lookupResult = lookupHandler.findBroker(TopicName.get(t), "mqtt");
                 } catch (Exception e) {
-                    throw new RuntimeException(e);
+                    throw new MQTTServerException(e);
                 }
                 futures.add(lookupResult.thenAccept(pair -> {
                     proxyConnection.increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);

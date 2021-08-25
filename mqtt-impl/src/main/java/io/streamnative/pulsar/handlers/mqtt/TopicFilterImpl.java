@@ -20,18 +20,14 @@ public class TopicFilterImpl implements TopicFilter {
     private final String[] filter;
 
     public TopicFilterImpl(String filterString) {
-        if (filterString.endsWith(SPLITTER)) {
-            filterString = filterString + SINGLE_LEVEL;
-        }
-        this.filter = filterString.split(SPLITTER);
+        String fs = filterString.endsWith(SPLITTER) ? filterString + SINGLE_LEVEL : filterString;
+        this.filter = fs.split(SPLITTER);
     }
 
     @Override
     public boolean test(String localTopicName) {
-        if (localTopicName.endsWith(SPLITTER)) {
-            localTopicName = localTopicName + SINGLE_LEVEL;
-        }
-        String[] parts = localTopicName.split(SPLITTER);
+        String topic = localTopicName.endsWith(SPLITTER) ? localTopicName + SINGLE_LEVEL : localTopicName;
+        String[] parts = topic.split(SPLITTER);
         int boundary = Math.min(parts.length, filter.length);
 
         if (MULTI_LEVEL.equals(filter[filter.length - 1])) {

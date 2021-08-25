@@ -43,6 +43,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
@@ -318,7 +319,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
                             sub.addConsumer(consumer);
                             consumer.addAllPermits();
                         } catch (Exception e) {
-                            throw new RuntimeException(e);
+                            throw new MQTTServerException(e);
                         }
                     });
                     futures.add(future);
