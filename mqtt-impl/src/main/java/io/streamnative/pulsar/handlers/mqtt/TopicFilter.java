@@ -15,19 +15,10 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 public interface TopicFilter {
 
-    TopicFilterDisabled DISABLED = new TopicFilterDisabled();
-
     String SINGLE_LEVEL = "+";
     String MULTI_LEVEL = "#";
     String SPLITTER = "/";
 
     boolean test(String localTopicName);
 
-    class TopicFilterDisabled implements TopicFilter {
-
-        @Override
-        public boolean test(String localTopicName) {
-            return true;
-        }
-    }
 }
