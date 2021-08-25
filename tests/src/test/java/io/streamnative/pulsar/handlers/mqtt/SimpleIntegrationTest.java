@@ -298,7 +298,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection2.disconnect();
     }
 
-    @Test(timeOut = TIMEOUT)
+    @Test
     public void testSubscribeWithTopicFilter() throws Exception {
         String t1 = "a/b/c";
         String t2 = "a/b/c/d";
@@ -328,5 +328,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertEquals(received.getPayload(), message);
         received = connection1.receive();
         Assert.assertEquals(received.getPayload(), message);
+        connection0.disconnect();
+        connection1.disconnect();
     }
 }

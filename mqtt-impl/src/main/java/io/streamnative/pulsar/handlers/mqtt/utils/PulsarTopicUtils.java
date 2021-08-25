@@ -173,7 +173,7 @@ public class PulsarTopicUtils {
                 new ArrayList<>(msg.payload().topicSubscriptions().size());
 
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
-            topicListFuture.add(asyncGetTopicListFromTopicSubscription(req, defaultTenant, defaultNamespace,
+            topicListFuture.add(asyncGetTopicListFromTopicSubscription(req.topicName(), defaultTenant, defaultNamespace,
                     pulsarService));
         }
 
@@ -193,13 +193,13 @@ public class PulsarTopicUtils {
         return completeTopicListFuture;
     }
 
-    public static CompletableFuture<List<String>> asyncGetTopicListFromTopicSubscription(MqttTopicSubscription sub,
+    public static CompletableFuture<List<String>> asyncGetTopicListFromTopicSubscription(String topicFilter,
          String defaultTenant, String defaultNamespace, PulsarService pulsarService) {
-        if (sub.topicName().contains(TopicFilter.SINGLE_LEVEL)
-                || sub.topicName().contains(TopicFilter.MULTI_LEVEL)) {
-            TopicFilter filter = PulsarTopicUtils.getTopicFilter(sub.topicName());
+        if (topicFilter.contains(TopicFilter.SINGLE_LEVEL)
+                || topicFilter.contains(TopicFilter.MULTI_LEVEL)) {
+            TopicFilter filter = PulsarTopicUtils.getTopicFilter(topicFilter);
             Pair<TopicDomain, NamespaceName> domainNamespacePair =
-                    PulsarTopicUtils.getTopicDomainAndNamespaceFromTopicFilter(sub.topicName(), defaultTenant,
+                    PulsarTopicUtils.getTopicDomainAndNamespaceFromTopicFilter(topicFilter, defaultTenant,
                             defaultNamespace);
             return pulsarService.getNamespaceService().getListOfTopics(
                     domainNamespacePair.getRight(), domainNamespacePair.getLeft() == TopicDomain.persistent
@@ -210,7 +210,7 @@ public class PulsarTopicUtils {
                             .collect(Collectors.toList())));
         } else {
             return CompletableFuture.completedFuture(Collections.singletonList(
-                    PulsarTopicUtils.getEncodedPulsarTopicName(sub.topicName(), defaultTenant, defaultNamespace)));
+                    PulsarTopicUtils.getEncodedPulsarTopicName(topicFilter, defaultTenant, defaultNamespace)));
         }
     }
 }
