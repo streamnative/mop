@@ -172,8 +172,8 @@ public class ProxyConnection extends ChannelInboundHandlerAdapter{
 
     public int decreaseSubscribeTopicsCount(int seq) {
         if (topicCountForSequenceId.get(seq) == null) {
-            log.warn("Unexpected subscribe behavior for the proxy, respond seq {} " +
-                    "but but the seq does not tracked by the proxy. ", seq);
+            log.warn("Unexpected subscribe behavior for the proxy, respond seq {} "
+                    + "but but the seq does not tracked by the proxy. ", seq);
             return -1;
         } else {
             int value = topicCountForSequenceId.get(seq).decrementAndGet();
