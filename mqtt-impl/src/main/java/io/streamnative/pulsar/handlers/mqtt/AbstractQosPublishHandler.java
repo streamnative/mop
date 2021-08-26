@@ -23,6 +23,7 @@ import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Topic;
+import org.apache.pulsar.client.impl.MessageImpl;
 import org.apache.pulsar.common.util.FutureUtil;
 
 /**
@@ -42,13 +43,19 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     }
 
     protected CompletableFuture<Optional<Topic>> getTopicReference(MqttPublishMessage msg) {
-        return PulsarTopicUtils.getTopicReference(pulsarService, msg.variableHeader().topicName());
+        return PulsarTopicUtils.getTopicReference(pulsarService, msg.variableHeader().topicName(),
+                configuration.getDefaultTenant(), configuration.getDefaultNamespace(), true);
     }
 
     protected CompletableFuture<PositionImpl> writeToPulsarTopic(MqttPublishMessage msg) {
-        return getTopicReference(msg).thenCompose(topicOp ->
-                topicOp.map(topic -> MessagePublishContext.publishMessages(toPulsarMsg(msg), topic))
-                .orElseGet(() -> FutureUtil.failedFuture(
-                new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
+        return getTopicReference(msg).thenCompose(topicOp -> {
+                MessageImpl<byte[]> message = toPulsarMsg(msg);
+                CompletableFuture<PositionImpl> pos = topicOp.map(topic ->
+                        MessagePublishContext.publishMessages(message, topic))
+                        .orElseGet(() -> FutureUtil.failedFuture(
+                                new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName())));
+                message.release();
+                return pos;
+            });
     }
 }

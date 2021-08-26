@@ -101,7 +101,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setMqttHeartBeat(mqttConfig.getHeartBeat());
             proxyConfig.setMqttProxyPort(mqttConfig.getMqttProxyPort());
             proxyConfig.setBrokerServiceURL("pulsar://"
-                    + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig)
+                    + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig, true)
                     + ":" + mqttConfig.getBrokerServicePort().get());
             proxyConfig.setMqttAuthenticationEnabled(mqttConfig.isMqttAuthenticationEnabled());
             proxyConfig.setMqttAuthenticationMethods(mqttConfig.getMqttAuthenticationMethods());
@@ -142,11 +142,11 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                 if (listener.startsWith(PLAINTEXT_PREFIX)) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, false));
+                            new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, false));
                 } else if (listener.startsWith(SSL_PREFIX)) {
                     builder.put(
                         new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                        new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, true));
+                        new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, true));
                 } else {
                     log.error("MQTT listener {} not supported. supports {} or {}",
                               listener, PLAINTEXT_PREFIX, SSL_PREFIX);

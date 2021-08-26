@@ -41,83 +41,85 @@ import org.testng.annotations.Test;
  */
 @Slf4j
 public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
-  @BeforeClass
-  @Override
-  public void setup() throws Exception {
-    System.setProperty("pulsar.auth.basic.conf", "./src/test/resources/htpasswd");
-    String authParams = "{\"userId\":\"superUser\",\"password\":\"supepass\"}";
 
-    conf.setAuthenticationEnabled(true);
-    conf.setMqttAuthenticationEnabled(true);
-    conf.setMqttAuthenticationMethods(ImmutableList.of("basic"));
-    conf.setSuperUserRoles(ImmutableSet.of("superUser"));
-    conf.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderBasic.class.getName()));
-    conf.setBrokerClientAuthenticationPlugin(AuthenticationBasic.class.getName());
-    conf.setBrokerClientAuthenticationParameters(authParams);
-    super.init();
+    @BeforeClass
+    @Override
+    public void setup() throws Exception {
+        System.setProperty("pulsar.auth.basic.conf", "./src/test/resources/htpasswd");
+        String authParams = "{\"userId\":\"superUser\",\"password\":\"supepass\"}";
 
-    AuthenticationBasic authPassword = new AuthenticationBasic();
-    authPassword.configure(authParams);
+        conf.setAuthenticationEnabled(true);
+        conf.setMqttAuthenticationEnabled(true);
+        conf.setMqttAuthenticationMethods(ImmutableList.of("basic"));
+        conf.setSuperUserRoles(ImmutableSet.of("superUser"));
+        conf.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderBasic.class.getName()));
+        conf.setBrokerClientAuthenticationPlugin(AuthenticationBasic.class.getName());
+        conf.setBrokerClientAuthenticationParameters(authParams);
+        super.init();
 
-    pulsarClient = PulsarClient.builder()
-                               .serviceUrl(brokerUrl.toString())
-                               .authentication(authPassword)
-                               .statsInterval(0, TimeUnit.SECONDS)
-                               .build();
-    admin = spy(PulsarAdmin.builder()
-                           .serviceHttpUrl(brokerUrl.toString())
-                           .authentication(authPassword)
-                           .build());
+        AuthenticationBasic authPassword = new AuthenticationBasic();
+        authPassword.configure(authParams);
 
-    super.setupClusterNamespaces();
-    super.checkPulsarServiceState();
-  }
+        pulsarClient = PulsarClient.builder()
+                .serviceUrl(brokerUrl.toString())
+                .authentication(authPassword)
+                .statsInterval(0, TimeUnit.SECONDS)
+                .build();
+        admin = spy(PulsarAdmin.builder()
+                .serviceHttpUrl(brokerUrl.toString())
+                .authentication(authPassword)
+                .build());
 
-  @AfterClass
-  @Override
-  public void cleanup() throws Exception {
-    super.cleanup();
-  }
+        super.setupClusterNamespaces();
+        super.checkPulsarServiceState();
+    }
 
-  @Override
-  public MQTT createMQTTClient() throws URISyntaxException {
-    MQTT mqtt = super.createMQTTClient();
-    mqtt.setUserName("superUser");
-    mqtt.setPassword("supepass");
-    return mqtt;
-  }
+    @AfterClass(alwaysRun = true)
+    @Override
+    public void cleanup() throws Exception {
+        super.cleanup();
+    }
 
-  @Test
-  public void testAuthenticateAndPublish() throws Exception {
-    MQTT mqtt = createMQTTClient();
-    authenticateAndPublish(mqtt);
-  }
+    @Override
+    public MQTT createMQTTClient() throws URISyntaxException {
+        MQTT mqtt = super.createMQTTClient();
+        mqtt.setUserName("superUser");
+        mqtt.setPassword("supepass");
+        return mqtt;
+    }
 
-  @Test
-  public void testAuthenticateAndPublishViaProxy() throws Exception {
-    MQTT mqtt = createMQTTProxyClient();
-    authenticateAndPublish(mqtt);
-  }
+    @Test(timeOut = TIMEOUT)
+    public void testAuthenticateAndPublish() throws Exception {
+        MQTT mqtt = createMQTTClient();
+        authenticateAndPublish(mqtt);
+    }
 
-  public void authenticateAndPublish(MQTT mqtt) throws Exception {
-    String topicName = "persistent://public/default/testAuthentication";
-    BlockingConnection connection = mqtt.blockingConnection();
-    connection.connect();
-    Topic[] topics = {new Topic(topicName, QoS.AT_LEAST_ONCE) };
-    connection.subscribe(topics);
-    String message = "Hello MQTT";
-    connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
-    Message received = connection.receive();
-    Assert.assertEquals(new String(received.getPayload()), message);
-    received.ack();
-    connection.disconnect();
-  }
+    @Test(timeOut = TIMEOUT)
+    public void testAuthenticateAndPublishViaProxy() throws Exception {
+        MQTT mqtt = createMQTTProxyClient();
+        authenticateAndPublish(mqtt);
+    }
 
-  @Test(expectedExceptions = { MQTTException.class })
-  public void testInvalidCredentials() throws Exception {
-    MQTT mqtt = createMQTTClient();
-    mqtt.setPassword("invalid");
-    BlockingConnection connection = mqtt.blockingConnection();
-    connection.connect();
-  }
+    public void authenticateAndPublish(MQTT mqtt) throws Exception {
+        String topicName = "persistent://public/default/testAuthentication";
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = {new Topic(topicName, QoS.AT_LEAST_ONCE)};
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
+    }
+
+    @Test(expectedExceptions = {MQTTException.class}, timeOut = TIMEOUT)
+    public void testInvalidCredentials() throws Exception {
+        MQTT mqtt = createMQTTClient();
+        mqtt.setPassword("invalid");
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        connection.disconnect();
+    }
 }

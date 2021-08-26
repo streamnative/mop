@@ -25,19 +25,21 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Entry;
-import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.EntryBatchIndexesAcks;
 import org.apache.pulsar.broker.service.EntryBatchSizes;
 import org.apache.pulsar.broker.service.RedeliveryTracker;
 import org.apache.pulsar.broker.service.Subscription;
+import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
 
 /**
  * MQTT consumer.
  */
+@Slf4j
 public class MQTTConsumer extends Consumer {
 
     private final String pulsarTopicName;
@@ -57,10 +59,9 @@ public class MQTTConsumer extends Consumer {
 
     public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, String consumerName,
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
-                        OutstandingPacketContainer outstandingPacketContainer)
-            throws BrokerServiceException {
+                        OutstandingPacketContainer outstandingPacketContainer) {
         super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
-                "", null, false, CommandSubscribe.InitialPosition.Latest, null);
+                "", null, false, CommandSubscribe.InitialPosition.Latest, null, MessageId.latest);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
         this.cnx = cnx;
@@ -85,6 +86,10 @@ public class MQTTConsumer extends Consumer {
             List<MqttPublishMessage> messages = PulsarMessageConverter.toMqttMessages(mqttTopicName, entry,
                     packetId, qos);
             for (MqttPublishMessage msg : messages) {
+                if (log.isDebugEnabled()) {
+                    log.debug("[{}] [{}] [{}] Send MQTT message to subscriber", pulsarTopicName,
+                            mqttTopicName, super.getSubscription().getName());
+                }
                 cnx.ctx().channel().write(msg);
             }
         }

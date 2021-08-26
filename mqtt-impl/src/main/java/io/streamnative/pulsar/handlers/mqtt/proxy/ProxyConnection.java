@@ -28,6 +28,8 @@ import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -48,6 +50,8 @@ public class ProxyConnection extends ChannelInboundHandlerAdapter{
     private LookupHandler lookupHandler;
 
     private List<Object> connectMsgList = new ArrayList<>();
+    // Map sequence Id -> topic count
+    private ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId = new ConcurrentHashMap<>();
 
     private enum State {
         Init,
@@ -61,7 +65,7 @@ public class ProxyConnection extends ChannelInboundHandlerAdapter{
         this.proxyService = proxyService;
         this.proxyConfig = proxyService.getProxyConfig();
         lookupHandler = proxyService.getLookupHandler();
-        processor = new ProxyInboundHandler(proxyService, this);
+        processor = new ProxyInboundHandler(proxyService, this, proxyConfig);
         state = State.Init;
     }
 
@@ -162,4 +166,21 @@ public class ProxyConnection extends ChannelInboundHandlerAdapter{
         state = State.Closed;
     }
 
+    public boolean increaseSubscribeTopicsCount(int seq, int count) {
+        return topicCountForSequenceId.putIfAbsent(seq, new AtomicInteger(count)) == null;
+    }
+
+    public int decreaseSubscribeTopicsCount(int seq) {
+        if (topicCountForSequenceId.get(seq) == null) {
+            log.warn("Unexpected subscribe behavior for the proxy, respond seq {} "
+                    + "but but the seq does not tracked by the proxy. ", seq);
+            return -1;
+        } else {
+            int value = topicCountForSequenceId.get(seq).decrementAndGet();
+            if (value == 0) {
+                topicCountForSequenceId.remove(seq);
+            }
+            return value;
+        }
+    }
 }

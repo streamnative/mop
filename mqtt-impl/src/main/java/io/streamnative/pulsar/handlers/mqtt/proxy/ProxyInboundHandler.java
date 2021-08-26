@@ -31,25 +31,27 @@ import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
-import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.util.FutureUtil;
 
 /**
  * Proxy inbound handler is the bridge between proxy and MoP.
@@ -61,15 +63,20 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
     private Map<String, ProxyHandler> proxyHandlerMap;
     private ProxyHandler proxyHandler;
     private LookupHandler lookupHandler;
+    private final ProxyConfiguration proxyConfig;
+    private final PulsarService pulsarService;
 
     private List<Object> connectMsgList = new ArrayList<>();
 
-    public ProxyInboundHandler(ProxyService proxyService, ProxyConnection proxyConnection) {
+    public ProxyInboundHandler(ProxyService proxyService, ProxyConnection proxyConnection,
+           ProxyConfiguration proxyConfig) {
         log.info("ProxyConnection init ...");
         this.proxyService = proxyService;
+        this.pulsarService = proxyService.getPulsarService();
         this.proxyConnection = proxyConnection;
         lookupHandler = proxyService.getLookupHandler();
-        this.proxyHandlerMap = new HashMap<>();
+        this.proxyHandlerMap = new ConcurrentHashMap<>();
+        this.proxyConfig = proxyConfig;
     }
 
     // client -> proxy
@@ -145,7 +152,8 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
         try {
             lookupResult = lookupHandler.findBroker(
-                    TopicName.get(PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName())), "mqtt");
+                    TopicName.get(PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
+                            proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace())), "mqtt");
         } catch (Exception e) {
             log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
                     msg.variableHeader().topicName(), e);
@@ -159,28 +167,18 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                 channel.close();
                 return;
             }
-
-            proxyHandler = proxyHandlerMap.computeIfAbsent
-                    (PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName()), key -> {
-                try {
-                    return new ProxyHandler(proxyService,
-                            proxyConnection,
-                            pair.getLeft(),
-                            pair.getRight(),
-                            connectMsgList);
-                } catch (Exception e) {
-                    log.error("[Proxy Publish] Failed to create proxy handler for topic {}",
-                            msg.variableHeader().topicName(), e);
-                    return null;
-                }
-            });
-
-            if (null == proxyHandler) {
+            final String topicName;
+            try {
+                topicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
+                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
+            } catch (Exception e) {
+                log.error("[Proxy Publish] Failed to get Pulsar topic name for topic {}",
+                        msg.variableHeader().topicName(), e);
                 channel.close();
                 return;
             }
 
-            proxyHandler.getBrokerChannel().writeAndFlush(msg);
+            writeAndFlush(topicName, pair.getLeft(), pair.getRight(), channel, msg);
         });
     }
 
@@ -257,47 +255,35 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
     @Override
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
         log.info("[Proxy Subscribe] [{}] msg: {}", channel, msg);
-        for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
-            CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
-            try {
-                lookupResult = lookupHandler.findBroker(
-                        TopicName.get(PulsarTopicUtils.getPulsarTopicName(req.topicName())), "mqtt");
-            } catch (Exception e) {
-                log.error("[Proxy Subscribe] Failed to perform lookup request", e);
-                channel.close();
-            }
+        CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg,
+                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService);
 
-            lookupResult.whenComplete((pair, throwable) -> {
-
-                if (null != throwable) {
-                    log.error("[Proxy Subscribe] Failed to perform lookup request", throwable);
-                    channel.close();
-                    return;
-                }
-
-                proxyHandler = proxyHandlerMap.computeIfAbsent(
-                        PulsarTopicUtils.getPulsarTopicName(req.topicName()), key -> {
-                    try {
-                        return new ProxyHandler(proxyService,
-                                proxyConnection,
-                                pair.getLeft(),
-                                pair.getRight(),
-                                connectMsgList);
-                    } catch (Exception e) {
-                        log.error("[Proxy Subscribe] Failed to perform lookup request", e);
-                        return null;
-                    }
-                });
-
-                if (null == proxyHandler) {
-                    channel.close();
-                    return;
-                }
-
-
-                proxyHandler.getBrokerChannel().writeAndFlush(msg);
-            });
+        if (topicListFuture == null) {
+            channel.close();
+            return;
         }
+
+        topicListFuture.thenCompose(topics -> {
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            for (String t : topics) {
+                CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
+                try {
+                    lookupResult = lookupHandler.findBroker(TopicName.get(t), "mqtt");
+                } catch (Exception e) {
+                    throw new MQTTServerException(e);
+                }
+                futures.add(lookupResult.thenAccept(pair -> {
+                    proxyConnection.increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);
+                    writeAndFlush(t, pair.getLeft(), pair.getRight(),
+                            channel, msg);
+                }));
+            }
+            return FutureUtil.waitForAll(futures);
+        }).exceptionally(ex -> {
+            log.error("[Proxy Subscribe] Failed to process subscribe for {}", channel, ex);
+            channel.close();
+            return null;
+        });
     }
 
     @Override
@@ -320,25 +306,8 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                     channel.close();
                     return;
                 }
-                proxyHandler = proxyHandlerMap.computeIfAbsent(topic, key -> {
-                    try {
-                        return new ProxyHandler(proxyService,
-                                proxyConnection,
-                                pair.getLeft(),
-                                pair.getRight(),
-                                connectMsgList);
-                    } catch (Exception e) {
-                        log.error("[Proxy UnSubscribe] Failed to perform lookup request", e);
-                        return null;
-                    }
-                });
 
-                if (null == proxyHandler) {
-                    channel.close();
-                    return;
-                }
-
-                proxyHandler.getBrokerChannel().writeAndFlush(msg);
+                writeAndFlush(topic, pair.getLeft(), pair.getRight(), channel, msg);
             });
         }
     }
@@ -384,6 +353,45 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         }
         // todo remove subscriptions from Pulsar.
         return true;
+    }
+
+    private ProxyHandler getProxyHandler(String topic, String mqttBrokerHost, int mqttBrokerPort) {
+        return proxyHandlerMap.computeIfAbsent(topic, key -> {
+            try {
+                return new ProxyHandler(proxyService,
+                        proxyConnection,
+                        mqttBrokerHost,
+                        mqttBrokerPort,
+                        connectMsgList);
+            } catch (Exception e) {
+                log.error("[Proxy UnSubscribe] Failed to perform lookup request", e);
+                return null;
+            }
+        });
+    }
+
+    private void writeAndFlush(String topic, String mqttBrokerHost, int mqttBrokerPort,
+                               Channel channel, MqttMessage msg) {
+        ProxyHandler proxyHandler = getProxyHandler(topic, mqttBrokerHost, mqttBrokerPort);
+        if (null == proxyHandler) {
+            channel.close();
+            return;
+        }
+        proxyHandler.brokerFuture().whenComplete((ignored, throwable) -> {
+            if (throwable != null) {
+                log.error("[{}] MoP proxy failed to connect with MoP broker({}:{}).",
+                        msg.fixedHeader().messageType(), mqttBrokerHost, mqttBrokerPort, throwable);
+                channel.close();
+                return;
+            }
+            if (proxyHandler.getBrokerChannel().isWritable()) {
+                proxyHandler.getBrokerChannel().writeAndFlush(msg);
+            } else {
+                log.error("The broker channel({}:{}) is not writable!", mqttBrokerHost, mqttBrokerPort);
+                channel.close();
+                proxyHandler.close();
+            }
+        });
     }
 
 }

@@ -48,12 +48,14 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     public MQTTChannelInitializer(PulsarService pulsarService,
                                   MQTTServerConfiguration mqttConfig,
+                                  Map<String, AuthenticationProvider> authProviders,
                                   boolean enableTls
     )
             throws Exception {
         super();
         this.pulsarService = pulsarService;
         this.mqttConfig = mqttConfig;
+        this.authProviders = authProviders;
         this.enableTls = enableTls;
         this.tlsEnabledWithKeyStore = mqttConfig.isTlsEnabledWithKeyStore();
         if (this.enableTls) {
