@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.netty.handler.codec.mqtt.MqttMessageType.CONNACK;
+import static io.netty.handler.codec.mqtt.MqttMessageType.SUBACK;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -27,11 +28,12 @@ import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
-import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,9 +42,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class ProxyHandler {
-    private final ProtocolMethodProcessor processor;
     private ProxyService proxyService;
     private ProxyConnection proxyConnection;
+    @Getter
     // client -> proxy
     private Channel clientChannel;
     @Getter
@@ -50,6 +52,7 @@ public class ProxyHandler {
     private Channel brokerChannel;
     private State state;
     private List<Object> connectMsgList;
+    private CompletableFuture<Void> brokerFuture = new CompletableFuture<>();
 
     ProxyHandler(ProxyService proxyService, ProxyConnection proxyConnection,
                  String mqttBrokerHost, int mqttBrokerPort, List<Object> connectMsgList) throws Exception {
@@ -57,7 +60,6 @@ public class ProxyHandler {
         this.proxyConnection = proxyConnection;
         clientChannel = this.proxyConnection.getCnx().channel();
         this.connectMsgList = connectMsgList;
-        processor = new ProxyInboundHandler(proxyService, proxyConnection);
 
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(clientChannel.eventLoop())
@@ -73,7 +75,7 @@ public class ProxyHandler {
                 });
         ChannelFuture channelFuture = bootstrap.connect(mqttBrokerHost, mqttBrokerPort);
         brokerChannel = channelFuture.channel();
-        channelFuture.await().addListener(future -> {
+        channelFuture.addListener(future -> {
             if (!future.isSuccess()) {
                 // Close the connection if the connection attempt has failed.
                 clientChannel.close();
@@ -132,6 +134,7 @@ public class ProxyHandler {
                         log.info("The messageType is CONNACK, set the state to Connected.");
                         checkState(msg instanceof MqttConnAckMessage);
                         state = State.Connected;
+                        brokerFuture.complete(null);
                     }
                     break;
                 case Failed:
@@ -140,7 +143,17 @@ public class ProxyHandler {
                     break;
                 case Connected:
                     log.info("channelRead Connected: {}", message);
-                    clientChannel.writeAndFlush(message);
+                    msg = (MqttMessage) message;
+                    messageType = msg.fixedHeader().messageType();
+                    if (messageType == SUBACK) {
+                        MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
+                        if (proxyConnection.decreaseSubscribeTopicsCount(
+                                subAckMessage.variableHeader().messageId()) == 0) {
+                            clientChannel.writeAndFlush(message);
+                        }
+                    } else {
+                        clientChannel.writeAndFlush(message);
+                    }
                     break;
                 case Closed:
                     break;
@@ -149,8 +162,9 @@ public class ProxyHandler {
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-            cause.printStackTrace();
+            log.error("Failed to create connection with MoP broker.", cause);
             state = State.Failed;
+            brokerFuture.completeExceptionally(cause);
         }
 
         @Override
@@ -170,6 +184,10 @@ public class ProxyHandler {
         Connected,
         Failed,
         Closed
+    }
+
+    public CompletableFuture<Void> brokerFuture() {
+        return this.brokerFuture;
     }
 
 }

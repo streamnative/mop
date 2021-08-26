@@ -81,12 +81,7 @@ public class ConnectionDescriptor {
 
     public void abort() {
         LOG.info("Closing connection descriptor. MqttClientId = {}.", clientID);
-        // try {
-        // this.channel.disconnect().sync();
-        this.channel.close(); // .sync();
-        // } catch (InterruptedException e) {
-        // e.printStackTrace();
-        // }
+        this.channel.close();
     }
 
     public boolean assignState(ConnectionState expected, ConnectionState newState) {

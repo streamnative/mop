@@ -47,88 +47,89 @@ import org.testng.annotations.Test;
  */
 @Slf4j
 public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
-  private String token;
+    private String token;
 
-  @BeforeClass
-  @Override
-  public void setup() throws Exception {
-    SecretKey secretKey = AuthTokenUtils.createSecretKey(SignatureAlgorithm.HS256);
-    Properties properties = new Properties();
-    properties.setProperty("tokenSecretKey", AuthTokenUtils.encodeKeyBase64(secretKey));
-    token = AuthTokenUtils.createToken(secretKey, "superUser", Optional.empty());
+    @BeforeClass
+    @Override
+    public void setup() throws Exception {
+        SecretKey secretKey = AuthTokenUtils.createSecretKey(SignatureAlgorithm.HS256);
+        Properties properties = new Properties();
+        properties.setProperty("tokenSecretKey", AuthTokenUtils.encodeKeyBase64(secretKey));
+        token = AuthTokenUtils.createToken(secretKey, "superUser", Optional.empty());
 
-    conf.setAuthenticationEnabled(true);
-    conf.setMqttAuthenticationEnabled(true);
-    conf.setMqttAuthenticationMethods(ImmutableList.of("token"));
-    conf.setSuperUserRoles(ImmutableSet.of("superUser"));
-    conf.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderToken.class.getName()));
-    conf.setBrokerClientAuthenticationPlugin(AuthenticationToken.class.getName());
-    conf.setBrokerClientAuthenticationParameters("token:" + token);
-    conf.setProperties(properties);
-    super.init();
+        conf.setAuthenticationEnabled(true);
+        conf.setMqttAuthenticationEnabled(true);
+        conf.setMqttAuthenticationMethods(ImmutableList.of("token"));
+        conf.setSuperUserRoles(ImmutableSet.of("superUser"));
+        conf.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderToken.class.getName()));
+        conf.setBrokerClientAuthenticationPlugin(AuthenticationToken.class.getName());
+        conf.setBrokerClientAuthenticationParameters("token:" + token);
+        conf.setProperties(properties);
+        super.init();
 
-    AuthenticationToken authToken = new AuthenticationToken();
-    authToken.configure("token:" + token);
+        AuthenticationToken authToken = new AuthenticationToken();
+        authToken.configure("token:" + token);
 
-    pulsarClient = PulsarClient.builder()
-                               .serviceUrl(brokerUrl.toString())
-                               .authentication(authToken)
-                               .statsInterval(0, TimeUnit.SECONDS)
-                               .build();
-    admin = spy(PulsarAdmin.builder()
-                           .serviceHttpUrl(brokerUrl.toString())
-                           .authentication(authToken)
-                           .build());
+        pulsarClient = PulsarClient.builder()
+                .serviceUrl(brokerUrl.toString())
+                .authentication(authToken)
+                .statsInterval(0, TimeUnit.SECONDS)
+                .build();
+        admin = spy(PulsarAdmin.builder()
+                .serviceHttpUrl(brokerUrl.toString())
+                .authentication(authToken)
+                .build());
 
-    super.setupClusterNamespaces();
-    super.checkPulsarServiceState();
-  }
+        super.setupClusterNamespaces();
+        super.checkPulsarServiceState();
+    }
 
-  @AfterClass
-  @Override
-  public void cleanup() throws Exception {
-    super.cleanup();
-  }
+    @AfterClass(alwaysRun = true)
+    @Override
+    public void cleanup() throws Exception {
+        super.cleanup();
+    }
 
-  @Override
-  public MQTT createMQTTClient() throws URISyntaxException {
-    MQTT mqtt = super.createMQTTClient();
-    mqtt.setUserName("superUser");
-    mqtt.setPassword(token);
-    return mqtt;
-  }
+    @Override
+    public MQTT createMQTTClient() throws URISyntaxException {
+        MQTT mqtt = super.createMQTTClient();
+        mqtt.setUserName("superUser");
+        mqtt.setPassword(token);
+        return mqtt;
+    }
 
-  @Test
-  public void testAuthenticateAndPublish() throws Exception {
-    MQTT mqtt = createMQTTClient();
-    authenticateAndPublish(mqtt);
-  }
+    @Test(timeOut = TIMEOUT)
+    public void testAuthenticateAndPublish() throws Exception {
+        MQTT mqtt = createMQTTClient();
+        authenticateAndPublish(mqtt);
+    }
 
-  @Test
-  public void testAuthenticateAndPublishViaProxy() throws Exception {
-    MQTT mqtt = createMQTTProxyClient();
-    authenticateAndPublish(mqtt);
-  }
+    @Test(timeOut = TIMEOUT)
+    public void testAuthenticateAndPublishViaProxy() throws Exception {
+        MQTT mqtt = createMQTTProxyClient();
+        authenticateAndPublish(mqtt);
+    }
 
-  public void authenticateAndPublish(MQTT mqtt) throws Exception {
-    String topicName = "persistent://public/default/testAuthentication";
-    BlockingConnection connection = mqtt.blockingConnection();
-    connection.connect();
-    Topic[] topics = {new Topic(topicName, QoS.AT_LEAST_ONCE) };
-    connection.subscribe(topics);
-    String message = "Hello MQTT";
-    connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
-    Message received = connection.receive();
-    Assert.assertEquals(new String(received.getPayload()), message);
-    received.ack();
-    connection.disconnect();
-  }
+    public void authenticateAndPublish(MQTT mqtt) throws Exception {
+        String topicName = "persistent://public/default/testAuthentication";
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = {new Topic(topicName, QoS.AT_LEAST_ONCE)};
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
+    }
 
-  @Test(expectedExceptions = { MQTTException.class })
-  public void testInvalidCredentials() throws Exception {
-    MQTT mqtt = createMQTTClient();
-    mqtt.setPassword("invalid");
-    BlockingConnection connection = mqtt.blockingConnection();
-    connection.connect();
-  }
+    @Test(expectedExceptions = {MQTTException.class})
+    public void testInvalidCredentials() throws Exception {
+        MQTT mqtt = createMQTTClient();
+        mqtt.setPassword("invalid");
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        connection.disconnect();
+    }
 }
