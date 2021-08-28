@@ -69,15 +69,16 @@ Configure the Pulsar broker to run the MoP protocol handler as a plugin by addin
     ```
 2. Set the MQTT server listeners.
 
-    > #### Note
-    > The hostname in listeners should be the same as Pulsar broker's `advertisedAddress`.
-
     **Example**
 
     ```
     mqttListeners=mqtt://127.0.0.1:1883
     advertisedAddress=127.0.0.1
     ```
+
+   > #### Note
+   > The default hostname of `advertisedAddress` is InetAddress.getLocalHost().getHostName(). 
+   > If you'd like to config this, please keep the same as Pulsar broker's `advertisedAddress`.
 
 ### Load MoP protocol handler
 
@@ -170,3 +171,77 @@ Set the MQTT username and password client settings.
 
 ##### Token Authentication
 Set the MQTT password to the token body, currently username will be disregarded but MUST be set to some value as this is required by the MQTT specification.
+
+
+### Enabling TLS
+
+MoP currently supports TLS transport encryption.
+
+Generate crt and key file :
+```
+openssl genrsa 2048 > server.key
+chmod 400 server.key
+openssl req -new -x509 -nodes -sha256 -days 365 -key server.key -out server.crt
+```
+
+#### TLS with broker
+
+1. Config mqtt broker to load tls config.
+```java
+MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
+mqtt.setTlsEnabled(true);
+mqtt.setTlsCertificateFilePath("server.crt");
+mqtt.setTlsKeyFilePath("server.key");
+...
+```
+
+2. Config client to load tls config.
+```java
+MQTT mqtt = new MQTT();
+mqtt.setHost(URI.create("ssl://127.0.0.1:8883")); // default tls port
+File crtFile = new File("server.crt");
+Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
+KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+keyStore.load(null, null);
+keyStore.setCertificateEntry("server", certificate);
+TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+trustManagerFactory.init(keyStore);
+SSLContext sslContext = SSLContext.getInstance("TLS");
+sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+mqtt.setSslContext(sslContext);
+BlockingConnection connection = mqtt.blockingConnection();
+connection.connect();
+...
+```
+
+
+#### TLS with proxy
+
+1. Config mqtt broker to load tls config.
+```java
+MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
+mqtt.setMqttProxyEnable(true);
+mqtt.setTlsEnabledInProxy(true);
+mqtt.setTlsCertificateFilePath("server.crt");
+mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
+...
+```
+
+2. Config client to load tls config.
+```java
+MQTT mqtt = new MQTT();
+mqtt.setHost(URI.create("ssl://127.0.0.1:5683")); // default proxy tls port
+File crtFile = new File("server.crt");
+Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
+KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+keyStore.load(null, null);
+keyStore.setCertificateEntry("server", certificate);
+TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+trustManagerFactory.init(keyStore);
+SSLContext sslContext = SSLContext.getInstance("TLS");
+sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+mqtt.setSslContext(sslContext);
+BlockingConnection connection = mqtt.blockingConnection();
+connection.connect();
+...
+```

@@ -13,7 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import com.google.common.collect.Sets;
 import java.util.List;
+import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.pulsar.broker.ServiceConfiguration;
@@ -31,6 +33,10 @@ public class MQTTServerConfiguration extends ServiceConfiguration {
     private static final String CATEGORY_MQTT = "MQTT on Pulsar";
     @Category
     private static final String CATEGORY_MQTT_PROXY = "MQTT Proxy";
+    @Category
+    private static final String CATEGORY_TLS = "TLS";
+    @Category
+    private static final String CATEGORY_KEYSTORE_TLS = "KeyStoreTLS";
 
     //
     // --- MQTT on Pulsar Broker configuration ---
@@ -101,9 +107,122 @@ public class MQTTServerConfiguration extends ServiceConfiguration {
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
             required = false,
+            doc = "The mqtt proxy tls port"
+    )
+    private int mqttProxyTlsPort = 5683;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
             doc = "Whether start mqtt protocol handler with proxy"
     )
     private boolean mqttProxyEnable = false;
 
+    private boolean tlsEnabledInProxy = false;
 
+    @FieldContext(
+            category = CATEGORY_TLS,
+            doc = "Tls cert refresh duration in seconds (set 0 to check on every new connection)"
+    )
+    private long tlsCertRefreshCheckDurationSec = 300; // 5 mins
+
+    @FieldContext(
+            category = CATEGORY_TLS,
+            doc = "Path for the TLS certificate file"
+    )
+    private String tlsCertificateFilePath;
+
+    @FieldContext(
+            category = CATEGORY_TLS,
+            doc = "Path for the TLS private key file"
+    )
+    private String tlsKeyFilePath;
+
+    @FieldContext(
+            category = CATEGORY_TLS,
+            doc = "Path for the trusted TLS certificate file.\n\n"
+                    + "This cert is used to verify that any certs presented by connecting clients"
+                    + " are signed by a certificate authority. If this verification fails, then the"
+                    + " certs are untrusted and the connections are dropped"
+    )
+    private String tlsTrustCertsFilePath;
+
+    @FieldContext(
+            category = CATEGORY_TLS,
+            doc = "Specify the tls protocols the broker will use to negotiate during TLS handshake"
+                    + " (a comma-separated list of protocol names).\n\n"
+                    + "Examples:- [TLSv1.3, TLSv1.2]"
+    )
+    private Set<String> tlsProtocols = Sets.newTreeSet();
+    @FieldContext(
+            category = CATEGORY_TLS,
+            doc = "Specify the tls cipher the proxy will use to negotiate during TLS Handshake"
+                    + " (a comma-separated list of ciphers).\n\n"
+                    + "Examples:- [TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256]"
+    )
+    private Set<String> tlsCiphers = Sets.newTreeSet();
+
+    @FieldContext(
+            category = CATEGORY_TLS,
+            doc = "Accept untrusted TLS certificate from client.\n\n"
+                    + "If true, a client with a cert which cannot be verified with the `tlsTrustCertsFilePath`"
+                    + " cert will be allowed to connect to the server, though the cert will not be used for"
+                    + " client authentication"
+    )
+    private boolean tlsAllowInsecureConnection = false;
+
+    @FieldContext(
+            category = CATEGORY_TLS,
+            doc = "Whether client certificates are required for TLS.\n\n"
+                    + " Connections are rejected if the client certificate isn't trusted"
+    )
+    private boolean tlsRequireTrustedClientCertOnConnect = false;
+
+    @FieldContext(
+            category = CATEGORY_KEYSTORE_TLS,
+            doc = "Enable TLS with KeyStore type configuration for proxy"
+    )
+    private boolean tlsEnabledWithKeyStore = false;
+
+    @FieldContext(
+            category = CATEGORY_KEYSTORE_TLS,
+            doc = "TLS Provider"
+    )
+    private String tlsProvider = null;
+
+    @FieldContext(
+            category = CATEGORY_KEYSTORE_TLS,
+            doc = "TLS KeyStore type configuration for proxy: JKS, PKCS12"
+    )
+    private String tlsKeyStoreType = "JKS";
+
+    @FieldContext(
+            category = CATEGORY_KEYSTORE_TLS,
+            doc = "TLS KeyStore path for proxy"
+    )
+    private String tlsKeyStore = null;
+
+    @FieldContext(
+            category = CATEGORY_KEYSTORE_TLS,
+            doc = "TLS KeyStore password for proxy"
+    )
+    private String tlsKeyStorePassword = null;
+
+    @FieldContext(
+            category = CATEGORY_KEYSTORE_TLS,
+            doc = "TLS TrustStore type configuration for proxy: JKS, PKCS12"
+    )
+    private String tlsTrustStoreType = "JKS";
+
+    @FieldContext(
+            category = CATEGORY_KEYSTORE_TLS,
+            doc = "TLS TrustStore path for proxy"
+    )
+    private String tlsTrustStore = null;
+
+    @FieldContext(
+            category = CATEGORY_KEYSTORE_TLS,
+            doc = "TLS TrustStore password for proxy"
+    )
+    private String tlsTrustStorePassword = null;
 }
