@@ -31,25 +31,27 @@ import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
-import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.util.FutureUtil;
 
 /**
  * Proxy inbound handler is the bridge between proxy and MoP.
@@ -62,6 +64,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
     private ProxyHandler proxyHandler;
     private LookupHandler lookupHandler;
     private final ProxyConfiguration proxyConfig;
+    private final PulsarService pulsarService;
 
     private List<Object> connectMsgList = new ArrayList<>();
 
@@ -69,9 +72,10 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
            ProxyConfiguration proxyConfig) {
         log.info("ProxyConnection init ...");
         this.proxyService = proxyService;
+        this.pulsarService = proxyService.getPulsarService();
         this.proxyConnection = proxyConnection;
         lookupHandler = proxyService.getLookupHandler();
-        this.proxyHandlerMap = new HashMap<>();
+        this.proxyHandlerMap = new ConcurrentHashMap<>();
         this.proxyConfig = proxyConfig;
     }
 
@@ -148,7 +152,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
         try {
             lookupResult = lookupHandler.findBroker(
-                    TopicName.get(PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName(),
+                    TopicName.get(PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
                             proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace())), "mqtt");
         } catch (Exception e) {
             log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
@@ -165,7 +169,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
             }
             final String topicName;
             try {
-                topicName = PulsarTopicUtils.getPulsarTopicName(msg.variableHeader().topicName(),
+                topicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
                         proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
             } catch (Exception e) {
                 log.error("[Proxy Publish] Failed to get Pulsar topic name for topic {}",
@@ -251,37 +255,35 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
     @Override
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
         log.info("[Proxy Subscribe] [{}] msg: {}", channel, msg);
-        for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
-            CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
-            final String topicName;
-            try {
-                topicName = PulsarTopicUtils.getPulsarTopicName(req.topicName(),
-                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
-            } catch (Exception e) {
-                log.error("[Proxy Publish] Failed to get Pulsar topic name for topic {}",
-                        req.topicName(), e);
-                channel.close();
-                return;
-            }
-            try {
-                lookupResult = lookupHandler.findBroker(
-                        TopicName.get(topicName), "mqtt");
-            } catch (Exception e) {
-                log.error("[Proxy Subscribe] Failed to perform lookup request", e);
-                channel.close();
-            }
+        CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg,
+                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService);
 
-            lookupResult.whenComplete((pair, throwable) -> {
-
-                if (null != throwable) {
-                    log.error("[Proxy Subscribe] Failed to perform lookup request", throwable);
-                    channel.close();
-                    return;
-                }
-
-                writeAndFlush(topicName, pair.getLeft(), pair.getRight(), channel, msg);
-            });
+        if (topicListFuture == null) {
+            channel.close();
+            return;
         }
+
+        topicListFuture.thenCompose(topics -> {
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            for (String t : topics) {
+                CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
+                try {
+                    lookupResult = lookupHandler.findBroker(TopicName.get(t), "mqtt");
+                } catch (Exception e) {
+                    throw new MQTTServerException(e);
+                }
+                futures.add(lookupResult.thenAccept(pair -> {
+                    proxyConnection.increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);
+                    writeAndFlush(t, pair.getLeft(), pair.getRight(),
+                            channel, msg);
+                }));
+            }
+            return FutureUtil.waitForAll(futures);
+        }).exceptionally(ex -> {
+            log.error("[Proxy Subscribe] Failed to process subscribe for {}", channel, ex);
+            channel.close();
+            return null;
+        });
     }
 
     @Override
