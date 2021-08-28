@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.netty.handler.codec.mqtt.MqttMessageType.CONNACK;
+import static io.netty.handler.codec.mqtt.MqttMessageType.SUBACK;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -27,6 +28,7 @@ import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
@@ -42,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ProxyHandler {
     private ProxyService proxyService;
     private ProxyConnection proxyConnection;
+    @Getter
     // client -> proxy
     private Channel clientChannel;
     @Getter
@@ -139,7 +142,17 @@ public class ProxyHandler {
                     break;
                 case Connected:
                     log.info("channelRead Connected: {}", message);
-                    clientChannel.writeAndFlush(message);
+                    msg = (MqttMessage) message;
+                    messageType = msg.fixedHeader().messageType();
+                    if (messageType == SUBACK) {
+                        MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
+                        if (proxyConnection.decreaseSubscribeTopicsCount(
+                                subAckMessage.variableHeader().messageId()) == 0) {
+                            clientChannel.writeAndFlush(message);
+                        }
+                    } else {
+                        clientChannel.writeAndFlush(message);
+                    }
                     break;
                 case Closed:
                     break;

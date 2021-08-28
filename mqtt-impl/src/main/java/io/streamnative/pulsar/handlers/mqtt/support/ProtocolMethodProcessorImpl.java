@@ -43,6 +43,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
@@ -296,37 +297,39 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         log.info("[Subscribe] [{}] msg: {}", channel, msg);
         String clientID = NettyUtils.clientID(channel);
         int messageID = msg.variableHeader().messageId();
-        String username = NettyUtils.userName(channel);
+        List<MqttTopicSubscription> ackTopics = doVerify(msg);
 
-        List<MqttTopicSubscription> ackTopics = doVerify(clientID, username, msg);
-        List<CompletableFuture<Subscription>> futures = new ArrayList<>();
+        List<CompletableFuture<Void>> futureList = new ArrayList<>(ackTopics.size());
         for (MqttTopicSubscription ackTopic : ackTopics) {
-            CompletableFuture<Subscription> future = PulsarTopicUtils
-                    .getOrCreateSubscription(pulsarService, ackTopic.topicName(), clientID,
-                            configuration.getDefaultTenant(), configuration.getDefaultNamespace());
-            future.thenAccept(sub -> {
-                    try {
-                        MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(),
-                                PulsarTopicUtils.getPulsarTopicName(ackTopic.topicName(),
-                                        configuration.getDefaultTenant(), configuration.getDefaultNamespace()),
-                                clientID, serverCnx,
-                                ackTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer);
-                        sub.addConsumer(consumer);
-                        consumer.addAllPermits();
-                    } catch (Exception e) {
-                        log.error("[{}] [{}] Failed to add consumer to Pulsar subscription.",
-                                ackTopic.topicName(), clientID, e);
-                        channel.close();
-                    }
-                }).exceptionally(e -> {
-                    log.error("[{}] [{}] Failed to create subscription on Pulsar topic.",
-                            ackTopic.topicName(), clientID, e);
-                    channel.close();
-                    return null;
+            CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
+                    ackTopic.topicName(), configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
+                    pulsarService);
+            CompletableFuture<Void> completableFuture = topicListFuture.thenCompose(topics -> {
+                List<CompletableFuture<Subscription>> futures = new ArrayList<>();
+                for (String topic : topics) {
+                    CompletableFuture<Subscription> future = PulsarTopicUtils
+                            .getOrCreateSubscription(pulsarService, topic, clientID,
+                                    configuration.getDefaultTenant(), configuration.getDefaultNamespace());
+                    future.thenAccept(sub -> {
+                        try {
+                            MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(),
+                                    PulsarTopicUtils.getEncodedPulsarTopicName(topic,
+                                            configuration.getDefaultTenant(), configuration.getDefaultNamespace()),
+                                    clientID, serverCnx,
+                                    ackTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer);
+                            sub.addConsumer(consumer);
+                            consumer.addAllPermits();
+                        } catch (Exception e) {
+                            throw new MQTTServerException(e);
+                        }
+                    });
+                    futures.add(future);
+                }
+                return FutureUtil.waitForAll(futures);
             });
-            futures.add(future);
+            futureList.add(completableFuture);
         }
-        FutureUtil.waitForAll(futures).thenAccept(v -> {
+        FutureUtil.waitForAll(futureList).thenAccept(v -> {
             MqttSubAckMessage ackMessage = doAckMessageFromValidateFilters(ackTopics, messageID);
             log.info("Sending SUBACK message {} to {}", ackMessage, clientID);
             channel.writeAndFlush(ackMessage);
@@ -340,47 +343,55 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
     @Override
     public void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg) {
         log.info("[Unsubscribe] [{}] msg: {}", channel, msg);
-        List<String> topics = msg.payload().topics();
+        List<String> topicFilters = msg.payload().topics();
         String clientID = NettyUtils.clientID(channel);
         final MqttQoS qos = msg.fixedHeader().qosLevel();
-
-        for (String topic : topics) {
-            PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
-                    configuration.getDefaultNamespace()).thenAccept(topicOp -> {
-                if (topicOp.isPresent()) {
-                    Subscription subscription = topicOp.get().getSubscription(clientID);
-                    if (subscription != null) {
-                        try {
-                            MQTTConsumer consumer = new MQTTConsumer(subscription, topic,
-                                    PulsarTopicUtils.getPulsarTopicName(topic, configuration.getDefaultTenant(),
-                                            configuration.getDefaultNamespace()), clientID, serverCnx, qos,
-                                    packetIdGenerator, outstandingPacketContainer);
-                            topicOp.get().getSubscription(clientID).removeConsumer(consumer);
-                            topicOp.get().unsubscribe(clientID);
-                        } catch (RuntimeException e) {
-                            throw e;
-                        } catch (Exception e) {
-                            log.error("[{}] [{}] Failed to unsubscribe the topic.", topic, clientID, e);
-                            channel.close();
+        List<CompletableFuture<Void>> futureList = new ArrayList<>(topicFilters.size());
+        for (String topicFilter : topicFilters) {
+            CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
+                    topicFilter, configuration.getDefaultTenant(), configuration.getDefaultNamespace(), pulsarService);
+            CompletableFuture<Void> future = topicListFuture.thenCompose(topics -> {
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
+                for (String topic : topics) {
+                    PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
+                            configuration.getDefaultNamespace(), true).thenAccept(topicOp -> {
+                        if (topicOp.isPresent()) {
+                            Subscription subscription = topicOp.get().getSubscription(clientID);
+                            if (subscription != null) {
+                                try {
+                                    MQTTConsumer consumer = new MQTTConsumer(subscription, topicFilter,
+                                        PulsarTopicUtils.getEncodedPulsarTopicName(topic,
+                                            configuration.getDefaultTenant(), configuration.getDefaultNamespace()),
+                                            clientID, serverCnx, qos, packetIdGenerator, outstandingPacketContainer);
+                                    topicOp.get().getSubscription(clientID).removeConsumer(consumer);
+                                    futures.add(topicOp.get().unsubscribe(clientID));
+                                } catch (Exception e) {
+                                    throw new MQTTServerException(e);
+                                }
+                            }
                         }
-                    }
+                    });
                 }
-            }).exceptionally(ex -> {
-                log.error("[{}] [{}] Failed to get topic reference when process UNSUB.", topic, clientID, ex);
-                channel.close();
-                return null;
+                return FutureUtil.waitForAll(futures);
             });
+            futureList.add(future);
         }
 
-        // ack the client
-        int messageID = msg.variableHeader().messageId();
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.UNSUBACK, false, MqttQoS.AT_LEAST_ONCE,
-                false, 0);
-        MqttUnsubAckMessage ackMessage = new MqttUnsubAckMessage(fixedHeader,
-                MqttMessageIdVariableHeader.from(messageID));
+        FutureUtil.waitForAll(futureList).thenAccept(__ -> {
+            // ack the client
+            int messageID = msg.variableHeader().messageId();
+            MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.UNSUBACK, false, MqttQoS.AT_LEAST_ONCE,
+                    false, 0);
+            MqttUnsubAckMessage ackMessage = new MqttUnsubAckMessage(fixedHeader,
+                    MqttMessageIdVariableHeader.from(messageID));
 
-        log.info("Sending UNSUBACK message {} to {}", ackMessage, clientID);
-        channel.writeAndFlush(ackMessage);
+            log.info("Sending UNSUBACK message {} to {}", ackMessage, clientID);
+            channel.writeAndFlush(ackMessage);
+        }).exceptionally(ex -> {
+            log.error("[{}] Failed to process the UNSUB {}", clientID, msg);
+            channel.close();
+            return null;
+        });
     }
 
     @Override
@@ -455,7 +466,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         return true;
     }
 
-    private List<MqttTopicSubscription> doVerify(String clientID, String username, MqttSubscribeMessage msg) {
+    private List<MqttTopicSubscription> doVerify(MqttSubscribeMessage msg) {
         List<MqttTopicSubscription> ackTopics = new ArrayList<>();
 
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
