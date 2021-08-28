@@ -13,16 +13,22 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import static org.apache.pulsar.client.impl.PulsarChannelInitializer.TLS_HANDLER;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.ProtocolMethodProcessorImpl;
 import java.util.Map;
 import lombok.Getter;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
+import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
+import org.apache.pulsar.common.util.keystoretls.NettySSLContextAutoRefreshBuilder;
 
 /**
  * A channel initializer that initialize channels for MQTT protocol.
@@ -35,19 +41,63 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
     private final MQTTServerConfiguration mqttConfig;
 
     private final Map<String, AuthenticationProvider> authProviders;
+    private final boolean enableTls;
+    private final boolean tlsEnabledWithKeyStore;
+    private SslContextAutoRefreshBuilder<SslContext> sslCtxRefresher;
+    private NettySSLContextAutoRefreshBuilder nettySSLContextAutoRefreshBuilder;
 
     public MQTTChannelInitializer(PulsarService pulsarService,
                                   MQTTServerConfiguration mqttConfig,
-                                  Map<String, AuthenticationProvider> authProviders) {
+                                  Map<String, AuthenticationProvider> authProviders,
+                                  boolean enableTls) {
         super();
         this.pulsarService = pulsarService;
         this.mqttConfig = mqttConfig;
         this.authProviders = authProviders;
+        this.enableTls = enableTls;
+        this.tlsEnabledWithKeyStore = mqttConfig.isTlsEnabledWithKeyStore();
+        if (this.enableTls) {
+            if (tlsEnabledWithKeyStore) {
+                nettySSLContextAutoRefreshBuilder = new NettySSLContextAutoRefreshBuilder(
+                        mqttConfig.getTlsProvider(),
+                        mqttConfig.getTlsKeyStoreType(),
+                        mqttConfig.getTlsKeyStore(),
+                        mqttConfig.getTlsKeyStorePassword(),
+                        mqttConfig.isTlsAllowInsecureConnection(),
+                        mqttConfig.getTlsTrustStoreType(),
+                        mqttConfig.getTlsTrustStore(),
+                        mqttConfig.getTlsTrustStorePassword(),
+                        mqttConfig.isTlsRequireTrustedClientCertOnConnect(),
+                        mqttConfig.getTlsCiphers(),
+                        mqttConfig.getTlsProtocols(),
+                        mqttConfig.getTlsCertRefreshCheckDurationSec());
+            } else {
+                sslCtxRefresher = new NettyServerSslContextBuilder(
+                        mqttConfig.isTlsAllowInsecureConnection(),
+                        mqttConfig.getTlsTrustCertsFilePath(),
+                        mqttConfig.getTlsCertificateFilePath(),
+                        mqttConfig.getTlsKeyFilePath(),
+                        mqttConfig.getTlsCiphers(),
+                        mqttConfig.getTlsProtocols(),
+                        mqttConfig.isTlsRequireTrustedClientCertOnConnect(),
+                        mqttConfig.getTlsCertRefreshCheckDurationSec());
+            }
+        } else {
+            this.sslCtxRefresher = null;
+        }
     }
 
     @Override
     public void initChannel(SocketChannel ch) throws Exception {
         ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(10, 0, 0));
+        if (this.enableTls) {
+            if (this.tlsEnabledWithKeyStore) {
+                ch.pipeline().addLast(TLS_HANDLER,
+                        new SslHandler(nettySSLContextAutoRefreshBuilder.get().createSSLEngine()));
+            } else {
+                ch.pipeline().addLast(TLS_HANDLER, sslCtxRefresher.get().newHandler(ch.alloc()));
+            }
+        }
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
         ch.pipeline().addLast("handler",

@@ -42,7 +42,6 @@ import org.apache.bookkeeper.client.PulsarMockBookKeeper;
 import org.apache.bookkeeper.common.util.OrderedExecutor;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.bookkeeper.util.ZkUtils;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.pulsar.broker.BookKeeperClientFactory;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.ServiceConfiguration;
@@ -66,6 +65,12 @@ import org.mockito.Mockito;
  */
 @Slf4j
 public abstract class MQTTProtocolHandlerTestBase {
+
+    public static final String TLS_SERVER_CERT_FILE_PATH = "./src/test/resources/certificate/server.crt";
+    public static final String TLS_SERVER_KEY_FILE_PATH = "./src/test/resources/certificate/server.key";
+    public static final String TLS_CLIENT_CERT_FILE_PATH = "./src/test/resources/certificate/client.crt";
+    public static final String TLS_CLIENT_KEY_FILE_PATH = "./src/test/resources/certificate/client.key";
+
     protected MQTTServerConfiguration conf;
     protected PulsarAdmin admin;
     protected URL brokerUrl;
@@ -76,20 +81,20 @@ public abstract class MQTTProtocolHandlerTestBase {
     @Getter
     protected int mqttBrokerPortTls = PortManager.nextFreePort();
 
-    private int brokerCount = 1;
+    protected int brokerCount = 1;
 
     @Getter
-    private List<Integer> brokerWebservicePortList = new ArrayList<>();
+    protected List<Integer> brokerWebservicePortList = new ArrayList<>();
     @Getter
-    private List<Integer> brokerWebServicePortTlsList = new ArrayList<>();
+    protected List<Integer> brokerWebServicePortTlsList = new ArrayList<>();
     @Getter
     protected List<PulsarService> pulsarServiceList = new ArrayList<>();
     @Getter
     protected List<Integer> brokerPortList = new ArrayList<>();
     @Getter
-    private List<Integer> mqttBrokerPortList = new ArrayList<>();
+    protected List<Integer> mqttBrokerPortList = new ArrayList<>();
     @Getter
-    private List<Integer> mopProxyPortList = new ArrayList<>();
+    protected List<Integer> mqttProxyPortList = new ArrayList<>();
 
     protected MockZooKeeper mockZooKeeper;
     protected NonClosableMockBookKeeper mockBookKeeper;
@@ -216,7 +221,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         brokerPortList.clear();
         brokerWebservicePortList.clear();
         brokerWebServicePortTlsList.clear();
-        mopProxyPortList.clear();
+        mqttProxyPortList.clear();
         pulsarServiceList.clear();
         mqttBrokerPortList.clear();
     }
@@ -227,7 +232,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         brokerPortList.remove(brokerIndex);
         brokerWebservicePortList.remove(brokerIndex);
         brokerWebServicePortTlsList.remove(brokerIndex);
-        mopProxyPortList.remove(brokerIndex);
+        mqttProxyPortList.remove(brokerIndex);
         pulsarServiceList.remove(brokerIndex);
     }
 
@@ -240,8 +245,8 @@ public abstract class MQTTProtocolHandlerTestBase {
             int mqttBrokerPort = PortManager.nextFreePort();
             mqttBrokerPortList.add(mqttBrokerPort);
 
-            int mopProxyPort = PortManager.nextFreePort();
-            mopProxyPortList.add(mopProxyPort);
+            int mqttProxyPort = PortManager.nextFreePort();
+            mqttProxyPortList.add(mqttProxyPort);
 
             int brokerWebServicePort = PortManager.nextFreePort();
             brokerWebservicePortList.add(brokerWebServicePort);
@@ -251,13 +256,13 @@ public abstract class MQTTProtocolHandlerTestBase {
 
             conf.setBrokerServicePort(Optional.of(brokerPort));
             ((MQTTServerConfiguration) conf).setMqttListeners("mqtt://127.0.0.1:" + mqttBrokerPort);
-            ((MQTTServerConfiguration) conf).setMqttProxyPort(mopProxyPort);
+            ((MQTTServerConfiguration) conf).setMqttProxyPort(mqttProxyPort);
             ((MQTTServerConfiguration) conf).setMqttProxyEnable(true);
             conf.setWebServicePort(Optional.of(brokerWebServicePort));
             conf.setWebServicePortTls(Optional.of(brokerWebServicePortTls));
 
-            log.info("Start broker info [{}], brokerPort: {}, mqttBrokerPort: {}, mopProxyPort: {}",
-                    i, brokerPort, mqttBrokerPort, mopProxyPort);
+            log.info("Start broker info [{}], brokerPort: {}, mqttBrokerPort: {}, mqttProxyPort: {}",
+                    i, brokerPort, mqttBrokerPort, mqttProxyPort);
             this.pulsarServiceList.add(startBroker(conf));
         }
     }
@@ -384,14 +389,6 @@ public abstract class MQTTProtocolHandlerTestBase {
         for (PulsarService pulsarService : pulsarServiceList) {
             Mockito.when(pulsarService.getState()).thenReturn(PulsarService.State.Started);
         }
-    }
-
-    /**
-     * Get available proxy port.
-     * @return random proxy port
-     */
-    public int getProxyPort() {
-        return getMopProxyPortList().get(RandomUtils.nextInt(0, getMopProxyPortList().size()));
     }
 
     /**

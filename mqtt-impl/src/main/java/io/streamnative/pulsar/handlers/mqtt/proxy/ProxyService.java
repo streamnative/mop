@@ -41,7 +41,6 @@ public class ProxyService implements Closeable {
 
     @Getter
     private ProxyConfiguration proxyConfig;
-    private String serviceUrl;
     @Getter
     private PulsarService pulsarService;
     @Getter
@@ -50,6 +49,7 @@ public class ProxyService implements Closeable {
     private LookupHandler lookupHandler;
 
     private Channel listenChannel;
+    private Channel listenChannelTls;
     private EventLoopGroup acceptorGroup;
     @Getter
     private EventLoopGroup workerGroup;
@@ -66,10 +66,8 @@ public class ProxyService implements Closeable {
     private String tenant;
 
     public ProxyService(
-        ProxyConfiguration proxyConfig,
-        PulsarService pulsarService,
-        Map<String, AuthenticationProvider> authProviders
-    ) {
+        ProxyConfiguration proxyConfig, PulsarService pulsarService,
+        Map<String, AuthenticationProvider> authProviders) {
         configValid(proxyConfig);
 
         this.proxyConfig = proxyConfig;
@@ -92,11 +90,19 @@ public class ProxyService implements Closeable {
         serverBootstrap.group(acceptorGroup, workerGroup);
         serverBootstrap.channel(EventLoopUtil.getServerSocketChannelClass(workerGroup));
         EventLoopUtil.enableTriggeredMode(serverBootstrap);
-        serverBootstrap.childHandler(new ServiceChannelInitializer(this));
+        serverBootstrap.childHandler(new ServiceChannelInitializer(this, proxyConfig, false));
         try {
             listenChannel = serverBootstrap.bind(proxyConfig.getMqttProxyPort()).sync().channel();
+            log.info("Started MQTT Proxy on {}", listenChannel.localAddress());
         } catch (InterruptedException e) {
-            throw new IOException("Failed to bind Pulsar Proxy on port " + proxyConfig.getMqttProxyPort(), e);
+            throw new IOException("Failed to bind MQTT Proxy on port " + proxyConfig.getMqttProxyPort(), e);
+        }
+
+        if (proxyConfig.isTlsEnabledInProxy()) {
+            ServerBootstrap tlsBootstrap = serverBootstrap.clone();
+            tlsBootstrap.childHandler(new ServiceChannelInitializer(this, proxyConfig, true));
+            listenChannelTls = tlsBootstrap.bind(proxyConfig.getMqttProxyTlsPort()).sync().channel();
+            log.info("Started MQTT TLS Proxy on {}", listenChannelTls.localAddress());
         }
 
         this.pulsarClient = new PulsarClientImpl(createClientConfiguration());
@@ -107,6 +113,9 @@ public class ProxyService implements Closeable {
     public void close() throws IOException {
         if (listenChannel != null) {
             listenChannel.close();
+        }
+        if (listenChannelTls != null) {
+            listenChannelTls.close();
         }
     }
 
