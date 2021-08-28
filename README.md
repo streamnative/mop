@@ -178,14 +178,21 @@ Set the MQTT password to the token body, currently username will be disregarded 
 
 MoP currently supports TLS transport encryption.
 
+Generate crt and key file :
+```
+openssl genrsa 2048 > server.key
+chmod 400 server.key
+openssl req -new -x509 -nodes -sha256 -days 365 -key server.key -out server.crt
+```
+
 #### TLS with broker
 
 1. Config mqtt broker to load tls config.
 ```java
 MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
 mqtt.setTlsEnabled(true);
-mqtt.setTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
-mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
+mqtt.setTlsCertificateFilePath("server.crt");
+mqtt.setTlsKeyFilePath("server.key");
 ...
 ```
 
@@ -193,7 +200,7 @@ mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
 ```java
 MQTT mqtt = new MQTT();
 mqtt.setHost(URI.create("ssl://127.0.0.1:8883")); // default tls port
-File crtFile = new File(TLS_SERVER_CERT_FILE_PATH);
+File crtFile = new File("server.crt");
 Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
 KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 keyStore.load(null, null);
@@ -216,7 +223,7 @@ connection.connect();
 MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
 mqtt.setMqttProxyEnable(true);
 mqtt.setTlsEnabledInProxy(true);
-mqtt.setTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
+mqtt.setTlsCertificateFilePath("server.crt");
 mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
 ...
 ```
@@ -225,7 +232,7 @@ mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
 ```java
 MQTT mqtt = new MQTT();
 mqtt.setHost(URI.create("ssl://127.0.0.1:5683")); // default proxy tls port
-File crtFile = new File(TLS_SERVER_CERT_FILE_PATH);
+File crtFile = new File("server.crt");
 Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
 KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 keyStore.load(null, null);
