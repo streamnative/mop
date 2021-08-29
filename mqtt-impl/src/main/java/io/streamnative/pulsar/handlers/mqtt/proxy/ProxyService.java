@@ -31,7 +31,6 @@ import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
-import org.apache.pulsar.zookeeper.ZooKeeperClientFactory;
 
 /**
  * This service is used for redirecting MQTT client request to proper MQTT protocol handler Broker.
@@ -58,12 +57,8 @@ public class ProxyService implements Closeable {
     private DefaultThreadFactory workerThreadFactory = new DefaultThreadFactory("mqtt-redirect-io");
     private static final int numThreads = Runtime.getRuntime().availableProcessors();
 
-    private ZooKeeperClientFactory zkClientFactory = null;
-
     @Getter
     private Map<String, AuthenticationProvider> authProviders;
-
-    private String tenant;
 
     public ProxyService(
         ProxyConfiguration proxyConfig, PulsarService pulsarService,
@@ -72,7 +67,6 @@ public class ProxyService implements Closeable {
 
         this.proxyConfig = proxyConfig;
         this.pulsarService = pulsarService;
-        this.tenant = this.proxyConfig.getMqttTenant();
         this.authProviders = authProviders;
         acceptorGroup = EventLoopUtil.newEventLoopGroup(1, false, acceptorThreadFactory);
         workerGroup = EventLoopUtil.newEventLoopGroup(numThreads, false, workerThreadFactory);
@@ -110,13 +104,21 @@ public class ProxyService implements Closeable {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if (listenChannel != null) {
             listenChannel.close();
         }
         if (listenChannelTls != null) {
             listenChannelTls.close();
         }
+        if (pulsarClient != null) {
+            try {
+                pulsarClient.close();
+            } catch (PulsarClientException ignore) {
+            }
+        }
+        acceptorGroup.shutdownGracefully();
+        workerGroup.shutdownGracefully();
     }
 
     private ClientConfigurationData createClientConfiguration()
