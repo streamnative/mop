@@ -25,7 +25,7 @@ public interface LookupHandler {
     /**
      * Find broker for protocolHandler.
      *
-     * @param topicName namespaceName
+     * @param topicName topic name
      * @param protocolHandlerName protocolHandler name
      * @return Pair consist of brokerHost and brokerPort
      */
