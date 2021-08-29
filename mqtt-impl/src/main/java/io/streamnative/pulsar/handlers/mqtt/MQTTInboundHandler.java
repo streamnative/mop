@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
@@ -52,19 +52,19 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
         try {
             switch (messageType) {
                 case CONNECT:
-                    checkState(msg instanceof MqttConnectMessage);
+                    checkArgument(msg instanceof MqttConnectMessage);
                     processor.processConnect(ctx.channel(), (MqttConnectMessage) msg);
                     break;
                 case SUBSCRIBE:
-                    checkState(msg instanceof MqttSubscribeMessage);
+                    checkArgument(msg instanceof MqttSubscribeMessage);
                     processor.processSubscribe(ctx.channel(), (MqttSubscribeMessage) msg);
                     break;
                 case UNSUBSCRIBE:
-                    checkState(msg instanceof MqttUnsubscribeMessage);
+                    checkArgument(msg instanceof MqttUnsubscribeMessage);
                     processor.processUnSubscribe(ctx.channel(), (MqttUnsubscribeMessage) msg);
                     break;
                 case PUBLISH:
-                    checkState(msg instanceof MqttPublishMessage);
+                    checkArgument(msg instanceof MqttPublishMessage);
                     processor.processPublish(ctx.channel(), (MqttPublishMessage) msg);
                     break;
                 case PUBREC:
@@ -80,7 +80,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                     processor.processDisconnect(ctx.channel());
                     break;
                 case PUBACK:
-                    checkState(msg instanceof MqttPubAckMessage);
+                    checkArgument(msg instanceof MqttPubAckMessage);
                     processor.processPubAck(ctx.channel(), (MqttPubAckMessage) msg);
                     break;
                 case PINGREQ:
