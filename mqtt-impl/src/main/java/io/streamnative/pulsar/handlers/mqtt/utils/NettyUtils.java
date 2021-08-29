@@ -27,7 +27,8 @@ public final class NettyUtils {
     public static final String ATTR_USERNAME = "username";
 
     private static final AttributeKey<Object> ATTR_KEY_KEEPALIVE = AttributeKey.valueOf(Constants.ATTR_KEEP_ALIVE);
-    private static final AttributeKey<Object> ATTR_KEY_CLEAN_SESSION = AttributeKey.valueOf(Constants.ATTR_CLEAN_SESSION);
+    private static final AttributeKey<Object> ATTR_KEY_CLEAN_SESSION =
+            AttributeKey.valueOf(Constants.ATTR_CLEAN_SESSION);
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ID = AttributeKey.valueOf(Constants.ATTR_CLIENT_ID);
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
 
