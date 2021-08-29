@@ -112,7 +112,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        String clientID = NettyUtils.clientID(ctx.channel());
+        String clientID = NettyUtils.retrieveClientId(ctx.channel());
         if (clientID != null && !clientID.isEmpty()) {
             log.info("Notifying connection lost event. MqttClientId = {}.", clientID);
             processor.processConnectionLost(clientID, ctx.channel());
@@ -126,7 +126,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                 "An unexpected exception was caught while processing MQTT message. "
                 + "Closing Netty channel {}. MqttClientId = {}",
                 ctx.channel(),
-                NettyUtils.clientID(ctx.channel()),
+                NettyUtils.retrieveClientId(ctx.channel()),
                 cause);
         ctx.close();
     }

@@ -246,7 +246,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         if (log.isDebugEnabled()) {
             log.debug("[Disconnect] [{}] ", channel);
         }
-        final String clientID = NettyUtils.clientID(channel);
+        final String clientID = NettyUtils.retrieveClientId(channel);
         log.info("Processing DISCONNECT message. CId={}", clientID);
         channel.flush();
         final ConnectionDescriptor existingDescriptor = ConnectionDescriptorStore.getInstance().getConnection(clientID);
@@ -295,7 +295,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
     @Override
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
         log.info("[Subscribe] [{}] msg: {}", channel, msg);
-        String clientID = NettyUtils.clientID(channel);
+        String clientID = NettyUtils.retrieveClientId(channel);
         int messageID = msg.variableHeader().messageId();
         List<MqttTopicSubscription> ackTopics = doVerify(msg);
 
@@ -344,7 +344,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
     public void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg) {
         log.info("[Unsubscribe] [{}] msg: {}", channel, msg);
         List<String> topicFilters = msg.payload().topics();
-        String clientID = NettyUtils.clientID(channel);
+        String clientID = NettyUtils.retrieveClientId(channel);
         final MqttQoS qos = msg.fixedHeader().qosLevel();
         List<CompletableFuture<Void>> futureList = new ArrayList<>(topicFilters.size());
         for (String topicFilter : topicFilters) {
@@ -412,7 +412,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
         log.info("Configuring connection. CId={}", clientId);
         NettyUtils.keepAlive(channel, keepAlive);
         NettyUtils.cleanSession(channel, msg.variableHeader().isCleanSession());
-        NettyUtils.clientID(channel, clientId);
+        NettyUtils.attachClientID(channel, clientId);
         int idleTime = Math.round(keepAlive * 1.5f);
         setIdleTime(channel.pipeline(), idleTime);
         log.debug("The connection has been configured CId={}, keepAlive={}, cleanSession={}, idleTime={}",

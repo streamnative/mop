@@ -49,11 +49,11 @@ public final class NettyUtils {
         return (Boolean) channel.attr(NettyUtils.ATTR_KEY_CLEAN_SESSION).get();
     }
 
-    public static void clientID(Channel channel, String clientID) {
-        channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).set(clientID);
+    public static void attachClientID(Channel channel, String clientId) {
+        channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).set(clientId);
     }
 
-    public static String clientID(Channel channel) {
+    public static String retrieveClientId(Channel channel) {
         return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).get();
     }
 

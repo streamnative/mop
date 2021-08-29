@@ -127,7 +127,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
             }
         }
 
-        NettyUtils.clientID(channel, clientId);
+        NettyUtils.attachClientID(channel, clientId);
 
         connectMsgList.add(msg);
         ConnectionDescriptor descriptor = new ConnectionDescriptor(clientId, channel,
@@ -202,11 +202,11 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         if (log.isDebugEnabled()) {
             log.debug("[Disconnect] [{}] ", channel);
         }
-        final String clientID = NettyUtils.clientID(channel);
-        log.info("Processing DISCONNECT message. CId={}", clientID);
+        final String clientId = NettyUtils.retrieveClientId(channel);
+        log.info("Processing DISCONNECT message. CId={}", clientId);
         channel.flush();
 
-        final ConnectionDescriptor existingDescriptor = ConnectionDescriptorStore.getInstance().getConnection(clientID);
+        final ConnectionDescriptor existingDescriptor = ConnectionDescriptorStore.getInstance().getConnection(clientId);
         if (existingDescriptor == null) {
             // another client with same ID removed the descriptor, we must exit
             channel.close();
@@ -215,30 +215,30 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
 
         if (existingDescriptor.doesNotUseChannel(channel)) {
             // another client saved it's descriptor, exit
-            log.warn("Another client is using the connection descriptor. Closing connection. CId={}", clientID);
+            log.warn("Another client is using the connection descriptor. Closing connection. CId={}", clientId);
             existingDescriptor.abort();
             return;
         }
 
-        if (!removeSubscriptions(existingDescriptor, clientID)) {
-            log.warn("Unable to remove subscriptions. Closing connection. CId={}", clientID);
+        if (!removeSubscriptions(existingDescriptor, clientId)) {
+            log.warn("Unable to remove subscriptions. Closing connection. CId={}", clientId);
             existingDescriptor.abort();
             return;
         }
 
         if (!existingDescriptor.close()) {
-            log.info("The connection has been closed. CId={}", clientID);
+            log.info("The connection has been closed. CId={}", clientId);
             return;
         }
 
         boolean stillPresent = ConnectionDescriptorStore.getInstance().removeConnection(existingDescriptor);
         if (!stillPresent) {
             // another descriptor was inserted
-            log.warn("Another descriptor has been inserted. CId={}", clientID);
+            log.warn("Another descriptor has been inserted. CId={}", clientId);
             return;
         }
 
-        log.info("The DISCONNECT message has been processed. CId={}", clientID);
+        log.info("The DISCONNECT message has been processed. CId={}", clientId);
 
         // clear the proxyHandlerMap, when the cnx is disconnected
         proxyHandlerMap.clear();
