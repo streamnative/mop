@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
@@ -53,6 +53,8 @@ public class MQTTProtocolHandler implements ProtocolHandler {
 
     @Getter
     private String bindAddress;
+
+    private ProxyService proxyService;
 
     @Override
     public String protocolName() {
@@ -127,7 +129,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setTlsKeyStorePassword(mqttConfig.getTlsTrustStorePassword());
             proxyConfig.setTlsKeyFilePath(mqttConfig.getTlsKeyFilePath());
             log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
-            ProxyService proxyService = new ProxyService(proxyConfig, brokerService.getPulsar(), authProviders);
+            proxyService = new ProxyService(proxyConfig, brokerService.getPulsar(), authProviders);
             try {
                 proxyService.start();
                 log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());
@@ -146,9 +148,9 @@ public class MQTTProtocolHandler implements ProtocolHandler {
 
     @Override
     public Map<InetSocketAddress, ChannelInitializer<SocketChannel>> newChannelInitializers() {
-        checkState(mqttConfig != null);
-        checkState(mqttConfig.getMqttListeners() != null);
-        checkState(brokerService != null);
+        checkArgument(mqttConfig != null);
+        checkArgument(mqttConfig.getMqttListeners() != null);
+        checkArgument(brokerService != null);
 
         String listeners = mqttConfig.getMqttListeners();
         String[] parts = listeners.split(LISTENER_DEL);
@@ -180,11 +182,13 @@ public class MQTTProtocolHandler implements ProtocolHandler {
 
     @Override
     public void close() {
-
+        if (proxyService != null) {
+            proxyService.close();
+        }
     }
 
     public static int getListenerPort(String listener) {
-        checkState(listener.matches(LISTENER_PATTEN), "listener not match patten");
+        checkArgument(listener.matches(LISTENER_PATTEN), "listener not match patten");
 
         int lastIndex = listener.lastIndexOf(':');
         return Integer.parseInt(listener.substring(lastIndex + 1));

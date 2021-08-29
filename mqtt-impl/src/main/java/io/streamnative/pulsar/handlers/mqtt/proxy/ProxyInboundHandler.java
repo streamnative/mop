@@ -374,6 +374,8 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                                Channel channel, MqttMessage msg) {
         ProxyHandler proxyHandler = getProxyHandler(topic, mqttBrokerHost, mqttBrokerPort);
         if (null == proxyHandler) {
+            log.error("proxy handler is null for topic : {}, mqttBrokerHost : {}, mqttBrokerPort : {}, closing channel",
+                    topic, mqttBrokerHost, mqttBrokerPort);
             channel.close();
             return;
         }

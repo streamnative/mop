@@ -18,9 +18,9 @@ package io.streamnative.pulsar.handlers.mqtt;
  */
 public final class Constants {
 
-    public static final String ATTR_CLIENTID = "ClientID";
-    public static final String CLEAN_SESSION = "cleanSession";
-    public static final String KEEP_ALIVE = "keepAlive";
+    public static final String ATTR_CLIENT_ID = "ClientID";
+    public static final String ATTR_CLEAN_SESSION = "cleanSession";
+    public static final String ATTR_KEEP_ALIVE = "keepAlive";
 
     public static final String AUTH_BASIC = "basic";
     public static final String AUTH_TOKEN = "token";

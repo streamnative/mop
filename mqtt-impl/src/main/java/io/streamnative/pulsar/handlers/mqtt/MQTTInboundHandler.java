@@ -47,7 +47,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
         MqttMessage msg = (MqttMessage) message;
         MqttMessageType messageType = msg.fixedHeader().messageType();
         if (log.isDebugEnabled()) {
-            log.info("Processing MQTT Inbound handler message, type={}", messageType);
+            log.debug("Processing MQTT Inbound handler message, type={}", messageType);
         }
         try {
             switch (messageType) {
@@ -94,7 +94,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                     ctx.writeAndFlush(pingResp);
                     break;
                 default:
-                    log.error("Unkonwn MessageType:{}", messageType);
+                    log.error("Unknown MessageType:{}", messageType);
                     break;
             }
         } catch (Throwable ex) {

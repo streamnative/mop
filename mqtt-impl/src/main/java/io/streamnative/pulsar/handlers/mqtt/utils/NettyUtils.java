@@ -26,9 +26,9 @@ public final class NettyUtils {
 
     public static final String ATTR_USERNAME = "username";
 
-    private static final AttributeKey<Object> ATTR_KEY_KEEPALIVE = AttributeKey.valueOf(Constants.KEEP_ALIVE);
-    private static final AttributeKey<Object> ATTR_KEY_CLEANSESSION = AttributeKey.valueOf(Constants.CLEAN_SESSION);
-    private static final AttributeKey<Object> ATTR_KEY_CLIENTID = AttributeKey.valueOf(Constants.ATTR_CLIENTID);
+    private static final AttributeKey<Object> ATTR_KEY_KEEPALIVE = AttributeKey.valueOf(Constants.ATTR_KEEP_ALIVE);
+    private static final AttributeKey<Object> ATTR_KEY_CLEAN_SESSION = AttributeKey.valueOf(Constants.ATTR_CLEAN_SESSION);
+    private static final AttributeKey<Object> ATTR_KEY_CLIENT_ID = AttributeKey.valueOf(Constants.ATTR_CLIENT_ID);
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
 
     public static Object getAttribute(ChannelHandlerContext ctx, AttributeKey<Object> key) {
@@ -41,19 +41,19 @@ public final class NettyUtils {
     }
 
     public static void cleanSession(Channel channel, boolean cleanSession) {
-        channel.attr(NettyUtils.ATTR_KEY_CLEANSESSION).set(cleanSession);
+        channel.attr(NettyUtils.ATTR_KEY_CLEAN_SESSION).set(cleanSession);
     }
 
     public static boolean cleanSession(Channel channel) {
-        return (Boolean) channel.attr(NettyUtils.ATTR_KEY_CLEANSESSION).get();
+        return (Boolean) channel.attr(NettyUtils.ATTR_KEY_CLEAN_SESSION).get();
     }
 
     public static void clientID(Channel channel, String clientID) {
-        channel.attr(NettyUtils.ATTR_KEY_CLIENTID).set(clientID);
+        channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).set(clientID);
     }
 
     public static String clientID(Channel channel) {
-        return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENTID).get();
+        return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).get();
     }
 
     public static void userName(Channel channel, String username) {
