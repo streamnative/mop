@@ -17,6 +17,7 @@ import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.Connecti
 import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.ESTABLISHED;
 import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SENDACK;
 import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SUBSCRIPTIONS_REMOVED;
+import com.google.common.net.HostAndPort;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
@@ -57,26 +58,25 @@ import org.apache.pulsar.common.util.FutureUtil;
  * Proxy inbound handler is the bridge between proxy and MoP.
  */
 @Slf4j
-public class ProxyInboundHandler implements ProtocolMethodProcessor {
-    private ProxyService proxyService;
-    private ProxyConnection proxyConnection;
-    private Map<String, ProxyHandler> proxyHandlerMap;
-    private ProxyHandler proxyHandler;
-    private LookupHandler lookupHandler;
-    private final ProxyConfiguration proxyConfig;
+public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor {
+
+    private final MQTTProxyService proxyService;
+    private final MQTTProxyHandler proxyHandler;
+    private final LookupHandler lookupHandler;
+    private final MQTTProxyConfiguration proxyConfig;
     private final PulsarService pulsarService;
 
-    private List<Object> connectMsgList = new ArrayList<>();
+    private final Map<String, MQTTProxyExchanger> proxyHandlerMap;
+    private final List<MqttConnectMessage> connectMsgList;
 
-    public ProxyInboundHandler(ProxyService proxyService, ProxyConnection proxyConnection,
-           ProxyConfiguration proxyConfig) {
-        log.info("ProxyConnection init ...");
+    public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, MQTTProxyHandler proxyHandler) {
         this.proxyService = proxyService;
+        this.proxyHandler = proxyHandler;
         this.pulsarService = proxyService.getPulsarService();
-        this.proxyConnection = proxyConnection;
-        lookupHandler = proxyService.getLookupHandler();
+        this.lookupHandler = proxyService.getLookupHandler();
+        this.proxyConfig = proxyService.getProxyConfig();
         this.proxyHandlerMap = new ConcurrentHashMap<>();
-        this.proxyConfig = proxyConfig;
+        this.connectMsgList = new ArrayList<>();
     }
 
     // client -> proxy
@@ -178,7 +178,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                 return;
             }
 
-            writeAndFlush(topicName, pair.getLeft(), pair.getRight(), channel, msg);
+            writeAndFlush(topicName, HostAndPort.fromParts(pair.getLeft(), pair.getRight()), channel, msg);
         });
     }
 
@@ -273,8 +273,8 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                     throw new MQTTServerException(e);
                 }
                 futures.add(lookupResult.thenAccept(pair -> {
-                    proxyConnection.increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);
-                    writeAndFlush(t, pair.getLeft(), pair.getRight(),
+                    proxyHandler.increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);
+                    writeAndFlush(t, HostAndPort.fromParts(pair.getLeft(), pair.getRight()),
                             channel, msg);
                 }));
             }
@@ -307,7 +307,7 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
                     return;
                 }
 
-                writeAndFlush(topic, pair.getLeft(), pair.getRight(), channel, msg);
+                writeAndFlush(topic, HostAndPort.fromParts(pair.getLeft(), pair.getRight()), channel, msg);
             });
         }
     }
@@ -355,13 +355,12 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         return true;
     }
 
-    private ProxyHandler getProxyHandler(String topic, String mqttBrokerHost, int mqttBrokerPort) {
+    private MQTTProxyExchanger getProxyHandler(String topic, HostAndPort mqttBrokerHostAndPort) {
         return proxyHandlerMap.computeIfAbsent(topic, key -> {
             try {
-                return new ProxyHandler(proxyService,
-                        proxyConnection,
-                        mqttBrokerHost,
-                        mqttBrokerPort,
+                return new MQTTProxyExchanger(
+                        proxyHandler,
+                        mqttBrokerHostAndPort,
                         connectMsgList);
             } catch (Exception e) {
                 log.error("[Proxy UnSubscribe] Failed to perform lookup request", e);
@@ -370,28 +369,28 @@ public class ProxyInboundHandler implements ProtocolMethodProcessor {
         });
     }
 
-    private void writeAndFlush(String topic, String mqttBrokerHost, int mqttBrokerPort,
+    private void writeAndFlush(String topic, HostAndPort mqttBrokerHostAndPort,
                                Channel channel, MqttMessage msg) {
-        ProxyHandler proxyHandler = getProxyHandler(topic, mqttBrokerHost, mqttBrokerPort);
-        if (null == proxyHandler) {
-            log.error("proxy handler is null for topic : {}, mqttBrokerHost : {}, mqttBrokerPort : {}, closing channel",
-                    topic, mqttBrokerHost, mqttBrokerPort);
+        MQTTProxyExchanger proxyExchanger = getProxyHandler(topic, mqttBrokerHostAndPort);
+        if (null == proxyExchanger) {
+            log.error("proxy handler is null for topic : {}, mqttBrokerHostAndPort : {}, closing channel",
+                    topic, mqttBrokerHostAndPort);
             channel.close();
             return;
         }
-        proxyHandler.brokerFuture().whenComplete((ignored, throwable) -> {
+        proxyExchanger.brokerFuture().whenComplete((ignored, throwable) -> {
             if (throwable != null) {
-                log.error("[{}] MoP proxy failed to connect with MoP broker({}:{}).",
-                        msg.fixedHeader().messageType(), mqttBrokerHost, mqttBrokerPort, throwable);
+                log.error("[{}] MoP proxy failed to connect with MoP broker({}).",
+                        msg.fixedHeader().messageType(), mqttBrokerHostAndPort, throwable);
                 channel.close();
                 return;
             }
-            if (proxyHandler.getBrokerChannel().isWritable()) {
-                proxyHandler.getBrokerChannel().writeAndFlush(msg);
+            if (proxyExchanger.getBrokerChannel().isWritable()) {
+                proxyExchanger.getBrokerChannel().writeAndFlush(msg);
             } else {
-                log.error("The broker channel({}:{}) is not writable!", mqttBrokerHost, mqttBrokerPort);
+                log.error("The broker channel({}) is not writable!", mqttBrokerHostAndPort);
                 channel.close();
-                proxyHandler.close();
+                proxyExchanger.close();
             }
         });
     }

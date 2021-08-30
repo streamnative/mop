@@ -72,7 +72,7 @@ import org.apache.pulsar.common.util.FutureUtil;
  * Default implementation of protocol method processor.
  */
 @Slf4j
-public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
+public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
@@ -82,7 +82,7 @@ public class ProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
     private final Map<String, AuthenticationProvider> authProviders;
 
 
-    public ProtocolMethodProcessorImpl(
+    public DefaultProtocolMethodProcessorImpl(
         PulsarService pulsarService,
         MQTTServerConfiguration configuration,
         Map<String, AuthenticationProvider> authProviders

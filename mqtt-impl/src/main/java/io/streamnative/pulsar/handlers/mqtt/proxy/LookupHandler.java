@@ -32,4 +32,8 @@ public interface LookupHandler {
     CompletableFuture<Pair<String, Integer>> findBroker(TopicName topicName,
                                                         String protocolHandlerName) throws Exception;
 
+    /**
+     * Close the lookup handler to cleanup the resource.
+     */
+    void close();
 }

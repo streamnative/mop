@@ -21,7 +21,7 @@ import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.streamnative.pulsar.handlers.mqtt.support.ProtocolMethodProcessorImpl;
+import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
 import java.util.Map;
 import lombok.Getter;
 import org.apache.pulsar.broker.PulsarService;
@@ -101,6 +101,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
         ch.pipeline().addLast("handler",
-                new MQTTInboundHandler(new ProtocolMethodProcessorImpl(pulsarService, mqttConfig, authProviders)));
+                new MQTTInboundHandler(new DefaultProtocolMethodProcessorImpl(pulsarService, mqttConfig,
+                        authProviders)));
     }
 }

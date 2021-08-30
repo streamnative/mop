@@ -23,7 +23,10 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.loadbalance.LoadManager;
 import org.apache.pulsar.broker.service.BrokerServiceException;
+import org.apache.pulsar.client.api.AuthenticationFactory;
+import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
+import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.FutureUtil;
 import org.apache.pulsar.metadata.api.MetadataCache;
@@ -38,9 +41,14 @@ public class PulsarServiceLookupHandler implements LookupHandler {
     private final PulsarClientImpl pulsarClient;
     private final MetadataCache<LocalBrokerData> localBrokerDataCache;
 
-    public PulsarServiceLookupHandler(PulsarService pulsarService, PulsarClientImpl pulsarClient) {
-        this.pulsarClient = pulsarClient;
+    public PulsarServiceLookupHandler(PulsarService pulsarService, MQTTProxyConfiguration proxyConfig)
+            throws MQTTProxyException {
         this.localBrokerDataCache = pulsarService.getLocalMetadataStore().getMetadataCache(LocalBrokerData.class);
+        try {
+            this.pulsarClient = new PulsarClientImpl(createClientConfiguration(proxyConfig));
+        } catch (PulsarClientException e) {
+            throw new MQTTProxyException(e);
+        }
     }
 
     @Override
@@ -94,5 +102,26 @@ public class PulsarServiceLookupHandler implements LookupHandler {
             }
         });
         return lookupResult;
+    }
+
+    @Override
+    public void close() {
+        try {
+            pulsarClient.close();
+        } catch (PulsarClientException ignore) {
+        }
+    }
+
+    private ClientConfigurationData createClientConfiguration(MQTTProxyConfiguration proxyConfig)
+            throws PulsarClientException.UnsupportedAuthenticationException {
+        ClientConfigurationData clientConf = new ClientConfigurationData();
+        clientConf.setServiceUrl(proxyConfig.getBrokerServiceURL());
+        if (proxyConfig.getBrokerClientAuthenticationPlugin() != null) {
+            clientConf.setAuthentication(AuthenticationFactory.create(
+                    proxyConfig.getBrokerClientAuthenticationPlugin(),
+                    proxyConfig.getBrokerClientAuthenticationParameters())
+            );
+        }
+        return clientConf;
     }
 }

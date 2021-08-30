@@ -26,8 +26,6 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Getter;
@@ -38,35 +36,18 @@ import org.apache.pulsar.client.api.PulsarClientException;
  * Proxy connection.
  */
 @Slf4j
-public class ProxyConnection extends ChannelInboundHandlerAdapter{
+public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
+
     private final ProtocolMethodProcessor processor;
-    private ProxyService proxyService;
-    private ProxyConfiguration proxyConfig;
+
     @Getter
     private ChannelHandlerContext cnx;
-    private State state;
-    private ProxyHandler proxyHandler;
 
-    private LookupHandler lookupHandler;
-
-    private List<Object> connectMsgList = new ArrayList<>();
     // Map sequence Id -> topic count
     private ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId = new ConcurrentHashMap<>();
 
-    private enum State {
-        Init,
-        RedirectLookup,
-        RedirectToBroker,
-        Closed
-    }
-
-    public ProxyConnection(ProxyService proxyService) throws PulsarClientException {
-        log.info("ProxyConnection init ...");
-        this.proxyService = proxyService;
-        this.proxyConfig = proxyService.getProxyConfig();
-        lookupHandler = proxyService.getLookupHandler();
-        processor = new ProxyInboundHandler(proxyService, this, proxyConfig);
-        state = State.Init;
+    public MQTTProxyHandler(MQTTProxyService proxyService) throws PulsarClientException {
+        this.processor = new MQTTProxyProtocolMethodProcessor(proxyService, this);
     }
 
     @Override
@@ -145,25 +126,13 @@ public class ProxyConnection extends ChannelInboundHandlerAdapter{
         }
     }
 
-    public void resetProxyHandler() {
-        if (proxyHandler != null) {
-            proxyHandler.close();
-            proxyHandler = null;
-        }
-    }
-
     public void close() {
         if (log.isDebugEnabled()) {
             log.debug("ProxyConnection close.");
         }
-
-        if (proxyHandler != null) {
-            resetProxyHandler();
-        }
         if (cnx != null) {
             cnx.close();
         }
-        state = State.Closed;
     }
 
     public boolean increaseSubscribeTopicsCount(int seq, int count) {
