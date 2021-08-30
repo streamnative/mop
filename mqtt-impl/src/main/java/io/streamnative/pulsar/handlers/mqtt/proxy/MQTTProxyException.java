@@ -16,14 +16,18 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 /**
  * Proxy exception.
  */
-public class ProxyException extends Exception {
+public class MQTTProxyException extends Exception {
 
-    public ProxyException() {
+    public MQTTProxyException() {
         super();
     }
 
-    public ProxyException(String message) {
+    public MQTTProxyException(String message) {
         super(message);
+    }
+
+    public MQTTProxyException(Throwable cause) {
+        super(cause);
     }
 
 }

@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 import static com.google.common.base.Preconditions.checkState;
 import static io.netty.handler.codec.mqtt.MqttMessageType.CONNACK;
 import static io.netty.handler.codec.mqtt.MqttMessageType.SUBACK;
+import com.google.common.net.HostAndPort;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -24,6 +25,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
+import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.codec.mqtt.MqttMessage;
@@ -41,9 +43,9 @@ import lombok.extern.slf4j.Slf4j;
  * Proxy handler is the bridge between proxy and MoP.
  */
 @Slf4j
-public class ProxyHandler {
-    private ProxyService proxyService;
-    private ProxyConnection proxyConnection;
+public class MQTTProxyExchanger {
+
+    private MQTTProxyHandler proxyHandler;
     @Getter
     // client -> proxy
     private Channel clientChannel;
@@ -51,14 +53,13 @@ public class ProxyHandler {
     // proxy -> MoP
     private Channel brokerChannel;
     private State state = State.Init;
-    private List<Object> connectMsgList;
+    private List<MqttConnectMessage> connectMsgList;
     private CompletableFuture<Void> brokerFuture = new CompletableFuture<>();
 
-    ProxyHandler(ProxyService proxyService, ProxyConnection proxyConnection,
-                 String mqttBrokerHost, int mqttBrokerPort, List<Object> connectMsgList) throws Exception {
-        this.proxyService = proxyService;
-        this.proxyConnection = proxyConnection;
-        clientChannel = this.proxyConnection.getCnx().channel();
+    MQTTProxyExchanger(MQTTProxyHandler proxyHandler, HostAndPort brokerHostAndPort,
+                       List<MqttConnectMessage> connectMsgList) throws Exception {
+        this.proxyHandler = proxyHandler;
+        clientChannel = this.proxyHandler.getCnx().channel();
         this.connectMsgList = connectMsgList;
 
         Bootstrap bootstrap = new Bootstrap();
@@ -70,26 +71,25 @@ public class ProxyHandler {
                         ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(10, 0, 0));
                         ch.pipeline().addLast("decoder", new MqttDecoder());
                         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
-                        ch.pipeline().addLast("handler", new ProxyBackendHandler());
+                        ch.pipeline().addLast("handler", new BackendHandler());
                     }
                 });
-        ChannelFuture channelFuture = bootstrap.connect(mqttBrokerHost, mqttBrokerPort);
+        ChannelFuture channelFuture = bootstrap.connect(brokerHostAndPort.getHost(), brokerHostAndPort.getPort());
         brokerChannel = channelFuture.channel();
         channelFuture.addListener(future -> {
-            if (!future.isSuccess()) {
+            if (future.isSuccess()) {
+                log.info("Broker channel connected. broker: {}, isOpen: {}",
+                        brokerHostAndPort, brokerChannel.isOpen());
+            } else {
                 // Close the connection if the connection attempt has failed.
                 clientChannel.close();
             }
         });
-        log.info("Broker channel connect. broker: {}:{}, isOpen: {}",
-                mqttBrokerHost, mqttBrokerPort, brokerChannel.isOpen());
     }
 
-    private class ProxyBackendHandler extends ChannelInboundHandlerAdapter implements FutureListener<Void> {
+    private class BackendHandler extends ChannelInboundHandlerAdapter implements FutureListener<Void> {
 
         private ChannelHandlerContext cnx;
-
-        ProxyBackendHandler() {}
 
         @Override
         public void operationComplete(Future future) throws Exception {
@@ -109,7 +109,7 @@ public class ProxyHandler {
             log.info("proxy handler active: {}", connectMsgList);
             this.cnx = ctx;
             super.channelActive(ctx);
-            for (Object msg : connectMsgList) {
+            for (MqttConnectMessage msg : connectMsgList) {
                 brokerChannel.writeAndFlush(msg).syncUninterruptibly();
             }
             brokerChannel.read();
@@ -146,7 +146,7 @@ public class ProxyHandler {
                     messageType = msg.fixedHeader().messageType();
                     if (messageType == SUBACK) {
                         MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
-                        if (proxyConnection.decreaseSubscribeTopicsCount(
+                        if (proxyHandler.decreaseSubscribeTopicsCount(
                                 subAckMessage.variableHeader().messageId()) == 0) {
                             clientChannel.writeAndFlush(message);
                         }
@@ -169,7 +169,7 @@ public class ProxyHandler {
         @Override
         public void channelInactive(ChannelHandlerContext ctx) throws Exception {
             super.channelInactive(ctx);
-            proxyConnection.close();
+            proxyHandler.close();
         }
     }
 

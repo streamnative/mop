@@ -17,8 +17,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
-import io.streamnative.pulsar.handlers.mqtt.proxy.ProxyConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.proxy.ProxyService;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.net.InetSocketAddress;
@@ -54,7 +54,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Getter
     private String bindAddress;
 
-    private ProxyService proxyService;
+    private MQTTProxyService proxyService;
 
     @Override
     public String protocolName() {
@@ -96,7 +96,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
         }
 
         if (mqttConfig.isMqttProxyEnable()) {
-            ProxyConfiguration proxyConfig = new ProxyConfiguration();
+            MQTTProxyConfiguration proxyConfig = new MQTTProxyConfiguration();
             proxyConfig.setMqttTenant(mqttConfig.getDefaultTenant());
             proxyConfig.setMqttMaxNoOfChannels(mqttConfig.getMaxNoOfChannels());
             proxyConfig.setMqttMaxFrameSize(mqttConfig.getMaxFrameSize());
@@ -129,12 +129,12 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setTlsKeyStorePassword(mqttConfig.getTlsTrustStorePassword());
             proxyConfig.setTlsKeyFilePath(mqttConfig.getTlsKeyFilePath());
             log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
-            proxyService = new ProxyService(proxyConfig, brokerService.getPulsar(), authProviders);
+            proxyService = new MQTTProxyService(proxyConfig, brokerService.getPulsar(), authProviders);
             try {
                 proxyService.start();
                 log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());
-            } catch (Exception e) {
-                log.error("Failed to start MQTT proxy service.");
+            } catch (Exception ex) {
+                log.error("Failed to start MQTT proxy service.", ex);
             }
         }
 

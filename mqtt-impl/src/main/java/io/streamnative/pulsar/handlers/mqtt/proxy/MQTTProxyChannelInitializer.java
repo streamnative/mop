@@ -29,11 +29,11 @@ import org.apache.pulsar.common.util.keystoretls.NettySSLContextAutoRefreshBuild
 /**
  * Proxy service channel initializer.
  */
-public class ServiceChannelInitializer extends ChannelInitializer<SocketChannel> {
+public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChannel> {
 
-    private final ProxyService proxyService;
+    private final MQTTProxyService proxyService;
     @Getter
-    private final ProxyConfiguration proxyConfig;
+    private final MQTTProxyConfiguration proxyConfig;
 
     private final boolean enableTls;
     private final boolean tlsEnabledWithKeyStore;
@@ -41,7 +41,8 @@ public class ServiceChannelInitializer extends ChannelInitializer<SocketChannel>
     private SslContextAutoRefreshBuilder<SslContext> serverSslCtxRefresher;
     private NettySSLContextAutoRefreshBuilder serverSSLContextAutoRefreshBuilder;
 
-    public ServiceChannelInitializer(ProxyService proxyService, ProxyConfiguration proxyConfig, boolean enableTls) {
+    public MQTTProxyChannelInitializer(MQTTProxyService proxyService, MQTTProxyConfiguration proxyConfig,
+                                       boolean enableTls) {
         this.proxyService = proxyService;
         this.proxyConfig = proxyConfig;
         this.enableTls = enableTls;
@@ -93,7 +94,7 @@ public class ServiceChannelInitializer extends ChannelInitializer<SocketChannel>
         }
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
-        ch.pipeline().addLast("handler", new ProxyConnection(proxyService));
+        ch.pipeline().addLast("handler", new MQTTProxyHandler(proxyService));
     }
 
 }
