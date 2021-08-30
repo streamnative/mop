@@ -27,7 +27,7 @@ import org.apache.pulsar.common.configuration.FieldContext;
  */
 @Getter
 @Setter
-public class ProxyConfiguration {
+public class MQTTProxyConfiguration {
 
     @Category
     private static final String CATEGORY_MQTT = "MQTT on Pulsar";
