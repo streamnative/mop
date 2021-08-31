@@ -35,7 +35,6 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -149,17 +148,9 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Publish] [{}] handle processPublish", msg.variableHeader().topicName());
         }
-        CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
-        try {
-            lookupResult = lookupHandler.findBroker(
-                    TopicName.get(PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
-                            proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace())), "mqtt");
-        } catch (Exception e) {
-            log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
-                    msg.variableHeader().topicName(), e);
-            channel.close();
-        }
-
+        CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(
+                TopicName.get(PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
+                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace())));
         lookupResult.whenComplete((pair, throwable) -> {
             if (null != throwable) {
                 log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
@@ -266,12 +257,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         topicListFuture.thenCompose(topics -> {
             List<CompletableFuture<Void>> futures = new ArrayList<>();
             for (String t : topics) {
-                CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
-                try {
-                    lookupResult = lookupHandler.findBroker(TopicName.get(t), "mqtt");
-                } catch (Exception e) {
-                    throw new MQTTServerException(e);
-                }
+                CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(TopicName.get(t));
                 futures.add(lookupResult.thenAccept(pair -> {
                     proxyHandler.increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);
                     writeAndFlush(t, HostAndPort.fromParts(pair.getLeft(), pair.getRight()),
@@ -292,14 +278,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
         List<String> topics = msg.payload().topics();
         for (String topic : topics) {
-            CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
-            try {
-                lookupResult = lookupHandler.findBroker(TopicName.get(topic), "mqtt");
-            } catch (Exception e) {
-                log.error("[Proxy UnSubscribe] Failed to perform lookup request", e);
-                channel.close();
-            }
-
+            CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
             lookupResult.whenComplete((pair, throwable) -> {
                 if (null != throwable) {
                     log.error("[Proxy UnSubscribe] Failed to perform lookup request", throwable);
