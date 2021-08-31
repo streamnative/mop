@@ -26,11 +26,9 @@ public interface LookupHandler {
      * Find broker for protocolHandler.
      *
      * @param topicName topic name
-     * @param protocolHandlerName protocolHandler name
      * @return Pair consist of brokerHost and brokerPort
      */
-    CompletableFuture<Pair<String, Integer>> findBroker(TopicName topicName,
-                                                        String protocolHandlerName) throws Exception;
+    CompletableFuture<Pair<String, Integer>> findBroker(TopicName topicName);
 
     /**
      * Close the lookup handler to cleanup the resource.
