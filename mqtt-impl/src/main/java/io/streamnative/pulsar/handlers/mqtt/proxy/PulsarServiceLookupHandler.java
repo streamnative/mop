@@ -38,6 +38,8 @@ import org.apache.pulsar.policies.data.loadbalancer.LocalBrokerData;
 @Slf4j
 public class PulsarServiceLookupHandler implements LookupHandler {
 
+    private final String protocolHandlerName = "mqtt";
+
     private final PulsarClientImpl pulsarClient;
     private final MetadataCache<LocalBrokerData> localBrokerDataCache;
 
@@ -52,8 +54,7 @@ public class PulsarServiceLookupHandler implements LookupHandler {
     }
 
     @Override
-    public CompletableFuture<Pair<String, Integer>> findBroker(TopicName topicName,
-                                                               String protocolHandlerName) throws Exception {
+    public CompletableFuture<Pair<String, Integer>> findBroker(TopicName topicName) {
         CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
         CompletableFuture<Pair<InetSocketAddress, InetSocketAddress>> lookup =
                 pulsarClient.getLookup().getBroker(topicName);
