@@ -14,8 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.netty.handler.codec.mqtt.MqttMessageType.CONNACK;
-import static io.netty.handler.codec.mqtt.MqttMessageType.SUBACK;
 import com.google.common.net.HostAndPort;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -24,7 +22,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
@@ -32,15 +29,13 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.FutureListener;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Proxy handler is the bridge between proxy and MoP.
+ * Proxy exchanger is the bridge between proxy and MoP.
  */
 @Slf4j
 public class MQTTProxyExchanger {
@@ -52,7 +47,6 @@ public class MQTTProxyExchanger {
     @Getter
     // proxy -> MoP
     private Channel brokerChannel;
-    private State state = State.Init;
     private List<MqttConnectMessage> connectMsgList;
     private CompletableFuture<Void> brokerFuture = new CompletableFuture<>();
 
@@ -71,98 +65,56 @@ public class MQTTProxyExchanger {
                         ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(10, 0, 0));
                         ch.pipeline().addLast("decoder", new MqttDecoder());
                         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
-                        ch.pipeline().addLast("handler", new BackendHandler());
+                        ch.pipeline().addLast("handler", new ExchangerHandler());
                     }
                 });
         ChannelFuture channelFuture = bootstrap.connect(brokerHostAndPort.getHost(), brokerHostAndPort.getPort());
         brokerChannel = channelFuture.channel();
         channelFuture.addListener(future -> {
             if (future.isSuccess()) {
-                log.info("Broker channel connected. broker: {}, isOpen: {}",
-                        brokerHostAndPort, brokerChannel.isOpen());
-            } else {
-                // Close the connection if the connection attempt has failed.
-                clientChannel.close();
+                log.info("connected to broker: {}", brokerHostAndPort);
             }
         });
     }
 
-    private class BackendHandler extends ChannelInboundHandlerAdapter implements FutureListener<Void> {
-
-        private ChannelHandlerContext cnx;
-
-        @Override
-        public void operationComplete(Future future) throws Exception {
-            // This is invoked when the write operation on the paired connection
-            // is completed
-            if (future.isSuccess()) {
-                brokerChannel.read();
-            } else {
-                log.warn("[{}] [{}] Failed to write on proxy connection. Closing both connections.", clientChannel,
-                        brokerChannel, future.cause());
-                clientChannel.close();
-            }
-        }
+    private class ExchangerHandler extends ChannelInboundHandlerAdapter{
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
-            log.info("proxy handler active: {}", connectMsgList);
-            this.cnx = ctx;
             super.channelActive(ctx);
             for (MqttConnectMessage msg : connectMsgList) {
-                brokerChannel.writeAndFlush(msg).syncUninterruptibly();
+                brokerChannel.writeAndFlush(msg);
             }
-            brokerChannel.read();
         }
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
-            log.info("channel read: {}", message);
-            if (message instanceof MqttMessage && ((MqttMessage) message).decoderResult().isFailure()) {
-                log.error("Failed to decode mqttMessage.", ((MqttMessage) message).decoderResult().cause());
+            checkState(message instanceof MqttMessage);
+            MqttMessage msg = (MqttMessage) message;
+            MqttMessageType messageType = msg.fixedHeader().messageType();
+            if (log.isDebugEnabled()) {
+                log.debug("channelRead messageType {}", messageType);
             }
-            switch (state) {
-                case Init:
-                    MqttMessage msg = (MqttMessage) message;
-                    MqttMessageType messageType = msg.fixedHeader().messageType();
-                    if (log.isDebugEnabled()) {
-                        log.info("Processing Proxy Handler message, type={}", messageType);
-                    }
-
-                    if (messageType == CONNACK) {
-                        log.info("The messageType is CONNACK, set the state to Connected.");
-                        checkState(msg instanceof MqttConnAckMessage);
-                        state = State.Connected;
-                        brokerFuture.complete(null);
-                    }
+            switch (messageType) {
+                case CONNACK:
+                    brokerFuture.complete(null);
                     break;
-                case Failed:
-                    Channel nettyChannel = ctx.channel();
-                    checkState(nettyChannel.equals(this.cnx.channel()));
-                    break;
-                case Connected:
-                    log.info("channelRead Connected: {}", message);
-                    msg = (MqttMessage) message;
-                    messageType = msg.fixedHeader().messageType();
-                    if (messageType == SUBACK) {
-                        MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
-                        if (proxyHandler.decreaseSubscribeTopicsCount(
-                                subAckMessage.variableHeader().messageId()) == 0) {
-                            clientChannel.writeAndFlush(message);
-                        }
-                    } else {
+                case SUBACK:
+                    MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
+                    if (proxyHandler.decreaseSubscribeTopicsCount(
+                            subAckMessage.variableHeader().messageId()) == 0) {
                         clientChannel.writeAndFlush(message);
                     }
                     break;
-                case Closed:
+                default:
+                    clientChannel.writeAndFlush(message);
                     break;
             }
         }
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-            log.error("Failed to create connection with MoP broker.", cause);
-            state = State.Failed;
+            log.error("failed to create connection with MoP broker.", cause);
             brokerFuture.completeExceptionally(cause);
         }
 
@@ -174,19 +126,10 @@ public class MQTTProxyExchanger {
     }
 
     public void close() {
-        state = State.Closed;
         this.brokerChannel.close();
-    }
-
-    enum State {
-        Init,
-        Connected,
-        Failed,
-        Closed
     }
 
     public CompletableFuture<Void> brokerFuture() {
         return this.brokerFuture;
     }
-
 }
