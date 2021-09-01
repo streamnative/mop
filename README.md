@@ -144,6 +144,7 @@ The following example shows how to verify the MoP protocol handler with FuseSour
     // receive message
     Message received = connection.receive();
     ```
+## Security
 
 ### Enabling Authentication
 
@@ -246,3 +247,60 @@ BlockingConnection connection = mqtt.blockingConnection();
 connection.connect();
 ...
 ```
+
+## Topic Names & Filters
+
+For Apache Pulsar, The topic name consists of 4 parts:
+
+```
+<domain>://<tenant>/<namespace>/<local-name>
+```
+And `/` is not allowed in the local topic name. But for the MQTT topic name can have multiple levels such as:
+
+```
+/a/b/c/d/e/f
+```
+
+MoP mapping the MQTT topic name to Pulsar topic name as follows:
+
+1. If the MQTT topic name does not start with the topic domain, MoP treats the URL encoded MQTT topic name as the Pulsar local topic name, and the default tenant and default namespace will be used to map the Pulsar topic name.
+2. If the MQTT topic name starts with the topic domain, MoP will treat the first level topic name as the tenant and the second level topic name as the namespace and the remaining topic name levels will be covert as the local topic name with URL encoded.
+
+Examples:
+
+|  MQTT topic name   | Apache Pulsar topic name  |
+|  ----  | ----  |
+| /a/b/c  | persistent://public/default/%2Fa%2Fb%2Fc |
+| a  | persistent://public/default/a |
+| persistent://my-tenant/my-ns/a/b/c  | persistent://my-tenant/my-ns/a%2Fb%2Fc |
+| persistent://my-tenant/my-ns/a  | persistent://my-tenant/my-ns/a |
+| non-persistent://my-tenant/my-ns/a  | non-persistent://my-tenant/my-ns/a |
+| non-persistent://my-tenant/my-ns/a/b/c  | non-persistent://my-tenant/my-ns/a%2Fb%2Fc |
+
+So if you want to consume messages by Pulsar Client from the topic `/a/b/c`, the topic name for the Pulsar consumer should be `persistent://public/default/%2Fa%2Fb%2Fc`. If you want to consume messages from a Pulsar topic by the MQTT client, use the Pulsar topic name as the MQTT topic name directly.
+
+MoP topic supports single-level wildcard `+` and multi-level wildcard `#`. The topic name filter also follows the above topic name mapping rules.
+
+1. If the topic filter starts with the topic domain, MoP only filters the topic under the namespace that the topic filter provided.
+2. If the topic filter does not start with the topic domain, MoP only filters the topic name under the default namespace.
+
+Examples:
+
+|  MQTT topic name   | Topic filter  | Is match |
+|  ----  | ----  | ----  |
+| /a/b/c  | /a/+/c  | Yes |
+| /a/b/c  | /a/#  | Yes |
+| /a/b/c  | a/#  | No |
+| /a/b/c  | persistent://my-tenant/my-namespace//a/#  | No |
+| /a/b/c  | persistent://public/default//a/#  | Yes |
+| persistent://public/default/a/b/c  | persistent://public/default/a/#  | Yes |
+| persistent://public/default/a/b/c  | persistent://public/default/a/+/c  | Yes |
+| persistent://public/default/a/b/c  | persistent://public/default//a/+/c  | No |
+| persistent://public/default/a/b/c  | persistent://my-tenant/my-namespace/a/+/c  | No |
+
+
+> Notice:
+>
+> The default tenant and the default namespace for the MoP are configurable, by default, the default tenant is `public` and the default namespace is `default`.
+
+
