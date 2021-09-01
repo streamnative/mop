@@ -21,6 +21,7 @@ import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter;
+import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -83,12 +84,13 @@ public class MQTTConsumer extends Consumer {
                 outstandingPacketContainer.add(new OutstandingPacket(this, packetId, entry.getLedgerId(),
                         entry.getEntryId()));
             }
-            List<MqttPublishMessage> messages = PulsarMessageConverter.toMqttMessages(mqttTopicName, entry,
+            String toConsumerTopicName = PulsarTopicUtils.getToConsumerTopicName(mqttTopicName, pulsarTopicName);
+            List<MqttPublishMessage> messages = PulsarMessageConverter.toMqttMessages(toConsumerTopicName, entry,
                     packetId, qos);
             for (MqttPublishMessage msg : messages) {
                 if (log.isDebugEnabled()) {
-                    log.debug("[{}] [{}] [{}] Send MQTT message to subscriber", pulsarTopicName,
-                            mqttTopicName, super.getSubscription().getName());
+                    log.debug("[{}] [{}] [{}] Send MQTT message {} to subscriber", pulsarTopicName,
+                            mqttTopicName, super.getSubscription().getName(), msg);
                 }
                 cnx.ctx().channel().write(msg);
             }

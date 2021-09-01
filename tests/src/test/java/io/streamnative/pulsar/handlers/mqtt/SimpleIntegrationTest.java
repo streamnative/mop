@@ -30,7 +30,6 @@ import org.fusesource.mqtt.client.Topic;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
@@ -49,14 +48,6 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Override
     public void cleanup() throws Exception {
         super.cleanup();
-    }
-
-    @DataProvider(name = "batchEnabled")
-    public Object[][] batchEnabled() {
-        return new Object[][] {
-                { true },
-                { false }
-        };
     }
 
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
