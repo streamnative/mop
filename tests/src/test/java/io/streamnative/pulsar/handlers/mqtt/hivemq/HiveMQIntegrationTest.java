@@ -55,6 +55,7 @@ public class HiveMQIntegrationTest extends MQTTTestBase {
             Mqtt3Publish publish = publishes.receive();
             Assert.assertEquals(publish.getPayloadAsBytes(), msg);
         }
+        client.unsubscribeWith().topicFilter(topic).send();
         client.disconnect();
     }
 
