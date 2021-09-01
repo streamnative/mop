@@ -40,9 +40,8 @@ public class HiveMQIntegrationTest extends MQTTTestBase {
         super.cleanup();
     }
 
-    @Test(dataProvider = "mqttPersistentTopicNames")
+    @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
     public void testBasicPublishAndConsumeWithMQTT(String topic) throws Exception {
-        Thread.sleep(1000000);
         Mqtt3BlockingClient client = createMqtt3Client();
         client.connect();
         client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_LEAST_ONCE).send();
