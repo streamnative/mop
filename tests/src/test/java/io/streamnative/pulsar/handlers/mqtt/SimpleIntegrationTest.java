@@ -330,5 +330,18 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertEquals(received.getPayload(), message);
         connection0.disconnect();
         connection1.disconnect();
+
+        MQTT mqtt2 = createMQTTClient();
+        BlockingConnection connection2 = mqtt2.blockingConnection();
+        connection2.connect();
+        Topic[] topics2 = { new Topic("a/+/c", QoS.AT_LEAST_ONCE), new Topic("a/+/c/#", QoS.AT_LEAST_ONCE)};
+        connection2.subscribe(topics2);
+        connection2.publish(t1, message, QoS.AT_MOST_ONCE, false);
+        connection2.publish(t2, message, QoS.AT_MOST_ONCE, false);
+        received = connection2.receive();
+        Assert.assertEquals(received.getPayload(), message);
+        received = connection2.receive();
+        Assert.assertEquals(received.getPayload(), message);
+        connection2.disconnect();
     }
 }
