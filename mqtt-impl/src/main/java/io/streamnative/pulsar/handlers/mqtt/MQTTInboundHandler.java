@@ -77,7 +77,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                     processor.processPubRel(ctx.channel(), msg);
                     break;
                 case DISCONNECT:
-                    processor.processDisconnect(ctx.channel());
+                    processor.processDisconnect(ctx.channel(), msg);
                     break;
                 case PUBACK:
                     checkArgument(msg instanceof MqttPubAckMessage);
@@ -112,11 +112,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        String clientID = NettyUtils.retrieveClientId(ctx.channel());
-        if (clientID != null && !clientID.isEmpty()) {
-            log.info("Notifying connection lost event. MqttClientId = {}.", clientID);
-            processor.processConnectionLost(clientID, ctx.channel());
-        }
+        processor.processConnectionLost(ctx.channel());
         ctx.close();
     }
 
