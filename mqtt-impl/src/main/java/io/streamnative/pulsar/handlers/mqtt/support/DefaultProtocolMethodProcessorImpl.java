@@ -242,7 +242,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     @Override
-    public void processDisconnect(Channel channel) throws InterruptedException {
+    public void processDisconnect(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[Disconnect] [{}] ", channel);
         }
@@ -285,10 +285,13 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     @Override
-    public void processConnectionLost(String clientID, Channel channel) {
-        log.info("[Connection Lost] [{}] clientId: {}", channel, clientID);
-        ConnectionDescriptor oldConnDescr = new ConnectionDescriptor(clientID, channel, true);
-        ConnectionDescriptorStore.getInstance().removeConnection(oldConnDescr);
+    public void processConnectionLost(Channel channel) {
+        if (log.isDebugEnabled()) {
+            log.debug("[Connection Lost] channel [{}] ", channel);
+        }
+        String clientID = NettyUtils.retrieveClientId(channel);
+        ConnectionDescriptor oldConnDescriptor = new ConnectionDescriptor(clientID, channel, true);
+        ConnectionDescriptorStore.getInstance().removeConnection(oldConnDescriptor);
         removeSubscriptions(null, clientID);
     }
 

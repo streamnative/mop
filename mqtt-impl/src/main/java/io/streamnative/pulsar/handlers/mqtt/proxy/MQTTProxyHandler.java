@@ -99,7 +99,7 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
                     processor.processPubRel(ctx.channel(), msg);
                     break;
                 case DISCONNECT:
-                    processor.processDisconnect(ctx.channel());
+                    processor.processDisconnect(ctx.channel(), msg);
                     break;
                 case PUBACK:
                     checkState(msg instanceof MqttPubAckMessage);
