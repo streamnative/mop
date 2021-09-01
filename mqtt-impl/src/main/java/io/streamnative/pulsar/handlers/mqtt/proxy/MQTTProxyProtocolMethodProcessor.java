@@ -65,7 +65,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     private final MQTTProxyConfiguration proxyConfig;
     private final PulsarService pulsarService;
 
-    private final Map<String, MQTTProxyExchanger> proxyHandlerMap;
+    private final Map<String, MQTTProxyExchanger> proxyExchangerMap;
     private final List<MqttConnectMessage> connectMsgList;
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, MQTTProxyHandler proxyHandler) {
@@ -74,7 +74,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         this.pulsarService = proxyService.getPulsarService();
         this.lookupHandler = proxyService.getLookupHandler();
         this.proxyConfig = proxyService.getProxyConfig();
-        this.proxyHandlerMap = new ConcurrentHashMap<>();
+        this.proxyExchangerMap = new ConcurrentHashMap<>();
         this.connectMsgList = new ArrayList<>();
     }
 
@@ -232,7 +232,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         log.info("The DISCONNECT message has been processed. CId={}", clientId);
 
         // clear the proxyHandlerMap, when the cnx is disconnected
-        proxyHandlerMap.clear();
+        proxyExchangerMap.clear();
     }
 
     @Override
@@ -334,8 +334,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         return true;
     }
 
-    private MQTTProxyExchanger getProxyHandler(String topic, HostAndPort mqttBrokerHostAndPort) {
-        return proxyHandlerMap.computeIfAbsent(topic, key -> {
+    private MQTTProxyExchanger getProxyExchanger(String topic, HostAndPort mqttBrokerHostAndPort) {
+        return proxyExchangerMap.computeIfAbsent(topic, key -> {
             try {
                 return new MQTTProxyExchanger(
                         proxyHandler,
@@ -350,7 +350,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
     private void writeAndFlush(String topic, HostAndPort mqttBrokerHostAndPort,
                                Channel channel, MqttMessage msg) {
-        MQTTProxyExchanger proxyExchanger = getProxyHandler(topic, mqttBrokerHostAndPort);
+        MQTTProxyExchanger proxyExchanger = getProxyExchanger(topic, mqttBrokerHostAndPort);
         if (null == proxyExchanger) {
             log.error("proxy handler is null for topic : {}, mqttBrokerHostAndPort : {}, closing channel",
                     topic, mqttBrokerHostAndPort);
