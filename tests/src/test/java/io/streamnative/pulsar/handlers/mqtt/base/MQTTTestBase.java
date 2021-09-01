@@ -32,6 +32,14 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
     public static final int TIMEOUT = 60 * 1000;
 
+    @DataProvider(name = "batchEnabled")
+    public Object[][] batchEnabled() {
+        return new Object[][] {
+                { true },
+                { false }
+        };
+    }
+
     @DataProvider(name = "mqttTopicNames")
     public Object[][] mqttTopicNames() {
         return new Object[][] {
@@ -45,6 +53,35 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
                 { "non-persistent://public/default/t0" },
                 { "non-persistent://public/default/a/b" },
                 { "non-persistent://public/default//a/b" },
+        };
+    }
+
+    @DataProvider(name = "mqttPersistentTopicNames")
+    public Object[][] mqttPersistentTopicNames() {
+        return new Object[][] {
+                { "a/b/c" },
+                { "/a/b/c" },
+                { "a/b/c/" },
+                { "/a/b/c/" },
+                { "persistent://public/default/t0" },
+                { "persistent://public/default/a/b" },
+                { "persistent://public/default//a/b" },
+        };
+    }
+
+    @DataProvider(name = "mqttTopicNameAndFilter")
+    public Object[][] mqttTopicNameAndFilter() {
+        return new Object[][] {
+                {"a/b/c", "a/+/c"},
+                {"a/b/c", "+/+/c"},
+                {"a/b/c", "+/+/+"},
+                {"a/b/c", "a/+/+"},
+                {"a/b/c", "a/#"},
+                {"/a/b/c", "/a/+/c"},
+                {"/a/b/c", "/+/+/c"},
+                {"/a/b/c", "/+/+/+"},
+                {"/a/b/c", "/a/+/+"},
+                {"/a/b/c", "/a/#"},
         };
     }
 

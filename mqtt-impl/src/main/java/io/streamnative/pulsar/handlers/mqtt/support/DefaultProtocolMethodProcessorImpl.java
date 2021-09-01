@@ -313,9 +313,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                     future.thenAccept(sub -> {
                         try {
                             MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(),
-                                    PulsarTopicUtils.getEncodedPulsarTopicName(topic,
-                                            configuration.getDefaultTenant(), configuration.getDefaultNamespace()),
-                                    clientID, serverCnx,
+                                    topic, clientID, serverCnx,
                                     ackTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer);
                             sub.addConsumer(consumer);
                             consumer.addAllPermits();
@@ -354,15 +352,13 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 for (String topic : topics) {
                     PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
-                            configuration.getDefaultNamespace(), true).thenAccept(topicOp -> {
+                            configuration.getDefaultNamespace(), false).thenAccept(topicOp -> {
                         if (topicOp.isPresent()) {
                             Subscription subscription = topicOp.get().getSubscription(clientID);
                             if (subscription != null) {
                                 try {
                                     MQTTConsumer consumer = new MQTTConsumer(subscription, topicFilter,
-                                        PulsarTopicUtils.getEncodedPulsarTopicName(topic,
-                                            configuration.getDefaultTenant(), configuration.getDefaultNamespace()),
-                                            clientID, serverCnx, qos, packetIdGenerator, outstandingPacketContainer);
+                                        topic, clientID, serverCnx, qos, packetIdGenerator, outstandingPacketContainer);
                                     topicOp.get().getSubscription(clientID).removeConsumer(consumer);
                                     futures.add(topicOp.get().unsubscribe(clientID));
                                 } catch (Exception e) {
@@ -380,7 +376,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         FutureUtil.waitForAll(futureList).thenAccept(__ -> {
             // ack the client
             int messageID = msg.variableHeader().messageId();
-            MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.UNSUBACK, false, MqttQoS.AT_LEAST_ONCE,
+            MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.UNSUBACK, false, MqttQoS.AT_MOST_ONCE,
                     false, 0);
             MqttUnsubAckMessage ackMessage = new MqttUnsubAckMessage(fixedHeader,
                     MqttMessageIdVariableHeader.from(messageID));

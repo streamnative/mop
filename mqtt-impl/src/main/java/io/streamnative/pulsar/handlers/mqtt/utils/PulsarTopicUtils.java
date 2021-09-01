@@ -213,4 +213,15 @@ public class PulsarTopicUtils {
                     PulsarTopicUtils.getEncodedPulsarTopicName(topicFilter, defaultTenant, defaultNamespace)));
         }
     }
+
+    public static String getToConsumerTopicName(String subTopicFilter, String pulsarTopicName) {
+        if (subTopicFilter.startsWith(TopicDomain.persistent.value())
+                || subTopicFilter.startsWith(TopicDomain.non_persistent.value())) {
+            TopicName topicName = TopicName.get(pulsarTopicName);
+            return TopicName.get(topicName.getDomain().value(), topicName.getTenant(), topicName.getNamespace(),
+                    URLDecoder.decode(topicName.getLocalName())).toString();
+        } else {
+            return URLDecoder.decode(TopicName.get(pulsarTopicName).getLocalName());
+        }
+    }
 }
