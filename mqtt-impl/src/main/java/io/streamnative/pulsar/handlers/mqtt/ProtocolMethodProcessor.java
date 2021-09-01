@@ -39,9 +39,9 @@ public interface ProtocolMethodProcessor {
 
     void processPubComp(Channel channel, MqttMessage msg);
 
-    void processDisconnect(Channel channel) throws InterruptedException;
+    void processDisconnect(Channel channel, MqttMessage msg);
 
-    void processConnectionLost(String clientID, Channel channel);
+    void processConnectionLost(Channel channel);
 
     void processSubscribe(Channel channel, MqttSubscribeMessage msg);
 
