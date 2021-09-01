@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import static com.google.common.base.Preconditions.checkState;
-import com.google.common.net.HostAndPort;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -33,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * Proxy exchanger is the bridge between proxy and MoP.
@@ -50,7 +50,7 @@ public class MQTTProxyExchanger {
     private List<MqttConnectMessage> connectMsgList;
     private CompletableFuture<Void> brokerFuture = new CompletableFuture<>();
 
-    MQTTProxyExchanger(MQTTProxyHandler proxyHandler, HostAndPort brokerHostAndPort,
+    MQTTProxyExchanger(MQTTProxyHandler proxyHandler, Pair<String, Integer> brokerHostAndPort,
                        List<MqttConnectMessage> connectMsgList) throws Exception {
         this.proxyHandler = proxyHandler;
         clientChannel = this.proxyHandler.getCnx().channel();
@@ -68,7 +68,7 @@ public class MQTTProxyExchanger {
                         ch.pipeline().addLast("handler", new ExchangerHandler());
                     }
                 });
-        ChannelFuture channelFuture = bootstrap.connect(brokerHostAndPort.getHost(), brokerHostAndPort.getPort());
+        ChannelFuture channelFuture = bootstrap.connect(brokerHostAndPort.getLeft(), brokerHostAndPort.getRight());
         brokerChannel = channelFuture.channel();
         channelFuture.addListener(future -> {
             if (future.isSuccess()) {
@@ -116,12 +116,6 @@ public class MQTTProxyExchanger {
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             log.error("failed to create connection with MoP broker.", cause);
             brokerFuture.completeExceptionally(cause);
-        }
-
-        @Override
-        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-            super.channelInactive(ctx);
-            proxyHandler.close();
         }
     }
 
