@@ -306,13 +306,13 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         for (MqttTopicSubscription ackTopic : ackTopics) {
             CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
                     ackTopic.topicName(), configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
-                    pulsarService);
+                    pulsarService,configuration.getDefaultTopicDomain());
             CompletableFuture<Void> completableFuture = topicListFuture.thenCompose(topics -> {
                 List<CompletableFuture<Subscription>> futures = new ArrayList<>();
                 for (String topic : topics) {
                     CompletableFuture<Subscription> future = PulsarTopicUtils
                             .getOrCreateSubscription(pulsarService, topic, clientID,
-                                    configuration.getDefaultTenant(), configuration.getDefaultNamespace());
+                                    configuration.getDefaultTenant(), configuration.getDefaultNamespace(),configuration.getDefaultTopicDomain());
                     future.thenAccept(sub -> {
                         try {
                             MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(),
@@ -350,12 +350,12 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         List<CompletableFuture<Void>> futureList = new ArrayList<>(topicFilters.size());
         for (String topicFilter : topicFilters) {
             CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
-                    topicFilter, configuration.getDefaultTenant(), configuration.getDefaultNamespace(), pulsarService);
+                    topicFilter, configuration.getDefaultTenant(), configuration.getDefaultNamespace(), pulsarService,configuration.getDefaultTopicDomain());
             CompletableFuture<Void> future = topicListFuture.thenCompose(topics -> {
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 for (String topic : topics) {
                     PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
-                            configuration.getDefaultNamespace(), false).thenAccept(topicOp -> {
+                            configuration.getDefaultNamespace(), false,configuration.getDefaultTopicDomain()).thenAccept(topicOp -> {
                         if (topicOp.isPresent()) {
                             Subscription subscription = topicOp.get().getSubscription(clientID);
                             if (subscription != null) {

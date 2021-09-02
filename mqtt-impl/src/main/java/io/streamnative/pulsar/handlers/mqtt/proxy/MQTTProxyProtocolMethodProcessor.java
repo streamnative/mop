@@ -43,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.FutureUtil;
 
@@ -140,9 +141,10 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Publish] [{}] handle processPublish", msg.variableHeader().topicName());
         }
+
         CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(
                 TopicName.get(PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
-                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace())));
+                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()))));
         lookupResult.whenComplete((pair, throwable) -> {
             if (null != throwable) {
                 log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
@@ -153,7 +155,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             final String topicName;
             try {
                 topicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
-                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
+                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
             } catch (Exception e) {
                 log.error("[Proxy Publish] Failed to get Pulsar topic name for topic {}",
                         msg.variableHeader().topicName(), e);
@@ -210,7 +212,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             log.debug("[Proxy Subscribe] [{}] msg: {}", channel, msg);
         }
         CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg,
-                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService);
+                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,proxyConfig.getDefaultTopicDomain());
 
         if (topicListFuture == null) {
             channel.close();

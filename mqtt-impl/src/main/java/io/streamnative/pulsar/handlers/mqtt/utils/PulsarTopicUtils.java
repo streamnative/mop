@@ -50,10 +50,10 @@ public class PulsarTopicUtils {
     public static final String NON_PERSISTENT_DOMAIN = TopicDomain.non_persistent.value() + "://";
 
     public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService, String topicName,
-           String defaultTenant, String defaultNamespace, boolean encodeTopicName) {
+           String defaultTenant, String defaultNamespace, boolean encodeTopicName,String defaultTopicDomain) {
         final TopicName topic;
         try {
-            topic = TopicName.get(getPulsarTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName));
+            topic = TopicName.get(getPulsarTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName,TopicDomain.getEnum(defaultTopicDomain)));
         } catch (Exception e) {
             return FutureUtil.failedFuture(e);
         }
@@ -63,9 +63,9 @@ public class PulsarTopicUtils {
     }
 
     public static CompletableFuture<Subscription> getOrCreateSubscription(PulsarService pulsarService,
-              String topicName, String subscriptionName, String defaultTenant, String defaultNamespace) {
+              String topicName, String subscriptionName, String defaultTenant, String defaultNamespace,String defaultTopicDomain) {
         CompletableFuture<Subscription> promise = new CompletableFuture<>();
-        getTopicReference(pulsarService, topicName, defaultTenant, defaultNamespace, false).thenAccept(topicOp -> {
+        getTopicReference(pulsarService, topicName, defaultTenant, defaultNamespace, false,defaultTopicDomain).thenAccept(topicOp -> {
             if (!topicOp.isPresent()) {
                 promise.completeExceptionally(new BrokerServiceException.TopicNotFoundException(topicName));
             } else {
@@ -96,13 +96,18 @@ public class PulsarTopicUtils {
         return promise;
     }
 
+//    public static String getEncodedPulsarTopicName(String mqttTopicName, String defaultTenant,
+//                                                   String defaultNamespace) {
+//        return getPulsarTopicName(mqttTopicName, defaultTenant, defaultNamespace, true,topicDomain);
+//    }
+
     public static String getEncodedPulsarTopicName(String mqttTopicName, String defaultTenant,
-           String defaultNamespace) {
-        return getPulsarTopicName(mqttTopicName, defaultTenant, defaultNamespace, true);
+           String defaultNamespace,TopicDomain topicDomain) {
+        return getPulsarTopicName(mqttTopicName, defaultTenant, defaultNamespace, true,topicDomain);
     }
 
     public static String getPulsarTopicName(String mqttTopicName, String defaultTenant, String defaultNamespace,
-            boolean urlEncoded) {
+            boolean urlEncoded,TopicDomain topicDomain) {
         if (mqttTopicName.startsWith(PERSISTENT_DOMAIN)
                 || mqttTopicName.startsWith(NON_PERSISTENT_DOMAIN)) {
             List<String> parts = Splitter.on("://").limit(2).splitToList(mqttTopicName);
@@ -121,13 +126,14 @@ public class PulsarTopicUtils {
             return TopicName.get(domain, tenant, namespace,
                     urlEncoded ? URLEncoder.encode(localName) : localName).toString();
         } else {
-            return TopicName.get(TopicDomain.persistent.value(), defaultTenant, defaultNamespace,
+            //TopicDomain.persistent
+            return TopicName.get(topicDomain.value(), defaultTenant, defaultNamespace,
                     URLEncoder.encode(mqttTopicName)).toString();
         }
     }
 
     public static Pair<TopicDomain, NamespaceName> getTopicDomainAndNamespaceFromTopicFilter(String mqttTopicFilter,
-            String defaultTenant, String defaultNamespace) {
+            String defaultTenant, String defaultNamespace,String defaultTopicDomain) {
         if (mqttTopicFilter.startsWith(PERSISTENT_DOMAIN)
                 || mqttTopicFilter.startsWith(NON_PERSISTENT_DOMAIN)) {
             List<String> parts = Splitter.on("://").limit(2).splitToList(mqttTopicFilter);
@@ -144,7 +150,7 @@ public class PulsarTopicUtils {
             String namespace = parts.get(1);
             return Pair.of(TopicDomain.getEnum(domain), NamespaceName.get(tenant, namespace));
         } else {
-            return Pair.of(TopicDomain.persistent, NamespaceName.get(defaultTenant, defaultNamespace));
+            return Pair.of(TopicDomain.getEnum(defaultTopicDomain), NamespaceName.get(defaultTenant, defaultNamespace));
         }
     }
 
@@ -168,13 +174,13 @@ public class PulsarTopicUtils {
     }
 
     public static CompletableFuture<List<String>> asyncGetTopicsForSubscribeMsg(MqttSubscribeMessage msg,
-                 String defaultTenant, String defaultNamespace, PulsarService pulsarService) {
+                 String defaultTenant, String defaultNamespace, PulsarService pulsarService,String defaultTopicDomain) {
         List<CompletableFuture<List<String>>> topicListFuture =
                 new ArrayList<>(msg.payload().topicSubscriptions().size());
 
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
             topicListFuture.add(asyncGetTopicListFromTopicSubscription(req.topicName(), defaultTenant, defaultNamespace,
-                    pulsarService));
+                    pulsarService,defaultTopicDomain));
         }
 
         CompletableFuture<List<String>> completeTopicListFuture = null;
@@ -194,13 +200,14 @@ public class PulsarTopicUtils {
     }
 
     public static CompletableFuture<List<String>> asyncGetTopicListFromTopicSubscription(String topicFilter,
-         String defaultTenant, String defaultNamespace, PulsarService pulsarService) {
+         String defaultTenant, String defaultNamespace, PulsarService pulsarService,String defaultTopicDomain) {
         if (topicFilter.contains(TopicFilter.SINGLE_LEVEL)
                 || topicFilter.contains(TopicFilter.MULTI_LEVEL)) {
             TopicFilter filter = PulsarTopicUtils.getTopicFilter(topicFilter);
             Pair<TopicDomain, NamespaceName> domainNamespacePair =
-                    PulsarTopicUtils.getTopicDomainAndNamespaceFromTopicFilter(topicFilter, defaultTenant,
-                            defaultNamespace);
+                    PulsarTopicUtils
+                            .getTopicDomainAndNamespaceFromTopicFilter(topicFilter, defaultTenant,
+                            defaultNamespace,defaultTopicDomain);
             return pulsarService.getNamespaceService().getListOfTopics(
                     domainNamespacePair.getRight(), domainNamespacePair.getLeft() == TopicDomain.persistent
                             ? CommandGetTopicsOfNamespace.Mode.PERSISTENT
@@ -210,7 +217,7 @@ public class PulsarTopicUtils {
                             .collect(Collectors.toList())));
         } else {
             return CompletableFuture.completedFuture(Collections.singletonList(
-                    PulsarTopicUtils.getEncodedPulsarTopicName(topicFilter, defaultTenant, defaultNamespace)));
+                    PulsarTopicUtils.getEncodedPulsarTopicName(topicFilter, defaultTenant, defaultNamespace,TopicDomain.getEnum(defaultTopicDomain))));
         }
     }
 

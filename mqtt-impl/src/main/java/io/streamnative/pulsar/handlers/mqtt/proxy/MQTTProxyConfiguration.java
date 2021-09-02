@@ -131,6 +131,13 @@ public class MQTTProxyConfiguration {
     )
     private String defaultNamespace = "default";
 
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            required = true,
+            doc = "Default Pulsar topic persistent that the MQTT server used."
+    )
+    private String defaultTopicDomain = "persistent";
+
     private boolean tlsEnabledInProxy = false;
 
     @FieldContext(
