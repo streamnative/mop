@@ -61,12 +61,12 @@ import java.util.concurrent.CompletableFuture;
 import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.util.FutureUtil;
-
 
 /**
  * Default implementation of protocol method processor.
@@ -289,10 +289,12 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         if (log.isDebugEnabled()) {
             log.debug("[Connection Lost] channel [{}] ", channel);
         }
-        String clientID = NettyUtils.retrieveClientId(channel);
-        ConnectionDescriptor oldConnDescriptor = new ConnectionDescriptor(clientID, channel, true);
-        ConnectionDescriptorStore.getInstance().removeConnection(oldConnDescriptor);
-        removeSubscriptions(null, clientID);
+        String clientId = NettyUtils.retrieveClientId(channel);
+        if (StringUtils.isNotEmpty(clientId)) {
+            ConnectionDescriptor oldConnDescriptor = new ConnectionDescriptor(clientId, channel, true);
+            ConnectionDescriptorStore.getInstance().removeConnection(oldConnDescriptor);
+            removeSubscriptions(null, clientId);
+        }
     }
 
     @Override

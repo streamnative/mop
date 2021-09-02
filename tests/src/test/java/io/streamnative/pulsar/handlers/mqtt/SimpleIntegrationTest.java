@@ -13,9 +13,12 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import static org.mockito.Mockito.verify;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
+import java.io.EOFException;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Consumer;
@@ -27,6 +30,7 @@ import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -334,5 +338,16 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         received = connection2.receive();
         Assert.assertEquals(received.getPayload(), message);
         connection2.disconnect();
+    }
+
+    @Test(expectedExceptions = {EOFException.class, IllegalStateException.class})
+    public void testInvalidClientId() throws Exception {
+        MQTT mqtt = createMQTTClient();
+        mqtt.setConnectAttemptsMax(1);
+        // ClientId is invalid, for max length is 23 in mqtt 3.1
+        mqtt.setClientId(UUID.randomUUID().toString().replace("-", ""));
+        BlockingConnection connection = Mockito.spy(mqtt.blockingConnection());
+        connection.connect();
+        verify(connection, Mockito.times(2)).connect();
     }
 }

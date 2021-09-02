@@ -14,12 +14,16 @@
 
 package io.streamnative.pulsar.handlers.mqtt;
 
+import static org.mockito.Mockito.verify;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import java.io.EOFException;
+import java.util.UUID;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -55,5 +59,16 @@ public class ProxyTest extends MQTTTestBase {
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
+    }
+
+    @Test(expectedExceptions = {EOFException.class, IllegalStateException.class})
+    public void testInvalidClientIdViaProxy() throws Exception {
+        MQTT mqtt = createMQTTProxyClient();
+        mqtt.setConnectAttemptsMax(1);
+        // ClientId is invalid, for max length is 23 in mqtt 3.1
+        mqtt.setClientId(UUID.randomUUID().toString().replace("-", ""));
+        BlockingConnection connection = Mockito.spy(mqtt.blockingConnection());
+        connection.connect();
+        verify(connection, Mockito.times(2)).connect();
     }
 }

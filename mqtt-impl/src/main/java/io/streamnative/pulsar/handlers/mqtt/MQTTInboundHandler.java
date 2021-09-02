@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -50,6 +51,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
             log.debug("Processing MQTT Inbound handler message, type={}", messageType);
         }
         try {
+            checkState(msg);
             switch (messageType) {
                 case CONNECT:
                     checkArgument(msg instanceof MqttConnectMessage);
@@ -98,8 +100,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                     break;
             }
         } catch (Throwable ex) {
-            log.error("Exception was caught while processing MQTT message, " + ex.getCause(), ex);
-            ctx.fireExceptionCaught(ex);
+            log.error("Exception was caught while processing MQTT message, ", ex);
             ctx.close();
         }
     }
