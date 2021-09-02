@@ -99,11 +99,6 @@ public class PulsarTopicUtils {
         return promise;
     }
 
-//    public static String getEncodedPulsarTopicName(String mqttTopicName, String defaultTenant,
-//                                                   String defaultNamespace) {
-//        return getPulsarTopicName(mqttTopicName, defaultTenant, defaultNamespace, true,topicDomain);
-//    }
-
     public static String getEncodedPulsarTopicName(String mqttTopicName, String defaultTenant,
            String defaultNamespace, TopicDomain topicDomain) {
         return getPulsarTopicName(mqttTopicName, defaultTenant, defaultNamespace, true, topicDomain);
