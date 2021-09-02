@@ -66,14 +66,14 @@ public class PulsarTopicUtilsTest {
 
     @Test
     public void testasyncGetTopicListFromTopicSubscriptionForDefaultTopicDomain() {
-        //test default topic domaon for  non-persistent
+        //test default topic domain for  non-persistent
         List<String> topics1 = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
                 "/a/b/c", "public", "default", null, "non-persistent").join();
         List<String> topics2 = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
                 "non-persistent://public/default//a/b/c", "public", "default", null, "non-persistent").join();
         Assert.assertEquals(topics1, topics2);
 
-        //test default topic domaon for persistent
+        //test default topic domain for persistent
          topics1 = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
                 "/a/b/c", "public", "default", null, "persistent").join();
          topics2 = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(

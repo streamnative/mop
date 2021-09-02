@@ -129,7 +129,6 @@ public class PulsarTopicUtils {
             return TopicName.get(domain, tenant, namespace,
                     urlEncoded ? URLEncoder.encode(localName) : localName).toString();
         } else {
-            //TopicDomain.persistent
             return TopicName.get(topicDomain.value(), defaultTenant, defaultNamespace,
                     URLEncoder.encode(mqttTopicName)).toString();
         }
