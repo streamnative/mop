@@ -19,7 +19,6 @@ import java.net.URLEncoder;
 import java.util.List;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.testng.Assert;
@@ -59,9 +58,9 @@ public class PulsarTopicUtilsTest {
     @Test
     public void testGetTopicDomainAndNamespaceFromTopicFilter() {
         Pair<TopicDomain, NamespaceName> pair1 = PulsarTopicUtils.getTopicDomainAndNamespaceFromTopicFilter(
-                "/a/b/c", "public", "default",TopicDomain.persistent.value());
+                "/a/b/c", "public", "default", TopicDomain.persistent.value());
         Pair<TopicDomain, NamespaceName> pair2 = PulsarTopicUtils.getTopicDomainAndNamespaceFromTopicFilter(
-                "persistent://public/default//a/b/c", "public", "default",TopicDomain.persistent.value());
+                "persistent://public/default//a/b/c", "public", "default", TopicDomain.persistent.value());
         Assert.assertEquals(pair1, pair2);
 
     }

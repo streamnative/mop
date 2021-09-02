@@ -144,7 +144,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
         CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(
                 TopicName.get(PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
-                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()))));
+                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
+                        TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()))));
         lookupResult.whenComplete((pair, throwable) -> {
             if (null != throwable) {
                 log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
@@ -155,7 +156,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             final String topicName;
             try {
                 topicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
-                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
+                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
+                        TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
             } catch (Exception e) {
                 log.error("[Proxy Publish] Failed to get Pulsar topic name for topic {}",
                         msg.variableHeader().topicName(), e);
@@ -212,7 +214,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             log.debug("[Proxy Subscribe] [{}] msg: {}", channel, msg);
         }
         CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg,
-                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,proxyConfig.getDefaultTopicDomain());
+                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
+                proxyConfig.getDefaultTopicDomain());
 
         if (topicListFuture == null) {
             channel.close();
