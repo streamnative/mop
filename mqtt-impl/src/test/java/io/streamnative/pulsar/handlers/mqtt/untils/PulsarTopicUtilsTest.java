@@ -17,7 +17,6 @@ import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.net.URLEncoder;
 import java.util.List;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicDomain;
