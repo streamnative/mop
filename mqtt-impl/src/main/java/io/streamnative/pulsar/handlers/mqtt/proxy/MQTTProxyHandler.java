@@ -13,8 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -26,6 +27,7 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
+import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Getter;
@@ -33,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.PulsarClientException;
 
 /**
- * Proxy connection.
+ * Proxy handler.
  */
 @Slf4j
 public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
@@ -62,31 +64,31 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
         this.close();
     }
 
-
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
         MqttMessage msg = (MqttMessage) message;
         MqttMessageType messageType = msg.fixedHeader().messageType();
 
         if (log.isDebugEnabled()) {
-            log.info("Processing MQTT message, type={}", messageType);
+            log.debug("Processing MQTT message, type={}", messageType);
         }
         try {
+            checkState(msg);
             switch (messageType) {
                 case CONNECT:
-                    checkState(msg instanceof MqttConnectMessage);
+                    checkArgument(msg instanceof MqttConnectMessage);
                     processor.processConnect(ctx.channel(), (MqttConnectMessage) msg);
                     break;
                 case SUBSCRIBE:
-                    checkState(msg instanceof MqttSubscribeMessage);
+                    checkArgument(msg instanceof MqttSubscribeMessage);
                     processor.processSubscribe(ctx.channel(), (MqttSubscribeMessage) msg);
                     break;
                 case UNSUBSCRIBE:
-                    checkState(msg instanceof MqttUnsubscribeMessage);
+                    checkArgument(msg instanceof MqttUnsubscribeMessage);
                     processor.processUnSubscribe(ctx.channel(), (MqttUnsubscribeMessage) msg);
                     break;
                 case PUBLISH:
-                    checkState(msg instanceof MqttPublishMessage);
+                    checkArgument(msg instanceof MqttPublishMessage);
                     processor.processPublish(ctx.channel(), (MqttPublishMessage) msg);
                     break;
                 case PUBREC:
@@ -102,7 +104,7 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
                     processor.processDisconnect(ctx.channel(), msg);
                     break;
                 case PUBACK:
-                    checkState(msg instanceof MqttPubAckMessage);
+                    checkArgument(msg instanceof MqttPubAckMessage);
                     processor.processPubAck(ctx.channel(), (MqttPubAckMessage) msg);
                     break;
                 case PINGREQ:
@@ -120,10 +122,20 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
                     break;
             }
         } catch (Throwable ex) {
-            log.error("Exception was caught while processing MQTT message, " + ex.getCause(), ex);
-            ctx.fireExceptionCaught(ex);
+            log.error("Exception was caught while processing MQTT message", ex);
             ctx.close();
         }
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        log.warn(
+                "An unexpected exception was caught while processing MQTT message. "
+                        + "Closing Netty channel {}. MqttClientId = {}",
+                ctx.channel(),
+                NettyUtils.retrieveClientId(ctx.channel()),
+                cause);
+        ctx.close();
     }
 
     public void close() {
