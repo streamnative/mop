@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
@@ -81,7 +82,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }
 
         // Client must specify the client ID except enable clean session on the connection.
-        if (clientId == null || clientId.length() == 0) {
+        if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
                 MqttConnAckMessage badId = connAck(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, false);
 
