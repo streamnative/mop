@@ -98,6 +98,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
         if (mqttConfig.isMqttProxyEnable()) {
             MQTTProxyConfiguration proxyConfig = new MQTTProxyConfiguration();
             proxyConfig.setMqttTenant(mqttConfig.getDefaultTenant());
+            proxyConfig.setDefaultTopicDomain(mqttConfig.getDefaultTopicDomain());
             proxyConfig.setMqttMaxNoOfChannels(mqttConfig.getMaxNoOfChannels());
             proxyConfig.setMqttMaxFrameSize(mqttConfig.getMaxFrameSize());
             proxyConfig.setMqttHeartBeat(mqttConfig.getHeartBeat());

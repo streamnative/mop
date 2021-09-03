@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.common.naming.TopicDomain;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
@@ -87,7 +88,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
     public void testSendByMqttAndReceiveByPulsar(String topic) throws Exception {
         Consumer<byte[]> consumer = pulsarClient.newConsumer()
-                .topic(PulsarTopicUtils.getEncodedPulsarTopicName(topic, "public", "default"))
+                .topic(PulsarTopicUtils.getEncodedPulsarTopicName(topic, "public", "default", TopicDomain.persistent))
                 .subscriptionName("my-sub")
                 .subscribe();
 
