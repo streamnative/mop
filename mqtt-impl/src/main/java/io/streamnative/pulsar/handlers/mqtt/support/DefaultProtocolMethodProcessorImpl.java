@@ -21,7 +21,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
-import io.netty.handler.codec.mqtt.MqttConnAckVariableHeader;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
@@ -50,6 +49,7 @@ import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.ArrayList;
@@ -105,7 +105,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         // Check MQTT protocol version.
         if (msg.variableHeader().version() != MqttVersion.MQTT_3_1.protocolLevel()
                 && msg.variableHeader().version() != MqttVersion.MQTT_3_1_1.protocolLevel()) {
-            MqttConnAckMessage badProto =
+            MqttConnAckMessage badProto = MqttMessageUtils.
                     connAck(MqttConnectReturnCode.CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION);
 
             log.error("MQTT protocol version is not valid. CId={}", clientId);
@@ -117,7 +117,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         // Client must specify the client ID except enable clean session on the connection.
         if (clientId == null || clientId.length() == 0) {
             if (!msg.variableHeader().isCleanSession()) {
-                MqttConnAckMessage badId = connAck(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED);
+                MqttConnAckMessage badId = MqttMessageUtils.
+                        connAck(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED);
 
                 channel.writeAndFlush(badId);
                 channel.close();
@@ -152,7 +153,9 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 }
             }
             if (!authenticated) {
-                channel.writeAndFlush(connAck(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD));
+                MqttConnAckMessage connAck = MqttMessageUtils.
+                        connAck(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD);
+                channel.writeAndFlush(connAck);
                 channel.close();
                 log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
                 return;
@@ -430,21 +433,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
     }
 
-    private MqttConnAckMessage connAck(MqttConnectReturnCode returnCode) {
-        return connAck(returnCode, false);
-    }
-
-    private MqttConnAckMessage connAckWithSessionPresent(MqttConnectReturnCode returnCode) {
-        return connAck(returnCode, true);
-    }
-
-    private MqttConnAckMessage connAck(MqttConnectReturnCode returnCode, boolean sessionPresent) {
-        MqttFixedHeader mqttFixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
-                false, 0);
-        MqttConnAckVariableHeader mqttConnAckVariableHeader = new MqttConnAckVariableHeader(returnCode, sessionPresent);
-        return new MqttConnAckMessage(mqttFixedHeader, mqttConnAckVariableHeader);
-    }
-
     private boolean sendAck(ConnectionDescriptor descriptor, MqttConnectReturnCode returnCode, final String clientId) {
         log.info("Sending connect ACK. CId={}", clientId);
         final boolean success = descriptor.assignState(DISCONNECTED, SENDACK);
@@ -452,9 +440,9 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             return false;
         }
 
-        MqttConnAckMessage okResp = connAck(returnCode);
+        MqttConnAckMessage connAck = MqttMessageUtils.connAck(returnCode);
 
-        descriptor.writeAndFlush(okResp);
+        descriptor.writeAndFlush(connAck);
         log.info("The connect ACK has been sent. CId={}", clientId);
         return true;
     }
