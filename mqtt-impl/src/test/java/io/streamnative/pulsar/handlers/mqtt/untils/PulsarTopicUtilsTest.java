@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.untils;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.net.URLEncoder;
+import java.util.List;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicDomain;
@@ -30,19 +31,19 @@ public class PulsarTopicUtilsTest {
     @Test
     public void testMqttTopicNameToPulsarTopicName() {
         String t0 = "/aaa/bbb/ccc";
-        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default"),
+        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default", TopicDomain.persistent),
                 "persistent://public/default/" + URLEncoder.encode(t0));
         t0 = "aaa/bbb/ccc/";
-        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default"),
+        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default", TopicDomain.persistent),
                 "persistent://public/default/" + URLEncoder.encode(t0));
         t0 = "/aaa/bbb/ccc/";
-        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default"),
+        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default", TopicDomain.persistent),
                 "persistent://public/default/" + URLEncoder.encode(t0));
         t0 = "persistent://public/default/aaa/bbb/ccc";
-        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default"),
+        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default", TopicDomain.persistent),
                 "persistent://public/default/" + URLEncoder.encode("aaa/bbb/ccc"));
         t0 = "persistent://public/default//aaa/bbb/ccc";
-        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default"),
+        Assert.assertEquals(PulsarTopicUtils.getEncodedPulsarTopicName(t0, "public", "default", TopicDomain.persistent),
                 "persistent://public/default/" + URLEncoder.encode("/aaa/bbb/ccc"));
     }
 
@@ -56,10 +57,29 @@ public class PulsarTopicUtilsTest {
     @Test
     public void testGetTopicDomainAndNamespaceFromTopicFilter() {
         Pair<TopicDomain, NamespaceName> pair1 = PulsarTopicUtils.getTopicDomainAndNamespaceFromTopicFilter(
-                "/a/b/c", "public", "default");
+                "/a/b/c", "public", "default", TopicDomain.persistent.value());
         Pair<TopicDomain, NamespaceName> pair2 = PulsarTopicUtils.getTopicDomainAndNamespaceFromTopicFilter(
-                "persistent://public/default//a/b/c", "public", "default");
+                "persistent://public/default//a/b/c", "public", "default", TopicDomain.persistent.value());
         Assert.assertEquals(pair1, pair2);
 
     }
+
+    @Test
+    public void testasyncGetTopicListFromTopicSubscriptionForDefaultTopicDomain() {
+        //test default topic domain for  non-persistent
+        List<String> topics1 = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
+                "/a/b/c", "public", "default", null, "non-persistent").join();
+        List<String> topics2 = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
+                "non-persistent://public/default//a/b/c", "public", "default", null, "non-persistent").join();
+        Assert.assertEquals(topics1, topics2);
+
+        //test default topic domain for persistent
+         topics1 = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
+                "/a/b/c", "public", "default", null, "persistent").join();
+         topics2 = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
+                "persistent://public/default//a/b/c", "public", "default", null, "non-persistent").join();
+        Assert.assertEquals(topics1, topics2);
+    }
+
+
 }
