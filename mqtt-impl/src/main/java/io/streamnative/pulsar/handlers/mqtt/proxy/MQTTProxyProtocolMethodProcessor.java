@@ -16,20 +16,17 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
-import io.netty.handler.codec.mqtt.MqttConnAckVariableHeader;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
-import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
-import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.ArrayList;
@@ -85,8 +82,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
-                MqttConnAckMessage badId = connAck(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED, false);
-
+                MqttConnAckMessage badId = MqttMessageUtils.
+                        connAck(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED);
                 channel.writeAndFlush(badId);
                 channel.close();
                 log.error("The MQTT client ID cannot be empty. Username={}", payload.userName());
@@ -116,16 +113,17 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             }
             if (!authenticated) {
                 channel.writeAndFlush(
-                    connAck(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD, false));
+                        MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD));
                 channel.close();
                 log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, payload.userName());
                 return;
             }
         }
 
+
         NettyUtils.attachClientID(channel, clientId);
         connectMsgList.add(msg);
-        MqttConnAckMessage ackMessage = connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED, false);
+        MqttConnAckMessage ackMessage = MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED);
         channel.writeAndFlush(ackMessage);
     }
 
@@ -142,11 +140,11 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Publish] [{}] handle processPublish", msg.variableHeader().topicName());
         }
-
+        String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
+                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
+                TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
         CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(
-                TopicName.get(PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
-                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
-                        TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()))));
+                TopicName.get(pulsarTopicName));
         lookupResult.whenComplete((pair, throwable) -> {
             if (null != throwable) {
                 log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
@@ -154,19 +152,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                 channel.close();
                 return;
             }
-            final String topicName;
-            try {
-                topicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
-                        proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
-                        TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
-            } catch (Exception e) {
-                log.error("[Proxy Publish] Failed to get Pulsar topic name for topic {}",
-                        msg.variableHeader().topicName(), e);
-                channel.close();
-                return;
-            }
-
-            writeAndFlush(topicName, pair, channel, msg);
+            writeAndFlush(pulsarTopicName, pair, channel, msg);
         });
     }
 
@@ -273,13 +259,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("channelActive...");
         }
-    }
-
-    private MqttConnAckMessage connAck(MqttConnectReturnCode returnCode, boolean sessionPresent) {
-        MqttFixedHeader mqttFixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
-                false, 0);
-        MqttConnAckVariableHeader mqttConnAckVariableHeader = new MqttConnAckVariableHeader(returnCode, sessionPresent);
-        return new MqttConnAckMessage(mqttFixedHeader, mqttConnAckVariableHeader);
     }
 
     private MQTTProxyExchanger getProxyExchanger(String topic, Pair<String, Integer> mqttBrokerHostAndPort) {
