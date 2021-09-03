@@ -60,6 +60,29 @@ public class PulsarTopicUtilsTest {
         Pair<TopicDomain, NamespaceName> pair2 = PulsarTopicUtils.getTopicDomainAndNamespaceFromTopicFilter(
                 "persistent://public/default//a/b/c", "public", "default");
         Assert.assertEquals(pair1, pair2);
+    }
 
+    @Test
+    public void testGetToConsumerTopicName() {
+        String mqttTopicname = "non-persistent://public/default/topicA";
+        String pulsarTopicName = "non-persistent://public/default/topicA";
+        String consumerTopicName1 = PulsarTopicUtils.getToConsumerTopicName(
+                mqttTopicname, pulsarTopicName);
+        Assert.assertEquals(mqttTopicname, consumerTopicName1);
+        mqttTopicname = "topicA";
+        String consumerTopicName2 = PulsarTopicUtils.getToConsumerTopicName(
+                mqttTopicname, pulsarTopicName);
+        Assert.assertEquals(mqttTopicname, consumerTopicName2);
+
+
+        mqttTopicname = "persistent://public/default/topicA";
+        pulsarTopicName = "persistent://public/default/topicA";
+        consumerTopicName1 = PulsarTopicUtils.getToConsumerTopicName(
+                mqttTopicname, pulsarTopicName);
+        Assert.assertEquals(mqttTopicname, consumerTopicName1);
+        mqttTopicname = "topicA";
+        consumerTopicName2 = PulsarTopicUtils.getToConsumerTopicName(
+                mqttTopicname, pulsarTopicName);
+        Assert.assertEquals(mqttTopicname, consumerTopicName2);
     }
 }
