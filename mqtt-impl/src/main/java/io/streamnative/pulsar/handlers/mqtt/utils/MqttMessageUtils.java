@@ -13,7 +13,13 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
+import io.netty.handler.codec.mqtt.MqttConnAckMessage;
+import io.netty.handler.codec.mqtt.MqttConnAckVariableHeader;
+import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
+import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttQoS;
 
 public class MqttMessageUtils {
 
@@ -23,4 +29,14 @@ public class MqttMessageUtils {
         }
     }
 
+    public static MqttConnAckMessage connAck(MqttConnectReturnCode returnCode) {
+        return connAck(returnCode, false);
+    }
+
+    public static MqttConnAckMessage connAck(MqttConnectReturnCode returnCode, boolean sessionPresent) {
+        MqttFixedHeader mqttFixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
+                false, 0);
+        MqttConnAckVariableHeader mqttConnAckVariableHeader = new MqttConnAckVariableHeader(returnCode, sessionPresent);
+        return new MqttConnAckMessage(mqttFixedHeader, mqttConnAckVariableHeader);
+    }
 }
