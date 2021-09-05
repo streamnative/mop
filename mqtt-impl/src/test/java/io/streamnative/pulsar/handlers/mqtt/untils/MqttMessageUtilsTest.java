@@ -14,6 +14,7 @@
 
 package io.streamnative.pulsar.handlers.mqtt.untils;
 
+import static org.mockito.Mockito.when;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
@@ -22,12 +23,11 @@ import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import org.junit.Assert;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit test for the MqttMessageUtils.
@@ -46,12 +46,14 @@ public class MqttMessageUtilsTest {
 
     @Test
     public void testCreateMqttConnectMessage() {
-        // For MqttFixedHeader, MqttConnectVariableHeader, MqttConnectPayload are final classes, Mockito could not mock final class.
-        // So we have to new them.
+        // For MqttFixedHeader, MqttConnectVariableHeader, MqttConnectPayload are final classes
+        // Mockito could not mock final class, so we have to new them.
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.CONNECT, false,
                 MqttQoS.AT_LEAST_ONCE, true, 34);
-        MqttConnectVariableHeader variableHeader = new MqttConnectVariableHeader("MQIsdp", 3, false, false, false, 0, false, true, 30);
-        MqttConnectPayload payload = new MqttConnectPayload("client1", null, null, "".getBytes(StandardCharsets.UTF_8), null, "".getBytes(StandardCharsets.UTF_8));
+        MqttConnectVariableHeader variableHeader = new MqttConnectVariableHeader("MQIsdp", 3,
+                false, false, false, 0, false, true, 30);
+        MqttConnectPayload payload = new MqttConnectPayload("client1", null, null,
+                "".getBytes(StandardCharsets.UTF_8), null, "".getBytes(StandardCharsets.UTF_8));
         MqttConnectMessage connectMessage1 = new MqttConnectMessage(fixedHeader, variableHeader, payload);
         Channel channel = Mockito.mock(Channel.class);
         InetSocketAddress socketAddress = new InetSocketAddress("192.168.0.01", 11533);
