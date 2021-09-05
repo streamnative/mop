@@ -13,15 +13,26 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
+import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnAckVariableHeader;
+import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import java.net.InetSocketAddress;
+import java.util.UUID;
+import org.apache.commons.codec.binary.Hex;
 
+/**
+ * Mqtt message utils.
+ */
 public class MqttMessageUtils {
+
+    public static final int CLIENT_IDENTIFIER_MAX_LENGTH = 23;
 
     public static void checkState(MqttMessage msg) {
         if (!msg.decoderResult().isSuccess()) {
@@ -38,5 +49,27 @@ public class MqttMessageUtils {
                 false, 0);
         MqttConnAckVariableHeader mqttConnAckVariableHeader = new MqttConnAckVariableHeader(returnCode, sessionPresent);
         return new MqttConnAckMessage(mqttFixedHeader, mqttConnAckVariableHeader);
+    }
+
+    public static String createClientIdentifier(Channel channel) {
+        String clientIdentifier;
+        if (channel != null && channel.remoteAddress() instanceof InetSocketAddress) {
+            InetSocketAddress isa = (InetSocketAddress) channel.remoteAddress();
+            clientIdentifier = Hex.encodeHexString(isa.getAddress().getAddress()) + Integer.toHexString(isa.getPort())
+                    + Long.toHexString(System.currentTimeMillis() / 1000);
+        } else {
+            clientIdentifier = UUID.randomUUID().toString().replace("-", "");
+        }
+        if (clientIdentifier.length() > CLIENT_IDENTIFIER_MAX_LENGTH) {
+            clientIdentifier = clientIdentifier.substring(0, CLIENT_IDENTIFIER_MAX_LENGTH);
+        }
+        return clientIdentifier;
+    }
+
+    public static MqttConnectMessage createMqttConnectMessage(MqttConnectMessage msg, String clientId) {
+        MqttConnectPayload origin = msg.payload();
+        MqttConnectPayload payload = new MqttConnectPayload(clientId, origin.willProperties(), origin.willTopic(),
+                origin.willMessageInBytes(), origin.userName(), origin.passwordInBytes());
+        return new MqttConnectMessage(msg.fixedHeader(), msg.variableHeader(), payload);
     }
 }

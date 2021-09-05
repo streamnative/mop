@@ -32,7 +32,6 @@ import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.naming.AuthenticationException;
@@ -81,19 +80,12 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
-            if (!msg.variableHeader().isCleanSession()) {
-                MqttConnAckMessage badId = MqttMessageUtils.
-                        connAck(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED);
-                channel.writeAndFlush(badId);
-                channel.close();
-                log.error("The MQTT client ID cannot be empty. Username={}", payload.userName());
-                return;
-            }
-
             // Generating client id.
-            clientId = UUID.randomUUID().toString().replace("-", "");
-            log.info("Client has connected with a server generated identifier. CId={}, username={}", clientId,
-                    payload.userName());
+            clientId = MqttMessageUtils.createClientIdentifier(channel);
+            msg = MqttMessageUtils.createMqttConnectMessage(msg, clientId);
+            if (log.isDebugEnabled()) {
+                log.debug("Client has connected with generated identifier. CId={}", clientId);
+            }
         }
 
         // Authenticate the client
@@ -119,7 +111,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                 return;
             }
         }
-
 
         NettyUtils.attachClientID(channel, clientId);
         connectMsgList.add(msg);
