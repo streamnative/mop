@@ -149,6 +149,7 @@ public class ProxyTLSTest extends MQTTTestBase {
         String message = "Hello MQTT Proxy";
         connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
         Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
@@ -164,6 +165,7 @@ public class ProxyTLSTest extends MQTTTestBase {
         String message = "Hello MQTT Proxy";
         connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
         Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();

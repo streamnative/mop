@@ -88,7 +88,7 @@ public class PulsarTopicUtilsTest {
     }
 
     @Test
-    public void testasyncGetTopicListFromTopicSubscriptionForDefaultTopicDomain() {
+    public void testAsyncGetTopicListFromTopicSubscriptionForDefaultTopicDomain() {
         //test default topic domain for  non-persistent
         List<String> topics1 = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
                 "/a/b/c", "public", "default", null, "non-persistent").join();

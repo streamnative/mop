@@ -109,6 +109,7 @@ public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
         String message = "Hello MQTT";
         connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
         Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();

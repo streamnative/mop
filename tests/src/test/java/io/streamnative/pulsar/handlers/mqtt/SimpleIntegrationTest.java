@@ -65,6 +65,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         String message = "Hello MQTT";
         connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
         Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
@@ -80,6 +81,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         String message = "Hello MQTT";
         connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
         Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
@@ -127,6 +129,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
         producer.newMessage().value(message).sendAsync();
         Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
@@ -236,6 +239,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
         for (int i = 0; i < numMessages; i++) {
             Message received = connection.receive();
+            Assert.assertEquals(received.getTopic(), topicName);
             Assert.assertEquals(new String(received.getPayload()), (message + i));
             received.ack();
         }
