@@ -13,16 +13,13 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
-import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
 import io.netty.channel.Channel;
-import io.netty.handler.codec.mqtt.MqttFixedHeader;
-import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
-import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
@@ -41,7 +38,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
     }
 
     @Override
-    public void receivePublish(Channel channel, MqttPublishMessage msg) {
+    public void publish(Channel channel, MqttPublishMessage msg) {
         final String topic = msg.variableHeader().topicName();
         writeToPulsarTopic(msg).whenComplete((p, e) -> {
             if (e == null) {
@@ -67,24 +64,13 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
         if (log.isDebugEnabled()) {
             log.debug("[{}] Send Pub Ack {} to {}", topic, packetId, clientId);
         }
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBACK, false, AT_MOST_ONCE, false, 0);
-        MqttPubAckMessage pubAckMessage = new MqttPubAckMessage(fixedHeader,
-                MqttMessageIdVariableHeader.from(packetId));
-
         try {
-            if (connectionDescriptors == null) {
-                throw new RuntimeException("Internal bad error, found connectionDescriptors to null while it should "
-                        + "be initialized, somewhere it's overwritten!!");
+            if (connectionDescriptors != null && connectionDescriptors.isConnected(clientId)) {
+                MqttPubAckMessage pubAckMessage = MqttMessageUtils.pubAck(packetId);
+                connectionDescriptors.sendMessage(pubAckMessage, packetId, clientId);
+            } else {
+                log.warn("Can't find ConnectionDescriptor: {} for client: {}", connectionDescriptors, clientId);
             }
-            if (log.isDebugEnabled()) {
-                log.debug("clientIDs are {}", connectionDescriptors);
-            }
-
-            if (!connectionDescriptors.isConnected(clientId)) {
-                throw new RuntimeException(String.format("Can't find a ConnectionDescriptor for client %s in cache %s",
-                        clientId, connectionDescriptors));
-            }
-            connectionDescriptors.sendMessage(pubAckMessage, packetId, clientId);
         } catch (Throwable t) {
             log.error("[{}] Failed to send Pub Ack {} to client {}.", topic, packetId, clientId, t);
         }

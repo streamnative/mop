@@ -21,7 +21,6 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 
-
 /**
  * Publish handler implementation for Qos 2.
  */
@@ -34,7 +33,7 @@ public class Qos2PublishHandler extends AbstractQosPublishHandler {
     }
 
     @Override
-    public void receivePublish(Channel channel, MqttPublishMessage msg) {
+    public void publish(Channel channel, MqttPublishMessage msg) {
         log.error("[{}] Failed to write data due to QoS2 does not support.", msg.variableHeader().topicName());
         channel.close();
     }

@@ -225,8 +225,7 @@ public class PulsarTopicUtils {
                 || subTopicFilter.startsWith(TopicDomain.non_persistent.value())) {
             TopicName topicName = TopicName.get(pulsarTopicName);
             return topicName.getDomain().toString() + "://"
-                    + topicName.getTenant() + "/"
-                    + NamespaceName.get(topicName.getNamespace()).getLocalName() + "/"
+                    + NamespaceName.get(topicName.getNamespace()).toString() + "/"
                     + URLDecoder.decode(topicName.getLocalName());
         } else {
             return URLDecoder.decode(TopicName.get(pulsarTopicName).getLocalName());
