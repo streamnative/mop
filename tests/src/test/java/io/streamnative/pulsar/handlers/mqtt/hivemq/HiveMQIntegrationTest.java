@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.hivemq;
 
 import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
+import com.hivemq.client.mqtt.datatypes.MqttTopic;
 import com.hivemq.client.mqtt.mqtt3.Mqtt3BlockingClient;
 import com.hivemq.client.mqtt.mqtt3.Mqtt3Client;
 import com.hivemq.client.mqtt.mqtt3.message.publish.Mqtt3Publish;
@@ -53,6 +54,7 @@ public class HiveMQIntegrationTest extends MQTTTestBase {
                 .send();
         try (Mqtt3BlockingClient.Mqtt3Publishes publishes = client.publishes(MqttGlobalPublishFilter.ALL)) {
             Mqtt3Publish publish = publishes.receive();
+            Assert.assertEquals(publish.getTopic(), MqttTopic.of(topic));
             Assert.assertEquals(publish.getPayloadAsBytes(), msg);
         }
         client.unsubscribeWith().topicFilter(topic).send();
