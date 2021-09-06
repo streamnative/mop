@@ -28,8 +28,6 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -44,9 +42,6 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
 
     @Getter
     private ChannelHandlerContext cnx;
-
-    // Map sequence Id -> topic count
-    private ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId = new ConcurrentHashMap<>();
 
     public MQTTProxyHandler(MQTTProxyService proxyService) throws PulsarClientException {
         this.processor = new MQTTProxyProtocolMethodProcessor(proxyService, this);
@@ -144,24 +139,6 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
         }
         if (cnx != null) {
             cnx.close();
-        }
-    }
-
-    public boolean increaseSubscribeTopicsCount(int seq, int count) {
-        return topicCountForSequenceId.putIfAbsent(seq, new AtomicInteger(count)) == null;
-    }
-
-    public int decreaseSubscribeTopicsCount(int seq) {
-        if (topicCountForSequenceId.get(seq) == null) {
-            log.warn("Unexpected subscribe behavior for the proxy, respond seq {} "
-                    + "but but the seq does not tracked by the proxy. ", seq);
-            return -1;
-        } else {
-            int value = topicCountForSequenceId.get(seq).decrementAndGet();
-            if (value == 0) {
-                topicCountForSequenceId.remove(seq);
-            }
-            return value;
         }
     }
 }

@@ -40,25 +40,21 @@ import org.apache.commons.lang3.tuple.Pair;
 @Slf4j
 public class MQTTProxyExchanger {
 
-    private MQTTProxyHandler proxyHandler;
-    @Getter
-    // client -> proxy
-    private Channel clientChannel;
+    private MQTTProxyProtocolMethodProcessor processor;
+
     @Getter
     // proxy -> MoP
     private Channel brokerChannel;
     private List<MqttConnectMessage> connectMsgList;
     private CompletableFuture<Void> brokerFuture = new CompletableFuture<>();
 
-    MQTTProxyExchanger(MQTTProxyHandler proxyHandler, Pair<String, Integer> brokerHostAndPort,
+    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, Pair<String, Integer> brokerHostAndPort,
                        List<MqttConnectMessage> connectMsgList) throws Exception {
-        this.proxyHandler = proxyHandler;
-        clientChannel = this.proxyHandler.getCnx().channel();
+        this.processor = processor;
         this.connectMsgList = connectMsgList;
-
         Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(clientChannel.eventLoop())
-                .channel(clientChannel.getClass())
+        bootstrap.group(processor.clientChannel().eventLoop())
+                .channel(processor.clientChannel().getClass())
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
@@ -101,13 +97,13 @@ public class MQTTProxyExchanger {
                     break;
                 case SUBACK:
                     MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
-                    if (proxyHandler.decreaseSubscribeTopicsCount(
+                    if (processor.decreaseSubscribeTopicsCount(
                             subAckMessage.variableHeader().messageId()) == 0) {
-                        clientChannel.writeAndFlush(message);
+                        processor.clientChannel().writeAndFlush(message);
                     }
                     break;
                 default:
-                    clientChannel.writeAndFlush(message);
+                    processor.clientChannel().writeAndFlush(message);
                     break;
             }
         }

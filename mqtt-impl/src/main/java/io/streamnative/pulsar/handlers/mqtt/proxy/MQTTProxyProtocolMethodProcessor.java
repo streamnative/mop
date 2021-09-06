@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -58,6 +59,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
     private final Map<String, MQTTProxyExchanger> proxyExchangerMap;
     private final List<MqttConnectMessage> connectMsgList;
+    // Map sequence Id -> topic count
+    private final ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId;
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, MQTTProxyHandler proxyHandler) {
         this.proxyService = proxyService;
@@ -67,6 +70,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         this.proxyConfig = proxyService.getProxyConfig();
         this.proxyExchangerMap = new ConcurrentHashMap<>();
         this.connectMsgList = new ArrayList<>();
+        this.topicCountForSequenceId = new ConcurrentHashMap<>();
     }
 
     // client -> proxy
@@ -204,7 +208,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             for (String t : topics) {
                 CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(TopicName.get(t));
                 futures.add(lookupResult.thenAccept(pair -> {
-                    proxyHandler.increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);
+                    increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);
                     writeAndFlush(t, pair, channel, msg);
                 }));
             }
@@ -255,7 +259,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         return proxyExchangerMap.computeIfAbsent(topic, key -> {
             try {
                 return new MQTTProxyExchanger(
-                        proxyHandler,
+                        this,
                         mqttBrokerHostAndPort,
                         connectMsgList);
             } catch (Exception e) {
@@ -291,4 +295,25 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         });
     }
 
+    public Channel clientChannel() {
+        return proxyHandler.getCnx().channel();
+    }
+
+    public boolean increaseSubscribeTopicsCount(int seq, int count) {
+        return topicCountForSequenceId.putIfAbsent(seq, new AtomicInteger(count)) == null;
+    }
+
+    public int decreaseSubscribeTopicsCount(int seq) {
+        if (topicCountForSequenceId.get(seq) == null) {
+            log.warn("Unexpected subscribe behavior for the proxy, respond seq {} "
+                    + "but but the seq does not tracked by the proxy. ", seq);
+            return -1;
+        } else {
+            int value = topicCountForSequenceId.get(seq).decrementAndGet();
+            if (value == 0) {
+                topicCountForSequenceId.remove(seq);
+            }
+            return value;
+        }
+    }
 }
