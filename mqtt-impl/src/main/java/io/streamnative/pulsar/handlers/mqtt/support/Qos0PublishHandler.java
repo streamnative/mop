@@ -33,7 +33,7 @@ public class Qos0PublishHandler extends AbstractQosPublishHandler {
     }
 
     @Override
-    public void receivePublish(Channel channel, MqttPublishMessage msg) {
+    public void publish(Channel channel, MqttPublishMessage msg) {
         writeToPulsarTopic(msg).whenComplete((p, e) -> {
             if (e == null) {
                 if (log.isDebugEnabled()) {

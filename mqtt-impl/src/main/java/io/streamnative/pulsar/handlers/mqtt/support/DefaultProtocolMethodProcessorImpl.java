@@ -207,13 +207,13 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         final MqttQoS qos = msg.fixedHeader().qosLevel();
         switch (qos) {
             case AT_MOST_ONCE:
-                this.qosPublishHandlers.qos0().receivePublish(channel, msg);
+                this.qosPublishHandlers.qos0().publish(channel, msg);
                 break;
             case AT_LEAST_ONCE:
-                this.qosPublishHandlers.qos1().receivePublish(channel, msg);
+                this.qosPublishHandlers.qos1().publish(channel, msg);
                 break;
             case EXACTLY_ONCE:
-                this.qosPublishHandlers.qos2().receivePublish(channel, msg);
+                this.qosPublishHandlers.qos2().publish(channel, msg);
                 break;
             default:
                 log.error("Unknown QoS-Type:{}", qos);

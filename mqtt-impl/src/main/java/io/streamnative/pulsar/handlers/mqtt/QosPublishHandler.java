@@ -22,5 +22,5 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
  */
 public interface QosPublishHandler {
 
-    void receivePublish(Channel channel, MqttPublishMessage msg);
+    void publish(Channel channel, MqttPublishMessage msg);
 }
