@@ -56,7 +56,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
@@ -115,7 +114,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
 
         // Client must specify the client ID except enable clean session on the connection.
-        if (clientId == null || clientId.length() == 0) {
+        if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
                 MqttConnAckMessage badId = MqttMessageUtils.
                         connAck(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED);
@@ -126,11 +125,10 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 return;
             }
 
-            // Generating client id.
-            clientId = UUID.randomUUID().toString().replace("-", "");
-            log.info("Client has connected with a server generated identifier. CId={}, username={}", clientId,
-                     username
-            );
+            clientId = MqttMessageUtils.createClientIdentifier(channel);
+            if (log.isDebugEnabled()) {
+                log.debug("Client has connected with generated identifier. CId={}", clientId);
+            }
         }
 
         // Authenticate the client
