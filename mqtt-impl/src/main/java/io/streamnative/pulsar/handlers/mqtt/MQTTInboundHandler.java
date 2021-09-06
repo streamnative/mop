@@ -45,13 +45,14 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object message) {
+        checkArgument(message instanceof MqttMessage);
         MqttMessage msg = (MqttMessage) message;
-        MqttMessageType messageType = msg.fixedHeader().messageType();
-        if (log.isDebugEnabled()) {
-            log.debug("Processing MQTT Inbound handler message, type={}", messageType);
-        }
         try {
             checkState(msg);
+            MqttMessageType messageType = msg.fixedHeader().messageType();
+            if (log.isDebugEnabled()) {
+                log.debug("Processing MQTT Inbound handler message, type={}", messageType);
+            }
             switch (messageType) {
                 case CONNECT:
                     checkArgument(msg instanceof MqttConnectMessage);
