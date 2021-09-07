@@ -13,7 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -85,26 +86,33 @@ public class MQTTProxyExchanger {
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
-            checkState(message instanceof MqttMessage);
+            checkArgument(message instanceof MqttMessage);
             MqttMessage msg = (MqttMessage) message;
-            MqttMessageType messageType = msg.fixedHeader().messageType();
-            if (log.isDebugEnabled()) {
-                log.debug("channelRead messageType {}", messageType);
-            }
-            switch (messageType) {
-                case CONNACK:
-                    brokerFuture.complete(null);
-                    break;
-                case SUBACK:
-                    MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
-                    if (processor.decreaseSubscribeTopicsCount(
-                            subAckMessage.variableHeader().messageId()) == 0) {
+            try {
+                checkState(msg);
+                MqttMessageType messageType = msg.fixedHeader().messageType();
+                if (log.isDebugEnabled()) {
+                    log.debug("channelRead messageType {}", messageType);
+                }
+                switch (messageType) {
+                    case CONNACK:
+                        brokerFuture.complete(null);
+                        break;
+                    case SUBACK:
+                        MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
+                        if (processor.decreaseSubscribeTopicsCount(
+                                subAckMessage.variableHeader().messageId()) == 0) {
+                            processor.clientChannel().writeAndFlush(message);
+                        }
+                        break;
+                    default:
                         processor.clientChannel().writeAndFlush(message);
-                    }
-                    break;
-                default:
-                    processor.clientChannel().writeAndFlush(message);
-                    break;
+                        break;
+                }
+            } catch (Throwable ex) {
+                log.error("Exception was caught while processing MQTT broker message", ex);
+                ctx.close();
+                processor.clientChannel().close();
             }
         }
 

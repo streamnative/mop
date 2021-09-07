@@ -61,14 +61,14 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
+        checkArgument(message instanceof MqttMessage);
         MqttMessage msg = (MqttMessage) message;
-        MqttMessageType messageType = msg.fixedHeader().messageType();
-
-        if (log.isDebugEnabled()) {
-            log.debug("Processing MQTT message, type={}", messageType);
-        }
         try {
             checkState(msg);
+            MqttMessageType messageType = msg.fixedHeader().messageType();
+            if (log.isDebugEnabled()) {
+                log.debug("Processing MQTT message, type={}", messageType);
+            }
             switch (messageType) {
                 case CONNECT:
                     checkArgument(msg instanceof MqttConnectMessage);
