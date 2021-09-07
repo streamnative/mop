@@ -303,4 +303,7 @@ Examples:
 >
 > The default tenant and the default namespace for the MoP are configurable, by default, the default tenant is `public` and the default namespace is `default`.
 
+## Project maintainers
 
+-   [@Technoboy-](https://github.com/Technoboy-)
+-   [@codelipenghui](https://github.com/codelipenghui)
