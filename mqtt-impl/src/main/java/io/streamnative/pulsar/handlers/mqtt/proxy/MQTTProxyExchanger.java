@@ -31,7 +31,6 @@ import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.timeout.IdleStateHandler;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -43,11 +42,10 @@ public class MQTTProxyExchanger {
 
     private MQTTProxyProtocolMethodProcessor processor;
 
-    @Getter
-    // proxy -> MoP
     private Channel brokerChannel;
     private List<MqttConnectMessage> connectMsgList;
-    private CompletableFuture<Void> brokerFuture = new CompletableFuture<>();
+    private CompletableFuture<Void> brokerConnected = new CompletableFuture<>();
+    private CompletableFuture<Void> brokerConnectedAck = new CompletableFuture<>();
 
     MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, Pair<String, Integer> brokerHostAndPort,
                        List<MqttConnectMessage> connectMsgList) throws Exception {
@@ -69,7 +67,10 @@ public class MQTTProxyExchanger {
         brokerChannel = channelFuture.channel();
         channelFuture.addListener(future -> {
             if (future.isSuccess()) {
+                brokerConnected.complete(null);
                 log.info("connected to broker: {}", brokerHostAndPort);
+            } else {
+                brokerConnected.completeExceptionally(future.cause());
             }
         });
     }
@@ -96,7 +97,7 @@ public class MQTTProxyExchanger {
                 }
                 switch (messageType) {
                     case CONNACK:
-                        brokerFuture.complete(null);
+                        brokerConnectedAck.complete(null);
                         break;
                     case SUBACK:
                         MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
@@ -111,6 +112,7 @@ public class MQTTProxyExchanger {
                 }
             } catch (Throwable ex) {
                 log.error("Exception was caught while processing MQTT broker message", ex);
+                brokerConnectedAck.completeExceptionally(ex);
                 ctx.close();
                 processor.clientChannel().close();
             }
@@ -119,7 +121,8 @@ public class MQTTProxyExchanger {
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             log.error("failed to create connection with MoP broker.", cause);
-            brokerFuture.completeExceptionally(cause);
+            ctx.close();
+            processor.clientChannel().close();
         }
     }
 
@@ -127,7 +130,15 @@ public class MQTTProxyExchanger {
         this.brokerChannel.close();
     }
 
-    public CompletableFuture<Void> brokerFuture() {
-        return this.brokerFuture;
+    public CompletableFuture<Void> connectedAck() {
+        return brokerConnected.thenCompose(__ -> brokerConnectedAck);
+    }
+
+    public boolean isWritable() {
+        return this.brokerChannel.isWritable();
+    }
+
+    public void writeAndFlush(Object msg) {
+        this.brokerChannel.writeAndFlush(msg);
     }
 }

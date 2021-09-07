@@ -57,7 +57,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     private final MQTTProxyConfiguration proxyConfig;
     private final PulsarService pulsarService;
 
-    private final Map<String, MQTTProxyExchanger> proxyExchangerMap;
+    private final Map<String, CompletableFuture<MQTTProxyExchanger>> proxyExchangerMap;
     private final List<MqttConnectMessage> connectMsgList;
     // Map sequence Id -> topic count
     private final ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId;
@@ -146,7 +146,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                 channel.close();
                 return;
             }
-            writeAndFlush(pulsarTopicName, pair, channel, msg);
+            writeToMqttBroker(channel, msg, pulsarTopicName, pair);
         });
     }
 
@@ -177,8 +177,10 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             log.debug("[Disconnect] [{}] ", channel);
         }
         channel.close();
-        proxyExchangerMap.forEach((k, v) -> v.getBrokerChannel().writeAndFlush(msg));
-        proxyExchangerMap.forEach((k, v) -> v.close());
+        proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
+            exchanger.writeAndFlush(msg);
+            exchanger.close();
+        }));
         proxyExchangerMap.clear();
     }
 
@@ -205,11 +207,11 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
         topicListFuture.thenCompose(topics -> {
             List<CompletableFuture<Void>> futures = new ArrayList<>();
-            for (String t : topics) {
-                CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(TopicName.get(t));
+            for (String topic : topics) {
+                CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
                 futures.add(lookupResult.thenAccept(pair -> {
                     increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);
-                    writeAndFlush(t, pair, channel, msg);
+                    writeToMqttBroker(channel, msg, topic, pair);
                 }));
             }
             return FutureUtil.waitForAll(futures);
@@ -234,8 +236,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                     channel.close();
                     return;
                 }
-
-                writeAndFlush(topic, pair, channel, msg);
+                writeToMqttBroker(channel, msg, topic, pair);
             });
         }
     }
@@ -255,43 +256,35 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }
     }
 
-    private MQTTProxyExchanger getProxyExchanger(String topic, Pair<String, Integer> mqttBrokerHostAndPort) {
-        return proxyExchangerMap.computeIfAbsent(topic, key -> {
-            try {
-                return new MQTTProxyExchanger(
-                        this,
-                        mqttBrokerHostAndPort,
-                        connectMsgList);
-            } catch (Exception e) {
-                log.error("[Proxy UnSubscribe] Failed to perform lookup request", e);
-                return null;
+    private void writeToMqttBroker(Channel channel, MqttMessage msg, String topic, Pair<String, Integer> pair) {
+        CompletableFuture<MQTTProxyExchanger> proxyExchanger = createProxyExchanger(topic, pair);
+        proxyExchanger.whenComplete((exchanger, error) -> {
+            if (error != null) {
+                log.error("[{}] MoP proxy failed to connect with MoP broker({}).",
+                        msg.fixedHeader().messageType(), pair, error);
+                channel.close();
+                return;
+            }
+            if (exchanger.isWritable()) {
+                exchanger.writeAndFlush(msg);
+            } else {
+                log.error("The broker channel({}) is not writable!", pair);
+                channel.close();
+                exchanger.close();
             }
         });
     }
 
-    private void writeAndFlush(String topic, Pair<String, Integer> mqttBrokerHostAndPort,
-                               Channel channel, MqttMessage msg) {
-        MQTTProxyExchanger proxyExchanger = getProxyExchanger(topic, mqttBrokerHostAndPort);
-        if (null == proxyExchanger) {
-            log.error("proxy handler is null for topic : {}, mqttBrokerHostAndPort : {}, closing channel",
-                    topic, mqttBrokerHostAndPort);
-            channel.close();
-            return;
-        }
-        proxyExchanger.brokerFuture().whenComplete((ignored, throwable) -> {
-            if (throwable != null) {
-                log.error("[{}] MoP proxy failed to connect with MoP broker({}).",
-                        msg.fixedHeader().messageType(), mqttBrokerHostAndPort, throwable);
-                channel.close();
-                return;
+    private CompletableFuture<MQTTProxyExchanger> createProxyExchanger(String topic, Pair<String, Integer> mqttBroker) {
+        return proxyExchangerMap.computeIfAbsent(topic, key -> {
+            CompletableFuture<MQTTProxyExchanger> future = new CompletableFuture<>();
+            try {
+                MQTTProxyExchanger exchanger = new MQTTProxyExchanger(this, mqttBroker, connectMsgList);
+                exchanger.connectedAck().thenAccept(__ -> future.complete(exchanger));
+            } catch (Exception ex) {
+                future.completeExceptionally(ex);
             }
-            if (proxyExchanger.getBrokerChannel().isWritable()) {
-                proxyExchanger.getBrokerChannel().writeAndFlush(msg);
-            } else {
-                log.error("The broker channel({}) is not writable!", mqttBrokerHostAndPort);
-                channel.close();
-                proxyExchanger.close();
-            }
+            return future;
         });
     }
 
