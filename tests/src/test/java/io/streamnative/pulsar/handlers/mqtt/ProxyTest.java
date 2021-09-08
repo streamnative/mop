@@ -25,8 +25,6 @@ import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 import org.mockito.Mockito;
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
@@ -34,16 +32,13 @@ import org.testng.annotations.Test;
  */
 public class ProxyTest extends MQTTTestBase {
 
-    @BeforeClass
     @Override
-    public void setup() throws Exception {
-        super.setup();
-    }
+    protected MQTTServerConfiguration initConfig() throws Exception {
+        MQTTServerConfiguration mqtt = super.initConfig();
 
-    @AfterClass(alwaysRun = true)
-    @Override
-    public void cleanup() throws Exception {
-        super.cleanup();
+        mqtt.setMqttProxyEnable(true);
+
+        return mqtt;
     }
 
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)

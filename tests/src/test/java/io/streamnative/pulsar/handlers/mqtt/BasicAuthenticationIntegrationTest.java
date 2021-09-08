@@ -32,8 +32,6 @@ import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
@@ -42,12 +40,13 @@ import org.testng.annotations.Test;
 @Slf4j
 public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
 
-    @BeforeClass
     @Override
-    public void setup() throws Exception {
+    public MQTTServerConfiguration initConfig() throws Exception{
+        MQTTServerConfiguration conf = super.initConfig();
         System.setProperty("pulsar.auth.basic.conf", "./src/test/resources/htpasswd");
         String authParams = "{\"userId\":\"superUser\",\"password\":\"supepass\"}";
 
+        conf.setMqttProxyEnable(true);
         conf.setAuthenticationEnabled(true);
         conf.setMqttAuthenticationEnabled(true);
         conf.setMqttAuthenticationMethods(ImmutableList.of("basic"));
@@ -55,11 +54,15 @@ public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
         conf.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderBasic.class.getName()));
         conf.setBrokerClientAuthenticationPlugin(AuthenticationBasic.class.getName());
         conf.setBrokerClientAuthenticationParameters(authParams);
-        super.init();
 
+        return conf;
+    }
+
+    @Override
+    public void afterSetup() throws Exception {
+        String authParams = "{\"userId\":\"superUser\",\"password\":\"supepass\"}";
         AuthenticationBasic authPassword = new AuthenticationBasic();
         authPassword.configure(authParams);
-
         pulsarClient = PulsarClient.builder()
                 .serviceUrl(brokerUrl.toString())
                 .authentication(authPassword)
@@ -69,15 +72,6 @@ public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
                 .serviceHttpUrl(brokerUrl.toString())
                 .authentication(authPassword)
                 .build());
-
-        super.setupClusterNamespaces();
-        super.checkPulsarServiceState();
-    }
-
-    @AfterClass(alwaysRun = true)
-    @Override
-    public void cleanup() throws Exception {
-        super.cleanup();
     }
 
     @Override
