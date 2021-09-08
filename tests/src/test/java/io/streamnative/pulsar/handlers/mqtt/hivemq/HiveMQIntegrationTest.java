@@ -22,24 +22,10 @@ import com.hivemq.client.mqtt.mqtt3.message.publish.Mqtt3Publish;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import lombok.extern.slf4j.Slf4j;
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 @Slf4j
 public class HiveMQIntegrationTest extends MQTTTestBase {
-
-    @BeforeClass
-    @Override
-    public void setup() throws Exception {
-        super.setup();
-    }
-
-    @AfterClass(alwaysRun = true)
-    @Override
-    public void cleanup() throws Exception {
-        super.cleanup();
-    }
 
     @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
     public void testBasicPublishAndConsumeWithMQTT(String topic) throws Exception {

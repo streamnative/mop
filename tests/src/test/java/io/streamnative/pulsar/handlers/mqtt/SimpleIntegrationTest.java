@@ -33,8 +33,6 @@ import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 import org.mockito.Mockito;
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
@@ -42,18 +40,8 @@ import org.testng.annotations.Test;
  */
 @Slf4j
 public class SimpleIntegrationTest extends MQTTTestBase {
-    private final int numMessages = 1000;
-    @BeforeClass
-    @Override
-    public void setup() throws Exception {
-        super.setup();
-    }
 
-    @AfterClass(alwaysRun = true)
-    @Override
-    public void cleanup() throws Exception {
-        super.cleanup();
-    }
+    private final int numMessages = 1000;
 
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
     public void testSimpleMqttPubAndSubQos0(String topicName) throws Exception {

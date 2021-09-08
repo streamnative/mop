@@ -85,13 +85,13 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
         };
     }
 
-    @BeforeClass
+    @BeforeClass(alwaysRun = true)
     @Override
     protected void setup() throws Exception {
-        super.internalSetup();
+        super.setup();
         log.info("success internal setup");
         setupClusterNamespaces();
-        checkPulsarServiceState();
+        setPulsarServiceState();
     }
 
     protected void setupClusterNamespaces() throws Exception {
@@ -121,7 +121,7 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
         }
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     @Override
     protected void cleanup() throws Exception {
         super.internalCleanup();
@@ -135,7 +135,7 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
     public MQTT createMQTTProxyClient() throws URISyntaxException {
         MQTT mqtt = createMQTTClient();
-        mqtt.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        mqtt.setHost("127.0.0.1", getMqttProxyPortList().get(0));
         return mqtt;
     }
 }
