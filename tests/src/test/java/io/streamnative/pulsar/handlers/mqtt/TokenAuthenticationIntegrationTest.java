@@ -37,10 +37,7 @@ import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
 
 /**
  * Token authentication integration tests for MQTT protocol handler.
@@ -49,14 +46,15 @@ import org.testng.annotations.Test;
 public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
     private String token;
 
-    @BeforeClass
     @Override
-    public void setup() throws Exception {
+    public MQTTServerConfiguration initConfig() throws Exception {
+        MQTTServerConfiguration conf = super.initConfig();
         SecretKey secretKey = AuthTokenUtils.createSecretKey(SignatureAlgorithm.HS256);
         Properties properties = new Properties();
         properties.setProperty("tokenSecretKey", AuthTokenUtils.encodeKeyBase64(secretKey));
         token = AuthTokenUtils.createToken(secretKey, "superUser", Optional.empty());
 
+        conf.setMqttProxyEnable(true);
         conf.setAuthenticationEnabled(true);
         conf.setMqttAuthenticationEnabled(true);
         conf.setMqttAuthenticationMethods(ImmutableList.of("token"));
@@ -65,8 +63,12 @@ public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
         conf.setBrokerClientAuthenticationPlugin(AuthenticationToken.class.getName());
         conf.setBrokerClientAuthenticationParameters("token:" + token);
         conf.setProperties(properties);
-        super.init();
 
+        return conf;
+    }
+
+    @Override
+    public void afterSetup() throws Exception {
         AuthenticationToken authToken = new AuthenticationToken();
         authToken.configure("token:" + token);
 
@@ -79,15 +81,6 @@ public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
                 .serviceHttpUrl(brokerUrl.toString())
                 .authentication(authToken)
                 .build());
-
-        super.setupClusterNamespaces();
-        super.checkPulsarServiceState();
-    }
-
-    @AfterClass(alwaysRun = true)
-    @Override
-    public void cleanup() throws Exception {
-        super.cleanup();
     }
 
     @Override

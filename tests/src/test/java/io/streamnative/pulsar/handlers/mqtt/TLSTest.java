@@ -14,20 +14,13 @@
 
 package io.streamnative.pulsar.handlers.mqtt;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.Sets;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import io.streamnative.pulsar.handlers.mqtt.base.PortManager;
 import java.io.File;
 import java.io.FileInputStream;
 import java.net.URI;
-import java.net.URL;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
-import java.util.Optional;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -43,84 +36,14 @@ import org.testng.annotations.Test;
 public class TLSTest extends MQTTTestBase {
 
     @Override
-    protected void resetConfig() {
-        MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
-        mqtt.setAdvertisedAddress("localhost");
-        mqtt.setClusterName(configClusterName);
-
-        mqtt.setManagedLedgerCacheSizeMB(8);
-        mqtt.setActiveConsumerFailoverDelayTimeMillis(0);
-        mqtt.setDefaultRetentionTimeInMinutes(7);
-        mqtt.setDefaultNumberOfNamespaceBundles(1);
-        mqtt.setZookeeperServers("localhost:2181");
-        mqtt.setConfigurationStoreServers("localhost:3181");
+    protected MQTTServerConfiguration initConfig() throws Exception{
+        MQTTServerConfiguration mqtt = super.initConfig();
 
         mqtt.setTlsEnabled(true);
         mqtt.setTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
         mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
 
-        mqtt.setAuthenticationEnabled(false);
-        mqtt.setAuthorizationEnabled(false);
-        mqtt.setAllowAutoTopicCreation(true);
-        mqtt.setBrokerDeleteInactiveTopicsEnabled(false);
-
-        // set protocol related config
-        URL testHandlerUrl = this.getClass().getClassLoader().getResource("test-protocol-handler.nar");
-        Path handlerPath;
-        try {
-            handlerPath = Paths.get(testHandlerUrl.toURI());
-        } catch (Exception e) {
-            log.error("failed to get handler Path, handlerUrl: {}. Exception: ", testHandlerUrl, e);
-            return;
-        }
-
-        String protocolHandlerDir = handlerPath.toFile().getParent();
-
-        mqtt.setProtocolHandlerDirectory(
-                protocolHandlerDir
-        );
-        mqtt.setMessagingProtocols(Sets.newHashSet("mqtt"));
-
-        this.conf = mqtt;
-    }
-
-    @Override
-    protected void startBroker() throws Exception {
-        for (int i = 0; i < brokerCount; i++) {
-
-            int brokerPort = PortManager.nextFreePort();
-            brokerPortList.add(brokerPort);
-            int brokerPortTls = PortManager.nextFreePort();
-            brokerPortList.add(brokerPortTls);
-
-            int mqttBrokerPort = PortManager.nextFreePort();
-            mqttBrokerPortList.add(mqttBrokerPort);
-            int mqttBrokerTlsPort = PortManager.nextFreePort();
-            mqttBrokerPortList.add(mqttBrokerTlsPort);
-
-            int mqttProxyPort = PortManager.nextFreePort();
-            mqttProxyPortList.add(mqttProxyPort);
-
-            int brokerWebServicePort = PortManager.nextFreePort();
-            brokerWebservicePortList.add(brokerWebServicePort);
-
-            int brokerWebServicePortTls = PortManager.nextFreePort();
-            brokerWebServicePortTlsList.add(brokerWebServicePortTls);
-
-            conf.setBrokerServicePort(Optional.of(brokerPort));
-            String plaintextListener = "mqtt://127.0.0.1:" + mqttBrokerPort;
-            String tlsListener = "mqtt+ssl://127.0.0.1:" + mqttBrokerTlsPort;
-            ((MQTTServerConfiguration) conf).setMqttListeners(Joiner.on(",").join(plaintextListener, tlsListener));
-            ((MQTTServerConfiguration) conf).setMqttProxyPort(mqttProxyPort);
-            ((MQTTServerConfiguration) conf).setMqttProxyEnable(true);
-            conf.setBrokerServicePortTls(Optional.of(brokerPortTls));
-            conf.setWebServicePort(Optional.of(brokerWebServicePort));
-            conf.setWebServicePortTls(Optional.of(brokerWebServicePortTls));
-
-            log.info("Start broker info [{}], brokerPort: {}, mqttBrokerPort: {}, mqttProxyPort: {}",
-                    i, brokerPort, mqttBrokerPort, mqttProxyPort);
-            this.pulsarServiceList.add(startBroker(conf));
-        }
+        return mqtt;
     }
 
     @Test(dataProvider = "mqttTopicNames")
