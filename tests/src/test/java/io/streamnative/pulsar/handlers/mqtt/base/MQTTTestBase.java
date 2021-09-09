@@ -14,7 +14,10 @@
 package io.streamnative.pulsar.handlers.mqtt.base;
 
 import com.google.common.collect.Sets;
+import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Random;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.policies.data.ClusterData;
 import org.apache.pulsar.common.policies.data.RetentionPolicies;
@@ -31,6 +34,8 @@ import org.testng.annotations.DataProvider;
 public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
     public static final int TIMEOUT = 60 * 1000;
+
+    private final Random random = new Random();
 
     @DataProvider(name = "batchEnabled")
     public Object[][] batchEnabled() {
@@ -128,14 +133,32 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
     }
 
     public MQTT createMQTTClient() throws URISyntaxException {
+        List<Integer> mqttBrokerPortList = getMqttBrokerPortList();
         MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", getMqttBrokerPortList().get(0));
+        mqtt.setHost("127.0.0.1", mqttBrokerPortList.get(random.nextInt(mqttBrokerPortList.size())));
+        return mqtt;
+    }
+
+    public MQTT createMQTTTlsClient() throws URISyntaxException {
+        List<Integer> mqttBrokerPortTlsList = getMqttBrokerPortTlsList();
+        MQTT mqtt = new MQTT();
+        mqtt.setHost(URI.create("ssl://127.0.0.1:"
+                + mqttBrokerPortTlsList.get(random.nextInt(mqttBrokerPortTlsList.size()))));
         return mqtt;
     }
 
     public MQTT createMQTTProxyClient() throws URISyntaxException {
+        List<Integer> mqttProxyPortList = getMqttProxyPortList();
         MQTT mqtt = createMQTTClient();
-        mqtt.setHost("127.0.0.1", getMqttProxyPortList().get(0));
+        mqtt.setHost("127.0.0.1", mqttProxyPortList.get(random.nextInt(mqttProxyPortList.size())));
+        return mqtt;
+    }
+
+    public MQTT createMQTTProxyTlsClient() throws URISyntaxException {
+        List<Integer> mqttProxyPortTlsList = getMqttProxyPortTlsList();
+        MQTT mqtt = createMQTTClient();
+        mqtt.setHost(URI.create("ssl://127.0.0.1:"
+                + mqttProxyPortTlsList.get(random.nextInt(mqttProxyPortTlsList.size()))));
         return mqtt;
     }
 }
