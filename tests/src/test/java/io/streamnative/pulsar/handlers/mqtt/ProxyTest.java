@@ -42,7 +42,7 @@ public class ProxyTest extends MQTTTestBase {
     }
 
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
-    public void testConnectionViaProxy(String topicName) throws Exception {
+    public void testSendAndConsume(String topicName) throws Exception {
         MQTT mqtt = createMQTTProxyClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
@@ -58,7 +58,7 @@ public class ProxyTest extends MQTTTestBase {
     }
 
     @Test(expectedExceptions = {EOFException.class, IllegalStateException.class})
-    public void testInvalidClientIdViaProxy() throws Exception {
+    public void testInvalidClientId() throws Exception {
         MQTT mqtt = createMQTTProxyClient();
         mqtt.setConnectAttemptsMax(1);
         // ClientId is invalid, for max length is 23 in mqtt 3.1
@@ -66,5 +66,48 @@ public class ProxyTest extends MQTTTestBase {
         BlockingConnection connection = Mockito.spy(mqtt.blockingConnection());
         connection.connect();
         verify(connection, Mockito.times(2)).connect();
+    }
+
+    @Test
+    public void testSendAndConsumeAcrossProxy() throws Exception {
+        int numMessage = 3;
+        String topicName = "a/b/c";
+        MQTT mqtt0 = new MQTT();
+        mqtt0.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection0 = mqtt0.blockingConnection();
+        connection0.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection0.subscribe(topics);
+
+        String message = "Hello MQTT Proxy";
+        MQTT mqtt1 = new MQTT();
+        mqtt1.setHost("127.0.0.1", mqttProxyPortList.get(1));
+        BlockingConnection connection1 = mqtt1.blockingConnection();
+        connection1.connect();
+        connection1.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+
+        MQTT mqtt2 = new MQTT();
+        mqtt2.setHost("127.0.0.1", mqttProxyPortList.get(2));
+        BlockingConnection connection2 = mqtt2.blockingConnection();
+        connection2.connect();
+        connection2.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+
+        MQTT mqtt3 = new MQTT();
+        mqtt3.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection3 = mqtt3.blockingConnection();
+        connection3.connect();
+        connection3.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+
+        for (int i = 0; i < numMessage; i++) {
+            Message received = connection0.receive();
+            Assert.assertEquals(received.getTopic(), topicName);
+            Assert.assertEquals(new String(received.getPayload()), message);
+            received.ack();
+        }
+
+        connection3.disconnect();
+        connection2.disconnect();
+        connection1.disconnect();
+        connection0.disconnect();
     }
 }

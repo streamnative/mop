@@ -94,7 +94,11 @@ public abstract class MQTTProtocolHandlerTestBase {
     @Getter
     protected List<Integer> mqttBrokerPortList = new ArrayList<>();
     @Getter
+    protected List<Integer> mqttBrokerPortTlsList = new ArrayList<>();
+    @Getter
     protected List<Integer> mqttProxyPortList = new ArrayList<>();
+    @Getter
+    protected List<Integer> mqttProxyPortTlsList = new ArrayList<>();
 
     protected MockZooKeeper mockZooKeeper;
     protected NonClosableMockBookKeeper mockBookKeeper;
@@ -218,26 +222,33 @@ public abstract class MQTTProtocolHandlerTestBase {
         for (PulsarService pulsarService : pulsarServiceList) {
             pulsarService.close();
         }
+        pulsarServiceList.clear();
         brokerPortList.clear();
         brokerWebservicePortList.clear();
         brokerWebServicePortTlsList.clear();
         mqttProxyPortList.clear();
-        pulsarServiceList.clear();
+        mqttProxyPortTlsList.clear();
         mqttBrokerPortList.clear();
+        mqttBrokerPortTlsList.clear();
     }
 
     public void stopBroker(int brokerIndex) throws Exception {
         pulsarServiceList.get(brokerIndex).close();
+        pulsarServiceList.remove(brokerIndex);
         brokerPortList.remove(brokerIndex);
         brokerWebservicePortList.remove(brokerIndex);
         brokerWebServicePortTlsList.remove(brokerIndex);
         mqttProxyPortList.remove(brokerIndex);
-        pulsarServiceList.remove(brokerIndex);
+        mqttProxyPortTlsList.remove(brokerIndex);
+        mqttBrokerPortTlsList.remove(brokerIndex);
     }
 
     protected void startBroker() throws Exception {
+        MQTTServerConfiguration conf = initConfig();
+        if (conf.isMqttProxyEnable()) {
+            brokerCount = 3;
+        }
         for (int i = 0; i < brokerCount; i++) {
-            MQTTServerConfiguration conf = initConfig();
             startBroker(conf);
         }
     }
@@ -245,6 +256,7 @@ public abstract class MQTTProtocolHandlerTestBase {
     protected void startBroker(MQTTServerConfiguration conf) throws Exception {
         int brokerPort = PortManager.nextFreePort();
         brokerPortList.add(brokerPort);
+
         int brokerPortTls = PortManager.nextFreePort();
         brokerPortList.add(brokerPortTls);
 
@@ -259,14 +271,14 @@ public abstract class MQTTProtocolHandlerTestBase {
             if (conf.isTlsEnabledInProxy()) {
                 int mqttProxyTlsPort = PortManager.nextFreePort();
                 conf.setMqttProxyTlsPort(mqttProxyTlsPort);
-                mqttProxyPortList.add(mqttProxyTlsPort);
+                mqttProxyPortTlsList.add(mqttProxyTlsPort);
             }
         }
 
         int mqttBrokerTlsPort = -1;
         if (conf.isTlsEnabled()) {
             mqttBrokerTlsPort = PortManager.nextFreePort();
-            mqttBrokerPortList.add(mqttBrokerTlsPort);
+            mqttBrokerPortTlsList.add(mqttBrokerTlsPort);
         }
 
         int brokerWebServicePort = PortManager.nextFreePort();
@@ -319,6 +331,7 @@ public abstract class MQTTProtocolHandlerTestBase {
 
     public static MockZooKeeper createMockZooKeeper() throws Exception {
         MockZooKeeper zk = MockZooKeeper.newInstance(MoreExecutors.newDirectExecutorService());
+        zk.setSessionId(-1);
         List<ACL> dummyAclList = new ArrayList<>(0);
 
         ZkUtils.createFullPathOptimistic(zk, "/ledgers/available/192.168.1.1:" + 5000,

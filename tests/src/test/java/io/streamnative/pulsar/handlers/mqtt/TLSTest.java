@@ -17,7 +17,6 @@ package io.streamnative.pulsar.handlers.mqtt;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.io.File;
 import java.io.FileInputStream;
-import java.net.URI;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
@@ -48,9 +47,7 @@ public class TLSTest extends MQTTTestBase {
 
     @Test(dataProvider = "mqttTopicNames")
     public void testSimpleMqttPubAndSubQos0Tls(String topicName) throws Exception {
-        MQTT mqtt = new MQTT();
-        mqtt.setHost(URI.create("ssl://127.0.0.1:" + getMqttBrokerPortList().get(1)));
-
+        MQTT mqtt = createMQTTTlsClient();
         File crtFile = new File(TLS_SERVER_CERT_FILE_PATH);
         Certificate certificate = CertificateFactory
                 .getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
