@@ -80,7 +80,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         MqttConnectPayload payload = connectMessage.payload();
         String clientId = payload.clientIdentifier();
         if (log.isDebugEnabled()) {
-            log.debug("process CONNECT message. CId={}, username={}", clientId, payload.userName());
+            log.debug("Proxy CONNECT message. CId={}, username={}", clientId, payload.userName());
         }
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
@@ -88,12 +88,13 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             clientId = MqttMessageUtils.createClientIdentifier(channel);
             connectMessage = MqttMessageUtils.createMqttConnectMessage(msg, clientId);
             if (log.isDebugEnabled()) {
-                log.debug("Client has connected with generated identifier. CId={}", clientId);
+                log.debug("Proxy client has connected with generated identifier. CId={}", clientId);
             }
         }
         // Authenticate the client
         if (!proxyService.getProxyConfig().isMqttAuthenticationEnabled()) {
-            log.info("Authentication is disabled, allowing client. CId={}, username={}", clientId, payload.userName());
+            log.info("Proxy authentication is disabled, allowing client. CId={}, username={}",
+                    clientId, payload.userName());
         } else {
             boolean authenticated = false;
             for (Map.Entry<String, AuthenticationProvider> entry : proxyService.getAuthProviders().entrySet()) {
@@ -102,7 +103,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                     authenticated = true;
                     break;
                 } catch (AuthenticationException e) {
-                    log.info("Authentication failed with method: {}. CId={}, username={}",
+                    log.info("Proxy authentication failed with method: {}. CId={}, username={}",
                              entry.getKey(), clientId, payload.userName());
                 }
             }
@@ -124,7 +125,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processPubAck(Channel channel, MqttPubAckMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("processPubAck...");
+            log.debug("[Proxy PubAck] [{}]", NettyUtils.retrieveClientId(channel));
         }
     }
 
@@ -132,7 +133,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processPublish(Channel channel, MqttPublishMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy Publish] [{}] handle processPublish", msg.variableHeader().topicName());
+            log.debug("[Proxy Publish] publish to topic = {}, CId={}",
+                    msg.variableHeader().topicName(), NettyUtils.retrieveClientId(channel));
         }
         String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
@@ -141,8 +143,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                 TopicName.get(pulsarTopicName));
         lookupResult.whenComplete((pair, throwable) -> {
             if (null != throwable) {
-                log.error("[Proxy Publish] Failed to perform lookup request for topic {}",
-                        msg.variableHeader().topicName(), throwable);
+                log.error("[Proxy Publish] Failed to perform lookup request for topic : {}, CId : {}",
+                        msg.variableHeader().topicName(), NettyUtils.retrieveClientId(channel), throwable);
                 channel.close();
                 return;
             }
@@ -153,28 +155,28 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processPubRel(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("processPubRel...");
+            log.debug("[Proxy PubRel] [{}]", NettyUtils.retrieveClientId(channel));
         }
     }
 
     @Override
     public void processPubRec(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("processPubRec...");
+            log.debug("[Proxy PubRec] [{}]", NettyUtils.retrieveClientId(channel));
         }
     }
 
     @Override
     public void processPubComp(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("processPubComp...");
+            log.debug("[Proxy PubComp] [{}]", NettyUtils.retrieveClientId(channel));
         }
     }
 
     @Override
     public void processDisconnect(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Disconnect] [{}] ", channel);
+            log.debug("[Proxy Disconnect] [{}] ", NettyUtils.retrieveClientId(channel));
         }
         channel.close();
         proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
@@ -187,14 +189,14 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processConnectionLost(Channel channel) {
         if (log.isDebugEnabled()) {
-            log.debug("[Connection Lost] channel [{}] ", channel);
+            log.debug("[Proxy Connection Lost] [{}] ", NettyUtils.retrieveClientId(channel));
         }
     }
 
     @Override
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy Subscribe] [{}] msg: {}", channel, msg);
+            log.debug("[Proxy Subscribe] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
         }
         CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg,
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
@@ -216,7 +218,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             }
             return FutureUtil.waitForAll(futures);
         }).exceptionally(ex -> {
-            log.error("[Proxy Subscribe] Failed to process subscribe for {}", channel, ex);
+            log.error("[Proxy Subscribe] Failed to process subscribe for {}", NettyUtils.retrieveClientId(channel), ex);
             channel.close();
             return null;
         });
@@ -225,7 +227,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("processUnSubscribe...");
+            log.debug("[Proxy UnSubscribe] [{}]", NettyUtils.retrieveClientId(channel));
         }
         List<String> topics = msg.payload().topics();
         for (String topic : topics) {
@@ -244,7 +246,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void notifyChannelWritable(Channel channel) {
         if (log.isDebugEnabled()) {
-            log.debug("notifyChannelWritable...");
+            log.debug("Proxy ChannelWritable [{}]", NettyUtils.retrieveClientId(channel));
         }
         channel.flush();
     }
@@ -252,7 +254,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         if (log.isDebugEnabled()) {
-            log.debug("channelActive...");
+            log.debug("[Proxy channelActive] [{}]", NettyUtils.retrieveClientId(ctx.channel()));
         }
     }
 
@@ -260,8 +262,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         CompletableFuture<MQTTProxyExchanger> proxyExchanger = createProxyExchanger(topic, pair);
         proxyExchanger.whenComplete((exchanger, error) -> {
             if (error != null) {
-                log.error("[{}] MoP proxy failed to connect with MoP broker({}).",
-                        msg.fixedHeader().messageType(), pair, error);
+                log.error("[{}] [{}] MoP proxy failed to connect with MoP broker({}).",
+                        NettyUtils.retrieveClientId(channel), msg.fixedHeader().messageType(), pair, error);
                 channel.close();
                 return;
             }
