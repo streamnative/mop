@@ -20,9 +20,15 @@ import java.io.FileInputStream;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
+import org.apache.pulsar.common.naming.NamespaceName;
+import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.Message;
@@ -46,8 +52,8 @@ public class ProxyTLSTest extends MQTTTestBase {
         return mqtt;
     }
 
-    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
-    public void testConnectionUsingTLS(String topicName) throws Exception {
+    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT, priority = 3)
+    public void testSendAndConsumeUsingTLS(String topicName) throws Exception {
         MQTT mqtt = createMQTTProxyTlsClient();
         File crtFile = new File(TLS_SERVER_CERT_FILE_PATH);
         Certificate certificate = CertificateFactory
@@ -74,8 +80,8 @@ public class ProxyTLSTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
-    public void testConnection(String topicName) throws Exception {
+    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT, priority = 2)
+    public void testSendAndConsume(String topicName) throws Exception {
         MQTT mqtt = createMQTTProxyClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
@@ -88,5 +94,49 @@ public class ProxyTLSTest extends MQTTTestBase {
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
+    }
+
+    @Test(dataProvider = "mqttTopicNameAndFilter", timeOut = 20000, priority = 1)
+    @SneakyThrows
+    public void testSendAndConsumeWithFilter(String topic, String filter) {
+        MQTT mqtt0 = createMQTTProxyTlsClient();
+        // Set cert and keystore
+        File crtFile = new File(TLS_SERVER_CERT_FILE_PATH);
+        Certificate certificate = CertificateFactory
+                .getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(null, null);
+        keyStore.setCertificateEntry("server", certificate);
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory
+                .getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        trustManagerFactory.init(keyStore);
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+        mqtt0.setSslContext(sslContext);
+        //
+        BlockingConnection connection0 = mqtt0.blockingConnection();
+        connection0.connect();
+        Topic[] topics = { new Topic(filter, QoS.AT_MOST_ONCE) };
+        String message = "Hello MQTT Proxy";
+        MQTT mqtt1 = createMQTTProxyTlsClient();
+        mqtt1.setSslContext(sslContext);
+        BlockingConnection connection1 = mqtt1.blockingConnection();
+        connection1.connect();
+        connection1.publish(topic, message.getBytes(), QoS.AT_MOST_ONCE, false);
+        // wait for the publish topic has been stored
+        Awaitility.await().untilAsserted(() -> {
+            CompletableFuture<List<String>> listOfTopics = pulsarServiceList.get(0).getNamespaceService()
+                    .getListOfTopics(NamespaceName.get("public/default"), CommandGetTopicsOfNamespace.Mode.PERSISTENT);
+            Assert.assertTrue(listOfTopics.join().size() >= 1);
+        });
+        connection0.subscribe(topics);
+        connection1.publish(topic, message.getBytes(), QoS.AT_MOST_ONCE, false);
+        Message received = connection0.receive();
+        Assert.assertTrue(new TopicFilterImpl(filter).test(received.getTopic()));
+        Assert.assertEquals(new String(received.getPayload()), message);
+
+        connection1.disconnect();
+        connection0.disconnect();
+        pulsarServiceList.get(0).getBrokerService().forEachTopic(t -> t.delete().join());
     }
 }
