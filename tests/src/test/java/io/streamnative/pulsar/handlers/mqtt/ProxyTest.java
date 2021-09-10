@@ -17,7 +17,13 @@ package io.streamnative.pulsar.handlers.mqtt;
 import static org.mockito.Mockito.verify;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.io.EOFException;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import lombok.SneakyThrows;
+import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
+import org.apache.pulsar.common.naming.NamespaceName;
+import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.Message;
@@ -41,7 +47,7 @@ public class ProxyTest extends MQTTTestBase {
         return mqtt;
     }
 
-    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
+    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT, priority = 4)
     public void testSendAndConsume(String topicName) throws Exception {
         MQTT mqtt = createMQTTProxyClient();
         BlockingConnection connection = mqtt.blockingConnection();
@@ -55,9 +61,10 @@ public class ProxyTest extends MQTTTestBase {
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
+        pulsarServiceList.get(0).getBrokerService().forEachTopic(t -> t.delete().join());
     }
 
-    @Test(expectedExceptions = {EOFException.class, IllegalStateException.class})
+    @Test(expectedExceptions = {EOFException.class, IllegalStateException.class}, priority = 3)
     public void testInvalidClientId() throws Exception {
         MQTT mqtt = createMQTTProxyClient();
         mqtt.setConnectAttemptsMax(1);
@@ -68,7 +75,7 @@ public class ProxyTest extends MQTTTestBase {
         verify(connection, Mockito.times(2)).connect();
     }
 
-    @Test
+    @Test(timeOut = TIMEOUT, priority = 2)
     public void testSendAndConsumeAcrossProxy() throws Exception {
         int numMessage = 3;
         String topicName = "a/b/c";
@@ -107,6 +114,34 @@ public class ProxyTest extends MQTTTestBase {
 
         connection3.disconnect();
         connection2.disconnect();
+        connection1.disconnect();
+        connection0.disconnect();
+    }
+
+    @Test(dataProvider = "mqttTopicNameAndFilter", timeOut = 30000, priority = 1)
+    @SneakyThrows
+    public void testSendAndConsumeWithFilter(String topic, String filter) {
+        MQTT mqtt0 = createMQTTProxyClient();
+        BlockingConnection connection0 = mqtt0.blockingConnection();
+        connection0.connect();
+        Topic[] topics = { new Topic(filter, QoS.AT_MOST_ONCE) };
+        String message = "Hello MQTT Proxy";
+        MQTT mqtt1 = createMQTTProxyClient();
+        BlockingConnection connection1 = mqtt1.blockingConnection();
+        connection1.connect();
+        connection1.publish(topic, message.getBytes(), QoS.AT_MOST_ONCE, false);
+        // wait for the publish topic has been stored
+        Awaitility.await().untilAsserted(() -> {
+                    CompletableFuture<List<String>> listOfTopics = pulsarServiceList.get(0).getNamespaceService()
+                    .getListOfTopics(NamespaceName.get("public/default"), CommandGetTopicsOfNamespace.Mode.PERSISTENT);
+                    Assert.assertTrue(listOfTopics.join().size() >= 1);
+        });
+        connection0.subscribe(topics);
+        connection1.publish(topic, message.getBytes(), QoS.AT_MOST_ONCE, false);
+        Message received = connection0.receive();
+        Assert.assertTrue(new TopicFilterImpl(filter).test(received.getTopic()));
+        Assert.assertEquals(new String(received.getPayload()), message);
+
         connection1.disconnect();
         connection0.disconnect();
     }
