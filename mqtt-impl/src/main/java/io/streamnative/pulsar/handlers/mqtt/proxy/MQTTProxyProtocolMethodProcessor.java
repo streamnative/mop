@@ -58,7 +58,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     private final PulsarService pulsarService;
 
     private final Map<String, CompletableFuture<MQTTProxyExchanger>> proxyExchangerMap;
-    private final List<MqttConnectMessage> connectMsgList;
     // Map sequence Id -> topic count
     private final ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId;
 
@@ -69,7 +68,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         this.lookupHandler = proxyService.getLookupHandler();
         this.proxyConfig = proxyService.getProxyConfig();
         this.proxyExchangerMap = new ConcurrentHashMap<>();
-        this.connectMsgList = new ArrayList<>();
         this.topicCountForSequenceId = new ConcurrentHashMap<>();
     }
 
@@ -117,7 +115,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }
 
         NettyUtils.attachClientID(channel, clientId);
-        connectMsgList.add(connectMessage);
+        NettyUtils.attachConnectMsg(channel, connectMessage);
         MqttConnAckMessage ackMessage = MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED);
         channel.writeAndFlush(ackMessage);
     }
@@ -281,7 +279,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         return proxyExchangerMap.computeIfAbsent(topic, key -> {
             CompletableFuture<MQTTProxyExchanger> future = new CompletableFuture<>();
             try {
-                MQTTProxyExchanger exchanger = new MQTTProxyExchanger(this, mqttBroker, connectMsgList);
+                MQTTProxyExchanger exchanger = new MQTTProxyExchanger(this, mqttBroker);
                 exchanger.connectedAck().thenAccept(__ -> future.complete(exchanger));
             } catch (Exception ex) {
                 future.completeExceptionally(ex);
