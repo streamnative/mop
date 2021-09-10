@@ -131,7 +131,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
         // Authenticate the client
         if (!configuration.isMqttAuthenticationEnabled()) {
-            log.warn("Authentication is disabled, allowing client. CId={}, username={}", clientId, username);
+            log.info("Authentication is disabled, allowing client. CId={}, username={}", clientId, username);
         } else {
             boolean authenticated = false;
             for (Map.Entry<String, AuthenticationProvider> entry : this.authProviders.entrySet()) {
