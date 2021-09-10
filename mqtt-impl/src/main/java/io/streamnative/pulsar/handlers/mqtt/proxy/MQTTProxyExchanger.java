@@ -29,7 +29,8 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.timeout.IdleStateHandler;
-import java.util.List;
+import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -43,14 +44,12 @@ public class MQTTProxyExchanger {
     private MQTTProxyProtocolMethodProcessor processor;
 
     private Channel brokerChannel;
-    private List<MqttConnectMessage> connectMsgList;
     private CompletableFuture<Void> brokerConnected = new CompletableFuture<>();
     private CompletableFuture<Void> brokerConnectedAck = new CompletableFuture<>();
 
-    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, Pair<String, Integer> brokerHostAndPort,
-                       List<MqttConnectMessage> connectMsgList) throws Exception {
+    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor,
+                       Pair<String, Integer> brokerHostAndPort) throws Exception {
         this.processor = processor;
-        this.connectMsgList = connectMsgList;
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(processor.clientChannel().eventLoop())
                 .channel(processor.clientChannel().getClass())
@@ -80,9 +79,9 @@ public class MQTTProxyExchanger {
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             super.channelActive(ctx);
-            for (MqttConnectMessage msg : connectMsgList) {
-                brokerChannel.writeAndFlush(msg);
-            }
+            Optional<MqttConnectMessage> connectMessage = NettyUtils.retrieveAndRemoveConnectMsg(
+                    processor.clientChannel());
+            connectMessage.map(msg -> ctx.writeAndFlush(msg));
         }
 
         @Override
