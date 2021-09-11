@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -50,4 +51,8 @@ public interface ProtocolMethodProcessor {
     void notifyChannelWritable(Channel channel);
 
     void channelActive(ChannelHandlerContext ctx);
+
+    default void processPingReq(Channel channel) {
+        channel.writeAndFlush(pingResp());
+    }
 }
