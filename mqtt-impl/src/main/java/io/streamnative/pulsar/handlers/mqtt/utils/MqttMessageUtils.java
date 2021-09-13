@@ -58,6 +58,11 @@ public class MqttMessageUtils {
                 MqttMessageIdVariableHeader.from(packetId));
     }
 
+    public static MqttMessage pingResp() {
+        MqttFixedHeader pingHeader = new MqttFixedHeader(MqttMessageType.PINGRESP, false, AT_MOST_ONCE, false, 0);
+        return new MqttMessage(pingHeader);
+    }
+
     public static String createClientIdentifier(Channel channel) {
         String clientIdentifier;
         if (channel != null && channel.remoteAddress() instanceof InetSocketAddress) {
