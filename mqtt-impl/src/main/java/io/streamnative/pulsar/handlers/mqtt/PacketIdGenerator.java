@@ -18,6 +18,8 @@ package io.streamnative.pulsar.handlers.mqtt;
  */
 public interface PacketIdGenerator {
 
+    int MAX_MESSAGE_IN_FLIGHT = 65535;
+
     static PacketIdGenerator newNonZeroGenerator() {
         return new NonZeroPackedIdGenerator();
     }
@@ -26,7 +28,7 @@ public interface PacketIdGenerator {
      * Get next packet ID.
      * @return packet ID.
      */
-    int nextPackedId();
+    int nextPacketId();
 
     /**
      * Non zero packet ID generator implementation.
@@ -35,12 +37,12 @@ public interface PacketIdGenerator {
 
         private int lastPacketId;
 
-        public synchronized int nextPackedId() {
-            final int val = ++lastPacketId;
-            if (val > 65535) {
+        public synchronized int nextPacketId() {
+            final int nextPacketId = ++lastPacketId;
+            if (nextPacketId >= MAX_MESSAGE_IN_FLIGHT) {
                 lastPacketId = 0;
             }
-            return val != 0 ? val : ++lastPacketId;
+            return nextPacketId;
         }
     }
 }
