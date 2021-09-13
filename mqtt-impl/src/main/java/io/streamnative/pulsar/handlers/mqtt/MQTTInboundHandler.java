@@ -14,13 +14,11 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
-import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
@@ -87,14 +85,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                     processor.processPubAck(ctx.channel(), (MqttPubAckMessage) msg);
                     break;
                 case PINGREQ:
-                    MqttFixedHeader pingHeader = new MqttFixedHeader(
-                            MqttMessageType.PINGRESP,
-                            false,
-                            AT_MOST_ONCE,
-                            false,
-                            0);
-                    MqttMessage pingResp = new MqttMessage(pingHeader);
-                    ctx.writeAndFlush(pingResp);
+                    processor.processPingReq(ctx.channel());
                     break;
                 default:
                     log.error("Unknown MessageType:{}", messageType);
