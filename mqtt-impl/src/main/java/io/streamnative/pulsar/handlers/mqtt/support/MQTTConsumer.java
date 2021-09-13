@@ -80,7 +80,7 @@ public class MQTTConsumer extends Consumer {
         for (Entry entry : entries) {
             int packetId = 0;
             if (MqttQoS.AT_MOST_ONCE != qos) {
-                packetId = packetIdGenerator.nextPackedId();
+                packetId = packetIdGenerator.nextPacketId();
                 outstandingPacketContainer.add(new OutstandingPacket(this, packetId, entry.getLedgerId(),
                         entry.getEntryId()));
             }
