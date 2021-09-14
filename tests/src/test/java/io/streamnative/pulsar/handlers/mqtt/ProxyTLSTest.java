@@ -45,7 +45,7 @@ public class ProxyTLSTest extends MQTTTestBase {
         MQTTServerConfiguration mqtt = super.initConfig();
 
         mqtt.setMqttProxyEnable(true);
-        mqtt.setTlsEnabledInProxy(true);
+        mqtt.setMqttProxyTlsEnabled(true);
         mqtt.setTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
         mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
 

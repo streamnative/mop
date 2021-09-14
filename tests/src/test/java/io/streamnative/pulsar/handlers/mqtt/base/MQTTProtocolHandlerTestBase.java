@@ -268,7 +268,7 @@ public abstract class MQTTProtocolHandlerTestBase {
             mqttProxyPort = PortManager.nextFreePort();
             conf.setMqttProxyPort(mqttProxyPort);
             mqttProxyPortList.add(mqttProxyPort);
-            if (conf.isTlsEnabledInProxy()) {
+            if (conf.isMqttProxyTlsEnabled()) {
                 int mqttProxyTlsPort = PortManager.nextFreePort();
                 conf.setMqttProxyTlsPort(mqttProxyTlsPort);
                 mqttProxyPortTlsList.add(mqttProxyTlsPort);
