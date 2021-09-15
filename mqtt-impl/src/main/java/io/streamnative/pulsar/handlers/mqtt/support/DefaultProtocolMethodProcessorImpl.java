@@ -19,7 +19,6 @@ import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.Connecti
 import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SUBSCRIPTIONS_REMOVED;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
@@ -38,7 +37,6 @@ import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttVersion;
-import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
@@ -172,7 +170,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             return;
         }
 
-        initializeKeepAliveTimeout(channel, msg, clientId);
+        NettyUtils.attachClientID(channel, clientId);
+        NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
 
         if (!sendAck(descriptor, MqttConnectReturnCode.CONNECTION_ACCEPTED, clientId)) {
             channel.close();
@@ -422,29 +421,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         serverCnx = new MQTTServerCnx(pulsarService, ctx);
-    }
-
-    private void initializeKeepAliveTimeout(Channel channel, MqttConnectMessage msg, final String clientId) {
-        int keepAlive = msg.variableHeader().keepAliveTimeSeconds();
-        if (log.isDebugEnabled()) {
-            log.debug("Configuring connection. CId={}", clientId);
-        }
-        NettyUtils.keepAlive(channel, keepAlive);
-        NettyUtils.cleanSession(channel, msg.variableHeader().isCleanSession());
-        NettyUtils.attachClientID(channel, clientId);
-        int idleTime = Math.round(keepAlive * 1.5f);
-        setIdleTime(channel.pipeline(), idleTime);
-        if (log.isDebugEnabled()) {
-            log.debug("The connection has been configured CId={}, keepAlive={}, cleanSession={}, idleTime={}",
-                    clientId, keepAlive, msg.variableHeader().isCleanSession(), idleTime);
-        }
-    }
-
-    private void setIdleTime(ChannelPipeline pipeline, int idleTime) {
-        if (pipeline.names().contains("idleStateHandler")) {
-            pipeline.remove("idleStateHandler");
-        }
-        pipeline.addFirst("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
     }
 
     private boolean sendAck(ConnectionDescriptor descriptor, MqttConnectReturnCode returnCode, final String clientId) {

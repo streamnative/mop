@@ -25,6 +25,8 @@ import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
+import io.netty.handler.timeout.IdleState;
+import io.netty.handler.timeout.IdleStateEvent;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -118,6 +120,17 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                 NettyUtils.retrieveClientId(ctx.channel()),
                 cause);
         ctx.close();
+    }
+
+    public void userEventTriggered(ChannelHandlerContext ctx, Object event) throws Exception {
+        if (event instanceof IdleStateEvent) {
+            IdleStateEvent e = (IdleStateEvent) event;
+            if (e.state() == IdleState.READER_IDLE) {
+                log.warn("close channel : {} due to reached read idle time",
+                        NettyUtils.retrieveClientId(ctx.channel()));
+                ctx.close();
+            }
+        }
     }
 
     @Override
