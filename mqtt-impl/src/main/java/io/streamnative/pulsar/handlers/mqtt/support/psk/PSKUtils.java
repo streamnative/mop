@@ -24,9 +24,8 @@ public class PSKUtils {
 
     public static List<PSKSecretKey> parse(File file) {
         List<PSKSecretKey> result = new LinkedList<>();
-        try {
-            BufferedReader reader = new BufferedReader(new FileReader(file));
-            String line;
+        String line;
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             while ((line = reader.readLine()) != null) {
                 result.addAll(parse(line));
             }
