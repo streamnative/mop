@@ -122,6 +122,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
         ctx.close();
     }
 
+    @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object event) throws Exception {
         if (event instanceof IdleStateEvent) {
             IdleStateEvent e = (IdleStateEvent) event;
@@ -130,6 +131,8 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                         NettyUtils.retrieveClientId(ctx.channel()));
                 ctx.close();
             }
+        } else {
+            super.userEventTriggered(ctx, event);
         }
     }
 
