@@ -16,7 +16,8 @@ package io.streamnative.pulsar.handlers.mqtt.support.psk;
 import com.google.common.base.Splitter;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -25,7 +26,7 @@ public class PSKUtils {
     public static List<PSKSecretKey> parse(File file) {
         List<PSKSecretKey> result = new LinkedList<>();
         String line;
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"))) {
             while ((line = reader.readLine()) != null) {
                 result.addAll(parse(line));
             }
