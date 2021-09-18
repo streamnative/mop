@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,7 +31,7 @@ public class PSKUtils {
             while ((line = reader.readLine()) != null) {
                 result.addAll(parse(line));
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
         return result;
