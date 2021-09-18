@@ -15,12 +15,21 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static org.mockito.Mockito.verify;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.psk.PSKClient;
 import java.io.EOFException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.awaitility.Awaitility;
@@ -36,6 +45,7 @@ import org.testng.annotations.Test;
 /**
  * Integration tests for MQTT protocol handler with proxy.
  */
+@Slf4j
 public class ProxyTest extends MQTTTestBase {
 
     @Override
@@ -43,7 +53,9 @@ public class ProxyTest extends MQTTTestBase {
         MQTTServerConfiguration mqtt = super.initConfig();
 
         mqtt.setMqttProxyEnable(true);
-
+        mqtt.setMqttProxyTlsPskEnabled(true);
+        mqtt.setTlsPskIdentityHint("alpha");
+        mqtt.setTlsPskIdentity("mqtt:mqtt123");
         return mqtt;
     }
 
@@ -144,5 +156,23 @@ public class ProxyTest extends MQTTTestBase {
 
         connection1.disconnect();
         connection0.disconnect();
+    }
+
+    @Test
+    @SneakyThrows
+    public void testTlsPsk() {
+        Bootstrap client = new Bootstrap();
+        EventLoopGroup group = new NioEventLoopGroup();
+        client.group(group);
+        client.channel(NioSocketChannel.class);
+        client.handler(new PSKClient("alpha", "mqtt", "mqtt123"));
+        AtomicBoolean connected = new AtomicBoolean(false);
+        CountDownLatch latch = new CountDownLatch(1);
+        client.connect("localhost", mqttProxyPortTlsPskList.get(0)).addListener((ChannelFutureListener) future -> {
+            connected.set(future.isSuccess());
+            latch.countDown();
+        });
+        latch.await();
+        Assert.assertTrue(connected.get());
     }
 }

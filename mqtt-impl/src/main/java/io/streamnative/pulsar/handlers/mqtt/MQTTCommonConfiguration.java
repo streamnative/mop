@@ -37,6 +37,8 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     @Category
     public static final String CATEGORY_TLS = "TLS";
     @Category
+    public static final String CATEGORY_TLS_PSK = "TLS-PSK";
+    @Category
     public static final String CATEGORY_KEYSTORE_TLS = "KeyStoreTLS";
 
     @FieldContext(
@@ -104,6 +106,13 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
             required = false,
+            doc = "The mqtt proxy tls psk port"
+    )
+    private int mqttProxyTlsPskPort = 5684;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
             doc = "Whether start mqtt protocol handler with proxy"
     )
     private boolean mqttProxyEnable = false;
@@ -114,6 +123,13 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "Whether start mqtt protocol handler with proxy tls"
     )
     private boolean mqttProxyTlsEnabled = false;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
+            doc = "Whether start mqtt protocol handler with proxy tls psk"
+    )
+    private boolean mqttProxyTlsPskEnabled = false;
 
     @FieldContext(
             category = CATEGORY_TLS,
@@ -220,4 +236,22 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "TLS TrustStore password for proxy"
     )
     private String tlsTrustStorePassword = null;
+
+    @FieldContext(
+            category = CATEGORY_TLS_PSK,
+            doc = "TLS psk identity hint"
+    )
+    private String tlsPskIdentityHint = null;
+
+    @FieldContext(
+            category = CATEGORY_TLS_PSK,
+            doc = "TLS psk identity file"
+    )
+    private String tlsPskIdentityFile = null;
+
+    @FieldContext(
+            category = CATEGORY_TLS_PSK,
+            doc = "TLS psk identity with plain text"
+    )
+    private String tlsPskIdentity = null;
 }

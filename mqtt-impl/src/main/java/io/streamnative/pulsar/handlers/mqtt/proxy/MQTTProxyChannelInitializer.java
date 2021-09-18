@@ -21,6 +21,8 @@ import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKEngineFactory;
 import lombok.Getter;
 import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
 import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
@@ -36,16 +38,24 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
     private final MQTTProxyConfiguration proxyConfig;
 
     private final boolean enableTls;
+    private final boolean enableTlsPsk;
     private final boolean tlsEnabledWithKeyStore;
 
     private SslContextAutoRefreshBuilder<SslContext> serverSslCtxRefresher;
     private NettySSLContextAutoRefreshBuilder serverSSLContextAutoRefreshBuilder;
+    private PSKConfiguration pskConfiguration;
 
     public MQTTProxyChannelInitializer(MQTTProxyService proxyService, MQTTProxyConfiguration proxyConfig,
                                        boolean enableTls) {
+        this(proxyService, proxyConfig, enableTls, false);
+    }
+
+    public MQTTProxyChannelInitializer(MQTTProxyService proxyService, MQTTProxyConfiguration proxyConfig,
+                                       boolean enableTls, boolean enableTlsPsk) {
         this.proxyService = proxyService;
         this.proxyConfig = proxyConfig;
         this.enableTls = enableTls;
+        this.enableTlsPsk = enableTlsPsk;
         this.tlsEnabledWithKeyStore = proxyConfig.isTlsEnabledWithKeyStore();
         if (this.enableTls) {
             if (tlsEnabledWithKeyStore) {
@@ -73,6 +83,13 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
                         proxyConfig.isTlsRequireTrustedClientCertOnConnect(),
                         proxyConfig.getTlsCertRefreshCheckDurationSec());
             }
+        } else if (this.enableTlsPsk) {
+            pskConfiguration = new PSKConfiguration();
+            pskConfiguration.setIdentityHint(proxyConfig.getTlsPskIdentityHint());
+            pskConfiguration.setIdentity(proxyConfig.getTlsPskIdentity());
+            pskConfiguration.setIdentityFile(proxyConfig.getTlsPskIdentityFile());
+            pskConfiguration.setProtocols(proxyConfig.getTlsProtocols());
+            pskConfiguration.setCiphers(proxyConfig.getTlsCiphers());
         } else {
             this.serverSslCtxRefresher = null;
         }
@@ -91,6 +108,9 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
                 ch.pipeline().addLast(TLS_HANDLER,
                         new SslHandler(serverSSLContextAutoRefreshBuilder.get().createSSLEngine()));
             }
+        } else if (this.enableTlsPsk) {
+            ch.pipeline().addLast(TLS_HANDLER,
+                    new SslHandler(PSKEngineFactory.createServerEngine(ch, pskConfiguration)));
         }
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
