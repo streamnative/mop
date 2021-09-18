@@ -116,6 +116,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
         NettyUtils.attachClientID(channel, clientId);
         NettyUtils.attachConnectMsg(channel, connectMessage);
+        NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
+
         MqttConnAckMessage ackMessage = MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED);
         channel.writeAndFlush(ackMessage);
     }
@@ -289,7 +291,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     }
 
     public Channel clientChannel() {
-        return proxyHandler.getCnx().channel();
+        return proxyHandler.getCtx().channel();
     }
 
     public boolean increaseSubscribeTopicsCount(int seq, int count) {
