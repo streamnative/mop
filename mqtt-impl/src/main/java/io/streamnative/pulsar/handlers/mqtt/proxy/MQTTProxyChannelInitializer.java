@@ -22,7 +22,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKEngineFactory;
+import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
 import lombok.Getter;
 import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
 import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
@@ -109,8 +109,7 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
                         new SslHandler(serverSSLContextAutoRefreshBuilder.get().createSSLEngine()));
             }
         } else if (this.enableTlsPsk) {
-            ch.pipeline().addLast(TLS_HANDLER,
-                    new SslHandler(PSKEngineFactory.createServerEngine(ch, pskConfiguration)));
+            ch.pipeline().addLast(TLS_HANDLER, new SslHandler(PSKUtils.createServerEngine(ch, pskConfiguration)));
         }
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);

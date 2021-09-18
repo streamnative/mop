@@ -22,8 +22,8 @@ import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKEngineFactory;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKSecretKey;
+import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -50,7 +50,7 @@ public class PSKClient extends ChannelInitializer<SocketChannel> {
         PSKSecretKey pskSecretKey = new PSKSecretKey(identity, pwd);
         pskSecretKey.setHint(hint);
         pskConfiguration.setSecretKey(pskSecretKey);
-        ch.pipeline().addLast(TLS_HANDLER, new SslHandler(PSKEngineFactory.createClientEngine(ch, pskConfiguration)));
+        ch.pipeline().addLast(TLS_HANDLER, new SslHandler(PSKUtils.createClientEngine(ch, pskConfiguration)));
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
         ch.pipeline().addLast("handler", new PSKInboundHandler());

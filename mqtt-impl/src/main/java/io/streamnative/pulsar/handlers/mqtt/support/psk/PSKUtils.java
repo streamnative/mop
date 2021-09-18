@@ -14,6 +14,10 @@
 package io.streamnative.pulsar.handlers.mqtt.support.psk;
 
 import com.google.common.base.Splitter;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -21,8 +25,37 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.LinkedList;
 import java.util.List;
+import javax.net.ssl.SSLEngine;
+import org.conscrypt.OpenSSLProvider;
 
 public class PSKUtils {
+
+    public static SSLEngine createServerEngine(SocketChannel ch, PSKConfiguration pskConfig) throws Exception{
+        SslContext sslContext = SslContextBuilder.forServer(new PSKServerKeyManager(pskConfig))
+                .sslProvider(SslProvider.JDK)
+                .sslContextProvider(new OpenSSLProvider())
+                .applicationProtocolConfig(pskConfig.getProtocolConfig())
+                .protocols(pskConfig.getProtocols())
+                .ciphers(pskConfig.getCiphers())
+                .build();
+        SSLEngine sslEngine = sslContext.newEngine(ch.alloc());
+        sslEngine.setUseClientMode(false);
+        return sslEngine;
+    }
+
+    public static SSLEngine createClientEngine(SocketChannel ch, PSKConfiguration pskConfig) throws Exception {
+        SslContext sslContext = SslContextBuilder.forClient()
+                .keyManager(new PSKClientKeyManager(pskConfig.getSecretKey()))
+                .sslProvider(SslProvider.JDK)
+                .sslContextProvider(new OpenSSLProvider())
+                .applicationProtocolConfig(pskConfig.getProtocolConfig())
+                .protocols(pskConfig.getProtocols())
+                .ciphers(pskConfig.getCiphers())
+                .build();
+        SSLEngine sslEngine = sslContext.newEngine(ch.alloc());
+        sslEngine.setUseClientMode(true);
+        return sslEngine;
+    }
 
     public static List<PSKSecretKey> parse(File file) {
         List<PSKSecretKey> result = new LinkedList<>();
@@ -32,7 +65,7 @@ public class PSKUtils {
                 result.addAll(parse(line));
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new IllegalArgumentException(e);
         }
         return result;
     }
