@@ -13,14 +13,12 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLEAN_SESSION;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ID;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECT_MSG;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_KEEP_ALIVE;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
-import io.netty.util.Attribute;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
 import java.util.Optional;
 
@@ -31,28 +29,9 @@ public final class NettyUtils {
 
     public static final String ATTR_USERNAME = "username";
 
-    private static final AttributeKey<Object> ATTR_KEY_KEEPALIVE = AttributeKey.valueOf(ATTR_KEEP_ALIVE);
-    private static final AttributeKey<Object> ATTR_KEY_CLEAN_SESSION = AttributeKey.valueOf(ATTR_CLEAN_SESSION);
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ID = AttributeKey.valueOf(ATTR_CLIENT_ID);
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
     private static final AttributeKey<Object> ATTR_KEY_CONNECT_MSG = AttributeKey.valueOf(ATTR_CONNECT_MSG);
-
-    public static Object getAttribute(ChannelHandlerContext ctx, AttributeKey<Object> key) {
-        Attribute<Object> attr = ctx.channel().attr(key);
-        return attr.get();
-    }
-
-    public static void keepAlive(Channel channel, int keepAlive) {
-        channel.attr(NettyUtils.ATTR_KEY_KEEPALIVE).set(keepAlive);
-    }
-
-    public static void cleanSession(Channel channel, boolean cleanSession) {
-        channel.attr(NettyUtils.ATTR_KEY_CLEAN_SESSION).set(cleanSession);
-    }
-
-    public static boolean cleanSession(Channel channel) {
-        return (Boolean) channel.attr(NettyUtils.ATTR_KEY_CLEAN_SESSION).get();
-    }
 
     public static void attachClientID(Channel channel, String clientId) {
         channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).set(clientId);
@@ -77,6 +56,14 @@ public final class NettyUtils {
 
     public static String userName(Channel channel) {
         return (String) channel.attr(NettyUtils.ATTR_KEY_USERNAME).get();
+    }
+
+    public static void addIdleStateHandler(Channel channel, int idleTime) {
+        ChannelPipeline pipeline = channel.pipeline();
+        if (pipeline.names().contains("idleStateHandler")) {
+            pipeline.remove("idleStateHandler");
+        }
+        pipeline.addFirst("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
     }
 
     private NettyUtils() {

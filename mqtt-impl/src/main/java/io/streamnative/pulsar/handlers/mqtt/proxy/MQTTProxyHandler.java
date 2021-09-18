@@ -24,6 +24,8 @@ import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
+import io.netty.handler.timeout.IdleState;
+import io.netty.handler.timeout.IdleStateEvent;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.Getter;
@@ -38,16 +40,16 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
     private final ProtocolMethodProcessor processor;
 
     @Getter
-    private ChannelHandlerContext cnx;
+    private ChannelHandlerContext ctx;
 
     public MQTTProxyHandler(MQTTProxyService proxyService) {
         this.processor = new MQTTProxyProtocolMethodProcessor(proxyService, this);
     }
 
     @Override
-    public void channelActive(ChannelHandlerContext cnx) throws Exception {
-        super.channelActive(cnx);
-        this.cnx = cnx;
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        super.channelActive(ctx);
+        this.ctx = ctx;
     }
 
     @Override
@@ -123,12 +125,26 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
         ctx.close();
     }
 
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object event) throws Exception {
+        if (event instanceof IdleStateEvent) {
+            IdleStateEvent e = (IdleStateEvent) event;
+            if (e.state() == IdleState.READER_IDLE) {
+                log.warn("close channel : {} due to reached read idle time",
+                        NettyUtils.retrieveClientId(ctx.channel()));
+                ctx.close();
+            }
+        } else {
+            super.userEventTriggered(ctx, event);
+        }
+    }
+
     public void close() {
         if (log.isDebugEnabled()) {
             log.debug("ProxyConnection close.");
         }
-        if (cnx != null) {
-            cnx.close();
+        if (ctx != null) {
+            ctx.close();
         }
     }
 }

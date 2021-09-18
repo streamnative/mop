@@ -84,4 +84,8 @@ public class MqttMessageUtils {
                 origin.willMessageInBytes(), origin.userName(), origin.passwordInBytes());
         return new MqttConnectMessage(msg.fixedHeader(), msg.variableHeader(), payload);
     }
+
+    public static int getKeepAliveTime(MqttConnectMessage msg) {
+        return Math.round(msg.variableHeader().keepAliveTimeSeconds() * 1.5f);
+    }
 }
