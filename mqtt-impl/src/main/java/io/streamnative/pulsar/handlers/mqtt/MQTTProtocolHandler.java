@@ -97,13 +97,13 @@ public class MQTTProtocolHandler implements ProtocolHandler {
 
         if (mqttConfig.isMqttProxyEnable()) {
             MQTTProxyConfiguration proxyConfig = new MQTTProxyConfiguration();
-            proxyConfig.setMqttTenant(mqttConfig.getDefaultTenant());
+            proxyConfig.setDefaultTenant(mqttConfig.getDefaultTenant());
             proxyConfig.setDefaultTopicDomain(mqttConfig.getDefaultTopicDomain());
-            proxyConfig.setMqttMaxNoOfChannels(mqttConfig.getMaxNoOfChannels());
-            proxyConfig.setMqttMaxFrameSize(mqttConfig.getMaxFrameSize());
-            proxyConfig.setMqttHeartBeat(mqttConfig.getHeartBeat());
+            proxyConfig.setMaxNoOfChannels(mqttConfig.getMaxNoOfChannels());
+            proxyConfig.setMaxFrameSize(mqttConfig.getMaxFrameSize());
             proxyConfig.setMqttProxyPort(mqttConfig.getMqttProxyPort());
             proxyConfig.setMqttProxyTlsPort(mqttConfig.getMqttProxyTlsPort());
+            proxyConfig.setMqttProxyTlsEnabled(mqttConfig.isMqttProxyTlsEnabled());
             proxyConfig.setBrokerServiceURL("pulsar://"
                     + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig, true)
                     + ":" + mqttConfig.getBrokerServicePort().get());
@@ -112,7 +112,6 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setBrokerClientAuthenticationPlugin(mqttConfig.getBrokerClientAuthenticationPlugin());
             proxyConfig.setBrokerClientAuthenticationParameters(mqttConfig.getBrokerClientAuthenticationParameters());
 
-            proxyConfig.setTlsEnabledInProxy(mqttConfig.isTlsEnabledInProxy());
             proxyConfig.setTlsCertificateFilePath(mqttConfig.getTlsCertificateFilePath());
             proxyConfig.setTlsCertRefreshCheckDurationSec(mqttConfig.getTlsCertRefreshCheckDurationSec());
             proxyConfig.setTlsProtocols(mqttConfig.getTlsProtocols());

@@ -67,7 +67,7 @@ public class MQTTProxyService implements Closeable {
     private void configValid(MQTTProxyConfiguration proxyConfig) {
         checkNotNull(proxyConfig);
         checkArgument(proxyConfig.getMqttProxyPort() > 0);
-        checkNotNull(proxyConfig.getMqttTenant());
+        checkNotNull(proxyConfig.getDefaultTenant());
         checkNotNull(proxyConfig.getBrokerServiceURL());
     }
 
@@ -85,7 +85,7 @@ public class MQTTProxyService implements Closeable {
             throw new MQTTProxyException(e);
         }
 
-        if (proxyConfig.isTlsEnabledInProxy()) {
+        if (proxyConfig.isMqttProxyTlsEnabled()) {
             ServerBootstrap tlsBootstrap = serverBootstrap.clone();
             tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(this, proxyConfig, true));
             try {

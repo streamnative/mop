@@ -222,7 +222,7 @@ connection.connect();
 ```java
 MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
 mqtt.setMqttProxyEnable(true);
-mqtt.setTlsEnabledInProxy(true);
+mqtt.setMqttProxyTlsEnabled(true);
 mqtt.setTlsCertificateFilePath("server.crt");
 mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
 ...
