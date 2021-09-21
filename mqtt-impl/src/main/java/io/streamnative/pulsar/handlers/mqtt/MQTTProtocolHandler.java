@@ -109,6 +109,8 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setBrokerServiceURL("pulsar://"
                     + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig, true)
                     + ":" + mqttConfig.getBrokerServicePort().get());
+            proxyConfig.setMqttProxyNumAcceptorThreads(mqttConfig.getMqttProxyNumAcceptorThreads());
+            proxyConfig.setMqttProxyNumIOThreads(mqttConfig.getMqttProxyNumIOThreads());
             proxyConfig.setMqttAuthenticationEnabled(mqttConfig.isMqttAuthenticationEnabled());
             proxyConfig.setMqttAuthenticationMethods(mqttConfig.getMqttAuthenticationMethods());
             proxyConfig.setBrokerClientAuthenticationPlugin(mqttConfig.getBrokerClientAuthenticationPlugin());

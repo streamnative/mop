@@ -130,6 +130,21 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "Whether start mqtt protocol handler with proxy tls psk"
     )
     private boolean mqttProxyTlsPskEnabled = false;
+  
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
+            doc = "Number of threads to use for Netty Acceptor. Default is set to `1`"
+    )
+    private int mqttProxyNumAcceptorThreads = 1;
+  
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "Number of threads to use for Netty IO."
+                    + " Default is set to `Runtime.getRuntime().availableProcessors()`"
+    )
+    private int mqttProxyNumIOThreads = Runtime.getRuntime().availableProcessors();
+
 
     @FieldContext(
             category = CATEGORY_TLS,
