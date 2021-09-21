@@ -116,6 +116,18 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     private boolean mqttProxyTlsEnabled = false;
 
     @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "Number of threads to use for Netty Acceptor. Default is set to `1`"
+    )
+    private int mqttProxyNumAcceptorThreads = 1;
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "Number of threads to use for Netty IO."
+                    + " Default is set to `Runtime.getRuntime().availableProcessors()`"
+    )
+    private int mqttProxyNumIOThreads = Runtime.getRuntime().availableProcessors();
+
+    @FieldContext(
             category = CATEGORY_TLS,
             doc = "Tls cert refresh duration in seconds (set 0 to check on every new connection)"
     )

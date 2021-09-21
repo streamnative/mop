@@ -47,7 +47,6 @@ public class MQTTProxyService implements Closeable {
 
     private DefaultThreadFactory acceptorThreadFactory = new DefaultThreadFactory("mqtt-redirect-acceptor");
     private DefaultThreadFactory workerThreadFactory = new DefaultThreadFactory("mqtt-redirect-io");
-    private static final int numThreads = Runtime.getRuntime().availableProcessors();
 
     @Getter
     private Map<String, AuthenticationProvider> authProviders;
@@ -60,8 +59,10 @@ public class MQTTProxyService implements Closeable {
         this.proxyConfig = proxyConfig;
         this.pulsarService = pulsarService;
         this.authProviders = authProviders;
-        acceptorGroup = EventLoopUtil.newEventLoopGroup(1, false, acceptorThreadFactory);
-        workerGroup = EventLoopUtil.newEventLoopGroup(numThreads, false, workerThreadFactory);
+        acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
+                false, acceptorThreadFactory);
+        workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),
+                false, workerThreadFactory);
     }
 
     private void configValid(MQTTProxyConfiguration proxyConfig) {
