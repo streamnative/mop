@@ -42,6 +42,7 @@ public class MQTTProxyService implements Closeable {
 
     private Channel listenChannel;
     private Channel listenChannelTls;
+    private Channel listenChannelTlsPsk;
     private final EventLoopGroup acceptorGroup;
     private final EventLoopGroup workerGroup;
 
@@ -91,7 +92,18 @@ public class MQTTProxyService implements Closeable {
             tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(this, proxyConfig, true));
             try {
                 listenChannelTls = tlsBootstrap.bind(proxyConfig.getMqttProxyTlsPort()).sync().channel();
-                log.info("Started MQTT TLS Proxy on {}", listenChannelTls.localAddress());
+                log.info("Started MQTT Proxy with TLS on {}", listenChannelTls.localAddress());
+            } catch (InterruptedException e) {
+                throw new MQTTProxyException(e);
+            }
+        }
+
+        if (proxyConfig.isMqttProxyTlsPskEnabled()) {
+            ServerBootstrap tlsPskBootstrap = serverBootstrap.clone();
+            tlsPskBootstrap.childHandler(new MQTTProxyChannelInitializer(this, proxyConfig, false, true));
+            try {
+                listenChannelTlsPsk = tlsPskBootstrap.bind(proxyConfig.getMqttProxyTlsPskPort()).sync().channel();
+                log.info("Started MQTT Proxy with TLS-PSK on {}", listenChannelTlsPsk.localAddress());
             } catch (InterruptedException e) {
                 throw new MQTTProxyException(e);
             }
@@ -107,6 +119,9 @@ public class MQTTProxyService implements Closeable {
         }
         if (listenChannelTls != null) {
             listenChannelTls.close();
+        }
+        if (listenChannelTlsPsk != null) {
+            listenChannelTlsPsk.close();
         }
         lookupHandler.close();
         acceptorGroup.shutdownGracefully();
