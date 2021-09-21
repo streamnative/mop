@@ -248,6 +248,24 @@ connection.connect();
 ...
 ```
 
+#### TLS PSK with proxy
+
+1. Config mqtt proxy to load tls psk config.
+```conf
+...
+mqttProxyEnable=true
+mqttProxyTlsPskEnabled=true
+tlsPskIdentityHint=alpha
+// psk identity is semicolon list of identities with identity:serect format        
+tlsPskIdentity=mqtt:mqtt123      
+...
+```
+
+2. As current known mqtt java client does not support TLS-PSK, it's better to verify this by `mosquitto cli`
+```cli
+mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/bcc" -m "hello mqtt"
+```
+
 ## Topic Names & Filters
 
 For Apache Pulsar, The topic name consists of 4 parts:

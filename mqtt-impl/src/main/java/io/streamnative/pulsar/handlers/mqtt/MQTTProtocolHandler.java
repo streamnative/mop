@@ -103,7 +103,9 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setMaxFrameSize(mqttConfig.getMaxFrameSize());
             proxyConfig.setMqttProxyPort(mqttConfig.getMqttProxyPort());
             proxyConfig.setMqttProxyTlsPort(mqttConfig.getMqttProxyTlsPort());
+            proxyConfig.setMqttProxyTlsPskPort(mqttConfig.getMqttProxyTlsPskPort());
             proxyConfig.setMqttProxyTlsEnabled(mqttConfig.isMqttProxyTlsEnabled());
+            proxyConfig.setMqttProxyTlsPskEnabled(mqttConfig.isMqttProxyTlsPskEnabled());
             proxyConfig.setBrokerServiceURL("pulsar://"
                     + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig, true)
                     + ":" + mqttConfig.getBrokerServicePort().get());
@@ -119,6 +121,10 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setTlsProtocols(mqttConfig.getTlsProtocols());
             proxyConfig.setTlsCiphers(mqttConfig.getTlsCiphers());
             proxyConfig.setTlsAllowInsecureConnection(mqttConfig.isTlsAllowInsecureConnection());
+
+            proxyConfig.setTlsPskIdentityHint(mqttConfig.getTlsPskIdentityHint());
+            proxyConfig.setTlsPskIdentity(mqttConfig.getTlsPskIdentity());
+            proxyConfig.setTlsPskIdentityFile(mqttConfig.getTlsPskIdentityFile());
 
             proxyConfig.setTlsTrustStore(mqttConfig.getTlsTrustStore());
             proxyConfig.setTlsTrustCertsFilePath(mqttConfig.getTlsTrustCertsFilePath());

@@ -14,7 +14,13 @@
 
 package io.streamnative.pulsar.handlers.mqtt;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.psk.PSKClient;
 import java.io.File;
 import java.io.FileInputStream;
 import java.security.KeyStore;
@@ -22,6 +28,8 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 import lombok.SneakyThrows;
@@ -48,6 +56,9 @@ public class ProxyTLSTest extends MQTTTestBase {
         mqtt.setMqttProxyTlsEnabled(true);
         mqtt.setTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
         mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
+        mqtt.setMqttProxyTlsPskEnabled(true);
+        mqtt.setTlsPskIdentityHint("alpha");
+        mqtt.setTlsPskIdentity("mqtt:mqtt123");
 
         return mqtt;
     }
@@ -138,5 +149,23 @@ public class ProxyTLSTest extends MQTTTestBase {
         connection1.disconnect();
         connection0.disconnect();
         pulsarServiceList.get(0).getBrokerService().forEachTopic(t -> t.delete().join());
+    }
+
+    @Test(timeOut = TIMEOUT, priority = 4)
+    @SneakyThrows
+    public void testTlsPsk() {
+        Bootstrap client = new Bootstrap();
+        EventLoopGroup group = new NioEventLoopGroup();
+        client.group(group);
+        client.channel(NioSocketChannel.class);
+        client.handler(new PSKClient("alpha", "mqtt", "mqtt123"));
+        AtomicBoolean connected = new AtomicBoolean(false);
+        CountDownLatch latch = new CountDownLatch(1);
+        client.connect("localhost", mqttProxyPortTlsPskList.get(0)).addListener((ChannelFutureListener) future -> {
+            connected.set(future.isSuccess());
+            latch.countDown();
+        });
+        latch.await();
+        Assert.assertTrue(connected.get());
     }
 }
