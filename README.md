@@ -188,18 +188,19 @@ openssl req -new -x509 -nodes -sha256 -days 365 -key server.key -out server.crt
 #### TLS with broker
 
 1. Config mqtt broker to load tls config.
-```java
-MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
-mqtt.setTlsEnabled(true);
-mqtt.setTlsCertificateFilePath("server.crt");
-mqtt.setTlsKeyFilePath("server.key");
+```conf
+...
+tlsEnabled=true
+tlsCertificateFilePath=/xxx/server.crt
+tlsKeyFilePath=/xxx/server.key
 ...
 ```
 
 2. Config client to load tls config.
 ```java
 MQTT mqtt = new MQTT();
-mqtt.setHost(URI.create("ssl://127.0.0.1:8883")); // default tls port
+// default tls port
+mqtt.setHost(URI.create("ssl://127.0.0.1:8883")); 
 File crtFile = new File("server.crt");
 Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
 KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -219,19 +220,20 @@ connection.connect();
 #### TLS with proxy
 
 1. Config mqtt broker to load tls config.
-```java
-MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
-mqtt.setMqttProxyEnable(true);
-mqtt.setMqttProxyTlsEnabled(true);
-mqtt.setTlsCertificateFilePath("server.crt");
-mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
+```conf
+...
+mqttProxyEnable=true
+mqttProxyTlsEnabled=true
+tlsCertificateFilePath=/xxx/server.crt
+tlsKeyFilePath=/xxx/server.key
 ...
 ```
 
 2. Config client to load tls config.
 ```java
 MQTT mqtt = new MQTT();
-mqtt.setHost(URI.create("ssl://127.0.0.1:5683")); // default proxy tls port
+// default proxy tls port
+mqtt.setHost(URI.create("ssl://127.0.0.1:5683")); 
 File crtFile = new File("server.crt");
 Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
 KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -262,7 +264,7 @@ tlsPskIdentity=mqtt:mqtt123
 
 2. As current known mqtt java client does not support TLS-PSK, it's better to verify this by `mosquitto cli`
 ```cli
-mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/bcc" -m "hello mqtt"
+mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt"
 ```
 
 ## Topic Names & Filters
