@@ -251,21 +251,28 @@ connection.connect();
 
 #### TLS PSK with proxy
 
+Please reference [here](https://en.wikipedia.org/wiki/TLS-PSK) to learn more about TLS-PSK.
+
 1. Config mqtt proxy to load tls psk config.
 ```conf
 ...
 mqttProxyEnable=true
 mqttProxyTlsPskEnabled=true
+// default tls psk port
+mqttProxyTlsPskPort=5684
+// any string can be specified
 tlsPskIdentityHint=alpha
-// psk identity is semicolon list of identities with identity:serect format        
+// identity is semicolon list of string with identity:secret format
 tlsPskIdentity=mqtt:mqtt123      
 ...
 ```
 
-2. As current known mqtt java client does not support TLS-PSK, it's better to verify this by `mosquitto cli`
+2. As current known mqtt Java client does not support TLS-PSK, it's better to verify this by `mosquitto cli`
 ```cli
 mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt"
 ```
+- Download [mosquitto](https://mosquitto.org/download/) with Mac version.
+- The secret `mqtt123` is converted to `6d717474313233` using [Hex Code Converter](https://www.rapidtables.com/convert/number/ascii-to-hex.html)
 
 ## Topic Names & Filters
 
