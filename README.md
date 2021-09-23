@@ -263,7 +263,7 @@ mqttProxyTlsPskEnabled=true
 mqttProxyTlsPskPort=5684
 // any string can be specified
 tlsPskIdentityHint=alpha
-// identity is semicolon list of string with identity:serect format
+// identity is semicolon list of string with identity:secret format
 tlsPskIdentity=mqtt:mqtt123      
 ...
 ```
