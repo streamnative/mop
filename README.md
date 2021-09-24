@@ -264,9 +264,16 @@ mqttProxyTlsPskPort=5684
 // any string can be specified
 tlsPskIdentityHint=alpha
 // identity is semicolon list of string with identity:secret format
-tlsPskIdentity=mqtt:mqtt123      
+tlsPskIdentity=mqtt:mqtt123
 ...
 ```
+Optional configs
+
+|  Config key   | Comment  |
+|  :---------:  | -------- |
+|  tlsPskIdentityFile | When you want identities in a single file with many pairs, you can config this. Identities will load from both `tlsPskIdentity` and `tlsPskIdentityFile`  |
+|  tlsProtocols  | TLS PSK protocols, default is [TLSv1.2], and only support TLSv1.2 currently.  |
+|  tlsCiphers | TLS PSK ciphers, default are [TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256, TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA, TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA, TLS_PSK_WITH_AES_128_CBC_SHA, TLS_PSK_WITH_AES_256_CBC_SHA] |
 
 2. As current known mqtt Java client does not support TLS-PSK, it's better to verify this by `mosquitto cli`
 ```cli
