@@ -45,13 +45,13 @@ public class PSKConfiguration {
         defaultApplicationProtocols.add(ApplicationProtocolNames.SPDY_3);
         defaultApplicationProtocols.add(ApplicationProtocolNames.SPDY_3_1);
 
-        defaultCiphers.add("PSK-AES128-CBC-SHA");
+        defaultCiphers.add("TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256");
+        defaultCiphers.add("TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA");
+        defaultCiphers.add("TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA");
+        defaultCiphers.add("TLS_PSK_WITH_AES_128_CBC_SHA");
+        defaultCiphers.add("TLS_PSK_WITH_AES_256_CBC_SHA");
 
         defaultProtocols.add("TLSv1.2");
-        defaultProtocols.add("TLSv1.1");
-        defaultProtocols.add("TLSv1");
-        defaultProtocols.add("SSLv3");
-
     }
 
     static ApplicationProtocolConfig defaultProtocolConfig = new ApplicationProtocolConfig(
