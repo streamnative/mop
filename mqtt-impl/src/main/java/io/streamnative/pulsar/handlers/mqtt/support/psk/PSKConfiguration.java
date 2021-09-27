@@ -51,6 +51,8 @@ public class PSKConfiguration {
         defaultCiphers.add("TLS_PSK_WITH_AES_128_CBC_SHA");
         defaultCiphers.add("TLS_PSK_WITH_AES_256_CBC_SHA");
 
+        defaultProtocols.add("TLSv1");
+        defaultProtocols.add("TLSv1.1");
         defaultProtocols.add("TLSv1.2");
     }
 

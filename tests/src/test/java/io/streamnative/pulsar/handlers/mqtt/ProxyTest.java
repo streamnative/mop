@@ -160,7 +160,7 @@ public class ProxyTest extends MQTTTestBase {
 
     @Test
     @SneakyThrows
-    public void testTlsPsk() {
+    public void testTlsPskWithTlsv1() {
         Bootstrap client = new Bootstrap();
         EventLoopGroup group = new NioEventLoopGroup();
         client.group(group);
