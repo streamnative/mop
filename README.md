@@ -271,12 +271,16 @@ Optional configs
 |  Config key   | Comment  |
 |  :---------:  | -------- |
 |  tlsPskIdentityFile | When you want identities in a single file with many pairs, you can config this. Identities will load from both `tlsPskIdentity` and `tlsPskIdentityFile`  |
-|  tlsProtocols  | TLS PSK protocols, default is [TLSv1.2], and only support TLSv1.2 currently.  |
-|  tlsCiphers | TLS PSK ciphers, default are [TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256, TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA, TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA, TLS_PSK_WITH_AES_128_CBC_SHA, TLS_PSK_WITH_AES_256_CBC_SHA] |
+|  tlsProtocols  | TLS PSK protocols, default are [ TLSv1, TLSv1.1, TLSv1.2 ]  |
+|  tlsCiphers | TLS PSK ciphers, default are [ TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256, TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA, TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA, TLS_PSK_WITH_AES_128_CBC_SHA, TLS_PSK_WITH_AES_256_CBC_SHA ] |
 
 2. As current known mqtt Java client does not support TLS-PSK, it's better to verify this by `mosquitto cli`
 ```cli
+# Default with tlsv1.2
 mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt"
+
+# Test with tlsv1.1
+mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt" --tls-version tlsv1.1
 ```
 - Download [mosquitto](https://mosquitto.org/download/) with Mac version.
 - The secret `mqtt123` is converted to `6d717474313233` using [Hex Code Converter](https://www.rapidtables.com/convert/number/ascii-to-hex.html)
