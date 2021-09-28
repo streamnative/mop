@@ -172,19 +172,19 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
                             new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, false));
 
-                } else if (listener.startsWith(SSL_PSK_PREFIX) && mqttConfig.isTlsPskEnabled()) {
-                    builder.put(
-                            new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, false, true));
-
                 } else if (listener.startsWith(SSL_PREFIX) && mqttConfig.isTlsEnabled()) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
                             new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, true));
 
+                } else if (listener.startsWith(SSL_PSK_PREFIX) && mqttConfig.isTlsPskEnabled()) {
+                    builder.put(
+                            new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
+                            new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, false, true));
+
                 } else {
                     log.error("MQTT listener {} not supported. supports {}, {} or {}",
-                            listener, PLAINTEXT_PREFIX, SSL_PSK_PREFIX, SSL_PREFIX);
+                            listener, PLAINTEXT_PREFIX, SSL_PREFIX, SSL_PSK_PREFIX);
                 }
             }
 
