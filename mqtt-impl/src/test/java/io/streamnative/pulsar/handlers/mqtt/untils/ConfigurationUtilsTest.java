@@ -32,15 +32,15 @@ public class ConfigurationUtilsTest {
         Assert.assertEquals(ConfigurationUtils.getListenerPort(sslPskListener), 8884);
         try {
             String sslInvalidListener = "mqtt+ssl+://127.0.0.1:8883";
-            Assert.assertEquals(ConfigurationUtils.getListenerPort(sslInvalidListener), 8883);
-        } catch (Exception ex) {
-            Assert.assertTrue(ex instanceof IllegalArgumentException);
+            ConfigurationUtils.getListenerPort(sslInvalidListener);
+        } catch (IllegalArgumentException ex) {
+            Assert.assertEquals(ex.getMessage(), "listener not match pattern");
         }
         try {
             String sslPskInvalidListener = "mqtt+ssl+psk+://127.0.0.1:8884";
-            Assert.assertEquals(ConfigurationUtils.getListenerPort(sslPskInvalidListener), 8884);
-        } catch (Exception ex) {
-            Assert.assertTrue(ex instanceof IllegalArgumentException);
+            ConfigurationUtils.getListenerPort(sslPskInvalidListener);
+        } catch (IllegalArgumentException ex) {
+            Assert.assertEquals(ex.getMessage(), "listener not match pattern");
         }
     }
 }
