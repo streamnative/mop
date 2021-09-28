@@ -172,12 +172,12 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
                             new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, false));
 
-                } else if (listener.startsWith(SSL_PSK_PREFIX)) {
+                } else if (listener.startsWith(SSL_PSK_PREFIX) && mqttConfig.isTlsPskEnabled()) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
                             new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, false, true));
 
-                } else if (listener.startsWith(SSL_PREFIX)) {
+                } else if (listener.startsWith(SSL_PREFIX) && mqttConfig.isTlsEnabled()) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
                             new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, true));

@@ -154,13 +154,6 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
 
     @FieldContext(
             category = CATEGORY_TLS,
-            required = false,
-            doc = "Tls psk port"
-    )
-    private int tlsPskPort = 8884;
-
-    @FieldContext(
-            category = CATEGORY_TLS,
             doc = "Tls cert refresh duration in seconds (set 0 to check on every new connection)"
     )
     private long tlsCertRefreshCheckDurationSec = 300; // 5 mins
