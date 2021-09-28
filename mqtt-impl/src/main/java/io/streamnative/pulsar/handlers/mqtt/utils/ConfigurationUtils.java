@@ -38,7 +38,7 @@ public final class ConfigurationUtils {
     public static final String SSL_PREFIX = "mqtt+ssl://";
     public static final String SSL_PSK_PREFIX = "mqtt+ssl+psk://";
     public static final String LISTENER_DEL = ",";
-    public static final String LISTENER_PATTEN = "^(mqtt)(\\+ssl)?(\\+psk)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
+    public static final String LISTENER_PATTERN = "^(mqtt)(\\+ssl)?(\\+psk)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
 
     /**
      * Creates PulsarConfiguration and loads it with populated attribute values loaded from provided property file.
@@ -138,7 +138,7 @@ public final class ConfigurationUtils {
 
 
     public static int getListenerPort(String listener) {
-        checkArgument(listener.matches(LISTENER_PATTEN), "listener not match patten");
+        checkArgument(listener.matches(LISTENER_PATTERN), "listener not match pattern");
 
         int lastIndex = listener.lastIndexOf(':');
         return Integer.parseInt(listener.substring(lastIndex + 1));
