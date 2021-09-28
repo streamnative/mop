@@ -14,6 +14,12 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.LISTENER_DEL;
+import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.PLAINTEXT_PREFIX;
+import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.PROTOCOL_NAME;
+import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.SSL_PREFIX;
+import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.SSL_PSK_PREFIX;
+import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.getListenerPort;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
@@ -36,12 +42,6 @@ import org.apache.pulsar.broker.service.BrokerService;
  */
 @Slf4j
 public class MQTTProtocolHandler implements ProtocolHandler {
-
-    public static final String PROTOCOL_NAME = "mqtt";
-    public static final String PLAINTEXT_PREFIX = "mqtt://";
-    public static final String SSL_PREFIX = "mqtt+ssl://";
-    public static final String LISTENER_DEL = ",";
-    public static final String LISTENER_PATTEN = "^(mqtt)(\\+ssl)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
 
     private Map<String, AuthenticationProvider> authProviders;
 
@@ -171,13 +171,20 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
                             new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, false));
+
+                } else if (listener.startsWith(SSL_PSK_PREFIX)) {
+                    builder.put(
+                            new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
+                            new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, false, true));
+
                 } else if (listener.startsWith(SSL_PREFIX)) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
                             new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, true));
+
                 } else {
-                    log.error("MQTT listener {} not supported. supports {} or {}",
-                            listener, PLAINTEXT_PREFIX, SSL_PREFIX);
+                    log.error("MQTT listener {} not supported. supports {}, {} or {}",
+                            listener, PLAINTEXT_PREFIX, SSL_PSK_PREFIX, SSL_PREFIX);
                 }
             }
 
@@ -195,10 +202,4 @@ public class MQTTProtocolHandler implements ProtocolHandler {
         }
     }
 
-    public static int getListenerPort(String listener) {
-        checkArgument(listener.matches(LISTENER_PATTEN), "listener not match patten");
-
-        int lastIndex = listener.lastIndexOf(':');
-        return Integer.parseInt(listener.substring(lastIndex + 1));
-    }
 }

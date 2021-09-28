@@ -145,6 +145,19 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     )
     private int mqttProxyNumIOThreads = Runtime.getRuntime().availableProcessors();
 
+    @FieldContext(
+            category = CATEGORY_TLS,
+            required = false,
+            doc = "Whether broker start mqtt protocol handler with tls psk"
+    )
+    private boolean tlsPskEnabled = false;
+
+    @FieldContext(
+            category = CATEGORY_TLS,
+            required = false,
+            doc = "Tls psk port"
+    )
+    private int tlsPskPort = 8884;
 
     @FieldContext(
             category = CATEGORY_TLS,
