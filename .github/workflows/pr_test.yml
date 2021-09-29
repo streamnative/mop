@@ -41,7 +41,7 @@ jobs:
         run: mvn spotbugs:check
 
       - name: test after build
-        run: mvn test -DfailIfNoTests=false
+        run: ./scripts/retry.sh mvn -B -ntp test
 
       - name: package surefire artifacts
         if: failure()
