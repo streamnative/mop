@@ -192,6 +192,7 @@ openssl req -new -x509 -nodes -sha256 -days 365 -key server.key -out server.crt
 ```conf
 ...
 tlsEnabled=true
+mqttListeners=mqtt+ssl://127.0.0.1:8883
 tlsCertificateFilePath=/xxx/server.crt
 tlsKeyFilePath=/xxx/server.key
 ...
@@ -250,17 +251,15 @@ connection.connect();
 ...
 ```
 
-#### TLS PSK with proxy
+#### TLS PSK with broker
 
 Please reference [here](https://en.wikipedia.org/wiki/TLS-PSK) to learn more about TLS-PSK.
 
-1. Config mqtt proxy to load tls psk config.
+1. Config mqtt broker to load tls psk config.
 ```conf
 ...
-mqttProxyEnable=true
-mqttProxyTlsPskEnabled=true
-// default tls psk port
-mqttProxyTlsPskPort=5684
+tlsPskEnabled=true
+mqttListeners=mqtt+ssl+psk://127.0.0.1:8884
 // any string can be specified
 tlsPskIdentityHint=alpha
 // identity is semicolon list of string with identity:secret format
@@ -278,13 +277,34 @@ Optional configs
 2. As current known mqtt Java client does not support TLS-PSK, it's better to verify this by `mosquitto cli`
 ```cli
 # Default with tlsv1.2
-mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt"
+mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "hello mqtt"
 
 # Test with tlsv1.1
-mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt" --tls-version tlsv1.1
+mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "hello mqtt" --tls-version tlsv1.1
 ```
 - Download [mosquitto](https://mosquitto.org/download/) with Mac version.
 - The secret `mqtt123` is converted to `6d717474313233` using [Hex Code Converter](https://www.rapidtables.com/convert/number/ascii-to-hex.html)
+
+#### TLS PSK with proxy
+
+1. Config mqtt proxy to load tls psk config.
+```conf
+...
+mqttProxyEnable=true
+mqttProxyTlsPskEnabled=true
+// default tls psk port
+mqttProxyTlsPskPort=5684
+// any string can be specified
+tlsPskIdentityHint=alpha
+// identity is semicolon list of string with identity:secret format
+tlsPskIdentity=mqtt:mqtt123
+...
+```
+
+2. Test with `mosquitto cli`
+```
+mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt"
+```
 
 ## Topic Names & Filters
 

@@ -97,7 +97,7 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
 
     @Override
     protected void initChannel(SocketChannel ch) throws Exception {
-        ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(10, 0, 0));
+        ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(30, 0, 0));
         if (this.enableTls) {
             if (serverSslCtxRefresher != null) {
                 SslContext sslContext = serverSslCtxRefresher.get();

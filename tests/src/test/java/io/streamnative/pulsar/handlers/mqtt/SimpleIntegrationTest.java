@@ -14,12 +14,21 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static org.mockito.Mockito.verify;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.psk.PSKClient;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.io.EOFException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Producer;
@@ -42,6 +51,16 @@ import org.testng.annotations.Test;
 public class SimpleIntegrationTest extends MQTTTestBase {
 
     private final int numMessages = 1000;
+
+    @Override
+    protected MQTTServerConfiguration initConfig() throws Exception {
+        MQTTServerConfiguration mqtt = super.initConfig();
+
+        mqtt.setTlsPskEnabled(true);
+        mqtt.setTlsPskIdentityHint("alpha");
+        mqtt.setTlsPskIdentity("mqtt:mqtt123");
+        return mqtt;
+    }
 
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
     public void testSimpleMqttPubAndSubQos0(String topicName) throws Exception {
@@ -342,5 +361,23 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         BlockingConnection connection = Mockito.spy(mqtt.blockingConnection());
         connection.connect();
         verify(connection, Mockito.times(2)).connect();
+    }
+
+    @Test
+    @SneakyThrows
+    public void testTlsPskWithTlsv1() {
+        Bootstrap client = new Bootstrap();
+        EventLoopGroup group = new NioEventLoopGroup();
+        client.group(group);
+        client.channel(NioSocketChannel.class);
+        client.handler(new PSKClient("alpha", "mqtt", "mqtt123"));
+        AtomicBoolean connected = new AtomicBoolean(false);
+        CountDownLatch latch = new CountDownLatch(1);
+        client.connect("localhost", mqttBrokerPortTlsPskList.get(0)).addListener((ChannelFutureListener) future -> {
+            connected.set(future.isSuccess());
+            latch.countDown();
+        });
+        latch.await();
+        Assert.assertTrue(connected.get());
     }
 }
