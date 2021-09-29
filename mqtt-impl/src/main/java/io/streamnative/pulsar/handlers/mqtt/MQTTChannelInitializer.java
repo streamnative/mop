@@ -22,6 +22,8 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
+import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
 import java.util.Map;
 import lombok.Getter;
 import org.apache.pulsar.broker.PulsarService;
@@ -42,19 +44,29 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private final Map<String, AuthenticationProvider> authProviders;
     private final boolean enableTls;
+    private final boolean enableTlsPsk;
     private final boolean tlsEnabledWithKeyStore;
     private SslContextAutoRefreshBuilder<SslContext> sslCtxRefresher;
     private NettySSLContextAutoRefreshBuilder nettySSLContextAutoRefreshBuilder;
+    private PSKConfiguration pskConfiguration;
 
     public MQTTChannelInitializer(PulsarService pulsarService,
                                   MQTTServerConfiguration mqttConfig,
                                   Map<String, AuthenticationProvider> authProviders,
                                   boolean enableTls) {
+        this(pulsarService, mqttConfig, authProviders, enableTls, false);
+    }
+
+    public MQTTChannelInitializer(PulsarService pulsarService,
+                                  MQTTServerConfiguration mqttConfig,
+                                  Map<String, AuthenticationProvider> authProviders,
+                                  boolean enableTls, boolean enableTlsPsk) {
         super();
         this.pulsarService = pulsarService;
         this.mqttConfig = mqttConfig;
         this.authProviders = authProviders;
         this.enableTls = enableTls;
+        this.enableTlsPsk = enableTlsPsk;
         this.tlsEnabledWithKeyStore = mqttConfig.isTlsEnabledWithKeyStore();
         if (this.enableTls) {
             if (tlsEnabledWithKeyStore) {
@@ -82,6 +94,13 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
                         mqttConfig.isTlsRequireTrustedClientCertOnConnect(),
                         mqttConfig.getTlsCertRefreshCheckDurationSec());
             }
+        } else if (this.enableTlsPsk) {
+            pskConfiguration = new PSKConfiguration();
+            pskConfiguration.setIdentityHint(mqttConfig.getTlsPskIdentityHint());
+            pskConfiguration.setIdentity(mqttConfig.getTlsPskIdentity());
+            pskConfiguration.setIdentityFile(mqttConfig.getTlsPskIdentityFile());
+            pskConfiguration.setProtocols(mqttConfig.getTlsProtocols());
+            pskConfiguration.setCiphers(mqttConfig.getTlsCiphers());
         } else {
             this.sslCtxRefresher = null;
         }
@@ -89,7 +108,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     @Override
     public void initChannel(SocketChannel ch) throws Exception {
-        ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(10, 0, 0));
+        ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(30, 0, 0));
         if (this.enableTls) {
             if (this.tlsEnabledWithKeyStore) {
                 ch.pipeline().addLast(TLS_HANDLER,
@@ -97,6 +116,8 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
             } else {
                 ch.pipeline().addLast(TLS_HANDLER, sslCtxRefresher.get().newHandler(ch.alloc()));
             }
+        } else if (this.enableTlsPsk) {
+            ch.pipeline().addLast(TLS_HANDLER, new SslHandler(PSKUtils.createServerEngine(ch, pskConfiguration)));
         }
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
