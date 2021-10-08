@@ -13,6 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
@@ -20,8 +22,6 @@ import org.apache.pulsar.common.util.SimpleTextOutputStream;
 import org.junit.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 
 public class MQTTMetricsProviderTest {
 
