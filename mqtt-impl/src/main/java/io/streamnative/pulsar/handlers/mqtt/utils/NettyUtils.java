@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
+import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ADDR;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ID;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECT_MSG;
 import io.netty.channel.Channel;
@@ -20,6 +21,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
+import java.net.InetSocketAddress;
 import java.util.Optional;
 
 /**
@@ -32,6 +34,7 @@ public final class NettyUtils {
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ID = AttributeKey.valueOf(ATTR_CLIENT_ID);
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
     private static final AttributeKey<Object> ATTR_KEY_CONNECT_MSG = AttributeKey.valueOf(ATTR_CONNECT_MSG);
+    private static final AttributeKey<Object> ATTR_KEY_CLIENT_ADDR = AttributeKey.valueOf(ATTR_CLIENT_ADDR);
 
     public static void attachClientID(Channel channel, String clientId) {
         channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).set(clientId);
@@ -64,6 +67,21 @@ public final class NettyUtils {
             pipeline.remove("idleStateHandler");
         }
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
+    }
+
+    public static String getAndAttachAddress(Channel channel) {
+        String address = getAddress(channel);
+        channel.attr(NettyUtils.ATTR_KEY_CLIENT_ADDR).set(address);
+        return address;
+    }
+
+    public static String getAddress(Channel channel) {
+        InetSocketAddress address = (InetSocketAddress) channel.remoteAddress();
+        return address.getHostName() + ":" + address.getPort();
+    }
+
+    public static String retrieveAddress(Channel channel) {
+        return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ADDR).get();
     }
 
     private NettyUtils() {

@@ -77,15 +77,17 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private final PacketIdGenerator packetIdGenerator;
     private final OutstandingPacketContainer outstandingPacketContainer;
     private final Map<String, AuthenticationProvider> authProviders;
+    private final MQTTMetricsProvider metricsProvider;
 
     public DefaultProtocolMethodProcessorImpl (PulsarService pulsarService, MQTTServerConfiguration configuration,
-            Map<String, AuthenticationProvider> authProviders) {
+            Map<String, AuthenticationProvider> authProviders, MQTTMetricsProvider metricsProvider) {
         this.pulsarService = pulsarService;
         this.configuration = configuration;
         this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration);
         this.packetIdGenerator = PacketIdGenerator.newNonZeroGenerator();
         this.outstandingPacketContainer = new OutstandingPacketContainerImpl();
         this.authProviders = authProviders;
+        this.metricsProvider = metricsProvider;
     }
 
     @Override
@@ -179,6 +181,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
 
         final boolean success = descriptor.assignState(SENDACK, ESTABLISHED);
+        metricsProvider.addClient(NettyUtils.getAndAttachAddress(channel));
 
         if (log.isDebugEnabled()) {
             log.debug("The CONNECT message has been processed. CId={}, username={} success={}",
@@ -251,6 +254,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         if (log.isDebugEnabled()) {
             log.debug("[Disconnect] [{}] ", clientID);
         }
+        metricsProvider.removeClient(NettyUtils.retrieveAddress(channel));
         final ConnectionDescriptor existingDescriptor = ConnectionDescriptorStore.getInstance().getConnection(clientID);
         if (existingDescriptor == null) {
             // another client with same ID removed the descriptor, we must exit
@@ -295,6 +299,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         String clientId = NettyUtils.retrieveClientId(channel);
         if (StringUtils.isNotEmpty(clientId)) {
+            metricsProvider.removeClient(NettyUtils.retrieveAddress(channel));
             ConnectionDescriptor oldConnDescriptor = new ConnectionDescriptor(clientId, channel, true);
             ConnectionDescriptorStore.getInstance().removeConnection(oldConnDescriptor);
             removeSubscriptions(null, clientId);
