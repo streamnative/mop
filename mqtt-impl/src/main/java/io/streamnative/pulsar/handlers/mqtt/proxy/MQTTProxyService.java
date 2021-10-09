@@ -19,6 +19,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
+import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import java.io.Closeable;
 import java.util.Map;
 import lombok.Getter;
@@ -53,13 +54,12 @@ public class MQTTProxyService implements Closeable {
     private Map<String, AuthenticationProvider> authProviders;
 
     public MQTTProxyService(
-            MQTTProxyConfiguration proxyConfig, PulsarService pulsarService,
-            Map<String, AuthenticationProvider> authProviders) {
+            MQTTProxyConfiguration proxyConfig, MQTTService mqttService) {
         configValid(proxyConfig);
 
         this.proxyConfig = proxyConfig;
-        this.pulsarService = pulsarService;
-        this.authProviders = authProviders;
+        this.pulsarService = mqttService.getPulsarService();
+        this.authProviders = mqttService.getAuthProviders();
         acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
                 false, acceptorThreadFactory);
         workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),
