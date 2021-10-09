@@ -36,11 +36,14 @@ public class MQTTServiceServlet extends HttpServlet {
 
     private static final Logger log = LoggerFactory.getLogger(MQTTServiceServlet.class);
 
+    private static final long serialVersionUID = 1L;
+
     private final long metricsServletTimeoutMs;
 
-    private ExecutorService executor = null;
+    // Define transient by spotbugs
+    private transient ExecutorService executor;
 
-    private PulsarService pulsar;
+    private final transient PulsarService pulsar;
 
     public MQTTServiceServlet(PulsarService pulsar) {
         this.pulsar = pulsar;
