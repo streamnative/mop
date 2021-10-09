@@ -4,9 +4,15 @@ on:
   pull_request:
     branches:
       - master
+    path-ignores:
+      - 'docs/**'
+      - 'README.md'
   push:
     branches:
       - master
+    path-ignores:
+      - 'docs/**'
+      - 'README.md'
 
 jobs:
   build:
