@@ -84,9 +84,8 @@ public class MQTTMetricsProvider implements PrometheusRawMetricsProvider {
     }
 
     public void generate(OutputStream os) throws IOException {
-        String cluster = serverConfiguration.getClusterName();
         Map<String, Object> map = new HashMap<>();
-        map.put("cluster", cluster);
+        map.put("cluster", serverConfiguration.getClusterName());
         map.put("tenant", serverConfiguration.getDefaultTenant());
         map.put("namespace", serverConfiguration.getDefaultNamespace());
         map.put("mop_online_clients_count", getAndResetOnlineClientsCount());
