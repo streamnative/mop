@@ -42,5 +42,6 @@ public class MQTTService {
         this.pulsarService = pulsarService;
         this.authProviders = authProviders;
         this.metricsProvider = new MQTTMetricsProvider(serverConfiguration);
+        this.pulsarService.addPrometheusRawMetricsProvider(metricsProvider);
     }
 }
