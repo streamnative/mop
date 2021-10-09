@@ -22,7 +22,10 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.psk.PSKClient;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
+import java.io.BufferedReader;
 import java.io.EOFException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -30,6 +33,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.Schema;
@@ -379,5 +386,23 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         });
         latch.await();
         Assert.assertTrue(connected.get());
+    }
+
+    @Test
+    @SneakyThrows
+    public void testServlet() {
+        HttpClient httpClient = HttpClientBuilder.create().build();
+        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop-stats";
+        HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
+        InputStream inputStream = response.getEntity().getContent();
+        InputStreamReader isReader = new InputStreamReader(inputStream);
+        BufferedReader reader = new BufferedReader(isReader);
+        StringBuffer buffer = new StringBuffer();
+        String str;
+        while ((str = reader.readLine()) != null){
+            buffer.append(str);
+        }
+        Assert.assertTrue(buffer.toString().contains("mop_online_clients_count"));
+        Assert.assertTrue(buffer.toString().contains("mop_online_clients"));
     }
 }
