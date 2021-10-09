@@ -36,7 +36,6 @@ import org.apache.pulsar.broker.ServiceConfigurationUtils;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
 import org.apache.pulsar.broker.service.BrokerService;
-
 /**
  * MQTT Protocol Handler load and run by Pulsar Service.
  */
@@ -55,6 +54,8 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     private String bindAddress;
 
     private MQTTProxyService proxyService;
+
+    private MQTTService mqttService;
 
     @Override
     public String protocolName() {
@@ -94,7 +95,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             this.authProviders = AuthUtils.configureAuthProviders(brokerService.getAuthenticationService(),
                                                                   mqttConfig.getMqttAuthenticationMethods());
         }
-
+        mqttService = new MQTTService(brokerService.pulsar(), mqttConfig, authProviders);
         if (mqttConfig.isMqttProxyEnable()) {
             MQTTProxyConfiguration proxyConfig = new MQTTProxyConfiguration();
             proxyConfig.setDefaultTenant(mqttConfig.getDefaultTenant());
@@ -137,7 +138,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setTlsKeyStorePassword(mqttConfig.getTlsTrustStorePassword());
             proxyConfig.setTlsKeyFilePath(mqttConfig.getTlsKeyFilePath());
             log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
-            proxyService = new MQTTProxyService(proxyConfig, brokerService.getPulsar(), authProviders);
+            proxyService = new MQTTProxyService(proxyConfig, mqttService);
             try {
                 proxyService.start();
                 log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());
@@ -170,17 +171,17 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                 if (listener.startsWith(PLAINTEXT_PREFIX)) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, false));
+                            new MQTTChannelInitializer(mqttService, false));
 
                 } else if (listener.startsWith(SSL_PREFIX) && mqttConfig.isTlsEnabled()) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, true));
+                            new MQTTChannelInitializer(mqttService, true));
 
                 } else if (listener.startsWith(SSL_PSK_PREFIX) && mqttConfig.isTlsPskEnabled()) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(brokerService.pulsar(), mqttConfig, authProviders, false, true));
+                            new MQTTChannelInitializer(mqttService, false, true));
 
                 } else {
                     log.error("MQTT listener {} not supported. supports {}, {} or {}",
