@@ -34,6 +34,8 @@ import org.slf4j.LoggerFactory;
  */
 public class MQTTServiceServlet extends HttpServlet {
 
+    private static final Logger log = LoggerFactory.getLogger(MQTTServiceServlet.class);
+
     private final long metricsServletTimeoutMs;
 
     private ExecutorService executor = null;
@@ -82,6 +84,4 @@ public class MQTTServiceServlet extends HttpServlet {
                 .getMqttService()
                 .getMetricsProvider();
     }
-
-    private static final Logger log = LoggerFactory.getLogger(MQTTServiceServlet.class);
 }
