@@ -48,6 +48,13 @@ public class MQTTMetricsProviderTest {
         provider.generate(outputStream);
         String result = new String(buf.array(), buf.arrayOffset(), buf.readableBytes());
         buf.release();
-        Assert.assertTrue(result.contains("mop_active_clients_count"));
+        Assert.assertTrue(result.contains("mop_active_client_count"));
+        Assert.assertTrue(result.contains("mop_total_client_count"));
+        Assert.assertTrue(result.contains("mop_maximum_client_count"));
+        Assert.assertTrue(result.contains("mop_sub_count"));
+        Assert.assertTrue(result.contains("mop_send_count"));
+        Assert.assertTrue(result.contains("mop_send_bytes"));
+        Assert.assertTrue(result.contains("mop_received_count"));
+        Assert.assertTrue(result.contains("mop_received_bytes"));
     }
 }
