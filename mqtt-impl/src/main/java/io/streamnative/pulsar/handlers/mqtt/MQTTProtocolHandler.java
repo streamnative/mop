@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.ServiceConfigurationUtils;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.broker.authorization.AuthorizationProvider;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
 import org.apache.pulsar.broker.service.BrokerService;
 /**
@@ -43,6 +44,8 @@ import org.apache.pulsar.broker.service.BrokerService;
 public class MQTTProtocolHandler implements ProtocolHandler {
 
     private Map<String, AuthenticationProvider> authProviders;
+
+    private AuthorizationProvider authzProvider;
 
     @Getter
     private MQTTServerConfiguration mqttConfig;
@@ -95,7 +98,11 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             this.authProviders = AuthUtils.configureAuthProviders(brokerService.getAuthenticationService(),
                                                                   mqttConfig.getMqttAuthenticationMethods());
         }
-        mqttService = new MQTTService(brokerService.pulsar(), mqttConfig, authProviders);
+        if (mqttConfig.isMqttAuthorizationEnabled()) {
+            this.authzProvider = AuthUtils.configureAuthzProvider(brokerService.getAuthorizationService(),
+                    mqttConfig.getMqttAuthorizationMethod());
+        }
+        mqttService = new MQTTService(brokerService.pulsar(), mqttConfig, authProviders, authzProvider);
         if (mqttConfig.isMqttProxyEnable()) {
             MQTTProxyConfiguration proxyConfig = new MQTTProxyConfiguration();
             proxyConfig.setDefaultTenant(mqttConfig.getDefaultTenant());
@@ -114,6 +121,8 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setMqttProxyNumIOThreads(mqttConfig.getMqttProxyNumIOThreads());
             proxyConfig.setMqttAuthenticationEnabled(mqttConfig.isMqttAuthenticationEnabled());
             proxyConfig.setMqttAuthenticationMethods(mqttConfig.getMqttAuthenticationMethods());
+            proxyConfig.setMqttAuthorizationEnabled(mqttConfig.isMqttAuthorizationEnabled());
+            proxyConfig.setMqttAuthorizationMethod(mqttConfig.getMqttAuthorizationMethod());
             proxyConfig.setBrokerClientAuthenticationPlugin(mqttConfig.getBrokerClientAuthenticationPlugin());
             proxyConfig.setBrokerClientAuthenticationParameters(mqttConfig.getBrokerClientAuthenticationParameters());
 
