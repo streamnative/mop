@@ -59,8 +59,8 @@ public class MQTTMetricsCollector {
         Map<String, String> dimensionMap = new HashMap<>();
         Metrics m = Metrics.create(dimensionMap);
         m.put("mop_active_client_count", clientMetrics.getActiveCount());
-        m.put("mop_total_client_count", clientMetrics.getActiveCount());
-        m.put("mop_maximum_client_count", clientMetrics.getActiveCount());
+        m.put("mop_total_client_count", clientMetrics.getTotalCount());
+        m.put("mop_maximum_client_count", clientMetrics.getMaximumCount());
         m.put("mop_sub_count", subMetrics.getCount());
         m.put("mop_send_count", msgMetrics.getSendCount());
         m.put("mop_send_bytes", msgMetrics.getSendBytes());
