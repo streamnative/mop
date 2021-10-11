@@ -402,7 +402,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         while ((str = reader.readLine()) != null){
             buffer.append(str);
         }
-        Assert.assertTrue(buffer.toString().contains("mop_online_clients_count"));
-        Assert.assertTrue(buffer.toString().contains("mop_online_clients"));
+        Assert.assertTrue(buffer.toString().contains("active"));
+        Assert.assertTrue(buffer.toString().contains("active_clients"));
     }
 }

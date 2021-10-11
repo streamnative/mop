@@ -13,23 +13,12 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import lombok.Getter;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.stats.prometheus.PrometheusRawMetricsProvider;
-import org.apache.pulsar.client.impl.schema.writer.JacksonJsonWriter;
 import org.apache.pulsar.common.stats.Metrics;
 import org.apache.pulsar.common.util.SimpleTextOutputStream;
 
@@ -38,27 +27,17 @@ import org.apache.pulsar.common.util.SimpleTextOutputStream;
  */
 public class MQTTMetricsProvider implements PrometheusRawMetricsProvider {
 
-    private final AtomicLong onlineClientsCount = new AtomicLong();
-
-    private Set<String> onlineClients = ConcurrentHashMap.newKeySet();
-
     @Getter
-    private final MQTTServerConfiguration serverConfiguration;
+    private final MQTTMetricsCollector metricsCollector;
 
-    private List<Metrics> metrics;
-
-    private JacksonJsonWriter jsonWriter;
-
-    public MQTTMetricsProvider(MQTTServerConfiguration config) {
-        this.serverConfiguration = config;
-        this.metrics = Lists.newArrayList();
-        this.jsonWriter = new JacksonJsonWriter(new ObjectMapper());
+    public MQTTMetricsProvider(MQTTMetricsCollector metricsCollector) {
+        this.metricsCollector = metricsCollector;
     }
 
     @Override
     public void generate(SimpleTextOutputStream stream) {
-        String cluster = serverConfiguration.getClusterName();
-        Collection<Metrics> metrics = getMetrics();
+        String cluster = metricsCollector.getServerConfiguration().getClusterName();
+        Collection<Metrics> metrics = metricsCollector.getMetrics();
         Set<String> names = new HashSet<>();
         for (Metrics item : metrics) {
             for (Map.Entry<String, Object> entry : item.getMetrics().entrySet()) {
@@ -82,49 +61,4 @@ public class MQTTMetricsProvider implements PrometheusRawMetricsProvider {
             }
         }
     }
-
-    public void generate(OutputStream os) throws IOException {
-        Map<String, Object> map = new HashMap<>();
-        map.put("cluster", serverConfiguration.getClusterName());
-        map.put("tenant", serverConfiguration.getDefaultTenant());
-        map.put("namespace", serverConfiguration.getDefaultNamespace());
-        map.put("mop_online_clients_count", getAndResetOnlineClientsCount());
-        map.put("mop_online_clients", getOnlineClients());
-        os.write(jsonWriter.write(map));
-    }
-
-    private Collection<Metrics> getMetrics() {
-        Map<String, String> dimensionMap = new HashMap<>();
-        Metrics m = Metrics.create(dimensionMap);
-        m.put("mop_online_clients_count", getAndResetOnlineClientsCount());
-
-        metrics.clear();
-        metrics.add(m);
-        return metrics;
-    }
-
-    public long getAndResetOnlineClientsCount() {
-        return onlineClientsCount.getAndSet(0);
-    }
-
-    public long getOnlineClientsCount() {
-        return onlineClientsCount.get();
-    }
-
-    public Set<String> getOnlineClients() {
-        return onlineClients;
-    }
-
-    public void addClient(String address) {
-        if (onlineClients.add(address)) {
-            onlineClientsCount.incrementAndGet();
-        }
-    }
-
-    public void removeClient(String address) {
-        if (StringUtils.isNotEmpty(address) && onlineClients.remove(address)) {
-            onlineClientsCount.decrementAndGet();
-        }
-    }
-
 }
