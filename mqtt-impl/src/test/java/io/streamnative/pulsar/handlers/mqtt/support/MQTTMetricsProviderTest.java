@@ -23,9 +23,13 @@ import org.junit.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+/**
+ * MQTT metrics provider test.
+ */
 public class MQTTMetricsProviderTest {
 
     private MQTTServerConfiguration serverConfiguration;
+    private MQTTMetricsCollector metricsCollector;
     private SimpleTextOutputStream outputStream;
     private ByteBuf buf = ByteBufAllocator.DEFAULT.heapBuffer();
 
@@ -33,30 +37,24 @@ public class MQTTMetricsProviderTest {
     public void setUp() {
         outputStream = new SimpleTextOutputStream(buf);
         serverConfiguration = mock(MQTTServerConfiguration.class);
+        metricsCollector = new MQTTMetricsCollector(serverConfiguration);
         doReturn("mop-cluster").when(serverConfiguration).getClusterName();
     }
 
     @Test
     public void testGenerate() {
-        MQTTMetricsProvider provider = new MQTTMetricsProvider(serverConfiguration);
-        provider.addClient("192.168.1.0:11022");
+        MQTTMetricsProvider provider = new MQTTMetricsProvider(metricsCollector);
+        metricsCollector.addClient("192.168.1.0:11022");
         provider.generate(outputStream);
         String result = new String(buf.array(), buf.arrayOffset(), buf.readableBytes());
         buf.release();
-        Assert.assertTrue(result.contains("mop_online_clients_count"));
-    }
-
-    @Test
-    public void testClientsData() {
-        MQTTMetricsProvider provider = new MQTTMetricsProvider(serverConfiguration);
-        String client1 = "192.168.1.0:11022";
-        provider.addClient(client1);
-        Assert.assertTrue(provider.getOnlineClients().contains(client1));
-        Assert.assertEquals(provider.getOnlineClientsCount(), 1);
-        provider.addClient(client1);
-        Assert.assertEquals(provider.getOnlineClientsCount(), 1);
-        provider.removeClient(client1);
-        Assert.assertTrue(provider.getOnlineClients().isEmpty());
-        Assert.assertEquals(provider.getOnlineClientsCount(), 0);
+        Assert.assertTrue(result.contains("mop_active_client_count"));
+        Assert.assertTrue(result.contains("mop_total_client_count"));
+        Assert.assertTrue(result.contains("mop_maximum_client_count"));
+        Assert.assertTrue(result.contains("mop_sub_count"));
+        Assert.assertTrue(result.contains("mop_send_count"));
+        Assert.assertTrue(result.contains("mop_send_bytes"));
+        Assert.assertTrue(result.contains("mop_received_count"));
+        Assert.assertTrue(result.contains("mop_received_bytes"));
     }
 }

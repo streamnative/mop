@@ -77,17 +77,17 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private final PacketIdGenerator packetIdGenerator;
     private final OutstandingPacketContainer outstandingPacketContainer;
     private final Map<String, AuthenticationProvider> authProviders;
-    private final MQTTMetricsProvider metricsProvider;
+    private final MQTTMetricsCollector metricsCollector;
 
     public DefaultProtocolMethodProcessorImpl (PulsarService pulsarService, MQTTServerConfiguration configuration,
-            Map<String, AuthenticationProvider> authProviders, MQTTMetricsProvider metricsProvider) {
+            Map<String, AuthenticationProvider> authProviders, MQTTMetricsCollector metricsCollector) {
         this.pulsarService = pulsarService;
         this.configuration = configuration;
         this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration);
         this.packetIdGenerator = PacketIdGenerator.newNonZeroGenerator();
         this.outstandingPacketContainer = new OutstandingPacketContainerImpl();
         this.authProviders = authProviders;
-        this.metricsProvider = metricsProvider;
+        this.metricsCollector = metricsCollector;
     }
 
     @Override
@@ -181,7 +181,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
 
         final boolean success = descriptor.assignState(SENDACK, ESTABLISHED);
-        metricsProvider.addClient(NettyUtils.getAndAttachAddress(channel));
+        metricsCollector.addClient(NettyUtils.getAndAttachAddress(channel));
 
         if (log.isDebugEnabled()) {
             log.debug("The CONNECT message has been processed. CId={}, username={} success={}",
@@ -211,6 +211,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             log.debug("[Publish] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
         }
         final MqttQoS qos = msg.fixedHeader().qosLevel();
+        metricsCollector.addSend(msg.payload().readableBytes());
         switch (qos) {
             case AT_MOST_ONCE:
                 this.qosPublishHandlers.qos0().publish(channel, msg);
@@ -254,7 +255,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         if (log.isDebugEnabled()) {
             log.debug("[Disconnect] [{}] ", clientID);
         }
-        metricsProvider.removeClient(NettyUtils.retrieveAddress(channel));
+        metricsCollector.removeClient(NettyUtils.retrieveAddress(channel));
         final ConnectionDescriptor existingDescriptor = ConnectionDescriptorStore.getInstance().getConnection(clientID);
         if (existingDescriptor == null) {
             // another client with same ID removed the descriptor, we must exit
@@ -299,7 +300,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         String clientId = NettyUtils.retrieveClientId(channel);
         if (StringUtils.isNotEmpty(clientId)) {
-            metricsProvider.removeClient(NettyUtils.retrieveAddress(channel));
+            metricsCollector.removeClient(NettyUtils.retrieveAddress(channel));
             ConnectionDescriptor oldConnDescriptor = new ConnectionDescriptor(clientId, channel, true);
             ConnectionDescriptorStore.getInstance().removeConnection(oldConnDescriptor);
             removeSubscriptions(null, clientId);
@@ -313,12 +314,13 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         String clientID = NettyUtils.retrieveClientId(channel);
         int messageID = msg.variableHeader().messageId();
-        List<MqttTopicSubscription> ackTopics = doVerify(msg);
+        List<MqttTopicSubscription> subTopics = doVerify(msg);
 
-        List<CompletableFuture<Void>> futureList = new ArrayList<>(ackTopics.size());
-        for (MqttTopicSubscription ackTopic : ackTopics) {
+        List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
+        for (MqttTopicSubscription subTopic : subTopics) {
+            metricsCollector.addSub(subTopic.topicName());
             CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
-                    ackTopic.topicName(), configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
+                    subTopic.topicName(), configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
                     pulsarService, configuration.getDefaultTopicDomain());
             CompletableFuture<Void> completableFuture = topicListFuture.thenCompose(topics -> {
                 List<CompletableFuture<Subscription>> futures = new ArrayList<>();
@@ -329,9 +331,9 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                                     configuration.getDefaultTopicDomain());
                     future.thenAccept(sub -> {
                         try {
-                            MQTTConsumer consumer = new MQTTConsumer(sub, ackTopic.topicName(),
-                                    topic, clientID, serverCnx,
-                                    ackTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer);
+                            MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(), topic,
+                                    clientID, serverCnx, subTopic.qualityOfService(), packetIdGenerator,
+                                    outstandingPacketContainer, metricsCollector);
                             sub.addConsumer(consumer);
                             consumer.addAllPermits();
                         } catch (Exception e) {
@@ -345,7 +347,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             futureList.add(completableFuture);
         }
         FutureUtil.waitForAll(futureList).thenAccept(v -> {
-            MqttSubAckMessage ackMessage = doAckMessageFromValidateFilters(ackTopics, messageID);
+            MqttSubAckMessage ackMessage = doAckMessageFromValidateFilters(subTopics, messageID);
             if (log.isDebugEnabled()) {
                 log.debug("Sending SUB-ACK message {} to {}", ackMessage, clientID);
             }
@@ -367,6 +369,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         final MqttQoS qos = msg.fixedHeader().qosLevel();
         List<CompletableFuture<Void>> futureList = new ArrayList<>(topicFilters.size());
         for (String topicFilter : topicFilters) {
+            metricsCollector.removeSub(topicFilter);
             CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
                     topicFilter, configuration.getDefaultTenant(), configuration.getDefaultNamespace(), pulsarService,
                     configuration.getDefaultTopicDomain());
@@ -381,7 +384,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                             if (subscription != null) {
                                 try {
                                     MQTTConsumer consumer = new MQTTConsumer(subscription, topicFilter,
-                                        topic, clientID, serverCnx, qos, packetIdGenerator, outstandingPacketContainer);
+                                        topic, clientID, serverCnx, qos, packetIdGenerator,
+                                            outstandingPacketContainer, metricsCollector);
                                     topicOp.get().getSubscription(clientID).removeConsumer(consumer);
                                     futures.add(topicOp.get().unsubscribe(clientID));
                                 } catch (Exception e) {

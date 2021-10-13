@@ -22,7 +22,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
-import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
+import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
 import java.util.Map;
@@ -44,7 +44,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
     private final MQTTServerConfiguration mqttConfig;
 
     private final Map<String, AuthenticationProvider> authProviders;
-    private final MQTTMetricsProvider metricsProvider;
+    private final MQTTMetricsCollector metricsCollector;
     private final boolean enableTls;
     private final boolean enableTlsPsk;
     private final boolean tlsEnabledWithKeyStore;
@@ -62,7 +62,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         this.pulsarService = mqttService.getPulsarService();
         this.mqttConfig = mqttService.getServerConfiguration();
         this.authProviders = mqttService.getAuthProviders();
-        this.metricsProvider = mqttService.getMetricsProvider();
+        this.metricsCollector = mqttService.getMetricsCollector();
         this.enableTls = enableTls;
         this.enableTlsPsk = enableTlsPsk;
         this.tlsEnabledWithKeyStore = mqttConfig.isTlsEnabledWithKeyStore();
@@ -121,6 +121,6 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
         ch.pipeline().addLast("handler",
                 new MQTTInboundHandler(new DefaultProtocolMethodProcessorImpl(pulsarService, mqttConfig,
-                        authProviders, metricsProvider)));
+                        authProviders, metricsCollector)));
     }
 }
