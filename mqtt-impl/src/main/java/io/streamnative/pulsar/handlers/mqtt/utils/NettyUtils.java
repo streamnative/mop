@@ -30,11 +30,11 @@ import java.util.Optional;
 public final class NettyUtils {
 
     public static final String ATTR_USERNAME = "username";
-    public static final String ATTR_AUTH_ROLE = "authrole";
+    public static final String ATTR_USER_ROLE = "userRole";
 
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ID = AttributeKey.valueOf(ATTR_CLIENT_ID);
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
-    private static final AttributeKey<Object> ATTR_KEY_AUTH_ROLE = AttributeKey.valueOf(ATTR_AUTH_ROLE);
+    private static final AttributeKey<Object> ATTR_KEY_USER_ROLE = AttributeKey.valueOf(ATTR_USER_ROLE);
     private static final AttributeKey<Object> ATTR_KEY_CONNECT_MSG = AttributeKey.valueOf(ATTR_CONNECT_MSG);
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ADDR = AttributeKey.valueOf(ATTR_CLIENT_ADDR);
 
@@ -59,12 +59,12 @@ public final class NettyUtils {
         channel.attr(NettyUtils.ATTR_KEY_USERNAME).set(username);
     }
 
-    public static String authRole(Channel channel) {
-        return (String) channel.attr(NettyUtils.ATTR_KEY_AUTH_ROLE).get();
+    public static String retrieveUserRole(Channel channel) {
+        return (String) channel.attr(NettyUtils.ATTR_KEY_USER_ROLE).get();
     }
 
-    public static void authRole(Channel channel, String authRole) {
-        channel.attr(NettyUtils.ATTR_KEY_AUTH_ROLE).set(authRole);
+    public static void attachUserRole(Channel channel, String authRole) {
+        channel.attr(NettyUtils.ATTR_KEY_USER_ROLE).set(authRole);
     }
 
     public static String userName(Channel channel) {

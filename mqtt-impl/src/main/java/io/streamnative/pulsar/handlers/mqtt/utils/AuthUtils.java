@@ -25,8 +25,6 @@ import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.authentication.AuthenticationService;
-import org.apache.pulsar.broker.authorization.AuthorizationProvider;
-import org.apache.pulsar.broker.authorization.AuthorizationService;
 
 
 @Slf4j
@@ -41,16 +39,6 @@ public class AuthUtils {
         return new AuthenticationDataCommand(payload.password());
       default:
         throw new IllegalStateException("Got invalid or unsupported authentication method!");
-    }
-  }
-
-  public static AuthenticationDataSource getAuthzData(String authzMethod, String authRole) {
-    switch (authzMethod) {
-      case AUTH_BASIC:
-      case AUTH_TOKEN:
-        return new AuthenticationDataCommand(authRole);
-      default:
-        throw new IllegalStateException("Got invalid or unsupported authorization method!");
     }
   }
 
@@ -74,22 +62,6 @@ public class AuthUtils {
           "MQTT authentication is enabled but no providers were successfully configured");
     }
     return authProviders;
-  }
-
-  public static AuthorizationProvider configureAuthzProvider(
-          AuthorizationService authzService, String authzMethod) {
-    if (!SUPPORTED_AUTH_METHODS.contains(authzMethod)) {
-      log.error("MQTT authorization method {} is not supported and will be ignored!", authzMethod);
-      throw new IllegalStateException(
-              "MQTT authorization method " + authzMethod + " is not supported and will be ignored");
-    }
-    final AuthorizationProvider authzProvider = authzService.getProvider();
-    if (authzProvider != null) {
-      return authzProvider;
-    } else {
-      throw new IllegalStateException(
-              "MQTT authorization is enabled but no providers were successfully configured");
-    }
   }
 
 }

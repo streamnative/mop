@@ -49,6 +49,7 @@ public class MQTTConsumer extends Consumer {
     private final MqttQoS qos;
     private final PacketIdGenerator packetIdGenerator;
     private final OutstandingPacketContainer outstandingPacketContainer;
+    private final MQTTMetricsCollector metricsCollector;
     private static final AtomicIntegerFieldUpdater<MQTTConsumer> MESSAGE_PERMITS_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "availablePermits");
     private volatile int availablePermits;
@@ -60,7 +61,7 @@ public class MQTTConsumer extends Consumer {
 
     public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, String consumerName,
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
-                        OutstandingPacketContainer outstandingPacketContainer) {
+                        OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector) {
         super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
                 "", null, false, CommandSubscribe.InitialPosition.Latest, null, MessageId.latest);
         this.pulsarTopicName = pulsarTopicName;
@@ -69,6 +70,7 @@ public class MQTTConsumer extends Consumer {
         this.qos = qos;
         this.packetIdGenerator = packetIdGenerator;
         this.outstandingPacketContainer = outstandingPacketContainer;
+        this.metricsCollector = metricsCollector;
     }
 
     @Override
@@ -92,6 +94,7 @@ public class MQTTConsumer extends Consumer {
                     log.debug("[{}] [{}] [{}] Send MQTT message {} to subscriber", pulsarTopicName,
                             mqttTopicName, super.getSubscription().getName(), msg);
                 }
+                metricsCollector.addReceived(msg.payload().readableBytes());
                 cnx.ctx().channel().write(msg);
             }
         }

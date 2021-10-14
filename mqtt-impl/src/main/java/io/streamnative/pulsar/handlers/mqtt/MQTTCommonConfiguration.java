@@ -61,13 +61,6 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     )
     private boolean mqttAuthorizationEnabled = false;
 
-
-    @FieldContext(
-            category = CATEGORY_MQTT,
-            doc = "A comma-separated list of authorization methods to enable."
-    )
-    private String mqttAuthorizationMethod;
-
     @FieldContext(
             category = CATEGORY_MQTT,
             required = true,

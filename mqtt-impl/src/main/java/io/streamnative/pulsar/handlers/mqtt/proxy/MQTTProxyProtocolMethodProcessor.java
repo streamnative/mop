@@ -32,11 +32,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
-import org.apache.pulsar.broker.authorization.AuthorizationProvider;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
-import org.apache.pulsar.common.policies.data.TopicOperation;
 import org.apache.pulsar.common.util.FutureUtil;
 
 /**
@@ -83,7 +82,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                 log.debug("Proxy client has connected with generated identifier. CId={}", clientId);
             }
         }
-        String authRole = null;
+        String userRole = null;
         // Authenticate the client
         if (!proxyService.getProxyConfig().isMqttAuthenticationEnabled()) {
             log.info("Proxy authentication is disabled, allowing client. CId={}, username={}",
@@ -92,7 +91,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             boolean authenticated = false;
             for (Map.Entry<String, AuthenticationProvider> entry : proxyService.getAuthProviders().entrySet()) {
                 try {
-                    authRole = entry.getValue().authenticate(AuthUtils.getAuthData(entry.getKey(), payload));
+                    userRole = entry.getValue().authenticate(AuthUtils.getAuthData(entry.getKey(), payload));
                     authenticated = true;
                     break;
                 } catch (AuthenticationException e) {
@@ -110,7 +109,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }
 
         NettyUtils.attachClientID(channel, clientId);
-        NettyUtils.authRole(channel, authRole);
+        NettyUtils.attachUserRole(channel, userRole);
         NettyUtils.attachConnectMsg(channel, connectMessage);
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
 
@@ -134,27 +133,24 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }
 
         String clientID = NettyUtils.retrieveClientId(channel);
-        String authRole = NettyUtils.authRole(channel);
+        String userRole = NettyUtils.retrieveUserRole(channel);
         // Authorization the client
         if (!proxyService.getProxyConfig().isMqttAuthorizationEnabled()) {
-            log.info("[Proxy Publish] authorization is disabled, allowing client. CId={}, authRole={}", clientID, authRole);
+            log.info("[Proxy Publish] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
         } else {
-            boolean authorizationed = false;
-            AuthorizationProvider authzProvider = proxyService.getAuthzProvider();
-            CompletableFuture<Boolean> result = authzProvider.allowTopicOperationAsync(TopicName.get(msg.variableHeader().topicName()),
-                    authRole, TopicOperation.PRODUCE, AuthUtils.getAuthzData(proxyService.getProxyConfig().getMqttAuthorizationMethod(), authRole));
+            boolean authorized = false;
+            CompletableFuture<Boolean> result = proxyService.getAuthorizationService().canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
+                    userRole, new AuthenticationDataCommand(userRole));
             try {
-                authorizationed = result.get();
+                authorized = result.get();
             } catch (Exception e) {
-                log.info("[Proxy Publish] authorization failed with method: {}. CId={}, username={}",
-                        proxyService.getProxyConfig().getMqttAuthorizationMethod(), clientID, authRole
-                );
+                log.info("[Proxy Publish] authorization failed with CId={}, userRole={}", clientID, userRole);
             }
-            if (!authorizationed) {
+            if (!authorized) {
                 channel.writeAndFlush(
                         MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED));
                 channel.close();
-                log.error("[Proxy Publish] invalid or incorrect authorization. CId={}, username={}", clientID, authRole);
+                log.error("[Proxy Publish] invalid or incorrect authorization. CId={}, userRole={}", clientID, userRole);
                 return;
             }
         }
@@ -223,28 +219,25 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }
 
         String clientID = NettyUtils.retrieveClientId(channel);
-        String authRole = NettyUtils.authRole(channel);
+        String userRole = NettyUtils.retrieveUserRole(channel);
         // Authorization the client
         if (!proxyService.getProxyConfig().isMqttAuthorizationEnabled()) {
-            log.info("[Proxy Subscribe] authorization is disabled, allowing client. CId={}, authRole={}", clientID, authRole);
+            log.info("[Proxy Subscribe] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
         } else {
-            boolean authorizationed = false;
-            AuthorizationProvider authzProvider = proxyService.getAuthzProvider();
+            boolean authorized = false;
             for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
-                CompletableFuture<Boolean> result = authzProvider.allowTopicOperationAsync(TopicName.get(topic.topicName()),
-                        authRole, TopicOperation.CONSUME, AuthUtils.getAuthzData(proxyService.getProxyConfig().getMqttAuthorizationMethod(), authRole));
+                CompletableFuture<Boolean> result = proxyService.getAuthorizationService().canConsumeAsync(TopicName.get(topic.topicName()),
+                        userRole, new AuthenticationDataCommand(userRole), userRole);
                 try {
-                    authorizationed = result.get();
+                    authorized = result.get();
                 } catch (Exception e) {
-                    log.info("[Proxy Subscribe] authorization failed with method: {}. CId={}, username={}",
-                            proxyService.getProxyConfig().getMqttAuthorizationMethod(), clientID, authRole
-                    );
+                    log.info("[Proxy Subscribe] authorization failed with CId={}, userRole={}", clientID, userRole);
                 }
-                if (!authorizationed) {
+                if (!authorized) {
                     channel.writeAndFlush(
                             MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED));
                     channel.close();
-                    log.error("[Proxy Subscribe] invalid or incorrect authorization. CId={}, username={}", clientID, authRole);
+                    log.error("[Proxy Subscribe] invalid or incorrect authorization. CId={}, userRole={}", clientID, userRole);
                     return;
                 }
             }

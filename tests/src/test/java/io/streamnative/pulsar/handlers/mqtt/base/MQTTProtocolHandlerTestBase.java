@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -145,7 +146,10 @@ public abstract class MQTTProtocolHandlerTestBase {
             protocolHandlerDir
         );
         mqtt.setMessagingProtocols(Sets.newHashSet("mqtt"));
-
+        Properties properties = new Properties();
+        properties.setProperty("additionalServlets", "mqtt-servlet");
+        properties.setProperty("additionalServletDirectory", protocolHandlerDir);
+        mqtt.setProperties(properties);
         return mqtt;
     }
 
