@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
 import java.util.Map;
 import lombok.Getter;
@@ -28,20 +29,26 @@ public class MQTTService {
 
     @Getter
     private MQTTServerConfiguration serverConfiguration;
+
     @Getter
     private PulsarService pulsarService;
+
     @Getter
     private Map<String, AuthenticationProvider> authProviders;
 
     @Getter
     private final MQTTMetricsProvider metricsProvider;
 
+    @Getter
+    private final MQTTMetricsCollector metricsCollector;
+
     public MQTTService(PulsarService pulsarService, MQTTServerConfiguration serverConfiguration,
                        Map<String, AuthenticationProvider> authProviders) {
         this.serverConfiguration = serverConfiguration;
         this.pulsarService = pulsarService;
         this.authProviders = authProviders;
-        this.metricsProvider = new MQTTMetricsProvider(serverConfiguration);
+        this.metricsCollector = new MQTTMetricsCollector(serverConfiguration);
+        this.metricsProvider = new MQTTMetricsProvider(metricsCollector);
         this.pulsarService.addPrometheusRawMetricsProvider(metricsProvider);
     }
 }

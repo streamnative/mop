@@ -55,6 +55,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
 
     private MQTTProxyService proxyService;
 
+    @Getter
     private MQTTService mqttService;
 
     @Override
