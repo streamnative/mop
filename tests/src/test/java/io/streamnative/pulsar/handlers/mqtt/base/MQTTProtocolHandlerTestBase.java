@@ -290,7 +290,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         int mqttProxyPort = -1;
         int mqttProxyTlsPort = -1;
         int mqttProxyTlsPskPort = -1;
-        if (conf.isMqttProxyEnable()) {
+        if (conf.isMqttProxyEnabled()) {
             mqttProxyPort = PortManager.nextFreePort();
             conf.setMqttProxyPort(mqttProxyPort);
             mqttProxyPortList.add(mqttProxyPort);
