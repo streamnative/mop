@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
@@ -249,13 +248,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             log.debug("Proxy ChannelWritable [{}]", NettyUtils.retrieveClientId(channel));
         }
         channel.flush();
-    }
-
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) {
-        if (log.isDebugEnabled()) {
-            log.debug("[Proxy channelActive] [{}]", NettyUtils.retrieveClientId(ctx.channel()));
-        }
     }
 
     private void writeToMqttBroker(Channel channel, MqttMessage msg, String topic, Pair<String, Integer> pair) {

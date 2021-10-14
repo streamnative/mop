@@ -73,14 +73,15 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
-    private MQTTServerCnx serverCnx;
+    private final MQTTServerCnx serverCnx;
     private final PacketIdGenerator packetIdGenerator;
     private final OutstandingPacketContainer outstandingPacketContainer;
     private final Map<String, AuthenticationProvider> authProviders;
     private final MQTTMetricsCollector metricsCollector;
 
     public DefaultProtocolMethodProcessorImpl (PulsarService pulsarService, MQTTServerConfiguration configuration,
-            Map<String, AuthenticationProvider> authProviders, MQTTMetricsCollector metricsCollector) {
+            Map<String, AuthenticationProvider> authProviders, MQTTMetricsCollector metricsCollector,
+                                               ChannelHandlerContext ctx) {
         this.pulsarService = pulsarService;
         this.configuration = configuration;
         this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration);
@@ -88,6 +89,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         this.outstandingPacketContainer = new OutstandingPacketContainerImpl();
         this.authProviders = authProviders;
         this.metricsCollector = metricsCollector;
+        this.serverCnx = new MQTTServerCnx(pulsarService, ctx);
     }
 
     @Override
@@ -425,11 +427,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             log.debug("[Notify Channel Writable] [{}]", NettyUtils.retrieveClientId(channel));
         }
         channel.flush();
-    }
-
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) {
-        serverCnx = new MQTTServerCnx(pulsarService, ctx);
     }
 
     private boolean sendAck(ConnectionDescriptor descriptor, MqttConnectReturnCode returnCode, final String clientId) {
