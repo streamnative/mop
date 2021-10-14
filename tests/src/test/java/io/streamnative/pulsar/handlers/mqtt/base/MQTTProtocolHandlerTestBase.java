@@ -258,7 +258,7 @@ public abstract class MQTTProtocolHandlerTestBase {
 
     protected void startBroker() throws Exception {
         MQTTServerConfiguration conf = initConfig();
-        if (conf.isMqttProxyEnable()) {
+        if (conf.isMqttProxyEnabled()) {
             brokerCount = 3;
         }
         for (int i = 0; i < brokerCount; i++) {
