@@ -112,7 +112,7 @@ public class MqttMessageUtils {
             grantedQoSLevels.add(req.qualityOfService().value());
         }
 
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE,
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, AT_MOST_ONCE,
                 false, 0);
         MqttSubAckPayload payload = new MqttSubAckPayload(grantedQoSLevels);
         return new MqttSubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageId), payload);
