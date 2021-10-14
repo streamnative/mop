@@ -84,7 +84,9 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private final MQTTMetricsCollector metricsCollector;
 
     public DefaultProtocolMethodProcessorImpl (PulsarService pulsarService, MQTTServerConfiguration configuration,
-                                               Map<String, AuthenticationProvider> authProviders, AuthorizationService authorizationService, MQTTMetricsCollector metricsCollector) {
+                                               Map<String, AuthenticationProvider> authProviders,
+                                               AuthorizationService authorizationService,
+                                               MQTTMetricsCollector metricsCollector) {
 
         this.pulsarService = pulsarService;
         this.configuration = configuration;
@@ -225,22 +227,23 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         if (!configuration.isMqttAuthorizationEnabled()) {
             log.info("[Publish] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
         } else {
-            boolean authorized = false;
-            CompletableFuture<Boolean> result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
-                    userRole, new AuthenticationDataCommand(userRole));
-            try {
-                authorized = result.get();
-            } catch (Exception e) {
-                log.info("[Publish] authorization failed with CId={}, userRole={}", clientID, userRole);
-            }
-            if (!authorized) {
-                MqttConnAckMessage connAck = MqttMessageUtils.
-                        connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
-                channel.writeAndFlush(connAck);
-                channel.close();
-                log.error("[Publish] invalid or incorrect authorization. CId={}, userRole={}", clientID, userRole);
-                return;
-            }
+            this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
+                    userRole, new AuthenticationDataCommand(userRole))
+                    .whenComplete((authorized, ex) -> {
+                        if (ex != null) {
+                            log.error("[Publish] authorization failed with CId={}, topic={}, userRole={}, ex={}",
+                                    clientID, msg.variableHeader().topicName(), userRole, ex.getMessage());
+                        }
+                        if (!authorized) {
+                            MqttConnAckMessage connAck = MqttMessageUtils.
+                                    connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
+                            channel.writeAndFlush(connAck);
+                            channel.close();
+                            log.error("[Publish] invalid or incorrect authorization. CId={}, topic={}, userRole={}",
+                                    clientID, msg.variableHeader().topicName(), userRole);
+                            return;
+                        }
+                    });
         }
 
         final MqttQoS qos = msg.fixedHeader().qosLevel();
@@ -351,23 +354,24 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         if (!configuration.isMqttAuthorizationEnabled()) {
             log.info("[Subscribe] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
         } else {
-            boolean authorized = false;
             for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
-                CompletableFuture<Boolean> result = this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
-                        userRole, new AuthenticationDataCommand(userRole), userRole);
-                try {
-                    authorized = result.get();
-                } catch (Exception e) {
-                    log.info("[Subscribe] authorization failed with CId={}, userRole={}", clientID, userRole);
-                }
-                if (!authorized) {
-                    MqttConnAckMessage connAck = MqttMessageUtils.
-                            connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
-                    channel.writeAndFlush(connAck);
-                    channel.close();
-                    log.error("[Subscribe] invalid or incorrect authorization. CId={}, userRole={}", clientID, userRole);
-                    return;
-                }
+                this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
+                        userRole, new AuthenticationDataCommand(userRole), userRole)
+                        .whenComplete((authorized, ex) -> {
+                            if (ex != null) {
+                                log.error("[Subscribe] authorization failed with CId={}, topic={}, userRole={}, ex={}",
+                                        clientID, topic.topicName(), userRole, ex.getMessage());
+                            }
+                            if (!authorized) {
+                                MqttConnAckMessage connAck = MqttMessageUtils.
+                                        connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
+                                channel.writeAndFlush(connAck);
+                                channel.close();
+                                log.error("[Subscribe] invalid or incorrect authorization topic={}, userRole={}",
+                                        topic.topicName(), userRole);
+                                return;
+                            }
+                        });
             }
         }
 

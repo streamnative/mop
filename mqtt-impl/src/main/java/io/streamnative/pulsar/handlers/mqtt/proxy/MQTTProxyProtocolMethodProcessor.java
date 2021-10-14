@@ -15,7 +15,16 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.mqtt.*;
+import io.netty.handler.codec.mqtt.MqttConnAckMessage;
+import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.handler.codec.mqtt.MqttConnectPayload;
+import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
+import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttPubAckMessage;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
@@ -136,23 +145,25 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         String userRole = NettyUtils.retrieveUserRole(channel);
         // Authorization the client
         if (!proxyService.getProxyConfig().isMqttAuthorizationEnabled()) {
-            log.info("[Proxy Publish] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
+            log.info("[Proxy Publish] authorization is disabled, allowing client. CId={}, userRole={}",
+                    clientID, userRole);
         } else {
-            boolean authorized = false;
-            CompletableFuture<Boolean> result = proxyService.getAuthorizationService().canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
-                    userRole, new AuthenticationDataCommand(userRole));
-            try {
-                authorized = result.get();
-            } catch (Exception e) {
-                log.info("[Proxy Publish] authorization failed with CId={}, userRole={}", clientID, userRole);
-            }
-            if (!authorized) {
-                channel.writeAndFlush(
-                        MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED));
-                channel.close();
-                log.error("[Proxy Publish] invalid or incorrect authorization. CId={}, userRole={}", clientID, userRole);
-                return;
-            }
+            proxyService.getAuthorizationService().canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
+                    userRole, new AuthenticationDataCommand(userRole))
+                    .whenComplete((authorized, ex) -> {
+                        if (ex != null) {
+                            log.error("[Proxy Publish] authorization failed with CId={}, topic={}, userRole={}, ex={}",
+                                    clientID, msg.variableHeader().topicName(), userRole, ex.getMessage());
+                        }
+                        if (!authorized) {
+                            channel.writeAndFlush(
+                                    MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED));
+                            channel.close();
+                            log.error("[Proxy Publish] invalid or incorrect authorization. topic={}, userRole={}",
+                                    msg.variableHeader().topicName(), userRole);
+                            return;
+                        }
+                    });
         }
 
         String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
@@ -222,24 +233,26 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         String userRole = NettyUtils.retrieveUserRole(channel);
         // Authorization the client
         if (!proxyService.getProxyConfig().isMqttAuthorizationEnabled()) {
-            log.info("[Proxy Subscribe] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
+            log.info("[Proxy Subscribe] authorization is disabled, allowing client. CId={}, userRole={}",
+                    clientID, userRole);
         } else {
-            boolean authorized = false;
             for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
-                CompletableFuture<Boolean> result = proxyService.getAuthorizationService().canConsumeAsync(TopicName.get(topic.topicName()),
-                        userRole, new AuthenticationDataCommand(userRole), userRole);
-                try {
-                    authorized = result.get();
-                } catch (Exception e) {
-                    log.info("[Proxy Subscribe] authorization failed with CId={}, userRole={}", clientID, userRole);
-                }
-                if (!authorized) {
-                    channel.writeAndFlush(
-                            MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED));
-                    channel.close();
-                    log.error("[Proxy Subscribe] invalid or incorrect authorization. CId={}, userRole={}", clientID, userRole);
-                    return;
-                }
+                proxyService.getAuthorizationService().canConsumeAsync(TopicName.get(topic.topicName()),
+                        userRole, new AuthenticationDataCommand(userRole), userRole)
+                        .whenComplete((authorized, ex) -> {
+                            if (ex != null) {
+                                log.error("[Proxy Subscribe] authorization failed with topic={}, userRole={}, ex={}",
+                                        topic.topicName(), userRole, ex.getMessage());
+                            }
+                            if (!authorized) {
+                                channel.writeAndFlush(MqttMessageUtils.connAck(
+                                        MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED));
+                                channel.close();
+                                log.error("[Proxy Subscribe] invalid or incorrect authorization topic={}, userRole={}",
+                                        topic.topicName(), userRole);
+                                return;
+                            }
+                        });
             }
 
         }

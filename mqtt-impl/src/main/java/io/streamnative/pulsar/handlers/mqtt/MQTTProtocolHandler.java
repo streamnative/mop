@@ -96,7 +96,8 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             this.authProviders = AuthUtils.configureAuthProviders(brokerService.getAuthenticationService(),
                                                                   mqttConfig.getMqttAuthenticationMethods());
         }
-        mqttService = new MQTTService(brokerService.pulsar(), mqttConfig, authProviders, brokerService.getAuthorizationService());
+        mqttService = new MQTTService(brokerService.pulsar(), mqttConfig, authProviders,
+                brokerService.getAuthorizationService());
         if (mqttConfig.isMqttProxyEnable()) {
             MQTTProxyConfiguration proxyConfig = new MQTTProxyConfiguration();
             proxyConfig.setDefaultTenant(mqttConfig.getDefaultTenant());
