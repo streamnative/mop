@@ -25,7 +25,14 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
+import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.handler.codec.mqtt.MqttSubAckMessage;
+import io.netty.handler.codec.mqtt.MqttSubAckPayload;
+import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.apache.commons.codec.binary.Hex;
 
@@ -87,5 +94,27 @@ public class MqttMessageUtils {
 
     public static int getKeepAliveTime(MqttConnectMessage msg) {
         return Math.round(msg.variableHeader().keepAliveTimeSeconds() * 1.5f);
+    }
+
+    public static List<MqttTopicSubscription> topicSubscriptions(MqttSubscribeMessage msg) {
+        List<MqttTopicSubscription> ackTopics = new ArrayList<>();
+
+        for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
+            MqttQoS qos = req.qualityOfService();
+            ackTopics.add(new MqttTopicSubscription(req.topicName(), qos));
+        }
+        return ackTopics;
+    }
+
+    public static MqttSubAckMessage createSubAckMessage(List<MqttTopicSubscription> topicFilters, int messageId) {
+        List<Integer> grantedQoSLevels = new ArrayList<>();
+        for (MqttTopicSubscription req : topicFilters) {
+            grantedQoSLevels.add(req.qualityOfService().value());
+        }
+
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE,
+                false, 0);
+        MqttSubAckPayload payload = new MqttSubAckPayload(grantedQoSLevels);
+        return new MqttSubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageId), payload);
     }
 }

@@ -47,8 +47,6 @@ public interface ProtocolMethodProcessor {
 
     void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg);
 
-    void notifyChannelWritable(Channel channel);
-
     default void processPingReq(Channel channel) {
         channel.writeAndFlush(pingResp());
     }

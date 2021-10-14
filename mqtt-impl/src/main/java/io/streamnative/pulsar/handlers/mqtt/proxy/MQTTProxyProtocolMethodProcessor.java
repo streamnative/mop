@@ -242,14 +242,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }
     }
 
-    @Override
-    public void notifyChannelWritable(Channel channel) {
-        if (log.isDebugEnabled()) {
-            log.debug("Proxy ChannelWritable [{}]", NettyUtils.retrieveClientId(channel));
-        }
-        channel.flush();
-    }
-
     private void writeToMqttBroker(Channel channel, MqttMessage msg, String topic, Pair<String, Integer> pair) {
         CompletableFuture<MQTTProxyExchanger> proxyExchanger = createProxyExchanger(topic, pair);
         proxyExchanger.whenComplete((exchanger, error) -> {

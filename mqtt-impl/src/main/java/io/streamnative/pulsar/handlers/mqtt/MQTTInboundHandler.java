@@ -160,7 +160,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
         if (ctx.channel().isWritable()) {
-            processor.notifyChannelWritable(ctx.channel());
+            ctx.channel().flush();
         }
         ctx.fireChannelWritabilityChanged();
     }
