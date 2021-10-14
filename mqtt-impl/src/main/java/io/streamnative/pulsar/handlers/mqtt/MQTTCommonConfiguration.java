@@ -113,9 +113,17 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
             required = false,
+            doc = "Deprecated, use `mqttProxyEnabled` instead"
+    )
+    @Deprecated
+    private boolean mqttProxyEnable = false;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
             doc = "Whether start mqtt protocol handler with proxy"
     )
-    private boolean mqttProxyEnable = false;
+    private boolean mqttProxyEnabled = false;
 
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,

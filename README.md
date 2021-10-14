@@ -108,7 +108,7 @@ To use the proxy, follow the following steps. For detailed steps, refer to [Depl
     mqttListeners=mqtt://127.0.0.1:1883
     advertisedAddress=127.0.0.1
     
-    mqttProxyEnable=true
+    mqttProxyEnabled=true
     mqttProxyPort=5682
     ```
 
@@ -360,6 +360,10 @@ Examples:
 > Notice:
 >
 > The default tenant and the default namespace for the MoP are configurable, by default, the default tenant is `public` and the default namespace is `default`.
+
+## MoP available configurations
+
+Please refer [here](docs/mop-configuration.md)
 
 ## Project maintainers
 

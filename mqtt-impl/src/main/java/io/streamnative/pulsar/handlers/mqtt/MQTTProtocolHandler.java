@@ -97,7 +97,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                                                                   mqttConfig.getMqttAuthenticationMethods());
         }
         mqttService = new MQTTService(brokerService.pulsar(), mqttConfig, authProviders);
-        if (mqttConfig.isMqttProxyEnable()) {
+        if (mqttConfig.isMqttProxyEnabled() || mqttConfig.isMqttProxyEnable()) {
             MQTTProxyConfiguration proxyConfig = new MQTTProxyConfiguration();
             proxyConfig.setDefaultTenant(mqttConfig.getDefaultTenant());
             proxyConfig.setDefaultTopicDomain(mqttConfig.getDefaultTopicDomain());

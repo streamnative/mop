@@ -54,7 +54,7 @@ public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
         properties.setProperty("tokenSecretKey", AuthTokenUtils.encodeKeyBase64(secretKey));
         token = AuthTokenUtils.createToken(secretKey, "superUser", Optional.empty());
 
-        conf.setMqttProxyEnable(true);
+        conf.setMqttProxyEnabled(true);
         conf.setAuthenticationEnabled(true);
         conf.setMqttAuthenticationEnabled(true);
         conf.setMqttAuthenticationMethods(ImmutableList.of("token"));
