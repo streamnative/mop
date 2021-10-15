@@ -316,6 +316,11 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             log.debug("[Subscribe] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
         }
         String clientID = NettyUtils.retrieveClientId(channel);
+        if (StringUtils.isEmpty(clientID)) {
+            log.error("clientId is empty for sub [{}] close channel", msg);
+            channel.close();
+            return;
+        }
         int messageID = msg.variableHeader().messageId();
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
 
