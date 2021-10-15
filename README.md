@@ -281,6 +281,9 @@ mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "h
 
 # Test with tlsv1.1
 mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "hello mqtt" --tls-version tlsv1.1
+
+# Test with tlsv1
+mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "hello mqtt" --tls-version tlsv1
 ```
 - Download [mosquitto](https://mosquitto.org/download/) with Mac version.
 - The secret `mqtt123` is converted to `6d717474313233` using [Hex Code Converter](https://www.rapidtables.com/convert/number/ascii-to-hex.html)
@@ -360,6 +363,27 @@ Examples:
 > Notice:
 >
 > The default tenant and the default namespace for the MoP are configurable, by default, the default tenant is `public` and the default namespace is `default`.
+
+## Metrics
+
+MoP will uniformly output its own metrics to Prometheus.
+
+| Name | Type | Description |
+|------|------|---------|
+| mop_active_client_count | Gauge | The active client count |
+| mop_total_client_count | Counter | The total client count |
+| mop_maximum_client_count | Counter | The maximum client count |
+| mop_sub_count | Gauge | The subscription count |
+| mop_send_count | Counter | The total send msg count |
+| mop_send_bytes | Counter | The total send msg in bytes |
+| mop_received_count| Counter | The total received msg count |
+| mop_received_bytes| Counter | The total received msg in bytes |
+
+MoP also exposes the http interface through `/mop-stats`, and users can obtain mop information in json format through that path.
+```
+curl http://pulsar-broker-webservice-address:port/mop-stats/
+{"cluster":"test","subscriptions":{"subs":["/a/b/c"],"count":1},"clients":{"total":1,"maximum":1,"active":0,"active_clients":[]},"namespace":"default","messages":{"received_bytes":57351,"received_count":10,"send_count":20,"send_bytes":60235},"version":"2.9.0-SNAPSHOT","tenant":"public","uptime":"46 seconds"}
+```
 
 ## Project maintainers
 
