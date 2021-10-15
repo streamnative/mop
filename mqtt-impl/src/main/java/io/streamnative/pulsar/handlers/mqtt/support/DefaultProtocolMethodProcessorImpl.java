@@ -229,11 +229,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         } else {
             this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
                     userRole, new AuthenticationDataCommand(userRole))
-                    .whenComplete((authorized, ex) -> {
-                        if (ex != null) {
-                            log.error("[Publish] authorization failed with CId={}, topic={}, userRole={}, ex={}",
-                                    clientID, msg.variableHeader().topicName(), userRole, ex.getMessage());
-                        }
+                    .thenAccept((authorized) -> {
                         if (!authorized) {
                             MqttConnAckMessage connAck = MqttMessageUtils.
                                     connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
@@ -357,11 +353,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
                 this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
                         userRole, new AuthenticationDataCommand(userRole), userRole)
-                        .whenComplete((authorized, ex) -> {
-                            if (ex != null) {
-                                log.error("[Subscribe] authorization failed with CId={}, topic={}, userRole={}, ex={}",
-                                        clientID, topic.topicName(), userRole, ex.getMessage());
-                            }
+                        .thenAccept((authorized) -> {
                             if (!authorized) {
                                 MqttConnAckMessage connAck = MqttMessageUtils.
                                         connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
