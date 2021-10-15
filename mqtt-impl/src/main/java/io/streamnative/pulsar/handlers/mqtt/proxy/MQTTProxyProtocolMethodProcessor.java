@@ -190,6 +190,10 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Connection Lost] [{}] ", NettyUtils.retrieveClientId(channel));
         }
+        proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
+            exchanger.close();
+        }));
+        proxyExchangerMap.clear();
     }
 
     @Override
