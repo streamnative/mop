@@ -52,7 +52,7 @@ public class ProxyTest extends MQTTTestBase {
     protected MQTTServerConfiguration initConfig() throws Exception {
         MQTTServerConfiguration mqtt = super.initConfig();
 
-        mqtt.setMqttProxyEnable(true);
+        mqtt.setMqttProxyEnabled(true);
         mqtt.setMqttProxyTlsPskEnabled(true);
         mqtt.setTlsPskIdentityHint("alpha");
         mqtt.setTlsPskIdentity("mqtt:mqtt123");
