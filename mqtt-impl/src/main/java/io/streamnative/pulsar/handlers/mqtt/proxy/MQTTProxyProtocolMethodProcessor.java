@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
@@ -191,6 +190,10 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Connection Lost] [{}] ", NettyUtils.retrieveClientId(channel));
         }
+        proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
+            exchanger.close();
+        }));
+        proxyExchangerMap.clear();
     }
 
     @Override
@@ -240,21 +243,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                 }
                 writeToMqttBroker(channel, msg, topic, pair);
             });
-        }
-    }
-
-    @Override
-    public void notifyChannelWritable(Channel channel) {
-        if (log.isDebugEnabled()) {
-            log.debug("Proxy ChannelWritable [{}]", NettyUtils.retrieveClientId(channel));
-        }
-        channel.flush();
-    }
-
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) {
-        if (log.isDebugEnabled()) {
-            log.debug("[Proxy channelActive] [{}]", NettyUtils.retrieveClientId(ctx.channel()));
         }
     }
 

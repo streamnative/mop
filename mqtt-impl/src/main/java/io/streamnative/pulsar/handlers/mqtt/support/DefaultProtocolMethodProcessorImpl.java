@@ -17,6 +17,8 @@ import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.Connecti
 import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.ESTABLISHED;
 import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SENDACK;
 import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SUBSCRIPTIONS_REMOVED;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createSubAckMessage;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
@@ -31,7 +33,6 @@ import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
-import io.netty.handler.codec.mqtt.MqttSubAckPayload;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
@@ -73,14 +74,15 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
-    private MQTTServerCnx serverCnx;
+    private final MQTTServerCnx serverCnx;
     private final PacketIdGenerator packetIdGenerator;
     private final OutstandingPacketContainer outstandingPacketContainer;
     private final Map<String, AuthenticationProvider> authProviders;
     private final MQTTMetricsCollector metricsCollector;
 
     public DefaultProtocolMethodProcessorImpl (PulsarService pulsarService, MQTTServerConfiguration configuration,
-            Map<String, AuthenticationProvider> authProviders, MQTTMetricsCollector metricsCollector) {
+            Map<String, AuthenticationProvider> authProviders, MQTTMetricsCollector metricsCollector,
+                                               ChannelHandlerContext ctx) {
         this.pulsarService = pulsarService;
         this.configuration = configuration;
         this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration);
@@ -88,6 +90,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         this.outstandingPacketContainer = new OutstandingPacketContainerImpl();
         this.authProviders = authProviders;
         this.metricsCollector = metricsCollector;
+        this.serverCnx = new MQTTServerCnx(pulsarService, ctx);
     }
 
     @Override
@@ -313,8 +316,13 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             log.debug("[Subscribe] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
         }
         String clientID = NettyUtils.retrieveClientId(channel);
+        if (StringUtils.isEmpty(clientID)) {
+            log.error("clientId is empty for sub [{}] close channel", msg);
+            channel.close();
+            return;
+        }
         int messageID = msg.variableHeader().messageId();
-        List<MqttTopicSubscription> subTopics = doVerify(msg);
+        List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
 
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
         for (MqttTopicSubscription subTopic : subTopics) {
@@ -347,7 +355,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             futureList.add(completableFuture);
         }
         FutureUtil.waitForAll(futureList).thenAccept(v -> {
-            MqttSubAckMessage ackMessage = doAckMessageFromValidateFilters(subTopics, messageID);
+            MqttSubAckMessage ackMessage = createSubAckMessage(subTopics, messageID);
             if (log.isDebugEnabled()) {
                 log.debug("Sending SUB-ACK message {} to {}", ackMessage, clientID);
             }
@@ -419,19 +427,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         });
     }
 
-    @Override
-    public void notifyChannelWritable(Channel channel) {
-        if (log.isDebugEnabled()) {
-            log.debug("[Notify Channel Writable] [{}]", NettyUtils.retrieveClientId(channel));
-        }
-        channel.flush();
-    }
-
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) {
-        serverCnx = new MQTTServerCnx(pulsarService, ctx);
-    }
-
     private boolean sendAck(ConnectionDescriptor descriptor, MqttConnectReturnCode returnCode, final String clientId) {
         if (log.isDebugEnabled()) {
             log.debug("Sending connect ACK. CId={}", clientId);
@@ -459,27 +454,5 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         // todo remove subscriptions from Pulsar.
         return true;
-    }
-
-    private List<MqttTopicSubscription> doVerify(MqttSubscribeMessage msg) {
-        List<MqttTopicSubscription> ackTopics = new ArrayList<>();
-
-        for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
-            MqttQoS qos = req.qualityOfService();
-            ackTopics.add(new MqttTopicSubscription(req.topicName(), qos));
-        }
-        return ackTopics;
-    }
-
-    private MqttSubAckMessage doAckMessageFromValidateFilters(List<MqttTopicSubscription> topicFilters, int messageId) {
-        List<Integer> grantedQoSLevels = new ArrayList<>();
-        for (MqttTopicSubscription req : topicFilters) {
-            grantedQoSLevels.add(req.qualityOfService().value());
-        }
-
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE,
-                false, 0);
-        MqttSubAckPayload payload = new MqttSubAckPayload(grantedQoSLevels);
-        return new MqttSubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageId), payload);
     }
 }
