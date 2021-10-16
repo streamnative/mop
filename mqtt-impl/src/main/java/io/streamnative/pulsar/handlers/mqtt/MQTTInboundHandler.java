@@ -27,8 +27,15 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
+import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
+import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import java.util.Map;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.broker.authorization.AuthorizationService;
 
 /**
  * MQTT in bound handler.
@@ -37,10 +44,27 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
 
-    private final ProtocolMethodProcessor processor;
+    private ProtocolMethodProcessor processor;
 
-    public MQTTInboundHandler(ProtocolMethodProcessor processor) {
-        this.processor = processor;
+    @Getter
+    private final PulsarService pulsarService;
+    @Getter
+    private final MQTTServerConfiguration mqttConfig;
+    @Getter
+    private final Map<String, AuthenticationProvider> authProviders;
+    @Getter
+    private final AuthorizationService authorizationService;
+    @Getter
+    private final MQTTMetricsCollector metricsCollector;
+
+    public MQTTInboundHandler(PulsarService pulsarService, MQTTServerConfiguration mqttConfig,
+                              Map<String, AuthenticationProvider> authProviders,
+                              AuthorizationService authorizationService, MQTTMetricsCollector metricsCollector) {
+        this.pulsarService = pulsarService;
+        this.mqttConfig = mqttConfig;
+        this.authProviders = authProviders;
+        this.authorizationService = authorizationService;
+        this.metricsCollector = metricsCollector;
     }
 
     @Override
@@ -102,7 +126,8 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-        processor.channelActive(ctx);
+        processor = new DefaultProtocolMethodProcessorImpl(pulsarService, mqttConfig, authProviders,
+                authorizationService, metricsCollector, ctx);
     }
 
     @Override
@@ -139,7 +164,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
         if (ctx.channel().isWritable()) {
-            processor.notifyChannelWritable(ctx.channel());
+            ctx.channel().flush();
         }
         ctx.fireChannelWritabilityChanged();
     }
