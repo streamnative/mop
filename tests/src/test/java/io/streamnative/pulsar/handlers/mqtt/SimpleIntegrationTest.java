@@ -405,4 +405,55 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertTrue(buffer.toString().contains("active"));
         Assert.assertTrue(buffer.toString().contains("active_clients"));
     }
+
+    @Test
+    @SneakyThrows
+    public void testConsumerDisconnectNotMissingMessage() {
+        String topic = "a";
+        int total = 1000;
+        String msgPrefix = "Hello MQTT Proxy- ";
+        CountDownLatch latch = new CountDownLatch(1);
+        CountDownLatch stop = new CountDownLatch(1);
+        Thread consumerThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    int segment = 100;
+                    int recCount = 0;
+                    int start = 0;
+                    MQTT mqttConsumer = createMQTTClient();
+                    mqttConsumer.setClientId("theSameClientId");
+                    for (int l = 0; l < total / segment; l++) {
+                        BlockingConnection consumer = mqttConsumer.blockingConnection();
+                        consumer.connect();
+                        Topic[] topics = { new Topic(topic, QoS.AT_LEAST_ONCE)};
+                        consumer.subscribe(topics);
+                        latch.countDown();
+                        for (int i = start; i < segment + start; i++) {
+                            Message received = consumer.receive();
+                            received.ack();
+                            recCount++;
+                        }
+                        start = recCount;
+                        consumer.disconnect();
+                    }
+                    Assert.assertEquals(start, total);
+                    stop.countDown();
+                } catch (Throwable ex) {
+                    log.error("consumer error", ex);
+                }
+            }
+        });
+        consumerThread.start();
+        MQTT mqttProducer = createMQTTClient();
+        BlockingConnection producer = mqttProducer.blockingConnection();
+        producer.connect();
+        latch.await();
+        for (int i = 0; i < total; i++) {
+            byte[] message = (msgPrefix + i).getBytes(StandardCharsets.UTF_8);
+            producer.publish(topic, message, QoS.AT_MOST_ONCE, false);
+        }
+        producer.disconnect();
+        stop.await(5, TimeUnit.MINUTES);
+    }
 }
