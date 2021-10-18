@@ -16,7 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.ESTABLISHED;
 import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SENDACK;
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SUBSCRIPTIONS_REMOVED;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createSubAckMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
 import io.netty.channel.Channel;
@@ -56,13 +55,18 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.broker.service.BrokerServiceException;
+import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.Subscription;
+import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.util.FutureUtil;
 
@@ -274,14 +278,14 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             return;
         }
 
-        if (!removeSubscriptions(existingDescriptor, clientID)) {
-            log.warn("Unable to remove subscriptions. Closing connection. CId={}", clientID);
-            existingDescriptor.abort();
+        if (!existingDescriptor.close()) {
+            log.warn("The connection has been closed. CId={}", clientID);
             return;
         }
 
-        if (!existingDescriptor.close()) {
-            log.warn("The connection has been closed. CId={}", clientID);
+        if (!removeSubscriptions(existingDescriptor, clientID)) {
+            log.warn("Unable to remove subscriptions. Closing connection. CId={}", clientID);
+            existingDescriptor.abort();
             return;
         }
 
@@ -306,7 +310,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             metricsCollector.removeClient(NettyUtils.retrieveAddress(channel));
             ConnectionDescriptor oldConnDescriptor = new ConnectionDescriptor(clientId, channel, true);
             ConnectionDescriptorStore.getInstance().removeConnection(oldConnDescriptor);
-            removeSubscriptions(null, clientId);
+            removeSubscriptions(oldConnDescriptor, clientId);
         }
     }
 
@@ -325,6 +329,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
 
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
+        Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = new ConcurrentHashMap<>();
         for (MqttTopicSubscription subTopic : subTopics) {
             metricsCollector.addSub(subTopic.topicName());
             CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
@@ -344,6 +349,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                                     outstandingPacketContainer, metricsCollector);
                             sub.addConsumer(consumer);
                             consumer.addAllPermits();
+                            topicSubscriptions.putIfAbsent(sub.getTopic(), Pair.of(sub, consumer));
                         } catch (Exception e) {
                             throw new MQTTServerException(e);
                         }
@@ -360,6 +366,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 log.debug("Sending SUB-ACK message {} to {}", ackMessage, clientID);
             }
             channel.writeAndFlush(ackMessage);
+            NettyUtils.attachTopicSubscriptions(channel, topicSubscriptions);
         }).exceptionally(e -> {
             log.error("[{}] Failed to process MQTT subscribe.", clientID, e);
             channel.close();
@@ -445,14 +452,24 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         return true;
     }
 
+    private void removeConsumers(Channel channel) {
+        Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
+                .retrieveTopicSubscriptions(channel);
+        if (topicSubscriptions != null) {
+            topicSubscriptions.forEach((k, v) -> {
+                try {
+                    v.getLeft().removeConsumer(v.getRight());
+                } catch (BrokerServiceException ex) {
+                    log.warn("subscription [{}] remove consumer {} error", v.getLeft(), v.getRight(), ex);
+                }
+            });
+        }
+    }
+
     private boolean removeSubscriptions(ConnectionDescriptor descriptor, String clientID) {
         if (descriptor != null) {
-            final boolean success = descriptor.assignState(ESTABLISHED, SUBSCRIPTIONS_REMOVED);
-            if (!success) {
-                return false;
-            }
+            removeConsumers(descriptor.getChannel());
         }
-        // todo remove subscriptions from Pulsar.
         return true;
     }
 }
