@@ -423,7 +423,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
                     int start = 0;
                     MQTT mqttConsumer = createMQTTClient();
                     mqttConsumer.setClientId("theSameClientId");
-                    for(int l = 0; l < total/segment; l++) {
+                    for (int l = 0; l < total / segment; l++) {
                         BlockingConnection consumer = mqttConsumer.blockingConnection();
                         consumer.connect();
                         Topic[] topics = { new Topic(topic, QoS.AT_LEAST_ONCE)};
@@ -449,7 +449,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         BlockingConnection producer = mqttProducer.blockingConnection();
         producer.connect();
         latch.await();
-        for(int i = 0; i < total; i ++) {
+        for (int i = 0; i < total; i++) {
             byte[] message = (msgPrefix + i).getBytes(StandardCharsets.UTF_8);
             producer.publish(topic, message, QoS.AT_MOST_ONCE, false);
         }
