@@ -46,7 +46,7 @@ public class BasicAuthenticationIntegrationTest extends MQTTTestBase {
         System.setProperty("pulsar.auth.basic.conf", "./src/test/resources/htpasswd");
         String authParams = "{\"userId\":\"superUser\",\"password\":\"supepass\"}";
 
-        conf.setMqttProxyEnable(true);
+        conf.setMqttProxyEnabled(true);
         conf.setAuthenticationEnabled(true);
         conf.setMqttAuthenticationEnabled(true);
         conf.setMqttAuthenticationMethods(ImmutableList.of("basic"));

@@ -108,7 +108,7 @@ To use the proxy, follow the following steps. For detailed steps, refer to [Depl
     mqttListeners=mqtt://127.0.0.1:1883
     advertisedAddress=127.0.0.1
     
-    mqttProxyEnable=true
+    mqttProxyEnabled=true
     mqttProxyPort=5682
     ```
 
@@ -364,6 +364,7 @@ Examples:
 >
 > The default tenant and the default namespace for the MoP are configurable, by default, the default tenant is `public` and the default namespace is `default`.
 
+
 ## Metrics
 
 MoP will uniformly output its own metrics to Prometheus.
@@ -384,6 +385,11 @@ MoP also exposes the http interface through `/mop-stats`, and users can obtain m
 curl http://pulsar-broker-webservice-address:port/mop-stats/
 {"cluster":"test","subscriptions":{"subs":["/a/b/c"],"count":1},"clients":{"total":1,"maximum":1,"active":0,"active_clients":[]},"namespace":"default","messages":{"received_bytes":57351,"received_count":10,"send_count":20,"send_bytes":60235},"version":"2.9.0-SNAPSHOT","tenant":"public","uptime":"46 seconds"}
 ```
+
+## MoP available configurations
+
+Please refer [here](docs/mop-configuration.md)
+
 
 ## Project maintainers
 
