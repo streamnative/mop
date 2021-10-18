@@ -28,6 +28,7 @@ import java.util.Map;
 import lombok.Getter;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.broker.authorization.AuthorizationService;
 import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
 import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
 import org.apache.pulsar.common.util.keystoretls.NettySSLContextAutoRefreshBuilder;
@@ -43,6 +44,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
     private final MQTTServerConfiguration mqttConfig;
 
     private final Map<String, AuthenticationProvider> authProviders;
+    private final AuthorizationService authorizationService;
     private final MQTTMetricsCollector metricsCollector;
     private final boolean enableTls;
     private final boolean enableTlsPsk;
@@ -61,6 +63,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         this.pulsarService = mqttService.getPulsarService();
         this.mqttConfig = mqttService.getServerConfiguration();
         this.authProviders = mqttService.getAuthProviders();
+        this.authorizationService = mqttService.getAuthorizationService();
         this.metricsCollector = mqttService.getMetricsCollector();
         this.enableTls = enableTls;
         this.enableTlsPsk = enableTlsPsk;
@@ -119,6 +122,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         ch.pipeline().addLast("decoder", new MqttDecoder());
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
         ch.pipeline().addLast("handler",
-                new MQTTInboundHandler(pulsarService, mqttConfig, authProviders, metricsCollector));
+                new MQTTInboundHandler(pulsarService, mqttConfig, authProviders,
+                        authorizationService, metricsCollector));
     }
 }

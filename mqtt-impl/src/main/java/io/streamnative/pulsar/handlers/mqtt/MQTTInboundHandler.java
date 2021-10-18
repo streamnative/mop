@@ -35,6 +35,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.broker.authorization.AuthorizationService;
 
 /**
  * MQTT in bound handler.
@@ -52,14 +53,17 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     @Getter
     private final Map<String, AuthenticationProvider> authProviders;
     @Getter
+    private final AuthorizationService authorizationService;
+    @Getter
     private final MQTTMetricsCollector metricsCollector;
 
     public MQTTInboundHandler(PulsarService pulsarService, MQTTServerConfiguration mqttConfig,
                               Map<String, AuthenticationProvider> authProviders,
-                              MQTTMetricsCollector metricsCollector) {
+                              AuthorizationService authorizationService, MQTTMetricsCollector metricsCollector) {
         this.pulsarService = pulsarService;
         this.mqttConfig = mqttConfig;
         this.authProviders = authProviders;
+        this.authorizationService = authorizationService;
         this.metricsCollector = metricsCollector;
     }
 
@@ -123,7 +127,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
         processor = new DefaultProtocolMethodProcessorImpl(pulsarService, mqttConfig, authProviders,
-                metricsCollector, ctx);
+                authorizationService, metricsCollector, ctx);
     }
 
     @Override

@@ -36,9 +36,11 @@ import org.apache.pulsar.broker.service.Topic;
 public final class NettyUtils {
 
     public static final String ATTR_USERNAME = "username";
+    public static final String ATTR_USER_ROLE = "userRole";
 
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ID = AttributeKey.valueOf(ATTR_CLIENT_ID);
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
+    private static final AttributeKey<Object> ATTR_KEY_USER_ROLE = AttributeKey.valueOf(ATTR_USER_ROLE);
     private static final AttributeKey<Object> ATTR_KEY_CONNECT_MSG = AttributeKey.valueOf(ATTR_CONNECT_MSG);
     private static final AttributeKey<Object> ATTR_KEY_TOPIC_SUBS = AttributeKey.valueOf(ATTR_TOPIC_SUBS);
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ADDR = AttributeKey.valueOf(ATTR_CLIENT_ADDR);
@@ -70,6 +72,14 @@ public final class NettyUtils {
 
     public static void userName(Channel channel, String username) {
         channel.attr(NettyUtils.ATTR_KEY_USERNAME).set(username);
+    }
+
+    public static String retrieveUserRole(Channel channel) {
+        return (String) channel.attr(NettyUtils.ATTR_KEY_USER_ROLE).get();
+    }
+
+    public static void attachUserRole(Channel channel, String authRole) {
+        channel.attr(NettyUtils.ATTR_KEY_USER_ROLE).set(authRole);
     }
 
     public static String userName(Channel channel) {

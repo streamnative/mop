@@ -56,6 +56,13 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
 
     @FieldContext(
             category = CATEGORY_MQTT,
+            required = false,
+            doc = "Whether enable authorization for MQTT."
+    )
+    private boolean mqttAuthorizationEnabled = false;
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
             required = true,
             doc = "The maximum number of channels which can exist concurrently on a connection."
     )
