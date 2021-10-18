@@ -16,13 +16,19 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ADDR;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ID;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECT_MSG;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_TOPIC_SUBS;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
 import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.Optional;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.pulsar.broker.service.Consumer;
+import org.apache.pulsar.broker.service.Subscription;
+import org.apache.pulsar.broker.service.Topic;
 
 /**
  * Some Netty's channels utilities.
@@ -36,6 +42,7 @@ public final class NettyUtils {
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
     private static final AttributeKey<Object> ATTR_KEY_USER_ROLE = AttributeKey.valueOf(ATTR_USER_ROLE);
     private static final AttributeKey<Object> ATTR_KEY_CONNECT_MSG = AttributeKey.valueOf(ATTR_CONNECT_MSG);
+    private static final AttributeKey<Object> ATTR_KEY_TOPIC_SUBS = AttributeKey.valueOf(ATTR_TOPIC_SUBS);
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ADDR = AttributeKey.valueOf(ATTR_CLIENT_ADDR);
 
     public static void attachClientID(Channel channel, String clientId) {
@@ -44,6 +51,14 @@ public final class NettyUtils {
 
     public static void attachConnectMsg(Channel channel, MqttConnectMessage connectMessage) {
         channel.attr(NettyUtils.ATTR_KEY_CONNECT_MSG).set(connectMessage);
+    }
+
+    public static void attachTopicSubscriptions(Channel channel, Map<Topic, Pair<Subscription, Consumer>> topicSubs) {
+        channel.attr(NettyUtils.ATTR_KEY_TOPIC_SUBS).set(topicSubs);
+    }
+
+    public static Map<Topic, Pair<Subscription, Consumer>> retrieveTopicSubscriptions(Channel channel) {
+        return (Map<Topic, Pair<Subscription, Consumer>>) channel.attr(NettyUtils.ATTR_KEY_TOPIC_SUBS).get();
     }
 
     public static Optional<MqttConnectMessage> retrieveAndRemoveConnectMsg(Channel channel) {

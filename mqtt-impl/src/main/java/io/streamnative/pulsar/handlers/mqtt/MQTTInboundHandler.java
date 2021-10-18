@@ -133,7 +133,6 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         processor.processConnectionLost(ctx.channel());
-        ctx.close();
     }
 
     @Override

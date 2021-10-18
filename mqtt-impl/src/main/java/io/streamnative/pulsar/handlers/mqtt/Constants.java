@@ -24,6 +24,7 @@ public final class Constants {
     public static final String AUTH_TOKEN = "token";
 
     public static final String ATTR_CONNECT_MSG = "connectMsg";
+    public static final String ATTR_TOPIC_SUBS = "topicSubs";
 
     private Constants() {
     }
