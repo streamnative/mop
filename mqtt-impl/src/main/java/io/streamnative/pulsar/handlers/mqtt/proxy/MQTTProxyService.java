@@ -26,6 +26,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.broker.authorization.AuthorizationService;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
 
 /**
@@ -53,6 +54,9 @@ public class MQTTProxyService implements Closeable {
     @Getter
     private Map<String, AuthenticationProvider> authProviders;
 
+    @Getter
+    private AuthorizationService authorizationService;
+
     public MQTTProxyService(
             MQTTProxyConfiguration proxyConfig, MQTTService mqttService) {
         configValid(proxyConfig);
@@ -60,6 +64,7 @@ public class MQTTProxyService implements Closeable {
         this.proxyConfig = proxyConfig;
         this.pulsarService = mqttService.getPulsarService();
         this.authProviders = mqttService.getAuthProviders();
+        this.authorizationService = mqttService.getAuthorizationService();
         acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
                 false, acceptorThreadFactory);
         workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),

@@ -20,6 +20,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
+import org.apache.pulsar.broker.authorization.AuthorizationService;
 
 /**
  * Main class for mqtt service.
@@ -35,6 +36,8 @@ public class MQTTService {
 
     @Getter
     private Map<String, AuthenticationProvider> authProviders;
+    @Getter
+    private AuthorizationService authorizationService;
 
     @Getter
     private final MQTTMetricsProvider metricsProvider;
@@ -43,10 +46,11 @@ public class MQTTService {
     private final MQTTMetricsCollector metricsCollector;
 
     public MQTTService(PulsarService pulsarService, MQTTServerConfiguration serverConfiguration,
-                       Map<String, AuthenticationProvider> authProviders) {
+                       Map<String, AuthenticationProvider> authProviders, AuthorizationService authorizationService) {
         this.serverConfiguration = serverConfiguration;
         this.pulsarService = pulsarService;
         this.authProviders = authProviders;
+        this.authorizationService = authorizationService;
         this.metricsCollector = new MQTTMetricsCollector(serverConfiguration);
         this.metricsProvider = new MQTTMetricsProvider(metricsCollector);
         this.pulsarService.addPrometheusRawMetricsProvider(metricsProvider);

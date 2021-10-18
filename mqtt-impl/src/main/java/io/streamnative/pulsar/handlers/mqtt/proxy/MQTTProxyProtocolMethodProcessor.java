@@ -101,7 +101,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                     break;
                 } catch (AuthenticationException e) {
                     log.info("Proxy authentication failed with method: {}. CId={}, username={}",
-                             entry.getKey(), clientId, payload.userName());
+                            entry.getKey(), clientId, payload.userName());
                 }
             }
             if (!authenticated) {
