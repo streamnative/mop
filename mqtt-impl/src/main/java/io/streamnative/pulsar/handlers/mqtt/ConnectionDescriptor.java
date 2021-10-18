@@ -17,6 +17,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelPromise;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,12 +40,13 @@ public class ConnectionDescriptor {
         MESSAGES_REPUBLISHED,
         ESTABLISHED,
         // Disconnection states
-        SUBSCRIPTIONS_REMOVED,
+//        SUBSCRIPTIONS_REMOVED,
         MESSAGES_DROPPED,
         INTERCEPTORS_NOTIFIED;
     }
 
     public final String clientID;
+    @Getter
     private final Channel channel;
     public final boolean cleanSession;
     private final AtomicReference<ConnectionState> channelState = new AtomicReference<>(ConnectionState.DISCONNECTED);
@@ -67,7 +69,7 @@ public class ConnectionDescriptor {
 
     public boolean close() {
         LOG.info("Closing connection descriptor. MqttClientId = {}.", clientID);
-        final boolean success = assignState(ConnectionState.SUBSCRIPTIONS_REMOVED, ConnectionState.DISCONNECTED);
+        final boolean success = assignState(ConnectionState.ESTABLISHED, ConnectionState.DISCONNECTED);
         if (!success) {
             return false;
         }
@@ -94,8 +96,9 @@ public class ConnectionDescriptor {
         if (!retval) {
             LOG.error(
                     "Unable to update state of connection descriptor."
-                            + " MqttclientId = {}, expectedState = {}, newState = {}.",
+                            + " MqttclientId = {}, currentState = {}, expectedState = {}, newState = {}.",
                     clientID,
+                    channelState.get(),
                     expected,
                     newState);
         }
