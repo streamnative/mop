@@ -148,7 +148,6 @@ public class ProxyTLSTest extends MQTTTestBase {
 
         connection1.disconnect();
         connection0.disconnect();
-        pulsarServiceList.get(0).getBrokerService().forEachTopic(t -> t.delete().join());
     }
 
     @Test(timeOut = TIMEOUT, priority = 4)
