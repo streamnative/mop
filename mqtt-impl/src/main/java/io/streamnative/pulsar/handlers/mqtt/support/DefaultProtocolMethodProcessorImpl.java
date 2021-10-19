@@ -39,14 +39,15 @@ import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttVersion;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
 import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
+import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerException;
+import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
-import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -57,14 +58,12 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
-import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Consumer;
@@ -85,23 +84,20 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private final MQTTServerCnx serverCnx;
     private final PacketIdGenerator packetIdGenerator;
     private final OutstandingPacketContainer outstandingPacketContainer;
-    private final Map<String, AuthenticationProvider> authProviders;
+    private final MQTTAuthenticationService authenticationService;
     private final AuthorizationService authorizationService;
     private final MQTTMetricsCollector metricsCollector;
 
-    public DefaultProtocolMethodProcessorImpl (PulsarService pulsarService, MQTTServerConfiguration configuration,
-                                               Map<String, AuthenticationProvider> authProviders,
-                                               AuthorizationService authorizationService,
-                                               MQTTMetricsCollector metricsCollector, ChannelHandlerContext ctx) {
+    public DefaultProtocolMethodProcessorImpl (MQTTService mqttService, ChannelHandlerContext ctx) {
 
-        this.pulsarService = pulsarService;
-        this.configuration = configuration;
+        this.pulsarService = mqttService.getPulsarService();
+        this.configuration = mqttService.getServerConfiguration();
         this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration);
         this.packetIdGenerator = PacketIdGenerator.newNonZeroGenerator();
         this.outstandingPacketContainer = new OutstandingPacketContainerImpl();
-        this.authProviders = authProviders;
-        this.authorizationService = authorizationService;
-        this.metricsCollector = metricsCollector;
+        this.authenticationService = mqttService.getAuthenticationService();
+        this.authorizationService = mqttService.getAuthorizationService();
+        this.metricsCollector = mqttService.getMetricsCollector();
         this.serverCnx = new MQTTServerCnx(pulsarService, ctx);
     }
 
@@ -149,24 +145,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         if (!configuration.isMqttAuthenticationEnabled()) {
             log.info("Authentication is disabled, allowing client. CId={}, username={}", clientId, username);
         } else {
-            boolean authenticated = false;
-            for (Map.Entry<String, AuthenticationProvider> entry : this.authProviders.entrySet()) {
-                String authMethod = entry.getKey();
-                try {
-                    userRole = entry.getValue().authenticate(AuthUtils.getAuthData(authMethod, payload));
-                    authenticated = true;
-                    if (log.isDebugEnabled()) {
-                        log.debug("Authenticated with method: {}, role: {}. CId={}, username={}",
-                                authMethod, userRole, clientId, username);
-                    }
-                    break;
-                } catch (AuthenticationException e) {
-                    log.info("Authentication failed with method: {}. CId={}, username={}",
-                             authMethod, clientId, username
-                    );
-                }
-            }
-            if (!authenticated) {
+            MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
+            if (authResult.isFailed()) {
                 MqttConnAckMessage connAck = MqttMessageUtils.
                         connAck(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD);
                 channel.writeAndFlush(connAck);

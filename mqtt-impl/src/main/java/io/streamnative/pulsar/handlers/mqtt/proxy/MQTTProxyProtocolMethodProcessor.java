@@ -23,8 +23,8 @@ import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
+import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
-import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -34,12 +34,10 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.FutureUtil;
@@ -55,6 +53,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     private final LookupHandler lookupHandler;
     private final MQTTProxyConfiguration proxyConfig;
     private final PulsarService pulsarService;
+    private final MQTTAuthenticationService authenticationService;
 
     private final Map<String, CompletableFuture<MQTTProxyExchanger>> proxyExchangerMap;
     // Map sequence Id -> topic count
@@ -64,6 +63,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         this.proxyService = proxyService;
         this.proxyHandler = proxyHandler;
         this.pulsarService = proxyService.getPulsarService();
+        this.authenticationService = proxyService.getAuthenticationService();
         this.lookupHandler = proxyService.getLookupHandler();
         this.proxyConfig = proxyService.getProxyConfig();
         this.proxyExchangerMap = new ConcurrentHashMap<>();
@@ -79,7 +79,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("Proxy CONNECT message. CId={}, username={}", clientId, payload.userName());
         }
-        // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             // Generating client id.
             clientId = MqttMessageUtils.createClientIdentifier(channel);
@@ -93,20 +92,11 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             log.info("Proxy authentication is disabled, allowing client. CId={}, username={}",
                     clientId, payload.userName());
         } else {
-            boolean authenticated = false;
-            for (Map.Entry<String, AuthenticationProvider> entry : proxyService.getAuthProviders().entrySet()) {
-                try {
-                    entry.getValue().authenticate(AuthUtils.getAuthData(entry.getKey(), payload));
-                    authenticated = true;
-                    break;
-                } catch (AuthenticationException e) {
-                    log.info("Proxy authentication failed with method: {}. CId={}, username={}",
-                            entry.getKey(), clientId, payload.userName());
-                }
-            }
-            if (!authenticated) {
-                channel.writeAndFlush(
-                        MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD));
+            MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
+            if (authResult.isFailed()) {
+                MqttConnAckMessage connAck = MqttMessageUtils.
+                        connAck(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD);
+                channel.writeAndFlush(connAck);
                 channel.close();
                 log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, payload.userName());
                 return;
