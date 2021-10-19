@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.naming.AuthenticationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
@@ -232,22 +233,26 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         // Authorization the client
         if (!configuration.isMqttAuthorizationEnabled()) {
             log.info("[Publish] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
+            doPublish(channel, msg);
         } else {
             this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
                     userRole, new AuthenticationDataCommand(userRole))
                     .thenAccept((authorized) -> {
                         if (!authorized) {
+                            log.error("[Publish] no authorization to pub topic={}, userRole={}, CId= {}",
+                                    msg.variableHeader().topicName(), userRole, clientID);
                             MqttConnAckMessage connAck = MqttMessageUtils.
                                     connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
                             channel.writeAndFlush(connAck);
                             channel.close();
-                            log.error("[Publish] invalid or incorrect authorization. CId={}, topic={}, userRole={}",
-                                    clientID, msg.variableHeader().topicName(), userRole);
-                            return;
+                        } else {
+                            doPublish(channel, msg);
                         }
                     });
         }
+    }
 
+    private void doPublish(Channel channel, MqttPublishMessage msg) {
         final MqttQoS qos = msg.fixedHeader().qosLevel();
         metricsCollector.addSend(msg.payload().readableBytes());
         switch (qos) {
@@ -262,6 +267,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 break;
             default:
                 log.error("Unknown QoS-Type:{}", qos);
+                channel.close();
                 break;
         }
     }
@@ -352,26 +358,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         String clientID = NettyUtils.retrieveClientId(channel);
         String userRole = NettyUtils.retrieveUserRole(channel);
-        // Authorization the client
-        if (!configuration.isMqttAuthorizationEnabled()) {
-            log.info("[Subscribe] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
-        } else {
-            for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
-                this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
-                        userRole, new AuthenticationDataCommand(userRole), userRole)
-                        .thenAccept((authorized) -> {
-                            if (!authorized) {
-                                MqttConnAckMessage connAck = MqttMessageUtils.
-                                        connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
-                                channel.writeAndFlush(connAck);
-                                channel.close();
-                                log.error("[Subscribe] invalid or incorrect authorization topic={}, userRole={}",
-                                        topic.topicName(), userRole);
-                                return;
-                            }
-                        });
-            }
-        }
 
         if (StringUtils.isEmpty(clientID)) {
             log.error("clientId is empty for sub [{}] close channel", msg);
@@ -379,6 +365,38 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             return;
         }
 
+        // Authorization the client
+        if (!configuration.isMqttAuthorizationEnabled()) {
+            log.info("[Subscribe] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
+            doSubscribe(channel, msg, clientID);
+        } else {
+            List<CompletableFuture<Void>> authorizationFutures = new ArrayList<>();
+            AtomicBoolean authorizedFlag = new AtomicBoolean(true);
+            for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
+                authorizationFutures.add(this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
+                        userRole, new AuthenticationDataCommand(userRole), userRole).thenAccept((authorized) -> {
+                            if (!authorized) {
+                                authorizedFlag.set(authorized);
+                                log.warn("[Subscribe] no authorization to sub topic={}, userRole={}, CId= {}",
+                                        topic.topicName(), userRole, clientID);
+                            }
+                        }));
+            }
+            FutureUtil.waitForAll(authorizationFutures).thenAccept(__ -> {
+                if (!authorizedFlag.get()) {
+                    MqttConnAckMessage connAck = MqttMessageUtils.
+                            connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
+                    channel.writeAndFlush(connAck);
+                    channel.close();
+                    return;
+                } else {
+                    doSubscribe(channel, msg, clientID);
+                }
+            });
+        }
+    }
+
+    private void doSubscribe(Channel channel, MqttSubscribeMessage msg, String clientID) {
         int messageID = msg.variableHeader().messageId();
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
 

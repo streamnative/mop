@@ -88,8 +88,10 @@ public class ConnectionDescriptor {
 
     public boolean assignState(ConnectionState expected, ConnectionState newState) {
         LOG.debug(
-                "Updating state of connection descriptor. MqttClientId = {}, expectedState = {}, newState = {}.",
+                "Updating state of connection descriptor. MqttClientId = {}, currentState = {}, "
+                        + "expectedState = {}, newState = {}.",
                 clientID,
+                channelState.get(),
                 expected,
                 newState);
         boolean retval = channelState.compareAndSet(expected, newState);
