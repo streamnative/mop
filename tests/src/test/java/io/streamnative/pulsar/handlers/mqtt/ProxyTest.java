@@ -73,7 +73,6 @@ public class ProxyTest extends MQTTTestBase {
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
-        pulsarServiceList.get(0).getBrokerService().forEachTopic(t -> t.delete().join());
     }
 
     @Test(expectedExceptions = {EOFException.class, IllegalStateException.class}, priority = 3)
