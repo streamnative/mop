@@ -79,7 +79,7 @@ public class MQTTProxyExchanger {
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             super.channelActive(ctx);
-            Optional<MqttConnectMessage> connectMessage = NettyUtils.retrieveAndRemoveConnectMsg(
+            Optional<MqttConnectMessage> connectMessage = NettyUtils.getAndRemoveConnectMsg(
                     processor.clientChannel());
             connectMessage.map(msg -> ctx.writeAndFlush(msg));
         }

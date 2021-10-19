@@ -13,36 +13,39 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.DISCONNECTED;
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.ESTABLISHED;
+import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SEND_ACK;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.mqtt.MqttConnAckMessage;
+import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.pulsar.broker.service.BrokerServiceException;
+import org.apache.pulsar.broker.service.Consumer;
+import org.apache.pulsar.broker.service.Subscription;
+import org.apache.pulsar.broker.service.Topic;
 
 /**
  * Value object to maintain the information of single connection, like ClientID, Channel, and clean
  * session flag.
  */
+@Slf4j
 public class ConnectionDescriptor {
-
-    private static final Logger LOG = LoggerFactory.getLogger(ConnectionDescriptor.class);
 
     /**
      * Connection state.
      */
     public enum ConnectionState {
-        // Connection states
         DISCONNECTED,
-        SENDACK,
-        SESSION_CREATED,
-        MESSAGES_REPUBLISHED,
+        SEND_ACK,
         ESTABLISHED,
-        // Disconnection states
-//        SUBSCRIPTIONS_REMOVED,
-        MESSAGES_DROPPED,
-        INTERCEPTORS_NOTIFIED;
     }
 
     public final String clientID;
@@ -57,6 +60,49 @@ public class ConnectionDescriptor {
         this.cleanSession = cleanSession;
     }
 
+    public void sendConnAck() {
+        boolean ret = assignState(DISCONNECTED, SEND_ACK);
+        if (ret) {
+            MqttConnAckMessage ackMessage = MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED);
+            channel.writeAndFlush(ackMessage).addListener(future -> {
+                if (future.isSuccess()) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("The CONNECT message has been processed. CId={}", clientID);
+                    }
+                    assignState(SEND_ACK, ESTABLISHED);
+                }
+            });
+        } else {
+            channel.close();
+        }
+    }
+
+    public void removeConsumers() {
+        Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
+                .getTopicSubscriptions(channel);
+        if (topicSubscriptions != null) {
+            topicSubscriptions.forEach((k, v) -> {
+                try {
+                    v.getLeft().removeConsumer(v.getRight());
+                } catch (BrokerServiceException ex) {
+                    log.warn("subscription [{}] remove consumer {} error", v.getLeft(), v.getRight(), ex);
+                }
+            });
+        }
+    }
+
+    public void removeSubscriptions() {
+        removeConsumers();
+        if (cleanSession) {
+            Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
+                    .getTopicSubscriptions(channel);
+            topicSubscriptions.forEach((k, v) -> {
+                k.unsubscribe(NettyUtils.getClientId(channel));
+                v.getLeft().delete();
+            });
+        }
+    }
+
     public ChannelPromise writeAndFlush(Object payload) {
         ChannelPromise promise = channel.newPromise();
         this.channel.writeAndFlush(payload, promise);
@@ -68,7 +114,9 @@ public class ConnectionDescriptor {
     }
 
     public boolean close() {
-        LOG.info("Closing connection descriptor. MqttClientId = {}.", clientID);
+        if (log.isInfoEnabled()) {
+            log.info("Closing connection descriptor. MqttClientId = {}.", clientID);
+        }
         final boolean success = assignState(ConnectionState.ESTABLISHED, ConnectionState.DISCONNECTED);
         if (!success) {
             return false;
@@ -77,34 +125,34 @@ public class ConnectionDescriptor {
         return true;
     }
 
-    public String getUsername() {
-        return NettyUtils.userName(this.channel);
-    }
-
     public void abort() {
-        LOG.info("Closing connection descriptor. MqttClientId = {}.", clientID);
+        if (log.isInfoEnabled()) {
+            log.info("Closing connection descriptor. MqttClientId = {}.", clientID);
+        }
         this.channel.close();
     }
 
-    public boolean assignState(ConnectionState expected, ConnectionState newState) {
-        LOG.debug(
-                "Updating state of connection descriptor. MqttClientId = {}, currentState = {}, "
-                        + "expectedState = {}, newState = {}.",
-                clientID,
-                channelState.get(),
-                expected,
-                newState);
-        boolean retval = channelState.compareAndSet(expected, newState);
-        if (!retval) {
-            LOG.error(
-                    "Unable to update state of connection descriptor."
-                            + " MqttclientId = {}, currentState = {}, expectedState = {}, newState = {}.",
+    private boolean assignState(ConnectionState expected, ConnectionState newState) {
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "Updating state of connection descriptor. CId = {}, currentState = {}, "
+                            + "expectedState = {}, newState = {}.",
                     clientID,
                     channelState.get(),
                     expected,
                     newState);
         }
-        return retval;
+        boolean ret = channelState.compareAndSet(expected, newState);
+        if (!ret) {
+            log.error(
+                    "Unable to update state of connection descriptor."
+                            + " CId = {}, currentState = {}, expectedState = {}, newState = {}.",
+                    clientID,
+                    channelState.get(),
+                    expected,
+                    newState);
+        }
+        return ret;
     }
 
     @Override
