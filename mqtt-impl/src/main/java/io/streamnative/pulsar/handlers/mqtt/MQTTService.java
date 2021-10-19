@@ -15,12 +15,11 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
-import java.util.Map;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
+import org.apache.pulsar.broker.service.BrokerService;
 
 /**
  * Main class for mqtt service.
@@ -29,15 +28,19 @@ import org.apache.pulsar.broker.authorization.AuthorizationService;
 public class MQTTService {
 
     @Getter
-    private MQTTServerConfiguration serverConfiguration;
+    private final BrokerService brokerService;
 
     @Getter
-    private PulsarService pulsarService;
+    private final MQTTServerConfiguration serverConfiguration;
 
     @Getter
-    private Map<String, AuthenticationProvider> authProviders;
+    private final PulsarService pulsarService;
+
     @Getter
-    private AuthorizationService authorizationService;
+    private final MQTTAuthenticationService authenticationService;
+
+    @Getter
+    private final AuthorizationService authorizationService;
 
     @Getter
     private final MQTTMetricsProvider metricsProvider;
@@ -45,14 +48,16 @@ public class MQTTService {
     @Getter
     private final MQTTMetricsCollector metricsCollector;
 
-    public MQTTService(PulsarService pulsarService, MQTTServerConfiguration serverConfiguration,
-                       Map<String, AuthenticationProvider> authProviders, AuthorizationService authorizationService) {
+    public MQTTService(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
+        this.brokerService = brokerService;
+        this.pulsarService = brokerService.pulsar();
         this.serverConfiguration = serverConfiguration;
-        this.pulsarService = pulsarService;
-        this.authProviders = authProviders;
-        this.authorizationService = authorizationService;
+        this.authorizationService = brokerService.getAuthorizationService();
         this.metricsCollector = new MQTTMetricsCollector(serverConfiguration);
         this.metricsProvider = new MQTTMetricsProvider(metricsCollector);
         this.pulsarService.addPrometheusRawMetricsProvider(metricsProvider);
+        this.authenticationService = serverConfiguration.isMqttAuthenticationEnabled()
+            ? new MQTTAuthenticationService(brokerService.getAuthenticationService(),
+                serverConfiguration.getMqttAuthenticationMethods()) : null;
     }
 }
