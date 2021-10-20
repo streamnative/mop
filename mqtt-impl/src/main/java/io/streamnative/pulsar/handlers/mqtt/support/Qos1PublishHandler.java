@@ -45,7 +45,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                 if (log.isDebugEnabled()) {
                     log.debug("[{}] Write {} to Pulsar topic succeed.", topic, msg);
                 }
-                String clientId = NettyUtils.retrieveClientId(channel);
+                String clientId = NettyUtils.getClientId(channel);
                 sendPubAck(topic, clientId, msg.variableHeader().packetId());
             } else {
                 log.error("[{}] Write {} to Pulsar topic failed.", topic, msg, e);

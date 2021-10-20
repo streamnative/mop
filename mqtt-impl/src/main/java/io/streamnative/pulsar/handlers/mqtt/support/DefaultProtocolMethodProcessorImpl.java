@@ -13,9 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.DISCONNECTED;
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.ESTABLISHED;
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SENDACK;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createSubAckMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
 import io.netty.channel.Channel;
@@ -65,7 +62,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
-import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.broker.service.Topic;
@@ -154,6 +150,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
                 return;
             }
+            userRole = authResult.getUserRole();
         }
 
         ConnectionDescriptor descriptor = new ConnectionDescriptor(clientId, channel,
@@ -164,32 +161,22 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 log.debug("The client ID is being used in an existing connection. It will be closed. CId={}", clientId);
             }
             existing.abort();
-            sendAck(descriptor, MqttConnectReturnCode.CONNECTION_ACCEPTED, clientId);
-            return;
         }
 
-        NettyUtils.attachClientID(channel, clientId);
-        NettyUtils.attachUserRole(channel, userRole);
+        NettyUtils.setClientId(channel, clientId);
+        NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
+        NettyUtils.setUserRole(channel, userRole);
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
 
-        if (!sendAck(descriptor, MqttConnectReturnCode.CONNECTION_ACCEPTED, clientId)) {
-            channel.close();
-            return;
-        }
+        descriptor.sendConnAck();
+        metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
 
-        final boolean success = descriptor.assignState(SENDACK, ESTABLISHED);
-        metricsCollector.addClient(NettyUtils.getAndAttachAddress(channel));
-
-        if (log.isDebugEnabled()) {
-            log.debug("The CONNECT message has been processed. CId={}, username={} success={}",
-                    clientId, username, success);
-        }
     }
 
     @Override
     public void processPubAck(Channel channel, MqttPubAckMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[PubAck] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
+            log.debug("[PubAck] [{}] msg: {}", NettyUtils.getClientId(channel), msg);
         }
         int packetId = msg.variableHeader().messageId();
         OutstandingPacket packet = outstandingPacketContainer.remove(packetId);
@@ -205,11 +192,11 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     @Override
     public void processPublish(Channel channel, MqttPublishMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Publish] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
+            log.debug("[Publish] [{}] msg: {}", NettyUtils.getClientId(channel), msg);
         }
 
-        String clientID = NettyUtils.retrieveClientId(channel);
-        String userRole = NettyUtils.retrieveUserRole(channel);
+        String clientID = NettyUtils.getClientId(channel);
+        String userRole = NettyUtils.getUserRole(channel);
         // Authorization the client
         if (!configuration.isMqttAuthorizationEnabled()) {
             log.info("[Publish] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
@@ -255,31 +242,31 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     @Override
     public void processPubRel(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[PubRel] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
+            log.debug("[PubRel] [{}] msg: {}", NettyUtils.getClientId(channel), msg);
         }
     }
 
     @Override
     public void processPubRec(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[PubRec] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
+            log.debug("[PubRec] [{}] msg: {}", NettyUtils.getClientId(channel), msg);
         }
     }
 
     @Override
     public void processPubComp(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[PubComp] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
+            log.debug("[PubComp] [{}] msg: {}", NettyUtils.getClientId(channel), msg);
         }
     }
 
     @Override
     public void processDisconnect(Channel channel, MqttMessage msg) {
-        final String clientID = NettyUtils.retrieveClientId(channel);
+        final String clientID = NettyUtils.getClientId(channel);
         if (log.isDebugEnabled()) {
             log.debug("[Disconnect] [{}] ", clientID);
         }
-        metricsCollector.removeClient(NettyUtils.retrieveAddress(channel));
+        metricsCollector.removeClient(NettyUtils.getAddress(channel));
         final ConnectionDescriptor existingDescriptor = ConnectionDescriptorStore.getInstance().getConnection(clientID);
         if (existingDescriptor == null) {
             // another client with same ID removed the descriptor, we must exit
@@ -300,11 +287,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             return;
         }
 
-        if (!removeSubscriptions(existingDescriptor, clientID)) {
-            log.warn("Unable to remove subscriptions. Closing connection. CId={}", clientID);
-            existingDescriptor.abort();
-            return;
-        }
+        existingDescriptor.removeSubscriptions();
 
         boolean stillPresent = ConnectionDescriptorStore.getInstance().removeConnection(existingDescriptor);
         if (!stillPresent) {
@@ -319,25 +302,26 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
     @Override
     public void processConnectionLost(Channel channel) {
+        String clientId = NettyUtils.getClientId(channel);
         if (log.isDebugEnabled()) {
-            log.debug("[Connection Lost] [{}] ", NettyUtils.retrieveClientId(channel));
+            log.debug("[Connection Lost] [{}] ", clientId);
         }
-        String clientId = NettyUtils.retrieveClientId(channel);
         if (StringUtils.isNotEmpty(clientId)) {
-            metricsCollector.removeClient(NettyUtils.retrieveAddress(channel));
-            ConnectionDescriptor oldConnDescriptor = new ConnectionDescriptor(clientId, channel, true);
+            metricsCollector.removeClient(NettyUtils.getAddress(channel));
+            boolean cleanSession = NettyUtils.getCleanSession(channel);
+            ConnectionDescriptor oldConnDescriptor = new ConnectionDescriptor(clientId, channel, cleanSession);
             ConnectionDescriptorStore.getInstance().removeConnection(oldConnDescriptor);
-            removeSubscriptions(oldConnDescriptor, clientId);
+            oldConnDescriptor.removeSubscriptions();
         }
     }
 
     @Override
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
+        String clientID = NettyUtils.getClientId(channel);
+        String userRole = NettyUtils.getUserRole(channel);
         if (log.isDebugEnabled()) {
-            log.debug("[Subscribe] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
+            log.debug("[Subscribe] [{}] msg: {}", clientID, msg);
         }
-        String clientID = NettyUtils.retrieveClientId(channel);
-        String userRole = NettyUtils.retrieveUserRole(channel);
 
         if (StringUtils.isEmpty(clientID)) {
             log.error("clientId is empty for sub [{}] close channel", msg);
@@ -418,7 +402,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 log.debug("Sending SUB-ACK message {} to {}", ackMessage, clientID);
             }
             channel.writeAndFlush(ackMessage);
-            NettyUtils.attachTopicSubscriptions(channel, topicSubscriptions);
+            NettyUtils.setTopicSubscriptions(channel, topicSubscriptions);
         }).exceptionally(e -> {
             log.error("[{}] Failed to process MQTT subscribe.", clientID, e);
             channel.close();
@@ -428,11 +412,11 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
     @Override
     public void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg) {
+        String clientID = NettyUtils.getClientId(channel);
         if (log.isDebugEnabled()) {
-            log.debug("[Unsubscribe] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
+            log.debug("[Unsubscribe] [{}] msg: {}", clientID, msg);
         }
         List<String> topicFilters = msg.payload().topics();
-        String clientID = NettyUtils.retrieveClientId(channel);
         final MqttQoS qos = msg.fixedHeader().qosLevel();
         List<CompletableFuture<Void>> futureList = new ArrayList<>(topicFilters.size());
         for (String topicFilter : topicFilters) {
@@ -484,44 +468,5 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             channel.close();
             return null;
         });
-    }
-
-    private boolean sendAck(ConnectionDescriptor descriptor, MqttConnectReturnCode returnCode, final String clientId) {
-        if (log.isDebugEnabled()) {
-            log.debug("Sending connect ACK. CId={}", clientId);
-        }
-        final boolean success = descriptor.assignState(DISCONNECTED, SENDACK);
-        if (!success) {
-            return false;
-        }
-
-        MqttConnAckMessage connAck = MqttMessageUtils.connAck(returnCode);
-
-        descriptor.writeAndFlush(connAck);
-        if (log.isDebugEnabled()) {
-            log.debug("The connect ACK has been sent. CId={}", clientId);
-        }
-        return true;
-    }
-
-    private void removeConsumers(Channel channel) {
-        Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
-                .retrieveTopicSubscriptions(channel);
-        if (topicSubscriptions != null) {
-            topicSubscriptions.forEach((k, v) -> {
-                try {
-                    v.getLeft().removeConsumer(v.getRight());
-                } catch (BrokerServiceException ex) {
-                    log.warn("subscription [{}] remove consumer {} error", v.getLeft(), v.getRight(), ex);
-                }
-            });
-        }
-    }
-
-    private boolean removeSubscriptions(ConnectionDescriptor descriptor, String clientID) {
-        if (descriptor != null) {
-            removeConsumers(descriptor.getChannel());
-        }
-        return true;
     }
 }
