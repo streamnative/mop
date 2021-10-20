@@ -120,7 +120,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                 "An unexpected exception was caught while processing MQTT message. "
                 + "Closing Netty channel {}. MqttClientId = {}",
                 ctx.channel(),
-                NettyUtils.retrieveClientId(ctx.channel()),
+                NettyUtils.getClientId(ctx.channel()),
                 cause);
         ctx.close();
     }
@@ -131,7 +131,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
             IdleStateEvent e = (IdleStateEvent) event;
             if (e.state() == IdleState.READER_IDLE) {
                 log.warn("close channel : {} due to reached read idle time",
-                        NettyUtils.retrieveClientId(ctx.channel()));
+                        NettyUtils.getClientId(ctx.channel()));
                 ctx.close();
             }
         } else {

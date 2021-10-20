@@ -103,8 +103,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             }
         }
 
-        NettyUtils.attachClientID(channel, clientId);
-        NettyUtils.attachConnectMsg(channel, connectMessage);
+        NettyUtils.setClientId(channel, clientId);
+        NettyUtils.setConnectMsg(channel, connectMessage);
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
 
         MqttConnAckMessage ackMessage = MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED);
@@ -114,7 +114,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processPubAck(Channel channel, MqttPubAckMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy PubAck] [{}]", NettyUtils.retrieveClientId(channel));
+            log.debug("[Proxy PubAck] [{}]", NettyUtils.getClientId(channel));
         }
     }
 
@@ -123,7 +123,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     public void processPublish(Channel channel, MqttPublishMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Publish] publish to topic = {}, CId={}",
-                    msg.variableHeader().topicName(), NettyUtils.retrieveClientId(channel));
+                    msg.variableHeader().topicName(), NettyUtils.getClientId(channel));
         }
         String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
@@ -133,7 +133,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         lookupResult.whenComplete((pair, throwable) -> {
             if (null != throwable) {
                 log.error("[Proxy Publish] Failed to perform lookup request for topic : {}, CId : {}",
-                        msg.variableHeader().topicName(), NettyUtils.retrieveClientId(channel), throwable);
+                        msg.variableHeader().topicName(), NettyUtils.getClientId(channel), throwable);
                 channel.close();
                 return;
             }
@@ -144,28 +144,28 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processPubRel(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy PubRel] [{}]", NettyUtils.retrieveClientId(channel));
+            log.debug("[Proxy PubRel] [{}]", NettyUtils.getClientId(channel));
         }
     }
 
     @Override
     public void processPubRec(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy PubRec] [{}]", NettyUtils.retrieveClientId(channel));
+            log.debug("[Proxy PubRec] [{}]", NettyUtils.getClientId(channel));
         }
     }
 
     @Override
     public void processPubComp(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy PubComp] [{}]", NettyUtils.retrieveClientId(channel));
+            log.debug("[Proxy PubComp] [{}]", NettyUtils.getClientId(channel));
         }
     }
 
     @Override
     public void processDisconnect(Channel channel, MqttMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy Disconnect] [{}] ", NettyUtils.retrieveClientId(channel));
+            log.debug("[Proxy Disconnect] [{}] ", NettyUtils.getClientId(channel));
         }
         channel.close();
         proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
@@ -178,7 +178,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processConnectionLost(Channel channel) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy Connection Lost] [{}] ", NettyUtils.retrieveClientId(channel));
+            log.debug("[Proxy Connection Lost] [{}] ", NettyUtils.getClientId(channel));
         }
         proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
             exchanger.close();
@@ -188,8 +188,9 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
     @Override
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
+        String clientId = NettyUtils.getClientId(channel);
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy Subscribe] [{}] msg: {}", NettyUtils.retrieveClientId(channel), msg);
+            log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
         CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg,
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
@@ -211,7 +212,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             }
             return FutureUtil.waitForAll(futures);
         }).exceptionally(ex -> {
-            log.error("[Proxy Subscribe] Failed to process subscribe for {}", NettyUtils.retrieveClientId(channel), ex);
+            log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
             channel.close();
             return null;
         });
@@ -220,7 +221,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy UnSubscribe] [{}]", NettyUtils.retrieveClientId(channel));
+            log.debug("[Proxy UnSubscribe] [{}]", NettyUtils.getClientId(channel));
         }
         List<String> topics = msg.payload().topics();
         for (String topic : topics) {
@@ -241,7 +242,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         proxyExchanger.whenComplete((exchanger, error) -> {
             if (error != null) {
                 log.error("[{}] [{}] MoP proxy failed to connect with MoP broker({}).",
-                        NettyUtils.retrieveClientId(channel), msg.fixedHeader().messageType(), pair, error);
+                        NettyUtils.getClientId(channel), msg.fixedHeader().messageType(), pair, error);
                 channel.close();
                 return;
             }

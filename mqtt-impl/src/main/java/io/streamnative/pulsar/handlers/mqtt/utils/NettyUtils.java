@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
+import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLEAN_SESSION;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ADDR;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ID;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECT_MSG;
@@ -39,34 +40,43 @@ public final class NettyUtils {
     public static final String ATTR_USER_ROLE = "userRole";
 
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ID = AttributeKey.valueOf(ATTR_CLIENT_ID);
+    private static final AttributeKey<Object> ATTR_KEY_CLEAN_SESSION = AttributeKey.valueOf(ATTR_CLEAN_SESSION);
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
     private static final AttributeKey<Object> ATTR_KEY_USER_ROLE = AttributeKey.valueOf(ATTR_USER_ROLE);
     private static final AttributeKey<Object> ATTR_KEY_CONNECT_MSG = AttributeKey.valueOf(ATTR_CONNECT_MSG);
     private static final AttributeKey<Object> ATTR_KEY_TOPIC_SUBS = AttributeKey.valueOf(ATTR_TOPIC_SUBS);
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ADDR = AttributeKey.valueOf(ATTR_CLIENT_ADDR);
 
-    public static void attachClientID(Channel channel, String clientId) {
+    public static void setClientId(Channel channel, String clientId) {
         channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).set(clientId);
     }
 
-    public static void attachConnectMsg(Channel channel, MqttConnectMessage connectMessage) {
+    public static void setCleanSession(Channel channel, boolean cleanSession) {
+        channel.attr(NettyUtils.ATTR_KEY_CLEAN_SESSION).set(cleanSession);
+    }
+
+    public static boolean getCleanSession(Channel channel) {
+        return (Boolean) channel.attr(NettyUtils.ATTR_KEY_CLEAN_SESSION).get();
+    }
+
+    public static void setConnectMsg(Channel channel, MqttConnectMessage connectMessage) {
         channel.attr(NettyUtils.ATTR_KEY_CONNECT_MSG).set(connectMessage);
     }
 
-    public static void attachTopicSubscriptions(Channel channel, Map<Topic, Pair<Subscription, Consumer>> topicSubs) {
+    public static void setTopicSubscriptions(Channel channel, Map<Topic, Pair<Subscription, Consumer>> topicSubs) {
         channel.attr(NettyUtils.ATTR_KEY_TOPIC_SUBS).set(topicSubs);
     }
 
-    public static Map<Topic, Pair<Subscription, Consumer>> retrieveTopicSubscriptions(Channel channel) {
+    public static Map<Topic, Pair<Subscription, Consumer>> getTopicSubscriptions(Channel channel) {
         return (Map<Topic, Pair<Subscription, Consumer>>) channel.attr(NettyUtils.ATTR_KEY_TOPIC_SUBS).get();
     }
 
-    public static Optional<MqttConnectMessage> retrieveAndRemoveConnectMsg(Channel channel) {
+    public static Optional<MqttConnectMessage> getAndRemoveConnectMsg(Channel channel) {
         return Optional.ofNullable(channel.attr(NettyUtils.ATTR_KEY_CONNECT_MSG).getAndSet(null))
                 .map(o -> (MqttConnectMessage) o);
     }
 
-    public static String retrieveClientId(Channel channel) {
+    public static String getClientId(Channel channel) {
         return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).get();
     }
 
@@ -74,11 +84,11 @@ public final class NettyUtils {
         channel.attr(NettyUtils.ATTR_KEY_USERNAME).set(username);
     }
 
-    public static String retrieveUserRole(Channel channel) {
+    public static String getUserRole(Channel channel) {
         return (String) channel.attr(NettyUtils.ATTR_KEY_USER_ROLE).get();
     }
 
-    public static void attachUserRole(Channel channel, String authRole) {
+    public static void setUserRole(Channel channel, String authRole) {
         channel.attr(NettyUtils.ATTR_KEY_USER_ROLE).set(authRole);
     }
 
@@ -94,18 +104,18 @@ public final class NettyUtils {
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
     }
 
-    public static String getAndAttachAddress(Channel channel) {
-        String address = getAddress(channel);
+    public static String getAndSetAddress(Channel channel) {
+        String address = getRemoteAddress(channel);
         channel.attr(NettyUtils.ATTR_KEY_CLIENT_ADDR).set(address);
         return address;
     }
 
-    public static String getAddress(Channel channel) {
+    private static String getRemoteAddress(Channel channel) {
         InetSocketAddress address = (InetSocketAddress) channel.remoteAddress();
         return address.getHostName() + ":" + address.getPort();
     }
 
-    public static String retrieveAddress(Channel channel) {
+    public static String getAddress(Channel channel) {
         return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ADDR).get();
     }
 
