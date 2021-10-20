@@ -17,6 +17,7 @@ import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLEAN_SESSION;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ADDR;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ID;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECT_MSG;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_KEEP_ALIVE_TIME;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_TOPIC_SUBS;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
@@ -41,6 +42,7 @@ public final class NettyUtils {
 
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ID = AttributeKey.valueOf(ATTR_CLIENT_ID);
     private static final AttributeKey<Object> ATTR_KEY_CLEAN_SESSION = AttributeKey.valueOf(ATTR_CLEAN_SESSION);
+    private static final AttributeKey<Object> ATTR_KEY_KEEP_ALIVE_TIME = AttributeKey.valueOf(ATTR_KEEP_ALIVE_TIME);
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
     private static final AttributeKey<Object> ATTR_KEY_USER_ROLE = AttributeKey.valueOf(ATTR_USER_ROLE);
     private static final AttributeKey<Object> ATTR_KEY_CONNECT_MSG = AttributeKey.valueOf(ATTR_CONNECT_MSG);
@@ -102,6 +104,14 @@ public final class NettyUtils {
             pipeline.remove("idleStateHandler");
         }
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
+    }
+
+    public static void setKeepAliveTime(Channel channel, int keepAliveTime) {
+        channel.attr(NettyUtils.ATTR_KEY_KEEP_ALIVE_TIME).set(keepAliveTime);
+    }
+
+    public static int getKeepAliveTime(Channel channel) {
+        return (Integer) channel.attr(NettyUtils.ATTR_KEY_KEEP_ALIVE_TIME).get();
     }
 
     public static String getAndSetAddress(Channel channel) {
