@@ -80,6 +80,7 @@ public class ConnectionDescriptor {
     public void removeConsumers() {
         Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
                 .getTopicSubscriptions(channel);
+        // For producer doesn't bind subscriptions
         if (topicSubscriptions != null) {
             topicSubscriptions.forEach((k, v) -> {
                 try {
@@ -96,10 +97,13 @@ public class ConnectionDescriptor {
         if (cleanSession) {
             Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
                     .getTopicSubscriptions(channel);
-            topicSubscriptions.forEach((k, v) -> {
-                k.unsubscribe(NettyUtils.getClientId(channel));
-                v.getLeft().delete();
-            });
+            // For producer doesn't bind subscriptions
+            if (topicSubscriptions != null) {
+                topicSubscriptions.forEach((k, v) -> {
+                    k.unsubscribe(NettyUtils.getClientId(channel));
+                    v.getLeft().delete();
+                });
+            }
         }
     }
 
