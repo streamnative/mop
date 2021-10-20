@@ -456,4 +456,31 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         producer.disconnect();
         stop.await(5, TimeUnit.MINUTES);
     }
+
+    @Test
+    @SneakyThrows
+    public void testCleanSession() {
+        String topic = "a";
+        Topic[] topics = { new Topic(topic, QoS.AT_LEAST_ONCE)};
+        MQTT mqttConsumer = createMQTTClient();
+        mqttConsumer.setClientId("keepTheSameClientId");
+        mqttConsumer.setConnectAttemptsMax(0);
+        mqttConsumer.setReconnectAttemptsMax(0);
+        mqttConsumer.setKeepAlive((short) 3);
+        mqttConsumer.setCleanSession(true);
+        BlockingConnection consumer = mqttConsumer.blockingConnection();
+        consumer.connect();
+        consumer.subscribe(topics);
+        // Producer
+        MQTT mqttProducer = createMQTTClient();
+        BlockingConnection producer = mqttProducer.blockingConnection();
+        producer.connect();
+        producer.publish(topic, "Hello MQTT".getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+        consumer.receive();
+        consumer.suspend();
+        Thread.sleep(3000 * 2); // Sleep 2 times of setKeepAlive.
+        Awaitility.await().untilAsserted(() -> {
+            Assert.assertEquals(pulsarServiceList.get(0).getAdminClient().topics().getSubscriptions(topic).size(), 0);
+        });
+    }
 }
