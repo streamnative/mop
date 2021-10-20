@@ -56,7 +56,8 @@ public class MQTTProxyExchanger {
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
-                        ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(10, 0, 0));
+                        ch.pipeline().addFirst("idleStateHandler",
+                                new IdleStateHandler(NettyUtils.getKeepAliveTime(processor.clientChannel()), 0, 0));
                         ch.pipeline().addLast("decoder", new MqttDecoder());
                         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
                         ch.pipeline().addLast("handler", new ExchangerHandler());
