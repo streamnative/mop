@@ -105,6 +105,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
         NettyUtils.setClientId(channel, clientId);
         NettyUtils.setConnectMsg(channel, connectMessage);
+        NettyUtils.setKeepAliveTime(channel, MqttMessageUtils.getKeepAliveTime(msg));
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
 
         MqttConnAckMessage ackMessage = MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED);
