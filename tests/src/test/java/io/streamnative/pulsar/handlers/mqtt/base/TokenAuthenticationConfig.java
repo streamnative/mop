@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.base;
 
 import static org.mockito.Mockito.spy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.Properties;
@@ -30,20 +30,13 @@ import org.apache.pulsar.broker.authentication.utils.AuthTokenUtils;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.impl.auth.AuthenticationToken;
-import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
-import org.fusesource.mqtt.client.MQTTException;
-import org.fusesource.mqtt.client.Message;
-import org.fusesource.mqtt.client.QoS;
-import org.fusesource.mqtt.client.Topic;
-import org.testng.Assert;
-import org.testng.annotations.Test;
 
 /**
- * Token authentication integration tests for MQTT protocol handler.
+ * Token authentication config.
  */
 @Slf4j
-public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
+public class TokenAuthenticationConfig extends MQTTTestBase {
     private String token;
 
     @Override
@@ -54,7 +47,6 @@ public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
         properties.setProperty("tokenSecretKey", AuthTokenUtils.encodeKeyBase64(secretKey));
         token = AuthTokenUtils.createToken(secretKey, "superUser", Optional.empty());
 
-        conf.setMqttProxyEnabled(true);
         conf.setAuthenticationEnabled(true);
         conf.setMqttAuthenticationEnabled(true);
         conf.setMqttAuthenticationMethods(ImmutableList.of("token"));
@@ -89,40 +81,5 @@ public class TokenAuthenticationIntegrationTest extends MQTTTestBase {
         mqtt.setUserName("superUser");
         mqtt.setPassword(token);
         return mqtt;
-    }
-
-    @Test(timeOut = TIMEOUT)
-    public void testAuthenticateAndPublish() throws Exception {
-        MQTT mqtt = createMQTTClient();
-        authenticateAndPublish(mqtt);
-    }
-
-    @Test(timeOut = TIMEOUT)
-    public void testAuthenticateAndPublishViaProxy() throws Exception {
-        MQTT mqtt = createMQTTProxyClient();
-        authenticateAndPublish(mqtt);
-    }
-
-    public void authenticateAndPublish(MQTT mqtt) throws Exception {
-        String topicName = "persistent://public/default/testAuthentication";
-        BlockingConnection connection = mqtt.blockingConnection();
-        connection.connect();
-        Topic[] topics = {new Topic(topicName, QoS.AT_LEAST_ONCE)};
-        connection.subscribe(topics);
-        String message = "Hello MQTT";
-        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
-        Message received = connection.receive();
-        Assert.assertEquals(new String(received.getPayload()), message);
-        received.ack();
-        connection.disconnect();
-    }
-
-    @Test(expectedExceptions = {MQTTException.class})
-    public void testInvalidCredentials() throws Exception {
-        MQTT mqtt = createMQTTClient();
-        mqtt.setPassword("invalid");
-        BlockingConnection connection = mqtt.blockingConnection();
-        connection.connect();
-        connection.disconnect();
     }
 }
