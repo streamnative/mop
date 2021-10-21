@@ -13,10 +13,11 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.untils;
 
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
+import lombok.SneakyThrows;
 import org.junit.Assert;
 import org.testng.annotations.Test;
-
 /**
  * Unit test for the ConfigurationUtils.
  */
@@ -42,5 +43,18 @@ public class ConfigurationUtilsTest {
         } catch (IllegalArgumentException ex) {
             Assert.assertEquals(ex.getMessage(), "listener not match pattern");
         }
+    }
+
+    @Test
+    @SneakyThrows
+    public void testCreate() {
+        String params = "{\"userId\":\"superUser\",\"password\":\"supepass\"}";
+        String plugin = "org.apache.pulsar.client.impl.auth.AuthenticationBasic";
+        String mqttListeners = "mqtt://127.0.0.1:1883";
+        MQTTServerConfiguration mqttConfig = ConfigurationUtils.create("./src/test/resources/mqtt-test.conf",
+                MQTTServerConfiguration.class);
+        Assert.assertEquals(mqttConfig.getMqttListeners(), mqttListeners);
+        Assert.assertEquals(mqttConfig.getBrokerClientAuthenticationPlugin(), plugin);
+        Assert.assertEquals(mqttConfig.getBrokerClientAuthenticationParameters(), params);
     }
 }
