@@ -115,10 +115,12 @@ public final class ConfigurationUtils {
      */
     public static <T> void update(Map<String, String> properties, T obj) throws IllegalArgumentException {
         Field[] fields = obj.getClass().getDeclaredFields();
+        // common fields
+        Field[] commonFields = obj.getClass().getSuperclass().getDeclaredFields();
         // super fields
-        Field[] superFields = obj.getClass().getSuperclass().getDeclaredFields();
+        Field[] superFields = obj.getClass().getSuperclass().getSuperclass().getDeclaredFields();
 
-        Stream.of(fields, superFields).flatMap(Stream::of).forEach(f -> {
+        Stream.of(fields, commonFields, superFields).flatMap(Stream::of).forEach(f -> {
             if (properties.containsKey(f.getName())) {
                 try {
                     f.setAccessible(true);
