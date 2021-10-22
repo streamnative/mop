@@ -155,7 +155,7 @@ authentication providers like [biscuit-pulsar](https://github.com/CleverCloud/bi
 To use authentication for MQTT connections your Pulsar cluster must already have authentication enabled with your
 chosen authentication provider(s) configured.
 
-You can then enable MQTT configuration with the following configuration properties:
+You can then enable MQTT authentication with the following configuration properties:
 ```yaml
 mqttAuthenticationEnabled=true
 mqttAuthenticationMethods=token
@@ -174,6 +174,22 @@ Set the MQTT username and password client settings.
 ##### Token Authentication
 Set the MQTT password to the token body, currently username will be disregarded but MUST be set to some value as this is required by the MQTT specification.
 
+
+### Enabling Authorization
+
+MoP currently supports authorization. When authorization enabled, MoP will check the authenticated role if it has the ability to pub/sub topics, eg:
+When sending messages, you need to have the produce permission of the topic. When subscribing to a topic, you need to have the consume permission of the topic.
+You can reference [here](https://pulsar.apache.org/docs/en/security-authorization/) to grant permissions.
+
+You can then enable MQTT authorization with the following configuration properties:
+```yaml
+mqttAuthorizationEnabled=true
+```
+If MoP proxy enabled, following configuration needs to be configured and `brokerClientAuthenticationParameters` should configure `lookup` permission at least:
+```yaml
+brokerClientAuthenticationPlugin=org.apache.pulsar.client.impl.auth.AuthenticationBasic
+brokerClientAuthenticationParameters={"userId":"superUser","password":"superPass"}
+```
 
 ### Enabling TLS
 
@@ -390,6 +406,11 @@ curl http://pulsar-broker-webservice-address:port/mop-stats/
 
 Please refer [here](docs/mop-configuration.md)
 
+## Declarations
+
+Currently, MoP has the following implementations that do not meet the MQTT Spec:
+- The MQTT spec calls for terminating existing clients with the same ClientID on `CONNECT`. But MoP only implements on proxy or broker side, not across cluster. 
+- `Last Will` implements not across cluster.
 
 ## Project maintainers
 
