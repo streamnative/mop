@@ -208,9 +208,9 @@ public class ProxyTest extends MQTTTestBase {
         // Check for broker
         CompletableFuture<Pair<InetSocketAddress, InetSocketAddress>> broker =
                 ((PulsarClientImpl) pulsarClient).getLookup().getBroker(TopicName.get(topic));
-        CountDownLatch latch = new CountDownLatch(1);
         AtomicDouble active = new AtomicDouble(0);
         AtomicDouble total = new AtomicDouble(0);
+        CompletableFuture<Void> result = new CompletableFuture<>();
         broker.thenAccept(pair -> {
             try {
                 HttpClient httpClient = HttpClientBuilder.create().build();
@@ -224,18 +224,17 @@ public class ProxyTest extends MQTTTestBase {
                 while ((str = reader.readLine()) != null){
                     buffer.append(str);
                 }
-                String result = buffer.toString();
-                LinkedTreeMap treeMap = new Gson().fromJson(result, LinkedTreeMap.class);
+                String ret = buffer.toString();
+                LinkedTreeMap treeMap = new Gson().fromJson(ret, LinkedTreeMap.class);
                 LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
                 active.set((Double) clients.get("active"));
                 total.set((Double) clients.get("total"));
+                result.complete(null);
             } catch (Throwable ex) {
-                throw new RuntimeException(ex);
-            } finally {
-                latch.countDown();
+                result.completeExceptionally(ex);
             }
         });
-        latch.await(1, TimeUnit.MINUTES);
+        result.get(1, TimeUnit.MINUTES);
         Assert.assertEquals(active.get(), 1.0);
         Assert.assertEquals(total.get(), 1.0);
     }
