@@ -287,6 +287,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Awaitility.await().untilAsserted(() -> Assert.assertTrue(connection1.isConnected()));
         connection2.subscribe(topics);
         connection2.disconnect();
+        connection1.disconnect();
     }
 
     @Test(timeOut = TIMEOUT)
@@ -484,11 +485,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Awaitility.await().untilAsserted(() -> {
             Assert.assertEquals(pulsarServiceList.get(0).getAdminClient().topics().getSubscriptions(topic).size(), 0);
         });
-        consumer.disconnect();
-        producer.disconnect();
     }
 
-    @Test
+    @Test(priority = -1)
     public void testConnectionWithSameClientId() throws Exception{
         MQTT mqttProducer = createMQTTClient();
         mqttProducer.setClientId("client1");

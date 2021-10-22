@@ -114,6 +114,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
         Connection connection = new Connection(clientId, channel, msg.variableHeader().isCleanSession());
         connectionManager.addConnection(connection);
+        NettyUtils.setConnection(channel, connection);
         connection.sendConnAck();
     }
 
@@ -180,8 +181,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }));
         proxyExchangerMap.clear();
 
-        Connection connection = new Connection(clientId, channel, NettyUtils.getCleanSession(channel));
-        boolean success = connectionManager.removeConnection(clientId, connection);
+        Connection connection = NettyUtils.getConnection(channel);
+        boolean success = connectionManager.removeConnection(connection);
         if (success) {
             connection.close();
         } else {
@@ -199,8 +200,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Connection Lost] [{}] ", clientId);
         }
-        Connection connection = new Connection(clientId, channel, NettyUtils.getCleanSession(channel));
-        connectionManager.removeConnection(clientId, connection);
+        Connection connection = NettyUtils.getConnection(channel);
+        connectionManager.removeConnection(connection);
         proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
             exchanger.close();
         }));

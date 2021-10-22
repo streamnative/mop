@@ -162,6 +162,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
         Connection connection = new Connection(clientId, channel, msg.variableHeader().isCleanSession());
         connectionManager.addConnection(connection);
+        NettyUtils.setConnection(channel, connection);
         connection.sendConnAck();
     }
 
@@ -259,8 +260,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             log.debug("[Disconnect] [{}] ", clientId);
         }
         metricsCollector.removeClient(NettyUtils.getAddress(channel));
-        Connection connection = new Connection(clientId, channel, NettyUtils.getCleanSession(channel));
-        boolean success = connectionManager.removeConnection(clientId, connection);
+        Connection connection =  NettyUtils.getConnection(channel);
+        boolean success = connectionManager.removeConnection(connection);
         if (success) {
             connection.removeSubscriptions();
             connection.close();
@@ -281,8 +282,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         if (StringUtils.isNotEmpty(clientId)) {
             metricsCollector.removeClient(NettyUtils.getAddress(channel));
-            Connection connection = new Connection(clientId, channel, NettyUtils.getCleanSession(channel));
-            boolean success = connectionManager.removeConnection(clientId, connection);
+            Connection connection =  NettyUtils.getConnection(channel);
+            boolean success = connectionManager.removeConnection(connection);
             if (success) {
                 connection.removeSubscriptions();
             }

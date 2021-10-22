@@ -64,6 +64,7 @@ public class Connection {
                         log.debug("The CONNECT message has been processed. CId={}", clientId);
                     }
                     assignState(CONNECT_ACK, ESTABLISHED);
+                    log.info("current connection state : {}", channelState.get());
                 }
             });
         } else {
@@ -112,11 +113,7 @@ public class Connection {
             log.info("Closing connection. clientId = {}.", clientId);
         }
         if (!force) {
-            final boolean ret = assignState(ESTABLISHED, DISCONNECTED);
-            if (!ret) {
-                log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
-                        ESTABLISHED, DISCONNECTED, clientId);
-            }
+            assignState(ESTABLISHED, DISCONNECTED);
         }
         this.channel.close();
     }

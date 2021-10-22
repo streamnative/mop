@@ -40,7 +40,7 @@ public class MQTTConnectionManager {
     }
 
     // Must use connections.remove(key, value).
-    public boolean removeConnection(String clientId, Connection connection) {
-        return connections.remove(clientId, connection);
+    public boolean removeConnection(Connection connection) {
+        return connections.remove(connection.getClientId(), connection);
     }
 }
