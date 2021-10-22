@@ -15,6 +15,9 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static org.mockito.Mockito.verify;
+import com.google.common.util.concurrent.AtomicDouble;
+import com.google.gson.Gson;
+import com.google.gson.internal.LinkedTreeMap;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
@@ -22,16 +25,29 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.psk.PSKClient;
+import java.io.BufferedReader;
 import java.io.EOFException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
 import org.apache.pulsar.common.naming.NamespaceName;
+import org.apache.pulsar.common.naming.TopicName;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
@@ -173,5 +189,54 @@ public class ProxyTest extends MQTTTestBase {
         });
         latch.await();
         Assert.assertTrue(connected.get());
+    }
+
+    @Test
+    @SneakyThrows
+    public void testProxyProcessPingReq() {
+        String topic = "persistent://public/default/a";
+        // Producer
+        MQTT mqttProducer = createMQTTProxyClient();
+        mqttProducer.setKeepAlive((short) 2);
+        mqttProducer.setConnectAttemptsMax(0);
+        mqttProducer.setReconnectAttemptsMax(0);
+        BlockingConnection producer = mqttProducer.blockingConnection();
+        producer.connect();
+        producer.publish(topic, "Hello MQTT".getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+        Thread.sleep(4000); // Sleep 2 times of setKeepAlive.
+        Assert.assertTrue(producer.isConnected());
+        // Check for broker
+        CompletableFuture<Pair<InetSocketAddress, InetSocketAddress>> broker =
+                ((PulsarClientImpl) pulsarClient).getLookup().getBroker(TopicName.get(topic));
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicDouble active = new AtomicDouble(0);
+        AtomicDouble total = new AtomicDouble(0);
+        broker.thenAccept(pair -> {
+            try {
+                HttpClient httpClient = HttpClientBuilder.create().build();
+                final String mopEndPoint = "http://localhost:" + (pair.getLeft().getPort() + 2) + "/mop-stats";
+                HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
+                InputStream inputStream = response.getEntity().getContent();
+                InputStreamReader isReader = new InputStreamReader(inputStream);
+                BufferedReader reader = new BufferedReader(isReader);
+                StringBuffer buffer = new StringBuffer();
+                String str;
+                while ((str = reader.readLine()) != null){
+                    buffer.append(str);
+                }
+                String result = buffer.toString();
+                LinkedTreeMap treeMap = new Gson().fromJson(result, LinkedTreeMap.class);
+                LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
+                active.set((Double) clients.get("active"));
+                total.set((Double) clients.get("total"));
+            } catch (Throwable ex) {
+                throw new RuntimeException(ex);
+            } finally {
+                latch.countDown();
+            }
+        });
+        latch.await(1, TimeUnit.MINUTES);
+        Assert.assertEquals(active.get(), 1.0);
+        Assert.assertEquals(total.get(), 1.0);
     }
 }
