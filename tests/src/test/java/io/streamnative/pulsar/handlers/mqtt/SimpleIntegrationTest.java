@@ -488,7 +488,6 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
     @Test
     public void testConnectionWithSameClientId() throws Exception{
-        String topic = "a";
         MQTT mqttProducer = createMQTTClient();
         mqttProducer.setClientId("client1");
         mqttProducer.setUserName("clientUser1");
