@@ -37,8 +37,6 @@ public class MQTTConnectionManager {
             }
             existing.close(true);
             log.info("after close existing, current connections ={}", connections);
-        } else {
-            log.info("connections ={}", connections);
         }
     }
 
