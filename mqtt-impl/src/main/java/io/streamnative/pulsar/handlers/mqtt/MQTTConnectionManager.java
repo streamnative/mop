@@ -36,7 +36,6 @@ public class MQTTConnectionManager {
                 log.debug("The clientId is existed. Close existing connection. CId={}", existing.getClientId());
             }
             existing.close(true);
-            log.info("after close existing, current connections ={}", connections);
         }
     }
 

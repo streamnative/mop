@@ -61,6 +61,5 @@ public class BasicAuthenticationProxyTest extends BasicAuthenticationConfig {
         mqtt.setPassword("invalid");
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
-        connection.disconnect();
     }
 }

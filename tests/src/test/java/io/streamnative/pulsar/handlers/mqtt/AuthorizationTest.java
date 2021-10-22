@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.policies.data.AuthAction;
+import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.MQTTException;
@@ -61,16 +62,26 @@ public class AuthorizationTest extends AuthorizationConfig {
 
         Message receive = consumer.receive();
         Assert.assertEquals(new String(receive.getPayload()), message);
+        producer.disconnect();
+        consumer.disconnect();
     }
 
-    @Test(expectedExceptions = {MQTTException.class}, timeOut = TIMEOUT)
+    @Test
     public void testNotAuthorized() throws Exception {
+        Set<AuthAction> user3Actions = new HashSet<>();
+        user3Actions.add(AuthAction.consume);
+        admin.namespaces().grantPermissionOnNamespace("public/default", "user3", user3Actions);
         MQTT mqtt = createMQTTClient();
-        mqtt.setUserName("user1");
-        mqtt.setPassword("pass2");
+        mqtt.setUserName("user3");
+        mqtt.setPassword("pass3");
+        mqtt.setConnectAttemptsMax(0);
+        mqtt.setReconnectAttemptsMax(0);
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         String message = "Hello MQTT";
         connection.publish("a", message.getBytes(), QoS.AT_MOST_ONCE, false);
+        Awaitility.await().untilAsserted(() -> {
+            Assert.assertFalse(connection.isConnected());
+        });
     }
 }
