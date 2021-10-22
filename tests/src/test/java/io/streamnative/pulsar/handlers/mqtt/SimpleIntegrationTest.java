@@ -484,6 +484,8 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Awaitility.await().untilAsserted(() -> {
             Assert.assertEquals(pulsarServiceList.get(0).getAdminClient().topics().getSubscriptions(topic).size(), 0);
         });
+        consumer.disconnect();
+        producer.disconnect();
     }
 
     @Test
