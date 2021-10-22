@@ -34,9 +34,9 @@ import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttVersion;
-import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor;
-import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
+import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
@@ -83,9 +83,9 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private final MQTTAuthenticationService authenticationService;
     private final AuthorizationService authorizationService;
     private final MQTTMetricsCollector metricsCollector;
+    private final MQTTConnectionManager connectionManager;
 
     public DefaultProtocolMethodProcessorImpl (MQTTService mqttService, ChannelHandlerContext ctx) {
-
         this.pulsarService = mqttService.getPulsarService();
         this.configuration = mqttService.getServerConfiguration();
         this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration);
@@ -94,6 +94,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         this.authenticationService = mqttService.getAuthenticationService();
         this.authorizationService = mqttService.getAuthorizationService();
         this.metricsCollector = mqttService.getMetricsCollector();
+        this.connectionManager = mqttService.getConnectionManager();
         this.serverCnx = new MQTTServerCnx(pulsarService, ctx);
     }
 
@@ -153,24 +154,15 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             userRole = authResult.getUserRole();
         }
 
-        ConnectionDescriptor descriptor = new ConnectionDescriptor(clientId, channel,
-                msg.variableHeader().isCleanSession());
-        ConnectionDescriptor existing = ConnectionDescriptorStore.getInstance().addConnection(descriptor);
-        if (existing != null) {
-            if (log.isDebugEnabled()) {
-                log.debug("The client ID is being used in an existing connection. It will be closed. CId={}", clientId);
-            }
-            existing.abort();
-        }
-
         NettyUtils.setClientId(channel, clientId);
         NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
         NettyUtils.setUserRole(channel, userRole);
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
-
-        descriptor.sendConnAck();
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
 
+        Connection connection = new Connection(clientId, channel, msg.variableHeader().isCleanSession());
+        connectionManager.addConnection(connection);
+        connection.sendConnAck();
     }
 
     @Override
@@ -262,41 +254,22 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
     @Override
     public void processDisconnect(Channel channel, MqttMessage msg) {
-        final String clientID = NettyUtils.getClientId(channel);
+        final String clientId = NettyUtils.getClientId(channel);
         if (log.isDebugEnabled()) {
-            log.debug("[Disconnect] [{}] ", clientID);
+            log.debug("[Disconnect] [{}] ", clientId);
         }
         metricsCollector.removeClient(NettyUtils.getAddress(channel));
-        final ConnectionDescriptor existingDescriptor = ConnectionDescriptorStore.getInstance().getConnection(clientID);
-        if (existingDescriptor == null) {
-            // another client with same ID removed the descriptor, we must exit
-            log.warn("connection descriptor is null. close CId={}", clientID);
+        Connection connection = new Connection(clientId, channel, NettyUtils.getCleanSession(channel));
+        boolean success = connectionManager.removeConnection(clientId, connection);
+        if (success) {
+            connection.removeSubscriptions();
+            connection.close();
+        } else {
+            log.warn("connection is null. close CId={}", clientId);
             channel.close();
-            return;
-        }
-
-        if (existingDescriptor.doesNotUseChannel(channel)) {
-            // another client saved it's descriptor, exit
-            log.warn("Another client is using the connection descriptor. Closing connection. CId={}", clientID);
-            existingDescriptor.abort();
-            return;
-        }
-
-        if (!existingDescriptor.close()) {
-            log.warn("The connection has been closed. CId={}", clientID);
-            return;
-        }
-
-        existingDescriptor.removeSubscriptions();
-
-        boolean stillPresent = ConnectionDescriptorStore.getInstance().removeConnection(existingDescriptor);
-        if (!stillPresent) {
-            // another descriptor was inserted
-            log.warn("Another descriptor has been inserted. CId={}", clientID);
-            return;
         }
         if (log.isDebugEnabled()) {
-            log.debug("The DISCONNECT message has been processed. CId={}", clientID);
+            log.debug("The DISCONNECT message has been processed. CId={}", clientId);
         }
     }
 
@@ -308,10 +281,11 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         if (StringUtils.isNotEmpty(clientId)) {
             metricsCollector.removeClient(NettyUtils.getAddress(channel));
-            boolean cleanSession = NettyUtils.getCleanSession(channel);
-            ConnectionDescriptor oldConnDescriptor = new ConnectionDescriptor(clientId, channel, cleanSession);
-            ConnectionDescriptorStore.getInstance().removeConnection(oldConnDescriptor);
-            oldConnDescriptor.removeSubscriptions();
+            Connection connection = new Connection(clientId, channel, NettyUtils.getCleanSession(channel));
+            boolean success = connectionManager.removeConnection(clientId, connection);
+            if (success) {
+                connection.removeSubscriptions();
+            }
         }
     }
 

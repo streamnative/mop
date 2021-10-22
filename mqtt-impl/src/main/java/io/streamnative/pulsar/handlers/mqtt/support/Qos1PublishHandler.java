@@ -17,7 +17,6 @@ import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
-import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -25,16 +24,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.zookeeper.KeeperException;
-
 /**
  * Publish handler implementation for Qos 1.
  */
 @Slf4j
 public class Qos1PublishHandler extends AbstractQosPublishHandler {
 
-    public Qos1PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration,
-                              ConnectionDescriptorStore connectionDescriptors) {
-        super(pulsarService, configuration, connectionDescriptors);
+    public Qos1PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration) {
+        super(pulsarService, configuration);
     }
 
     @Override
@@ -45,8 +42,18 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                 if (log.isDebugEnabled()) {
                     log.debug("[{}] Write {} to Pulsar topic succeed.", topic, msg);
                 }
-                String clientId = NettyUtils.getClientId(channel);
-                sendPubAck(topic, clientId, msg.variableHeader().packetId());
+                MqttPubAckMessage pubAckMessage = MqttMessageUtils.pubAck(msg.variableHeader().packetId());
+                channel.writeAndFlush(pubAckMessage).addListener(future -> {
+                    if (future.isSuccess()) {
+                        if (log.isDebugEnabled()) {
+                            log.debug("[{}] Send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
+                                    NettyUtils.getClientId(channel));
+                        }
+                    } else {
+                        log.warn("[{}] Failed to send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
+                                NettyUtils.getClientId(channel), future.cause());
+                    }
+                });
             } else {
                 log.error("[{}] Write {} to Pulsar topic failed.", topic, msg, e);
                 Throwable cause = e.getCause();
@@ -58,21 +65,5 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                 }
             }
         });
-    }
-
-    private void sendPubAck(String topic, String clientId, int packetId) {
-        if (log.isDebugEnabled()) {
-            log.debug("[{}] Send Pub Ack {} to {}", topic, packetId, clientId);
-        }
-        try {
-            if (connectionDescriptors != null && connectionDescriptors.isConnected(clientId)) {
-                MqttPubAckMessage pubAckMessage = MqttMessageUtils.pubAck(packetId);
-                connectionDescriptors.sendMessage(pubAckMessage, packetId, clientId);
-            } else {
-                log.warn("Can't find ConnectionDescriptor: {} for client: {}", connectionDescriptors, clientId);
-            }
-        } catch (Throwable t) {
-            log.error("[{}] Failed to send Pub Ack {} to client {}.", topic, packetId, clientId, t);
-        }
     }
 }

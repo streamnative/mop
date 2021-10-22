@@ -23,7 +23,9 @@ import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
+import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -58,6 +60,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     private final Map<String, CompletableFuture<MQTTProxyExchanger>> proxyExchangerMap;
     // Map sequence Id -> topic count
     private final ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId;
+    private final MQTTConnectionManager connectionManager;
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, MQTTProxyHandler proxyHandler) {
         this.proxyService = proxyService;
@@ -66,6 +69,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         this.authenticationService = proxyService.getAuthenticationService();
         this.lookupHandler = proxyService.getLookupHandler();
         this.proxyConfig = proxyService.getProxyConfig();
+        this.connectionManager = proxyService.getConnectionManager();
         this.proxyExchangerMap = new ConcurrentHashMap<>();
         this.topicCountForSequenceId = new ConcurrentHashMap<>();
     }
@@ -102,14 +106,15 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                 return;
             }
         }
-
         NettyUtils.setClientId(channel, clientId);
+        NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
         NettyUtils.setConnectMsg(channel, connectMessage);
         NettyUtils.setKeepAliveTime(channel, MqttMessageUtils.getKeepAliveTime(msg));
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
 
-        MqttConnAckMessage ackMessage = MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED);
-        channel.writeAndFlush(ackMessage);
+        Connection connection = new Connection(clientId, channel, msg.variableHeader().isCleanSession());
+        connectionManager.addConnection(connection);
+        connection.sendConnAck();
     }
 
     @Override
@@ -165,22 +170,37 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
     @Override
     public void processDisconnect(Channel channel, MqttMessage msg) {
+        String clientId = NettyUtils.getClientId(channel);
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy Disconnect] [{}] ", NettyUtils.getClientId(channel));
+            log.debug("[Proxy Disconnect] [{}] ", clientId);
         }
-        channel.close();
         proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
             exchanger.writeAndFlush(msg);
             exchanger.close();
         }));
         proxyExchangerMap.clear();
+
+        Connection connection = new Connection(clientId, channel, NettyUtils.getCleanSession(channel));
+        boolean success = connectionManager.removeConnection(clientId, connection);
+        if (success) {
+            connection.close();
+        } else {
+            log.warn("connection is null. close CId={}", clientId);
+            channel.close();
+        }
+        if (log.isDebugEnabled()) {
+            log.debug("The DISCONNECT message has been processed. CId={}", clientId);
+        }
     }
 
     @Override
     public void processConnectionLost(Channel channel) {
+        String clientId = NettyUtils.getClientId(channel);
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy Connection Lost] [{}] ", NettyUtils.getClientId(channel));
+            log.debug("[Proxy Connection Lost] [{}] ", clientId);
         }
+        Connection connection = new Connection(clientId, channel, NettyUtils.getCleanSession(channel));
+        connectionManager.removeConnection(clientId, connection);
         proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
             exchanger.close();
         }));
