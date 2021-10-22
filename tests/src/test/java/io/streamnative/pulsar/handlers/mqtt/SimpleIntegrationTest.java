@@ -504,8 +504,6 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         mqttProducer2.setReconnectAttemptsMax(0);
         BlockingConnection producer2 = mqttProducer2.blockingConnection();
         producer2.connect();
-
-        producer1.publish(topic, "Hello MQTT".getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
         //
         HttpClient httpClient = HttpClientBuilder.create().build();
         final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop-stats";
