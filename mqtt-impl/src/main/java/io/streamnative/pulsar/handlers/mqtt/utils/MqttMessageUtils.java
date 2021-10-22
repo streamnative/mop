@@ -70,6 +70,11 @@ public class MqttMessageUtils {
         return new MqttMessage(pingHeader);
     }
 
+    public static MqttMessage pingReq() {
+        MqttFixedHeader pingHeader = new MqttFixedHeader(MqttMessageType.PINGREQ, false, AT_MOST_ONCE, false, 0);
+        return new MqttMessage(pingHeader);
+    }
+
     public static String createClientIdentifier(Channel channel) {
         String clientIdentifier;
         if (channel != null && channel.remoteAddress() instanceof InetSocketAddress) {

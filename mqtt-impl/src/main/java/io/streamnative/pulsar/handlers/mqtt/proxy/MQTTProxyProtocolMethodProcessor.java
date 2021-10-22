@@ -13,6 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingReq;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -43,7 +45,6 @@ import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.FutureUtil;
-
 /**
  * Proxy inbound handler is the bridge between proxy and MoP.
  */
@@ -166,6 +167,14 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy PubComp] [{}]", NettyUtils.getClientId(channel));
         }
+    }
+
+    @Override
+    public void processPingReq(Channel channel) {
+        channel.writeAndFlush(pingResp());
+        proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
+            exchanger.writeAndFlush(pingReq());
+        }));
     }
 
     @Override
