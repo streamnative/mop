@@ -13,9 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
-import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
@@ -147,14 +147,18 @@ public class Connection {
     @Override
     public String toString() {
         return "Connection{" + "clientId=" + clientId + ", channel=" + channel
-                +", cleanSession=" + cleanSession + ", state="
+                + ", cleanSession=" + cleanSession + ", state="
                 + channelState.get() + '}';
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         Connection that = (Connection) o;
         return Objects.equals(clientId, that.clientId) && Objects.equals(channel, that.channel);
     }
