@@ -518,7 +518,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         String result = buffer.toString();
         LinkedTreeMap treeMap = new Gson().fromJson(result, LinkedTreeMap.class);
         LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
-        Assert.assertEquals(clients.get("active"), 1.0);
-        Assert.assertEquals(clients.get("total"), 2.0);
+        Awaitility.await().untilAsserted(() -> {
+            Assert.assertEquals(clients.get("active"), 1.0);
+            Assert.assertEquals(clients.get("total"), 2.0);
+        });
     }
 }
