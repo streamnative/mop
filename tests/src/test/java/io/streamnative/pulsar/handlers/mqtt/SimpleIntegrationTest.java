@@ -14,6 +14,8 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static org.mockito.Mockito.verify;
+import com.google.gson.Gson;
+import com.google.gson.internal.LinkedTreeMap;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
@@ -285,6 +287,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Awaitility.await().untilAsserted(() -> Assert.assertTrue(connection1.isConnected()));
         connection2.subscribe(topics);
         connection2.disconnect();
+        connection1.disconnect();
     }
 
     @Test(timeOut = TIMEOUT)
@@ -481,6 +484,44 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Thread.sleep(3000 * 2); // Sleep 2 times of setKeepAlive.
         Awaitility.await().untilAsserted(() -> {
             Assert.assertEquals(pulsarServiceList.get(0).getAdminClient().topics().getSubscriptions(topic).size(), 0);
+        });
+    }
+
+    @Test(priority = -1)
+    public void testConnectionWithSameClientId() throws Exception{
+        MQTT mqttProducer = createMQTTClient();
+        mqttProducer.setClientId("client1");
+        mqttProducer.setUserName("clientUser1");
+        mqttProducer.setConnectAttemptsMax(0);
+        mqttProducer.setReconnectAttemptsMax(0);
+        BlockingConnection producer1 = mqttProducer.blockingConnection();
+        producer1.connect();
+        // Producer
+        MQTT mqttProducer2 = createMQTTClient();
+        mqttProducer2.setClientId("client1");
+        mqttProducer2.setUserName("clientUser2");
+        mqttProducer2.setConnectAttemptsMax(0);
+        mqttProducer2.setReconnectAttemptsMax(0);
+        BlockingConnection producer2 = mqttProducer2.blockingConnection();
+        producer2.connect();
+        //
+        HttpClient httpClient = HttpClientBuilder.create().build();
+        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop-stats";
+        HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
+        InputStream inputStream = response.getEntity().getContent();
+        InputStreamReader isReader = new InputStreamReader(inputStream);
+        BufferedReader reader = new BufferedReader(isReader);
+        StringBuffer buffer = new StringBuffer();
+        String str;
+        while ((str = reader.readLine()) != null){
+            buffer.append(str);
+        }
+        String result = buffer.toString();
+        LinkedTreeMap treeMap = new Gson().fromJson(result, LinkedTreeMap.class);
+        LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
+        Awaitility.await().untilAsserted(() -> {
+            Assert.assertEquals(clients.get("active"), 1.0);
+            Assert.assertEquals(clients.get("total"), 2.0);
         });
     }
 }

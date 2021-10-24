@@ -48,6 +48,9 @@ public class MQTTService {
     @Getter
     private final MQTTMetricsCollector metricsCollector;
 
+    @Getter
+    private final MQTTConnectionManager connectionManager;
+
     public MQTTService(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
         this.brokerService = brokerService;
         this.pulsarService = brokerService.pulsar();
@@ -59,5 +62,6 @@ public class MQTTService {
         this.authenticationService = serverConfiguration.isMqttAuthenticationEnabled()
             ? new MQTTAuthenticationService(brokerService.getAuthenticationService(),
                 serverConfiguration.getMqttAuthenticationMethods()) : null;
+        this.connectionManager = new MQTTConnectionManager();
     }
 }

@@ -16,7 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
-import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
@@ -27,9 +26,8 @@ import org.apache.pulsar.broker.PulsarService;
 @Slf4j
 public class Qos2PublishHandler extends AbstractQosPublishHandler {
 
-    public Qos2PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration,
-                              ConnectionDescriptorStore connectionDescriptors) {
-        super(pulsarService, configuration, connectionDescriptors);
+    public Qos2PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration) {
+        super(pulsarService, configuration);
     }
 
     @Override

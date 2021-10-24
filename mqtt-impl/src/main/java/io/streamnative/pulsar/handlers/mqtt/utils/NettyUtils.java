@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLEAN_SESSION;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ADDR;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ID;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECTION;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECT_MSG;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_KEEP_ALIVE_TIME;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_TOPIC_SUBS;
@@ -24,6 +25,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +43,7 @@ public final class NettyUtils {
     public static final String ATTR_USER_ROLE = "userRole";
 
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ID = AttributeKey.valueOf(ATTR_CLIENT_ID);
+    private static final AttributeKey<Object> ATTR_KEY_CONNECTION = AttributeKey.valueOf(ATTR_CONNECTION);
     private static final AttributeKey<Object> ATTR_KEY_CLEAN_SESSION = AttributeKey.valueOf(ATTR_CLEAN_SESSION);
     private static final AttributeKey<Object> ATTR_KEY_KEEP_ALIVE_TIME = AttributeKey.valueOf(ATTR_KEEP_ALIVE_TIME);
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
@@ -51,6 +54,18 @@ public final class NettyUtils {
 
     public static void setClientId(Channel channel, String clientId) {
         channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).set(clientId);
+    }
+
+    public static String getClientId(Channel channel) {
+        return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).get();
+    }
+
+    public static void setConnection(Channel channel, Connection connection) {
+        channel.attr(NettyUtils.ATTR_KEY_CONNECTION).set(connection);
+    }
+
+    public static Connection getConnection(Channel channel) {
+        return (Connection) channel.attr(NettyUtils.ATTR_KEY_CONNECTION).get();
     }
 
     public static void setCleanSession(Channel channel, boolean cleanSession) {
@@ -76,10 +91,6 @@ public final class NettyUtils {
     public static Optional<MqttConnectMessage> getAndRemoveConnectMsg(Channel channel) {
         return Optional.ofNullable(channel.attr(NettyUtils.ATTR_KEY_CONNECT_MSG).getAndSet(null))
                 .map(o -> (MqttConnectMessage) o);
-    }
-
-    public static String getClientId(Channel channel) {
-        return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).get();
     }
 
     public static void userName(Channel channel, String username) {
