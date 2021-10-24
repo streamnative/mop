@@ -13,16 +13,16 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.DISCONNECTED;
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.ESTABLISHED;
-import static io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptor.ConnectionState.SEND_ACK;
+import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
+import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
+import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -37,42 +37,39 @@ import org.apache.pulsar.broker.service.Topic;
  * session flag.
  */
 @Slf4j
-public class ConnectionDescriptor {
+public class Connection {
 
-    /**
-     * Connection state.
-     */
-    public enum ConnectionState {
-        DISCONNECTED,
-        SEND_ACK,
-        ESTABLISHED,
-    }
-
-    public final String clientID;
+    @Getter
+    private final String clientId;
     @Getter
     private final Channel channel;
-    public final boolean cleanSession;
-    private final AtomicReference<ConnectionState> channelState = new AtomicReference<>(ConnectionState.DISCONNECTED);
+    @Getter
+    private final boolean cleanSession;
 
-    public ConnectionDescriptor(String clientID, Channel session, boolean cleanSession) {
-        this.clientID = clientID;
-        this.channel = session;
+    private final AtomicReference<ConnectionState> channelState = new AtomicReference<>(DISCONNECTED);
+
+    public Connection(String clientId, Channel channel, boolean cleanSession) {
+        this.clientId = clientId;
+        this.channel = channel;
         this.cleanSession = cleanSession;
     }
 
     public void sendConnAck() {
-        boolean ret = assignState(DISCONNECTED, SEND_ACK);
+        boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
         if (ret) {
             MqttConnAckMessage ackMessage = MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED);
             channel.writeAndFlush(ackMessage).addListener(future -> {
                 if (future.isSuccess()) {
                     if (log.isDebugEnabled()) {
-                        log.debug("The CONNECT message has been processed. CId={}", clientID);
+                        log.debug("The CONNECT message has been processed. CId={}", clientId);
                     }
-                    assignState(SEND_ACK, ESTABLISHED);
+                    assignState(CONNECT_ACK, ESTABLISHED);
+                    log.info("current connection state : {}", channelState.get());
                 }
             });
         } else {
+            log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
+                    DISCONNECTED, CONNECT_ACK, clientId);
             channel.close();
         }
     }
@@ -107,31 +104,16 @@ public class ConnectionDescriptor {
         }
     }
 
-    public ChannelPromise writeAndFlush(Object payload) {
-        ChannelPromise promise = channel.newPromise();
-        this.channel.writeAndFlush(payload, promise);
-        return promise;
+    public void close() {
+        close(false);
     }
 
-    public boolean doesNotUseChannel(Channel channel) {
-        return !(this.channel.equals(channel));
-    }
-
-    public boolean close() {
+    public void close(boolean force) {
         if (log.isInfoEnabled()) {
-            log.info("Closing connection descriptor. MqttClientId = {}.", clientID);
+            log.info("Closing connection. clientId = {}.", clientId);
         }
-        final boolean success = assignState(ConnectionState.ESTABLISHED, ConnectionState.DISCONNECTED);
-        if (!success) {
-            return false;
-        }
-        this.channel.close();
-        return true;
-    }
-
-    public void abort() {
-        if (log.isInfoEnabled()) {
-            log.info("Closing connection descriptor. MqttClientId = {}.", clientID);
+        if (!force) {
+            assignState(ESTABLISHED, DISCONNECTED);
         }
         this.channel.close();
     }
@@ -139,9 +121,9 @@ public class ConnectionDescriptor {
     private boolean assignState(ConnectionState expected, ConnectionState newState) {
         if (log.isDebugEnabled()) {
             log.debug(
-                    "Updating state of connection descriptor. CId = {}, currentState = {}, "
+                    "Updating state of connection. CId = {}, currentState = {}, "
                             + "expectedState = {}, newState = {}.",
-                    clientID,
+                    clientId,
                     channelState.get(),
                     expected,
                     newState);
@@ -149,9 +131,9 @@ public class ConnectionDescriptor {
         boolean ret = channelState.compareAndSet(expected, newState);
         if (!ret) {
             log.error(
-                    "Unable to update state of connection descriptor."
+                    "Unable to update state of connection."
                             + " CId = {}, currentState = {}, expectedState = {}, newState = {}.",
-                    clientID,
+                    clientId,
                     channelState.get(),
                     expected,
                     newState);
@@ -161,7 +143,8 @@ public class ConnectionDescriptor {
 
     @Override
     public String toString() {
-        return "ConnectionDescriptor{" + "clientID=" + clientID + ", cleanSession=" + cleanSession + ", state="
+        return "Connection{" + "clientId=" + clientId + ", channel=" + channel
+                + ", cleanSession=" + cleanSession + ", state="
                 + channelState.get() + '}';
     }
 
@@ -170,23 +153,24 @@ public class ConnectionDescriptor {
         if (this == o) {
             return true;
         }
-
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        ConnectionDescriptor that = (ConnectionDescriptor) o;
-
-        if (clientID != null ? !clientID.equals(that.clientID) : that.clientID != null) {
-            return false;
-        }
-        return !(channel != null ? !channel.equals(that.channel) : that.channel != null);
+        Connection that = (Connection) o;
+        return Objects.equals(clientId, that.clientId) && Objects.equals(channel, that.channel);
     }
 
     @Override
     public int hashCode() {
-        int result = clientID != null ? clientID.hashCode() : 0;
-        result = 31 * result + (channel != null ? channel.hashCode() : 0);
-        return result;
+        return Objects.hash(clientId, channel);
+    }
+
+    /**
+     * Connection state.
+     */
+    public enum ConnectionState {
+        DISCONNECTED,
+        CONNECT_ACK,
+        ESTABLISHED,
     }
 }
