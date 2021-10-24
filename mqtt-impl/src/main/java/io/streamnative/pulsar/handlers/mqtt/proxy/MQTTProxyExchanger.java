@@ -83,6 +83,7 @@ public class MQTTProxyExchanger {
             Optional<MqttConnectMessage> connectMessage = NettyUtils.getAndRemoveConnectMsg(
                     processor.clientChannel());
             connectMessage.map(msg -> ctx.writeAndFlush(msg));
+            NettyUtils.setClientId(ctx.channel(), NettyUtils.getClientId(processor.clientChannel()));
         }
 
         @Override
@@ -120,8 +121,14 @@ public class MQTTProxyExchanger {
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-            log.error("failed to create connection with MoP broker.", cause);
+            log.error("exception caught when connect with MoP broker.", cause);
             ctx.close();
+            processor.clientChannel().close();
+        }
+
+        @Override
+        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+            log.error("proxy to broker channel inactive. Cid = {}", NettyUtils.getClientId(ctx.channel()));
             processor.clientChannel().close();
         }
     }

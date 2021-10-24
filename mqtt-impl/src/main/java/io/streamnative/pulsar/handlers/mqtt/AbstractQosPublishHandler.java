@@ -33,13 +33,10 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
 
     protected final PulsarService pulsarService;
     protected final MQTTServerConfiguration configuration;
-    protected final ConnectionDescriptorStore connectionDescriptors;
 
-    protected AbstractQosPublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration,
-                                        ConnectionDescriptorStore connectionDescriptors) {
+    protected AbstractQosPublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration) {
         this.pulsarService = pulsarService;
         this.configuration = configuration;
-        this.connectionDescriptors = connectionDescriptors;
     }
 
     protected CompletableFuture<Optional<Topic>> getTopicReference(MqttPublishMessage msg) {

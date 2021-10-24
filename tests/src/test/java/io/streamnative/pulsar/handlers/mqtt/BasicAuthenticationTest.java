@@ -54,6 +54,5 @@ public class BasicAuthenticationTest extends BasicAuthenticationConfig {
         mqtt.setPassword("invalid");
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
-        connection.disconnect();
     }
 }

@@ -20,6 +20,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
+import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import java.io.Closeable;
 import lombok.Getter;
@@ -40,6 +41,8 @@ public class MQTTProxyService implements Closeable {
     @Getter
     private final MQTTAuthenticationService authenticationService;
     @Getter
+    private final MQTTConnectionManager connectionManager;
+    @Getter
     private LookupHandler lookupHandler;
 
     private Channel listenChannel;
@@ -56,6 +59,7 @@ public class MQTTProxyService implements Closeable {
         this.pulsarService = mqttService.getPulsarService();
         this.proxyConfig = proxyConfig;
         this.authenticationService = mqttService.getAuthenticationService();
+        this.connectionManager = new MQTTConnectionManager();
         this.acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
                 false, acceptorThreadFactory);
         this.workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),
