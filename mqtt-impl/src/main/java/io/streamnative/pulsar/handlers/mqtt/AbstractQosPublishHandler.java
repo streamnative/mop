@@ -47,12 +47,14 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
 
     protected CompletableFuture<PositionImpl> writeToPulsarTopic(MqttPublishMessage msg) {
         return getTopicReference(msg).thenCompose(topicOp -> {
-                MessageImpl<byte[]> message = toPulsarMsg(msg);
-                CompletableFuture<PositionImpl> pos = topicOp.map(topic ->
-                        MessagePublishContext.publishMessages(message, topic))
-                        .orElseGet(() -> FutureUtil.failedFuture(
+                CompletableFuture<PositionImpl> pos = topicOp.map(topic -> {
+                            MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
+                            CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
+                            message.release();
+                            return ret;
+                        }).orElseGet(() -> FutureUtil.failedFuture(
                                 new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName())));
-                message.release();
+
                 return pos;
             });
     }
