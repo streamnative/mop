@@ -55,7 +55,7 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         super.channelInactive(ctx);
-        this.close();
+        this.processor.processConnectionLost(ctx.channel());
     }
 
     @Override
@@ -136,15 +136,6 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
             }
         } else {
             super.userEventTriggered(ctx, event);
-        }
-    }
-
-    public void close() {
-        if (log.isDebugEnabled()) {
-            log.debug("ProxyConnection close.");
-        }
-        if (ctx != null) {
-            ctx.close();
         }
     }
 }
