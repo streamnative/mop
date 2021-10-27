@@ -54,8 +54,8 @@ public class PulsarServiceLookupHandler implements LookupHandler {
     }
 
     @Override
-    public CompletableFuture<Pair<String, Integer>> findBroker(TopicName topicName) {
-        CompletableFuture<Pair<String, Integer>> lookupResult = new CompletableFuture<>();
+    public CompletableFuture<InetSocketAddress> findBroker(TopicName topicName) {
+        CompletableFuture<InetSocketAddress> lookupResult = new CompletableFuture<>();
         CompletableFuture<Pair<InetSocketAddress, InetSocketAddress>> lookup =
                 pulsarClient.getLookup().getBroker(topicName);
 
@@ -82,7 +82,8 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                                     String[] splits = mqttBrokerUrl.split(":");
                                     String port = splits[splits.length - 1];
                                     int mqttBrokerPort = Integer.parseInt(port);
-                                    lookupResult.complete(Pair.of(pair.getLeft().getHostName(), mqttBrokerPort));
+                                    lookupResult.complete(InetSocketAddress.createUnresolved(
+                                            pair.getLeft().getHostName(), mqttBrokerPort));
                                     foundOwner = true;
                                     break;
                                 }

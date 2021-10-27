@@ -28,12 +28,10 @@ import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
-import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
-import java.util.Optional;
+import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * Proxy exchanger is the bridge between proxy and MoP.
@@ -47,8 +45,7 @@ public class MQTTProxyExchanger {
     private CompletableFuture<Void> brokerConnected = new CompletableFuture<>();
     private CompletableFuture<Void> brokerConnectedAck = new CompletableFuture<>();
 
-    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor,
-                       Pair<String, Integer> brokerHostAndPort) throws Exception {
+    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, InetSocketAddress mqttBroker) {
         this.processor = processor;
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(processor.clientChannel().eventLoop())
@@ -56,19 +53,17 @@ public class MQTTProxyExchanger {
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
-                        ch.pipeline().addFirst("idleStateHandler",
-                                new IdleStateHandler(NettyUtils.getKeepAliveTime(processor.clientChannel()), 0, 0));
                         ch.pipeline().addLast("decoder", new MqttDecoder());
                         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
                         ch.pipeline().addLast("handler", new ExchangerHandler());
                     }
                 });
-        ChannelFuture channelFuture = bootstrap.connect(brokerHostAndPort.getLeft(), brokerHostAndPort.getRight());
+        ChannelFuture channelFuture = bootstrap.connect(mqttBroker.getHostName(), mqttBroker.getPort());
         brokerChannel = channelFuture.channel();
         channelFuture.addListener(future -> {
             if (future.isSuccess()) {
                 brokerConnected.complete(null);
-                log.info("connected to broker: {}", brokerHostAndPort);
+                log.info("connected to broker: {}", mqttBroker);
             } else {
                 brokerConnected.completeExceptionally(future.cause());
             }
@@ -80,10 +75,9 @@ public class MQTTProxyExchanger {
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             super.channelActive(ctx);
-            Optional<MqttConnectMessage> connectMessage = NettyUtils.getAndRemoveConnectMsg(
-                    processor.clientChannel());
-            connectMessage.map(msg -> ctx.writeAndFlush(msg));
             NettyUtils.setClientId(ctx.channel(), NettyUtils.getClientId(processor.clientChannel()));
+            MqttConnectMessage connectMessage = NettyUtils.getConnectMsg(processor.clientChannel());
+            ctx.channel().writeAndFlush(connectMessage);
         }
 
         @Override
