@@ -32,6 +32,7 @@ import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
@@ -58,7 +58,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     private final PulsarService pulsarService;
     private final MQTTAuthenticationService authenticationService;
 
-    private final Map<String, CompletableFuture<MQTTProxyExchanger>> proxyExchangerMap;
+    private final Map<String, CompletableFuture<MQTTProxyExchanger>> topicBrokers;
+    private final Map<InetSocketAddress, MQTTProxyExchanger> brokerPool;
     // Map sequence Id -> topic count
     private final ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId;
     private final MQTTConnectionManager connectionManager;
@@ -71,7 +72,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         this.lookupHandler = proxyService.getLookupHandler();
         this.proxyConfig = proxyService.getProxyConfig();
         this.connectionManager = proxyService.getConnectionManager();
-        this.proxyExchangerMap = new ConcurrentHashMap<>();
+        this.topicBrokers = new ConcurrentHashMap<>();
+        this.brokerPool = new ConcurrentHashMap<>();
         this.topicCountForSequenceId = new ConcurrentHashMap<>();
     }
 
@@ -136,16 +138,16 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
                 TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
-        CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(
+        CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(
                 TopicName.get(pulsarTopicName));
-        lookupResult.whenComplete((pair, throwable) -> {
+        lookupResult.whenComplete((brokerAddress, throwable) -> {
             if (null != throwable) {
                 log.error("[Proxy Publish] Failed to perform lookup request for topic : {}, CId : {}",
                         msg.variableHeader().topicName(), NettyUtils.getClientId(channel), throwable);
                 channel.close();
                 return;
             }
-            writeToMqttBroker(channel, msg, pulsarTopicName, pair);
+            writeToMqttBroker(channel, msg, pulsarTopicName, brokerAddress);
         });
     }
 
@@ -173,7 +175,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processPingReq(Channel channel) {
         channel.writeAndFlush(pingResp());
-        proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
+        topicBrokers.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
             exchanger.writeAndFlush(pingReq());
         }));
     }
@@ -184,22 +186,20 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Disconnect] [{}] ", clientId);
         }
-        proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
+        topicBrokers.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
             exchanger.writeAndFlush(msg);
             exchanger.close();
         }));
-        proxyExchangerMap.clear();
-
+        topicBrokers.clear();
+        brokerPool.clear();
+        // When login, checkState(msg) failed, connection is null.
         Connection connection = NettyUtils.getConnection(channel);
-        boolean success = connectionManager.removeConnection(connection);
-        if (success) {
-            connection.close();
-        } else {
+        if (connection == null) {
             log.warn("connection is null. close CId={}", clientId);
             channel.close();
-        }
-        if (log.isDebugEnabled()) {
-            log.debug("The DISCONNECT message has been processed. CId={}", clientId);
+        } else {
+            connectionManager.removeConnection(connection);
+            connection.close();
         }
     }
 
@@ -211,10 +211,11 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }
         Connection connection = NettyUtils.getConnection(channel);
         connectionManager.removeConnection(connection);
-        proxyExchangerMap.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
+        topicBrokers.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
             exchanger.close();
         }));
-        proxyExchangerMap.clear();
+        topicBrokers.clear();
+        brokerPool.clear();
     }
 
     @Override
@@ -235,10 +236,10 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         topicListFuture.thenCompose(topics -> {
             List<CompletableFuture<Void>> futures = new ArrayList<>();
             for (String topic : topics) {
-                CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
-                futures.add(lookupResult.thenAccept(pair -> {
+                CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
+                futures.add(lookupResult.thenAccept(brokerAddress -> {
                     increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);
-                    writeToMqttBroker(channel, msg, topic, pair);
+                    writeToMqttBroker(channel, msg, topic, brokerAddress);
                 }));
             }
             return FutureUtil.waitForAll(futures);
@@ -256,43 +257,44 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }
         List<String> topics = msg.payload().topics();
         for (String topic : topics) {
-            CompletableFuture<Pair<String, Integer>> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
-            lookupResult.whenComplete((pair, throwable) -> {
+            CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
+            lookupResult.whenComplete((brokerAddress, throwable) -> {
                 if (null != throwable) {
                     log.error("[Proxy UnSubscribe] Failed to perform lookup request", throwable);
                     channel.close();
                     return;
                 }
-                writeToMqttBroker(channel, msg, topic, pair);
+                writeToMqttBroker(channel, msg, topic, brokerAddress);
             });
         }
     }
 
-    private void writeToMqttBroker(Channel channel, MqttMessage msg, String topic, Pair<String, Integer> pair) {
-        CompletableFuture<MQTTProxyExchanger> proxyExchanger = createProxyExchanger(topic, pair);
+    private void writeToMqttBroker(Channel channel, MqttMessage msg, String topic, InetSocketAddress mqttBroker) {
+        CompletableFuture<MQTTProxyExchanger> proxyExchanger = createProxyExchanger(topic, mqttBroker);
         proxyExchanger.whenComplete((exchanger, error) -> {
             if (error != null) {
-                log.error("[{}] [{}] MoP proxy failed to connect with MoP broker({}).",
-                        NettyUtils.getClientId(channel), msg.fixedHeader().messageType(), pair, error);
+                log.error("[{}]] MoP proxy failed to connect with MoP broker({}).",
+                        NettyUtils.getClientId(channel), mqttBroker, error);
                 channel.close();
                 return;
             }
             if (exchanger.isWritable()) {
                 exchanger.writeAndFlush(msg);
             } else {
-                log.error("The broker channel({}) is not writable!", pair);
+                log.error("The broker channel({}) is not writable!", mqttBroker);
                 channel.close();
                 exchanger.close();
             }
         });
     }
 
-    private CompletableFuture<MQTTProxyExchanger> createProxyExchanger(String topic, Pair<String, Integer> mqttBroker) {
-        return proxyExchangerMap.computeIfAbsent(topic, key -> {
+    private CompletableFuture<MQTTProxyExchanger> createProxyExchanger(String topic, InetSocketAddress mqttBroker) {
+        return topicBrokers.computeIfAbsent(topic, key -> {
             CompletableFuture<MQTTProxyExchanger> future = new CompletableFuture<>();
             try {
-                MQTTProxyExchanger exchanger = new MQTTProxyExchanger(this, mqttBroker);
-                exchanger.connectedAck().thenAccept(__ -> future.complete(exchanger));
+                MQTTProxyExchanger result = brokerPool.computeIfAbsent(mqttBroker, addr ->
+                        new MQTTProxyExchanger(this, mqttBroker));
+                result.connectedAck().thenAccept(__ -> future.complete(result));
             } catch (Exception ex) {
                 future.completeExceptionally(ex);
             }
