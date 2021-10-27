@@ -94,7 +94,7 @@ public final class NettyUtils {
     }
 
     public static MqttConnectMessage getConnectMsg(Channel channel) {
-        return (MqttConnectMessage)channel.attr(NettyUtils.ATTR_KEY_CONNECT_MSG).get();
+        return (MqttConnectMessage) channel.attr(NettyUtils.ATTR_KEY_CONNECT_MSG).get();
     }
 
     public static void userName(Channel channel, String username) {
