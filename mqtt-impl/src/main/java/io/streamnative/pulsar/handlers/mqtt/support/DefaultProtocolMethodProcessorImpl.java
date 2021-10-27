@@ -261,16 +261,14 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         metricsCollector.removeClient(NettyUtils.getAddress(channel));
         Connection connection =  NettyUtils.getConnection(channel);
-        boolean success = connectionManager.removeConnection(connection);
-        if (success) {
+        // When login, checkState(msg) failed, connection is null.
+        if (connection != null) {
+            connectionManager.removeConnection(connection);
             connection.removeSubscriptions();
             connection.close();
         } else {
             log.warn("connection is null. close CId={}", clientId);
             channel.close();
-        }
-        if (log.isDebugEnabled()) {
-            log.debug("The DISCONNECT message has been processed. CId={}", clientId);
         }
     }
 
@@ -283,8 +281,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         if (StringUtils.isNotEmpty(clientId)) {
             metricsCollector.removeClient(NettyUtils.getAddress(channel));
             Connection connection =  NettyUtils.getConnection(channel);
-            boolean success = connectionManager.removeConnection(connection);
-            if (success) {
+            if (connection != null) {
+                connectionManager.removeConnection(connection);
                 connection.removeSubscriptions();
             }
         }
