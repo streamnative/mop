@@ -129,9 +129,8 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     public void userEventTriggered(ChannelHandlerContext ctx, Object event) throws Exception {
         if (event instanceof IdleStateEvent) {
             IdleStateEvent e = (IdleStateEvent) event;
-            if (e.state() == IdleState.READER_IDLE) {
-                log.warn("close channel : {} due to reached read idle time",
-                        NettyUtils.getClientId(ctx.channel()));
+            if (e.state() == IdleState.ALL_IDLE) {
+                log.warn("close channel : {} due to reached all idle time", NettyUtils.getClientId(ctx.channel()));
                 ctx.close();
             }
         } else {

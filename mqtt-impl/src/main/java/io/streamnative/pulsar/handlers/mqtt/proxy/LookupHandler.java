@@ -13,8 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.common.naming.TopicName;
 
 /**
@@ -28,7 +28,7 @@ public interface LookupHandler {
      * @param topicName topic name
      * @return Pair consist of brokerHost and brokerPort
      */
-    CompletableFuture<Pair<String, Integer>> findBroker(TopicName topicName);
+    CompletableFuture<InetSocketAddress> findBroker(TopicName topicName);
 
     /**
      * Close the lookup handler to cleanup the resource.

@@ -93,6 +93,10 @@ public final class NettyUtils {
                 .map(o -> (MqttConnectMessage) o);
     }
 
+    public static MqttConnectMessage getConnectMsg(Channel channel) {
+        return (MqttConnectMessage) channel.attr(NettyUtils.ATTR_KEY_CONNECT_MSG).get();
+    }
+
     public static void userName(Channel channel, String username) {
         channel.attr(NettyUtils.ATTR_KEY_USERNAME).set(username);
     }
@@ -114,7 +118,7 @@ public final class NettyUtils {
         if (pipeline.names().contains("idleStateHandler")) {
             pipeline.remove("idleStateHandler");
         }
-        pipeline.addFirst("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
+        pipeline.addFirst("idleStateHandler", new IdleStateHandler(0, 0, idleTime));
     }
 
     public static void setKeepAliveTime(Channel channel, int keepAliveTime) {
