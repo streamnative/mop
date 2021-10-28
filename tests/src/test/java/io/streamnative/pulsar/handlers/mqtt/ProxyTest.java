@@ -2,9 +2,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,6 +15,7 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static org.mockito.Mockito.verify;
+
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.gson.Gson;
 import com.google.gson.internal.LinkedTreeMap;
@@ -25,6 +26,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.psk.PSKClient;
+
 import java.io.BufferedReader;
 import java.io.EOFException;
 import java.io.InputStream;
@@ -37,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -75,12 +78,12 @@ public class ProxyTest extends MQTTTestBase {
         return mqtt;
     }
 
-    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT, priority = 4)
+    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT, priority = 5)
     public void testSendAndConsume(String topicName) throws Exception {
         MQTT mqtt = createMQTTProxyClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
-        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        Topic[] topics = {new Topic(topicName, QoS.AT_MOST_ONCE)};
         connection.subscribe(topics);
         String message = "Hello MQTT Proxy";
         connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
@@ -91,7 +94,7 @@ public class ProxyTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test(expectedExceptions = {EOFException.class, IllegalStateException.class}, priority = 3)
+    @Test(expectedExceptions = {EOFException.class, IllegalStateException.class}, priority = 4)
     public void testInvalidClientId() throws Exception {
         MQTT mqtt = createMQTTProxyClient();
         mqtt.setConnectAttemptsMax(1);
@@ -102,6 +105,56 @@ public class ProxyTest extends MQTTTestBase {
         verify(connection, Mockito.times(2)).connect();
     }
 
+    @Test(timeOut = TIMEOUT, priority = 3)
+    public void testSendAndConsumeByProxy() throws Exception {
+        int numMessage = 4;
+        String topicName = "a/b/c";
+        MQTT mqtt0 = new MQTT();
+        mqtt0.setHost("127.0.0.1", mqttProxyPortList.get(3));
+        BlockingConnection connection0 = mqtt0.blockingConnection();
+        connection0.connect();
+        Topic[] topics = {new Topic(topicName, QoS.AT_MOST_ONCE)};
+        connection0.subscribe(topics);
+
+        String message = "Hello MQTT By Proxy";
+        MQTT mqtt1 = new MQTT();
+        mqtt1.setHost("127.0.0.1", mqttProxyPortList.get(2));
+        BlockingConnection connection1 = mqtt1.blockingConnection();
+        connection1.connect();
+        connection1.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+
+        MQTT mqtt2 = new MQTT();
+        mqtt2.setHost("127.0.0.1", mqttProxyPortList.get(1));
+        BlockingConnection connection2 = mqtt2.blockingConnection();
+        connection2.connect();
+        connection2.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+
+        MQTT mqtt3 = new MQTT();
+        mqtt3.setHost("127.0.0.1", mqttProxyPortList.get(3));
+        BlockingConnection connection3 = mqtt3.blockingConnection();
+        connection3.connect();
+        connection3.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+
+        MQTT mqtt4 = new MQTT();
+        mqtt3.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection4 = mqtt3.blockingConnection();
+        connection3.connect();
+        connection3.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+
+        for (int i = 0; i < numMessage; i++) {
+            Message received = connection0.receive();
+            Assert.assertEquals(received.getTopic(), topicName);
+            Assert.assertEquals(new String(received.getPayload()), message);
+            received.ack();
+        }
+
+        connection4.disconnect();
+        connection3.disconnect();
+        connection2.disconnect();
+        connection1.disconnect();
+        connection0.disconnect();
+    }
+
     @Test(timeOut = TIMEOUT, priority = 2)
     public void testSendAndConsumeAcrossProxy() throws Exception {
         int numMessage = 3;
@@ -110,7 +163,7 @@ public class ProxyTest extends MQTTTestBase {
         mqtt0.setHost("127.0.0.1", mqttProxyPortList.get(0));
         BlockingConnection connection0 = mqtt0.blockingConnection();
         connection0.connect();
-        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        Topic[] topics = {new Topic(topicName, QoS.AT_MOST_ONCE)};
         connection0.subscribe(topics);
 
         String message = "Hello MQTT Proxy";
@@ -151,7 +204,7 @@ public class ProxyTest extends MQTTTestBase {
         MQTT mqtt0 = createMQTTProxyClient();
         BlockingConnection connection0 = mqtt0.blockingConnection();
         connection0.connect();
-        Topic[] topics = { new Topic(filter, QoS.AT_MOST_ONCE) };
+        Topic[] topics = {new Topic(filter, QoS.AT_MOST_ONCE)};
         String message = "Hello MQTT Proxy";
         MQTT mqtt1 = createMQTTProxyClient();
         BlockingConnection connection1 = mqtt1.blockingConnection();
@@ -159,9 +212,9 @@ public class ProxyTest extends MQTTTestBase {
         connection1.publish(topic, message.getBytes(), QoS.AT_MOST_ONCE, false);
         // wait for the publish topic has been stored
         Awaitility.await().untilAsserted(() -> {
-                    CompletableFuture<List<String>> listOfTopics = pulsarServiceList.get(0).getNamespaceService()
+            CompletableFuture<List<String>> listOfTopics = pulsarServiceList.get(0).getNamespaceService()
                     .getListOfTopics(NamespaceName.get("public/default"), CommandGetTopicsOfNamespace.Mode.PERSISTENT);
-                    Assert.assertTrue(listOfTopics.join().size() >= 1);
+            Assert.assertTrue(listOfTopics.join().size() >= 1);
         });
         connection0.subscribe(topics);
         connection1.publish(topic, message.getBytes(), QoS.AT_MOST_ONCE, false);
@@ -221,7 +274,7 @@ public class ProxyTest extends MQTTTestBase {
                 BufferedReader reader = new BufferedReader(isReader);
                 StringBuffer buffer = new StringBuffer();
                 String str;
-                while ((str = reader.readLine()) != null){
+                while ((str = reader.readLine()) != null) {
                     buffer.append(str);
                 }
                 String ret = buffer.toString();
