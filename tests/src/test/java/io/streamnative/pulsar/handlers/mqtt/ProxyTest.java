@@ -15,7 +15,6 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static org.mockito.Mockito.verify;
-
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.gson.Gson;
 import com.google.gson.internal.LinkedTreeMap;
@@ -26,7 +25,6 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.psk.PSKClient;
-
 import java.io.BufferedReader;
 import java.io.EOFException;
 import java.io.InputStream;
@@ -39,7 +37,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
