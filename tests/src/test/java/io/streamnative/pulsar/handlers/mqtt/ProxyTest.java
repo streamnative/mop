@@ -212,9 +212,9 @@ public class ProxyTest extends MQTTTestBase {
         connection1.publish(topic, message.getBytes(), QoS.AT_MOST_ONCE, false);
         // wait for the publish topic has been stored
         Awaitility.await().untilAsserted(() -> {
-            CompletableFuture<List<String>> listOfTopics = pulsarServiceList.get(0).getNamespaceService()
+                    CompletableFuture<List<String>> listOfTopics = pulsarServiceList.get(0).getNamespaceService()
                     .getListOfTopics(NamespaceName.get("public/default"), CommandGetTopicsOfNamespace.Mode.PERSISTENT);
-            Assert.assertTrue(listOfTopics.join().size() >= 1);
+                    Assert.assertTrue(listOfTopics.join().size() >= 1);
         });
         connection0.subscribe(topics);
         connection1.publish(topic, message.getBytes(), QoS.AT_MOST_ONCE, false);
@@ -274,7 +274,7 @@ public class ProxyTest extends MQTTTestBase {
                 BufferedReader reader = new BufferedReader(isReader);
                 StringBuffer buffer = new StringBuffer();
                 String str;
-                while ((str = reader.readLine()) != null) {
+                while ((str = reader.readLine()) != null){
                     buffer.append(str);
                 }
                 String ret = buffer.toString();
