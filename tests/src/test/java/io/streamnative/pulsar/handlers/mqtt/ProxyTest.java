@@ -2,9 +2,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -83,7 +83,7 @@ public class ProxyTest extends MQTTTestBase {
         MQTT mqtt = createMQTTProxyClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
-        Topic[] topics = {new Topic(topicName, QoS.AT_MOST_ONCE)};
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
         connection.subscribe(topics);
         String message = "Hello MQTT Proxy";
         connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
@@ -163,7 +163,7 @@ public class ProxyTest extends MQTTTestBase {
         mqtt0.setHost("127.0.0.1", mqttProxyPortList.get(0));
         BlockingConnection connection0 = mqtt0.blockingConnection();
         connection0.connect();
-        Topic[] topics = {new Topic(topicName, QoS.AT_MOST_ONCE)};
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
         connection0.subscribe(topics);
 
         String message = "Hello MQTT Proxy";
@@ -204,7 +204,7 @@ public class ProxyTest extends MQTTTestBase {
         MQTT mqtt0 = createMQTTProxyClient();
         BlockingConnection connection0 = mqtt0.blockingConnection();
         connection0.connect();
-        Topic[] topics = {new Topic(filter, QoS.AT_MOST_ONCE)};
+        Topic[] topics = { new Topic(filter, QoS.AT_MOST_ONCE) };
         String message = "Hello MQTT Proxy";
         MQTT mqtt1 = createMQTTProxyClient();
         BlockingConnection connection1 = mqtt1.blockingConnection();
