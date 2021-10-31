@@ -16,7 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
-import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.*;
+import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
@@ -49,7 +49,8 @@ public class Connection {
 
     volatile ConnectionState connectionState = DISCONNECTED;
 
-    private final AtomicReferenceFieldUpdater<Connection,ConnectionState> channelState = newUpdater(Connection.class, ConnectionState.class,"connectionState");
+    private final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
+            newUpdater(Connection.class, ConnectionState.class, "connectionState");
 
     public Connection(String clientId, Channel channel, boolean cleanSession) {
         this.clientId = clientId;
@@ -131,7 +132,7 @@ public class Connection {
                     expected,
                     newState);
         }
-        boolean ret = channelState.compareAndSet(this,expected, newState);
+        boolean ret = channelState.compareAndSet(this, expected, newState);
         if (!ret) {
             log.error(
                     "Unable to update state of connection."
