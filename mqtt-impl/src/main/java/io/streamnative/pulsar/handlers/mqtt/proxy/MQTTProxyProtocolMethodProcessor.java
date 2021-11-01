@@ -175,9 +175,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processPingReq(Channel channel) {
         channel.writeAndFlush(pingResp());
-        topicBrokers.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
-            exchanger.writeAndFlush(pingReq());
-        }));
+        brokerPool.forEach((k, v) -> v.writeAndFlush(pingReq()));
     }
 
     @Override
@@ -186,12 +184,12 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Disconnect] [{}] ", clientId);
         }
-        topicBrokers.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
-            exchanger.writeAndFlush(msg);
-            exchanger.close();
-        }));
-        topicBrokers.clear();
+        brokerPool.forEach((k, v) -> {
+            v.writeAndFlush(msg);
+            v.close();
+        });
         brokerPool.clear();
+        topicBrokers.clear();
         // When login, checkState(msg) failed, connection is null.
         Connection connection = NettyUtils.getConnection(channel);
         if (connection == null) {
@@ -211,11 +209,9 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         }
         Connection connection = NettyUtils.getConnection(channel);
         connectionManager.removeConnection(connection);
-        topicBrokers.forEach((k, v) -> v.whenComplete((exchanger, error) -> {
-            exchanger.close();
-        }));
-        topicBrokers.clear();
+        brokerPool.forEach((k, v) -> v.close());
         brokerPool.clear();
+        topicBrokers.clear();
     }
 
     @Override
