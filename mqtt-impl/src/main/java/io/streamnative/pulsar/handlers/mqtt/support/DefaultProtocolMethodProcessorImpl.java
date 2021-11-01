@@ -345,13 +345,13 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                     subTopic.topicName(), configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
                     pulsarService, configuration.getDefaultTopicDomain());
             CompletableFuture<Void> completableFuture = topicListFuture.thenCompose(topics -> {
-                List<CompletableFuture<Subscription>> futures = new ArrayList<>();
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
                 for (String topic : topics) {
-                    CompletableFuture<Subscription> future = PulsarTopicUtils
+                    CompletableFuture<Subscription> subFuture = PulsarTopicUtils
                             .getOrCreateSubscription(pulsarService, topic, clientID,
                                     configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
                                     configuration.getDefaultTopicDomain());
-                    future.thenAccept(sub -> {
+                    CompletableFuture<Void> result = subFuture.thenAccept(sub -> {
                         try {
                             MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(), topic,
                                     clientID, serverCnx, subTopic.qualityOfService(), packetIdGenerator,
@@ -363,7 +363,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                             throw new MQTTServerException(e);
                         }
                     });
-                    futures.add(future);
+                    futures.add(result);
                 }
                 return FutureUtil.waitForAll(futures);
             });
@@ -375,6 +375,10 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 log.debug("Sending SUB-ACK message {} to {}", ackMessage, clientID);
             }
             channel.writeAndFlush(ackMessage);
+            Map<Topic, Pair<Subscription, Consumer>> existedSubscriptions = NettyUtils.getTopicSubscriptions(channel);
+            if (existedSubscriptions != null) {
+                topicSubscriptions.putAll(existedSubscriptions);
+            }
             NettyUtils.setTopicSubscriptions(channel, topicSubscriptions);
         }).exceptionally(e -> {
             log.error("[{}] Failed to process MQTT subscribe.", clientID, e);
