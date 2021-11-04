@@ -238,4 +238,31 @@ public class ProxyTest extends MQTTTestBase {
         Assert.assertEquals(active.get(), 1.0);
         Assert.assertEquals(total.get(), 1.0);
     }
+
+    @Test
+    @SneakyThrows
+    public void testPubAndSubWithDifferentTopics() {
+        MQTT mqtt = createMQTTProxyClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic("subTopic2", QoS.AT_LEAST_ONCE) };
+        connection.subscribe(topics);
+
+        MQTT mqtt2 = createMQTTProxyClient();
+        BlockingConnection connection2 = mqtt2.blockingConnection();
+        connection2.connect();
+        Topic[] topics2 = { new Topic("subTopic1", QoS.AT_LEAST_ONCE) };
+        connection2.subscribe(topics2);
+
+        connection.publish("subTopic1", "mqtt1".getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+        connection2.publish("subTopic2", "mqtt2".getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+
+        Message msg1 = connection2.receive();
+        Message msg2 = connection.receive();
+        Assert.assertEquals(new String(msg1.getPayload()), "mqtt1");
+        Assert.assertEquals(new String(msg2.getPayload()), "mqtt2");
+        //
+        connection.disconnect();
+        connection2.disconnect();
+    }
 }
