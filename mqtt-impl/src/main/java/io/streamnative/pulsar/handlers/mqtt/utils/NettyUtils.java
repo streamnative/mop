@@ -20,15 +20,14 @@ import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECTION;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECT_MSG;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_KEEP_ALIVE_TIME;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_TOPIC_SUBS;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_WILL_TOPIC;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_WILL_MESSAGE;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_WILL_FLAG;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.WillMessage;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Optional;
@@ -54,9 +53,7 @@ public final class NettyUtils {
     private static final AttributeKey<Object> ATTR_KEY_CONNECT_MSG = AttributeKey.valueOf(ATTR_CONNECT_MSG);
     private static final AttributeKey<Object> ATTR_KEY_TOPIC_SUBS = AttributeKey.valueOf(ATTR_TOPIC_SUBS);
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ADDR = AttributeKey.valueOf(ATTR_CLIENT_ADDR);
-    private static final AttributeKey<Object> ATTR_KEY_WILL_TOPIC = AttributeKey.valueOf(ATTR_WILL_TOPIC);
     private static final AttributeKey<Object> ATTR_KEY_WILL_MESSAGE = AttributeKey.valueOf(ATTR_WILL_MESSAGE);
-    private static final AttributeKey<Object> ATTR_KEY_WILL_FLAG = AttributeKey.valueOf(ATTR_WILL_FLAG);
 
     public static void setClientId(Channel channel, String clientId) {
         channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).set(clientId);
@@ -150,28 +147,12 @@ public final class NettyUtils {
         return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ADDR).get();
     }
 
-    public static void setWillTopic(Channel channel, String willTopic) {
-        channel.attr(NettyUtils.ATTR_KEY_WILL_TOPIC).set(willTopic);
-    }
-
-    public static String getWillTopic(Channel channel) {
-        return (String) channel.attr(NettyUtils.ATTR_KEY_WILL_TOPIC).get();
-    }
-
-    public static void setWillMessage(Channel channel, byte[] willMessage) {
+    public static void setWillMessage(Channel channel, WillMessage willMessage) {
         channel.attr(NettyUtils.ATTR_KEY_WILL_MESSAGE).set(willMessage);
     }
 
-    public static byte[] getWillMessage(Channel channel) {
-        return (byte[]) channel.attr(NettyUtils.ATTR_KEY_WILL_MESSAGE).get();
-    }
-
-    public static void setWillFlag(Channel channel, boolean willFlag) {
-        channel.attr(NettyUtils.ATTR_KEY_WILL_FLAG).set(willFlag);
-    }
-
-    public static boolean getWillFlag(Channel channel) {
-        return (boolean) channel.attr(NettyUtils.ATTR_KEY_WILL_FLAG).get();
+    public static WillMessage getWillMessage(Channel channel) {
+        return (WillMessage) channel.attr(NettyUtils.ATTR_KEY_WILL_MESSAGE).get();
     }
 
     private NettyUtils() {

@@ -47,6 +47,7 @@ import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
+import io.streamnative.pulsar.handlers.mqtt.WillMessage;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -160,9 +161,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
         NettyUtils.setUserRole(channel, userRole);
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
-        NettyUtils.setWillFlag(channel, false);
-        NettyUtils.setWillTopic(channel, payload.willTopic());
-        NettyUtils.setWillMessage(channel, payload.willMessageInBytes());
+        NettyUtils.setWillMessage(channel, new WillMessage(payload.willTopic(), payload.willMessageInBytes(), false));
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
 
         Connection connection = new Connection(clientId, channel, msg.variableHeader().isCleanSession());
@@ -195,7 +194,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
         String clientID = NettyUtils.getClientId(channel);
         String userRole = NettyUtils.getUserRole(channel);
-        NettyUtils.setWillFlag(channel, true);
+        NettyUtils.getWillMessage(channel).setWillFlag(true);
         // Authorization the client
         if (!configuration.isMqttAuthorizationEnabled()) {
             log.info("[Publish] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
@@ -267,7 +266,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         metricsCollector.removeClient(NettyUtils.getAddress(channel));
         Connection connection =  NettyUtils.getConnection(channel);
-        NettyUtils.setWillFlag(channel, false);
+        NettyUtils.getWillMessage(channel).setWillFlag(false);
         // When login, checkState(msg) failed, connection is null.
         if (connection != null) {
             connectionManager.removeConnection(connection);
@@ -287,7 +286,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         if (StringUtils.isNotEmpty(clientId)) {
             metricsCollector.removeClient(NettyUtils.getAddress(channel));
-            if (NettyUtils.getWillFlag(channel)) {
+            if (NettyUtils.getWillMessage(channel).isWillFlag()) {
                 publishWillMessage(channel);
             }
             Connection connection =  NettyUtils.getConnection(channel);
@@ -346,8 +345,10 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private void doSubscribe(Channel channel, MqttSubscribeMessage msg, String clientID) {
         int messageID = msg.variableHeader().messageId();
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
-        if (StringUtils.isNotEmpty(NettyUtils.getWillTopic(channel))) {
-            subTopics.add(new MqttTopicSubscription(NettyUtils.getWillTopic(channel), MqttQoS.AT_LEAST_ONCE));
+        if (StringUtils.isNotEmpty(NettyUtils.getWillMessage(channel).getTopic())) {
+            subTopics.add(new MqttTopicSubscription(
+                    NettyUtils.getWillMessage(channel).getTopic(),
+                    MqttQoS.AT_LEAST_ONCE));
         }
 
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
@@ -461,11 +462,11 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     private void publishWillMessage(Channel channel) {
-        String willTopic = NettyUtils.getWillTopic(channel);
+        String willTopic = NettyUtils.getWillMessage(channel).getTopic();
         if (StringUtils.isEmpty(willTopic)) {
             return;
         }
-        byte[] willMessage = NettyUtils.getWillMessage(channel);
+        byte[] willMessage = NettyUtils.getWillMessage(channel).getMessage();
         ByteBuf message = PooledByteBufAllocator.DEFAULT.buffer(willMessage.length);
         message.writeBytes(willMessage);
         MqttPublishMessage willPublish = MessageBuilder.publish()
