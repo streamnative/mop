@@ -61,7 +61,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.logging.log4j.util.Strings;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
@@ -347,7 +346,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private void doSubscribe(Channel channel, MqttSubscribeMessage msg, String clientID) {
         int messageID = msg.variableHeader().messageId();
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
-        if (Strings.isNotEmpty(NettyUtils.getWillTopic(channel))) {
+        if (StringUtils.isNotEmpty(NettyUtils.getWillTopic(channel))) {
             subTopics.add(new MqttTopicSubscription(NettyUtils.getWillTopic(channel), MqttQoS.AT_LEAST_ONCE));
         }
 
