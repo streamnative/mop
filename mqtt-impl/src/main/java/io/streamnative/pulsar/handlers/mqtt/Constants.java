@@ -29,6 +29,10 @@ public final class Constants {
     public static final String ATTR_CONNECT_MSG = "connectMsg";
     public static final String ATTR_TOPIC_SUBS = "topicSubs";
 
+    public static final String ATTR_WILL_TOPIC = "willTopic";
+    public static final String ATTR_WILL_MESSAGE = "willMessage";
+    public static final String ATTR_WILL_FLAG = "willFlag";
+
     private Constants() {
     }
 }
