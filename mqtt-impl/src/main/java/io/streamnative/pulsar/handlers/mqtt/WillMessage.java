@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 package io.streamnative.pulsar.handlers.mqtt;
-
 import java.util.Arrays;
 
 public class WillMessage {
@@ -36,11 +35,7 @@ public class WillMessage {
     }
 
     public byte[] getMessage() {
-        return message;
-    }
-
-    public void setMessage(byte[] message) {
-        this.message = message;
+        return this.message;
     }
 
     public boolean isWillFlag() {
