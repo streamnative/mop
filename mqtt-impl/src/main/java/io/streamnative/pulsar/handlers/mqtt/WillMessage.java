@@ -27,7 +27,7 @@ public class WillMessage {
     }
 
     public String getTopic() {
-        return topic;
+        return this.topic;
     }
 
     public void setTopic(String topic) {
@@ -39,7 +39,7 @@ public class WillMessage {
     }
 
     public boolean isWillFlag() {
-        return willFlag;
+        return this.willFlag;
     }
 
     public void setWillFlag(boolean willFlag) {
