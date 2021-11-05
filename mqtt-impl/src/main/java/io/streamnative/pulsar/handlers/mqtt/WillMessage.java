@@ -35,7 +35,7 @@ public class WillMessage {
     }
 
     public byte[] message() {
-        return this.message.clone();
+        return this.message == null ? null : this.message.clone();
     }
 
     public boolean isWillFlag() {
