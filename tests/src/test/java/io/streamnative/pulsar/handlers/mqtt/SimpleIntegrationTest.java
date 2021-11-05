@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpResponse;
@@ -412,8 +413,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test
     @SneakyThrows
     public void testConsumerDisconnectNotMissingMessage() {
-        String topic = "a";
+        String topic = "disconnectNotMissingMessage";
         int total = 1000;
+        AtomicInteger receivedCount = new AtomicInteger(0);
         String msgPrefix = "Hello MQTT Proxy- ";
         CountDownLatch latch = new CountDownLatch(1);
         CountDownLatch stop = new CountDownLatch(1);
@@ -425,6 +427,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
                     int recCount = 0;
                     int start = 0;
                     MQTT mqttConsumer = createMQTTClient();
+                    mqttConsumer.setCleanSession(false);
                     mqttConsumer.setClientId("theSameClientId");
                     for (int l = 0; l < total / segment; l++) {
                         BlockingConnection consumer = mqttConsumer.blockingConnection();
@@ -436,6 +439,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
                             Message received = consumer.receive();
                             received.ack();
                             recCount++;
+                            receivedCount.incrementAndGet();
                         }
                         start = recCount;
                         consumer.disconnect();
@@ -458,12 +462,13 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         }
         producer.disconnect();
         stop.await(5, TimeUnit.MINUTES);
+        Assert.assertEquals(receivedCount.get(), total);
     }
 
     @Test
     @SneakyThrows
     public void testCleanSession() {
-        String topic = "a";
+        String topic = "cleanSession";
         Topic[] topics = { new Topic(topic, QoS.AT_LEAST_ONCE)};
         MQTT mqttConsumer = createMQTTClient();
         mqttConsumer.setClientId("keepTheSameClientId");
@@ -488,7 +493,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     }
 
     @Test(priority = -1)
-    public void testConnectionWithSameClientId() throws Exception{
+    public void testConnectionWithSameClientId() throws Exception {
         MQTT mqttProducer = createMQTTClient();
         mqttProducer.setClientId("client1");
         mqttProducer.setUserName("clientUser1");
@@ -523,5 +528,34 @@ public class SimpleIntegrationTest extends MQTTTestBase {
             Assert.assertEquals(clients.get("active"), 1.0);
             Assert.assertEquals(clients.get("total"), 2.0);
         });
+    }
+
+    @Test
+    public void testSubscribeManyTimes() throws Exception {
+        MQTT mqttConsumer = createMQTTClient();
+        BlockingConnection consumer = mqttConsumer.blockingConnection();
+        consumer.connect();
+        String topicName1 = "subscribeManyTimes1";
+        String topicName2 = "subscribeManyTimes2";
+        Topic[] topic1 = { new Topic(topicName1, QoS.AT_LEAST_ONCE)};
+        Topic[] topic2 = { new Topic(topicName2, QoS.AT_LEAST_ONCE)};
+        consumer.subscribe(topic1);
+        consumer.subscribe(topic2);
+
+        MQTT mqttProducer = createMQTTClient();
+        BlockingConnection producer = mqttProducer.blockingConnection();
+        producer.connect();
+        String msg1 = "hello topic1";
+        String msg2 = "hello topic2";
+        producer.publish(topicName1, msg1.getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+        producer.publish(topicName2, msg2.getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+        producer.disconnect();
+        Message receive1 = consumer.receive();
+        Message receive2 = consumer.receive();
+        consumer.disconnect();
+        Assert.assertEquals(new String(receive1.getPayload()), msg1);
+        Assert.assertEquals(receive1.getTopic(), topicName1);
+        Assert.assertEquals(new String(receive2.getPayload()), msg2);
+        Assert.assertEquals(receive2.getTopic(), topicName2);
     }
 }
