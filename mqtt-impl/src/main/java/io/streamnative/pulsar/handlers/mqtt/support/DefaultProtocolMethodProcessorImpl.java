@@ -468,11 +468,14 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         byte[] willMessage = NettyUtils.getWillMessage(channel).getMessage();
         ByteBuf message = PooledByteBufAllocator.DEFAULT.buffer(willMessage.length);
-        message.writeBytes(willMessage);
-        MqttPublishMessage willPublish = MessageBuilder.publish()
-                .topicName(willTopic).payload(message)
-                .qos(MqttQoS.AT_LEAST_ONCE).retained(true).build();
-        doPublish(channel, willPublish);
-        message.release();
+        try {
+            message.writeBytes(willMessage);
+            MqttPublishMessage willPublish = MessageBuilder.publish()
+                    .topicName(willTopic).payload(message)
+                    .qos(MqttQoS.AT_LEAST_ONCE).retained(true).build();
+            doPublish(channel, willPublish);
+        } finally {
+            message.release();
+        }
     }
 }
