@@ -34,7 +34,7 @@ public class WillMessage {
         this.topic = topic;
     }
 
-    public byte[] getMessage() {
+    public byte[] message() {
         return this.message;
     }
 

@@ -466,7 +466,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         if (StringUtils.isEmpty(willTopic)) {
             return;
         }
-        byte[] willMessage = NettyUtils.getWillMessage(channel).getMessage();
+        byte[] willMessage = NettyUtils.getWillMessage(channel).message();
         ByteBuf message = PooledByteBufAllocator.DEFAULT.buffer(willMessage.length);
         try {
             message.writeBytes(willMessage);
