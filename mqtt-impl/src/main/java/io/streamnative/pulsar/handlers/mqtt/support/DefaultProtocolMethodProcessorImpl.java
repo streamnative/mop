@@ -15,8 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createSubAckMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
@@ -47,7 +45,6 @@ import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
-import io.streamnative.pulsar.handlers.mqtt.WillMessage;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -161,7 +158,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
         NettyUtils.setUserRole(channel, userRole);
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
-        NettyUtils.setWillMessage(channel, new WillMessage(payload.willTopic(), payload.willMessageInBytes(), false));
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
 
         Connection connection = new Connection(clientId, channel, msg.variableHeader().isCleanSession());
@@ -194,7 +190,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
         String clientID = NettyUtils.getClientId(channel);
         String userRole = NettyUtils.getUserRole(channel);
-        NettyUtils.getWillMessage(channel).setWillFlag(true);
         // Authorization the client
         if (!configuration.isMqttAuthorizationEnabled()) {
             log.info("[Publish] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
@@ -266,7 +261,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         metricsCollector.removeClient(NettyUtils.getAddress(channel));
         Connection connection =  NettyUtils.getConnection(channel);
-        NettyUtils.getWillMessage(channel).setWillFlag(false);
         // When login, checkState(msg) failed, connection is null.
         if (connection != null) {
             connectionManager.removeConnection(connection);
@@ -286,9 +280,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         if (StringUtils.isNotEmpty(clientId)) {
             metricsCollector.removeClient(NettyUtils.getAddress(channel));
-            if (NettyUtils.getWillMessage(channel).isWillFlag()) {
-                publishWillMessage(channel);
-            }
             Connection connection =  NettyUtils.getConnection(channel);
             if (connection != null) {
                 connectionManager.removeConnection(connection);
@@ -345,11 +336,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private void doSubscribe(Channel channel, MqttSubscribeMessage msg, String clientID) {
         int messageID = msg.variableHeader().messageId();
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
-        if (StringUtils.isNotEmpty(NettyUtils.getWillMessage(channel).getTopic())) {
-            subTopics.add(new MqttTopicSubscription(
-                    NettyUtils.getWillMessage(channel).getTopic(),
-                    MqttQoS.AT_LEAST_ONCE));
-        }
 
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
         Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = new ConcurrentHashMap<>();
@@ -459,23 +445,5 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             channel.close();
             return null;
         });
-    }
-
-    private void publishWillMessage(Channel channel) {
-        String willTopic = NettyUtils.getWillMessage(channel).getTopic();
-        if (StringUtils.isEmpty(willTopic)) {
-            return;
-        }
-        byte[] willMessage = NettyUtils.getWillMessage(channel).message();
-        ByteBuf message = PooledByteBufAllocator.DEFAULT.buffer(willMessage.length);
-        try {
-            message.writeBytes(willMessage);
-            MqttPublishMessage willPublish = MessageBuilder.publish()
-                    .topicName(willTopic).payload(message)
-                    .qos(MqttQoS.AT_LEAST_ONCE).retained(true).build();
-            doPublish(channel, willPublish);
-        } finally {
-            message.release();
-        }
     }
 }
