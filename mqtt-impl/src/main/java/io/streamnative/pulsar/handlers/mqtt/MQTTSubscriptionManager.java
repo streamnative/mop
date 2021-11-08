@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
 /**
- * Proxy connection manager.
+ * Subscription manager.
  */
 @Slf4j
 public class MQTTSubscriptionManager {
