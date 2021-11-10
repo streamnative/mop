@@ -13,7 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttWillMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createSubAckMessage;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createWillMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -40,6 +42,7 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
+import io.streamnative.pulsar.handlers.mqtt.MQTTSubscriptionManager;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
@@ -48,10 +51,12 @@ import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
+import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -84,6 +89,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private final AuthorizationService authorizationService;
     private final MQTTMetricsCollector metricsCollector;
     private final MQTTConnectionManager connectionManager;
+    private final MQTTSubscriptionManager subscriptionManager;
 
     public DefaultProtocolMethodProcessorImpl (MQTTService mqttService, ChannelHandlerContext ctx) {
         this.pulsarService = mqttService.getPulsarService();
@@ -95,6 +101,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         this.authorizationService = mqttService.getAuthorizationService();
         this.metricsCollector = mqttService.getMetricsCollector();
         this.connectionManager = mqttService.getConnectionManager();
+        this.subscriptionManager = mqttService.getSubscriptionManager();
         this.serverCnx = new MQTTServerCnx(pulsarService, ctx);
     }
 
@@ -158,6 +165,9 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
         NettyUtils.setUserRole(channel, userRole);
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
+        if (msg.variableHeader().isWillFlag()) {
+            NettyUtils.setWillMessage(channel, createWillMessage(msg));
+        }
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
 
         Connection connection = new Connection(clientId, channel, msg.variableHeader().isCleanSession());
@@ -285,6 +295,24 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 connectionManager.removeConnection(connection);
                 connection.removeSubscriptions();
             }
+            subscriptionManager.removeSubscription(clientId);
+            Optional<WillMessage> willMessage = NettyUtils.getWillMessage(channel);
+            if (willMessage.isPresent()) {
+                fireWillMessage(willMessage.get());
+            }
+        }
+    }
+
+    private void fireWillMessage(WillMessage willMessage) {
+        List<Pair<String, String>> subscriptions = subscriptionManager.findMatchTopic(willMessage.getTopic());
+        MqttPublishMessage msg = createMqttWillMessage(willMessage);
+        for (Pair<String, String> entry : subscriptions) {
+            Connection connection = connectionManager.getConnection(entry.getLeft());
+            if (connection != null) {
+                connection.send(msg);
+            } else {
+                log.warn("Not find connection for empty : {}", entry.getLeft());
+            }
         }
     }
 
@@ -336,7 +364,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private void doSubscribe(Channel channel, MqttSubscribeMessage msg, String clientID) {
         int messageID = msg.variableHeader().messageId();
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
-
+        subscriptionManager.addSubscriptions(NettyUtils.getClientId(channel), subTopics);
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
         Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = new ConcurrentHashMap<>();
         for (MqttTopicSubscription subTopic : subTopics) {

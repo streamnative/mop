@@ -558,4 +558,35 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertEquals(new String(receive2.getPayload()), msg2);
         Assert.assertEquals(receive2.getTopic(), topicName2);
     }
+
+    @Test
+    public void testLastWillMessage() throws Exception {
+        MQTT mqttConsumer = createMQTTClient();
+        BlockingConnection consumer = mqttConsumer.blockingConnection();
+        consumer.connect();
+        String topicName1 = "topic-a";
+        String topicName2 = "will-message-topic";
+        Topic[] topic1 = { new Topic(topicName1, QoS.AT_LEAST_ONCE)};
+        Topic[] topic2 = { new Topic(topicName2, QoS.AT_LEAST_ONCE)};
+        consumer.subscribe(topic1);
+        consumer.subscribe(topic2);
+
+        MQTT mqttProducer = createMQTTClient();
+        mqttProducer.setWillMessage("offline");
+        mqttProducer.setWillTopic(topicName2);
+        mqttProducer.setWillRetain(false);
+        mqttProducer.setWillQos(QoS.AT_LEAST_ONCE);
+        BlockingConnection producer = mqttProducer.blockingConnection();
+        producer.connect();
+        String msg1 = "hello topic1";
+        producer.publish(topicName1, msg1.getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+        Message receive1 = consumer.receive();
+        producer.disconnect();
+        Message receive2 = consumer.receive();
+        consumer.disconnect();
+        Assert.assertEquals(new String(receive1.getPayload()), msg1);
+        Assert.assertEquals(receive1.getTopic(), topicName1);
+        Assert.assertEquals(new String(receive2.getPayload()), "offline");
+        Assert.assertEquals(receive2.getTopic(), "will-message-topic");
+    }
 }

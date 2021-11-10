@@ -20,6 +20,7 @@ import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
+import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.Map;
@@ -76,6 +77,14 @@ public class Connection {
                     DISCONNECTED, CONNECT_ACK, clientId);
             channel.close();
         }
+    }
+
+    public void send(MqttMessage mqttMessage) {
+        channel.writeAndFlush(mqttMessage).addListener(future -> {
+            if (!future.isSuccess()) {
+                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+            }
+        });
     }
 
     public void removeConsumers() {
