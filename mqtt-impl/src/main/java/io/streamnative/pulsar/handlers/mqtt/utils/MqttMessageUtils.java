@@ -14,6 +14,8 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnAckVariableHeader;
@@ -25,11 +27,13 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckPayload;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -121,5 +125,19 @@ public class MqttMessageUtils {
                 false, 0);
         MqttSubAckPayload payload = new MqttSubAckPayload(grantedQoSLevels);
         return new MqttSubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageId), payload);
+    }
+
+    public static WillMessage createWillMessage(MqttConnectMessage msg) {
+        final ByteBuf willPayload = Unpooled.copiedBuffer(msg.payload().willMessageInBytes());
+        final String willTopic = msg.payload().willTopic();
+        final boolean retained = msg.variableHeader().isWillRetain();
+        final MqttQoS qos = MqttQoS.valueOf(msg.variableHeader().willQos());
+        return new WillMessage(willTopic, willPayload, qos, retained);
+    }
+
+    public static MqttPublishMessage createMqttWillMessage(WillMessage willMessage) {
+        return MessageBuilder.publish()
+                .topicName(willMessage.getTopic()).payload(willMessage.getPayload())
+                .qos(willMessage.getQos()).retained(willMessage.isRetained()).build();
     }
 }

@@ -45,4 +45,8 @@ public class MQTTConnectionManager {
             connections.remove(connection.getClientId(), connection);
         }
     }
+
+    public Connection getConnection(String clientId) {
+        return connections.get(clientId);
+    }
 }

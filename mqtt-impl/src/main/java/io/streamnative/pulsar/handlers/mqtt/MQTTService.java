@@ -51,6 +51,9 @@ public class MQTTService {
     @Getter
     private final MQTTConnectionManager connectionManager;
 
+    @Getter
+    private final MQTTSubscriptionManager subscriptionManager;
+
     public MQTTService(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
         this.brokerService = brokerService;
         this.pulsarService = brokerService.pulsar();
@@ -63,5 +66,6 @@ public class MQTTService {
             ? new MQTTAuthenticationService(brokerService.getAuthenticationService(),
                 serverConfiguration.getMqttAuthenticationMethods()) : null;
         this.connectionManager = new MQTTConnectionManager();
+        this.subscriptionManager = new MQTTSubscriptionManager();
     }
 }
