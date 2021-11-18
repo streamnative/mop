@@ -52,6 +52,7 @@ import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -473,7 +474,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 MqttMessageIdAndPropertiesVariableHeader mqttMessageIdAndPropertiesVariableHeader =
                         new MqttMessageIdAndPropertiesVariableHeader(messageID, MqttProperties.NO_PROPERTIES);
                 MqttUnsubAckPayload mqttUnsubAckPayload =
-                        new MqttUnsubAckPayload(MqttConnectReturnCode.CONNECTION_ACCEPTED.byteValue());
+                        new MqttUnsubAckPayload(MqttUnsubAckReasonCode.SUCCESS.value());
                 ackMessage = MqttMessageFactory.newMessage(fixedHeader, mqttMessageIdAndPropertiesVariableHeader,
                         mqttUnsubAckPayload);
             } else {
