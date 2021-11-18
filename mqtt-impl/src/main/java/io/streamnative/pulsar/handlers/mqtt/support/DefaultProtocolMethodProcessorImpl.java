@@ -25,8 +25,11 @@ import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageFactory;
+import io.netty.handler.codec.mqtt.MqttMessageIdAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
@@ -34,6 +37,7 @@ import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
+import io.netty.handler.codec.mqtt.MqttUnsubAckPayload;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttVersion;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
@@ -116,9 +120,10 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
         // Check MQTT protocol version.
         if (msg.variableHeader().version() != MqttVersion.MQTT_3_1.protocolLevel()
-                && msg.variableHeader().version() != MqttVersion.MQTT_3_1_1.protocolLevel()) {
+                && msg.variableHeader().version() != MqttVersion.MQTT_3_1_1.protocolLevel()
+                && msg.variableHeader().version() != MqttVersion.MQTT_5.protocolLevel()) {
             MqttConnAckMessage badProto = MqttMessageUtils.
-                    connAck(MqttConnectReturnCode.CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION);
+                    connAck(MqttConnectReturnCode.CONNECTION_REFUSED_UNSUPPORTED_PROTOCOL_VERSION);
 
             log.error("MQTT protocol version is not valid. CId={}", clientId);
             channel.writeAndFlush(badProto);
@@ -165,6 +170,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
         NettyUtils.setUserRole(channel, userRole);
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
+        NettyUtils.setProtocolVersion(channel, msg.variableHeader().version());
         if (msg.variableHeader().isWillFlag()) {
             NettyUtils.setWillMessage(channel, createWillMessage(msg));
         }
@@ -459,11 +465,21 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         FutureUtil.waitForAll(futureList).thenAccept(__ -> {
             // ack the client
             int messageID = msg.variableHeader().messageId();
+            int protocolVersion = NettyUtils.getProtocolVersion(channel);
             MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.UNSUBACK, false, MqttQoS.AT_MOST_ONCE,
                     false, 0);
-            MqttUnsubAckMessage ackMessage = new MqttUnsubAckMessage(fixedHeader,
-                    MqttMessageIdVariableHeader.from(messageID));
-
+            MqttMessage ackMessage;
+            // support mqtt5
+            if (protocolVersion == MqttVersion.MQTT_5.protocolLevel()) {
+                MqttMessageIdAndPropertiesVariableHeader mqttMessageIdAndPropertiesVariableHeader =
+                        new MqttMessageIdAndPropertiesVariableHeader(messageID, MqttProperties.NO_PROPERTIES);
+                MqttUnsubAckPayload mqttUnsubAckPayload =
+                        new MqttUnsubAckPayload(MqttConnectReturnCode.CONNECTION_ACCEPTED.byteValue());
+                ackMessage = MqttMessageFactory.newMessage(fixedHeader, mqttMessageIdAndPropertiesVariableHeader,
+                        mqttUnsubAckPayload);
+            } else {
+                ackMessage = new MqttUnsubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageID));
+            }
             if (log.isDebugEnabled()) {
                 log.debug("Sending UNSUBACK message {} to {}", ackMessage, clientID);
             }
