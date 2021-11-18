@@ -24,6 +24,7 @@ public final class Constants {
     public static final String ATTR_KEEP_ALIVE_TIME = "KeepAliveTime";
     public static final String ATTR_CLIENT_ADDR = "ClientAddr";
     public static final String ATTR_WILL_MESSAGE = "WillMessage";
+    public static final String ATTR_PROTOCOL_VERSION = "ProtocolVersion";
     public static final String AUTH_BASIC = "basic";
     public static final String AUTH_TOKEN = "token";
 
