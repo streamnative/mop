@@ -73,3 +73,6 @@ docker.debug-info
 
 **/website/i18n/*
 **/website/translated_docs*
+
+# nar package
+**/test-protocol-handler.nar-unpacked/*
