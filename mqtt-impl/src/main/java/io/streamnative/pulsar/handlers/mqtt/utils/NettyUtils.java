@@ -25,7 +25,6 @@ import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_WILL_MESSAGE;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
-import io.netty.handler.codec.mqtt.MqttVersion;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
