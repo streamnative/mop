@@ -11,25 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
 
 /**
- * Internal server exception.
+ * Package info.
  */
-public class MQTTServerException extends RuntimeException {
-
-    public MQTTServerException() {
-    }
-
-    public MQTTServerException(String message) {
-        super(message);
-    }
-
-    public MQTTServerException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    public MQTTServerException(Throwable cause) {
-        super(cause);
-    }
-}
+package io.streamnative.pulsar.handlers.mqtt.messages;

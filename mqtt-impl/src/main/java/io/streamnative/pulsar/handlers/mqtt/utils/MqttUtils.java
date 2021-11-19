@@ -33,4 +33,14 @@ public class MqttUtils {
                 || version == MqttVersion.MQTT_5.protocolLevel();
     }
 
+    /**
+     * Determine whether the protocol version is mqtt 5.0.
+     *
+     * @param version -mqtt protocol version
+     * @return - Is mqtt 5.0 version.
+     */
+    public static boolean isMqtt5(int version) {
+        return version == MqttVersion.MQTT_5.protocolLevel();
+    }
+
 }
