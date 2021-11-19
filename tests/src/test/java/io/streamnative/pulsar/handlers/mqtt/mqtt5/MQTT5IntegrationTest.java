@@ -28,7 +28,7 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
 
     @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
     public void testBasicPublishAndConsumeWithMQTT(String topic) throws Exception {
-        Mqtt5BlockingClient client = MQTT5ClientFactory.createMqtt5Client(getMqttBrokerPortList().get(0));
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connect();
         client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_LEAST_ONCE).send();
         byte[] msg = "payload".getBytes();
@@ -48,7 +48,7 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
 
     @Test(dataProvider = "mqttTopicNameAndFilter", timeOut = TIMEOUT)
     public void testTopicNameFilter(String topic, String filter) throws Exception {
-        Mqtt5BlockingClient client = MQTT5ClientFactory.createMqtt5Client(getMqttBrokerPortList().get(0));
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connect();
         byte[] msg = "payload".getBytes();
         client.publishWith()

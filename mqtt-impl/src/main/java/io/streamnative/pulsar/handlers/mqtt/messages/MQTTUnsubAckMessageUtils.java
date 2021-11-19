@@ -29,7 +29,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCod
 /**
  * Mqtt unsubscribe acknowledgement message factory.
  */
-public class MqttUnsubAckMessageFactory {
+public class MQTTUnsubAckMessageUtils {
 
     /**
      * Create Mqtt 5 unsubscribe acknowledgement with no property.

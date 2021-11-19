@@ -11,21 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.support;
+package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
-import io.streamnative.pulsar.handlers.mqtt.messages.MqttUnsubAckMessageFactory;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTUnsubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
 
 /**
  * MQTT version 5.0 exception handler.
  * use this handler to implement reason code.
  */
-public class MQTT5ExceptionHandler {
+public class MQTT5ExceptionUtils {
 
     /**
      * handle ubSubscribe Exception.
@@ -36,21 +36,21 @@ public class MQTT5ExceptionHandler {
      */
     public static void handleUnSubscribeException(int messageID, Channel channel, Throwable ex) {
         if (ex.getCause() instanceof MQTTNoSubscriptionExistedException) {
-            MqttMessage unSubscriptionExistedAckMessage = MqttUnsubAckMessageFactory.createMqtt5(messageID,
+            MqttMessage unSubscriptionExistedAckMessage = MQTTUnsubAckMessageUtils.createMqtt5(messageID,
                     MqttUnsubAckReasonCode.NO_SUBSCRIPTION_EXISTED, ex.getCause().getMessage());
             channel.writeAndFlush(unSubscriptionExistedAckMessage);
         } else if (ex.getCause() instanceof MQTTServerException) {
             MqttMessage implementationSpecificErrorAckMessage =
-                    MqttUnsubAckMessageFactory.createMqtt5(messageID,
+                    MQTTUnsubAckMessageUtils.createMqtt5(messageID,
                             MqttUnsubAckReasonCode.IMPLEMENTATION_SPECIFIC_ERROR, ex.getCause().getMessage());
             channel.writeAndFlush(implementationSpecificErrorAckMessage);
         } else if (ex.getCause() instanceof MQTTTopicNotExistedException) {
             MqttMessage topicFilterInvalidAckMessage =
-                    MqttUnsubAckMessageFactory.createMqtt5(messageID,
+                    MQTTUnsubAckMessageUtils.createMqtt5(messageID,
                             MqttUnsubAckReasonCode.TOPIC_FILTER_INVALID, ex.getCause().getMessage());
             channel.writeAndFlush(topicFilterInvalidAckMessage);
         } else {
-            MqttMessage unSpecifiedError = MqttUnsubAckMessageFactory.createMqtt5(messageID,
+            MqttMessage unSpecifiedError = MQTTUnsubAckMessageUtils.createMqtt5(messageID,
                     MqttUnsubAckReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage());
             channel.writeAndFlush(unSpecifiedError);
         }

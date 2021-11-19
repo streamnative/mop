@@ -45,8 +45,9 @@ import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
-import io.streamnative.pulsar.handlers.mqtt.messages.MqttUnsubAckMessageFactory;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTUnsubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.utils.MQTT5ExceptionUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -471,8 +472,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         FutureUtil.waitForAll(futureList).thenAccept(__ -> {
             // ack the client
             MqttMessage ackMessage = MqttUtils.isMqtt5(protocolVersion) ?  // Support Mqtt version 5.0 reason code.
-                    MqttUnsubAckMessageFactory.createMqtt5(messageID, MqttUnsubAckReasonCode.SUCCESS) :
-                    MqttUnsubAckMessageFactory.createMqtt(messageID);
+                    MQTTUnsubAckMessageUtils.createMqtt5(messageID, MqttUnsubAckReasonCode.SUCCESS) :
+                    MQTTUnsubAckMessageUtils.createMqtt(messageID);
             if (log.isDebugEnabled()) {
                 log.debug("Sending UNSUBACK message {} to {}", ackMessage, clientID);
             }
@@ -481,7 +482,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             log.error("[{}] Failed to process the UNSUB {}", clientID, msg);
             if (MqttUtils.isMqtt5(protocolVersion) && channel.isActive()) {
                 // Support Mqtt version 5.0 reason code.
-                MQTT5ExceptionHandler.handleUnSubscribeException(messageID, channel, ex);
+                MQTT5ExceptionUtils.handleUnSubscribeException(messageID, channel, ex);
             } else {
                 channel.close();
             }

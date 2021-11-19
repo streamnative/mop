@@ -17,7 +17,7 @@ import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
 import java.util.UUID;
 
-public class MQTT5ClientFactory {
+public class MQTT5ClientUtils {
     public static Mqtt5BlockingClient createMqtt5Client(int port) {
         return Mqtt5Client.builder()
                 .identifier(UUID.randomUUID().toString())
