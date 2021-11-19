@@ -14,22 +14,23 @@
 
 package io.streamnative.pulsar.handlers.mqtt.messages.codes;
 
+/** * Mqtt 5.0 unSubscribe acknowledgement reason code. */
 public enum MqttUnsubAckReasonCode {
-    SUCCESS((byte) 0x0),
-    NO_SUBSCRIPTION_EXISTED((byte) 0x11),
-    UNSPECIFIED_ERROR((byte) 0x80),
-    IMPLEMENTATION_SPECIFIC_ERROR((byte) 0x83),
-    NOT_AUTHORIZED((byte) 0x87),
-    TOPIC_FILTER_INVALID((byte) 0x8F),
-    PACKET_IDENTIFIER_IN_USE((byte) 0x91);
+    SUCCESS((short) 0x0),
+    NO_SUBSCRIPTION_EXISTED((short) 0x11),
+    UNSPECIFIED_ERROR((short) 0x80),
+    IMPLEMENTATION_SPECIFIC_ERROR((short) 0x83),
+    NOT_AUTHORIZED((short) 0x87),
+    TOPIC_FILTER_INVALID((short) 0x8F),
+    PACKET_IDENTIFIER_IN_USE((short) 0x91);
 
-    private final byte byteValue;
+    private final short byteValue;
 
-    MqttUnsubAckReasonCode(byte byteValue) {
+    MqttUnsubAckReasonCode(short byteValue) {
         this.byteValue = byteValue;
     }
 
-    public byte value() {
+    public short value() {
         return byteValue;
     }
 

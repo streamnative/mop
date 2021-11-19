@@ -11,25 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.mqtt5;
 
-/**
- * Internal server exception.
- */
-public class MQTTServerException extends RuntimeException {
+import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
+import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
+import java.util.UUID;
 
-    public MQTTServerException() {
+public class MQTT5ClientFactory {
+    public static Mqtt5BlockingClient createMqtt5Client(int port) {
+        return Mqtt5Client.builder()
+                .identifier(UUID.randomUUID().toString())
+                .serverHost("127.0.0.1")
+                .serverPort(port)
+                .buildBlocking();
     }
 
-    public MQTTServerException(String message) {
-        super(message);
-    }
 
-    public MQTTServerException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    public MQTTServerException(Throwable cause) {
-        super(cause);
-    }
 }

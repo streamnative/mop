@@ -50,7 +50,18 @@ public class PulsarTopicUtils {
     public static final String NON_PERSISTENT_DOMAIN = TopicDomain.non_persistent.value() + "://";
 
     public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService, String topicName,
-           String defaultTenant, String defaultNamespace, boolean encodeTopicName, String defaultTopicDomain) {
+                                                                       String defaultTenant, String defaultNamespace,
+                                                                       boolean encodeTopicName,
+                                                                       String defaultTopicDomain) {
+        return getTopicReference(pulsarService, topicName, defaultTenant, defaultNamespace, encodeTopicName,
+                defaultTopicDomain, true);
+    }
+
+    public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService, String topicName,
+                                                                       String defaultTenant, String defaultNamespace,
+                                                                       boolean encodeTopicName,
+                                                                       String defaultTopicDomain,
+                                                                       Boolean createIfMissing) {
         final TopicName topic;
         try {
             topic = TopicName.get(getPulsarTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName,
@@ -59,8 +70,8 @@ public class PulsarTopicUtils {
             return FutureUtil.failedFuture(e);
         }
         return pulsarService.getNamespaceService().getBrokerServiceUrlAsync(topic,
-                LookupOptions.builder().authoritative(false).loadTopicsInBundle(false).build())
-                .thenCompose(lookupOp -> pulsarService.getBrokerService().getTopic(topic.toString(), true));
+                        LookupOptions.builder().authoritative(false).loadTopicsInBundle(false).build())
+                .thenCompose(lookupOp -> pulsarService.getBrokerService().getTopic(topic.toString(), createIfMissing));
     }
 
     public static CompletableFuture<Subscription> getOrCreateSubscription(PulsarService pulsarService,
