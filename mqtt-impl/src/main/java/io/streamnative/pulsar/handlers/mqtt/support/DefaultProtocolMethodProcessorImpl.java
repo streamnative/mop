@@ -433,7 +433,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             CompletableFuture<Void> future = topicListFuture.thenCompose(topics -> {
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 for (String topic : topics) {
-                    CompletableFuture<Void> getTopicReferenceResult =
                             PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
                                     configuration.getDefaultNamespace(), false,
                                     configuration.getDefaultTopicDomain(), false).thenAccept(topicOp -> {
@@ -456,12 +455,14 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                                         topic, clientID, serverCnx, qos, packetIdGenerator,
                                             outstandingPacketContainer, metricsCollector);
                                     topicOp.get().getSubscription(clientID).removeConsumer(consumer);
-                                    topicOp.get().unsubscribe(clientID).get();
+                                    futures.add(topicOp.get().unsubscribe(clientID));
                                 } catch (Exception e) {
                                     throw new MQTTServerException(e);
                                 }
+                            }).exceptionally(ex->{
+                                futures.add(FutureUtil.failedFuture(ex));
+                                return null;
                             });
-                    futures.add(getTopicReferenceResult);
                 }
                 return FutureUtil.waitForAll(futures);
             });
@@ -480,7 +481,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             channel.writeAndFlush(ackMessage);
         }).exceptionally(ex -> {
             log.error("[{}] Failed to process the UNSUB {}", clientID, msg);
-            if (MqttUtils.isMqtt5(protocolVersion) && channel.isActive()) {
+            if (MqttUtils.isMqtt5(protocolVersion)) {
                 // Support Mqtt version 5.0 reason code.
                 MQTT5ExceptionUtils.handleUnSubscribeException(messageID, channel, ex);
             } else {
