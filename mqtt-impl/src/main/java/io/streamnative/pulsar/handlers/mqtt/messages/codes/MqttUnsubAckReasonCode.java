@@ -14,7 +14,9 @@
 
 package io.streamnative.pulsar.handlers.mqtt.messages.codes;
 
-/** * Mqtt 5.0 unSubscribe acknowledgement reason code. */
+/**
+ * Mqtt 5.0 unSubscribe acknowledgement reason code.
+ */
 public enum MqttUnsubAckReasonCode {
     SUCCESS((short) 0x0),
     NO_SUBSCRIPTION_EXISTED((short) 0x11),
