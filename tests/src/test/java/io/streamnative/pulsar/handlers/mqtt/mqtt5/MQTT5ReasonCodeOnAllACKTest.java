@@ -17,17 +17,20 @@ import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.datatypes.MqttTopic;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
+import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5UnsubAckException;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
+import com.hivemq.client.mqtt.mqtt5.message.unsubscribe.unsuback.Mqtt5UnsubAck;
+import com.hivemq.client.mqtt.mqtt5.message.unsubscribe.unsuback.Mqtt5UnsubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
 import lombok.extern.slf4j.Slf4j;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 @Slf4j
-public class MQTT5IntegrationTest extends MQTTTestBase {
-
+public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
     @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
-    public void testBasicPublishAndConsumeWithMQTT(String topic) throws Exception {
+    public void testUnSubScribeSuccess(String topic) throws Exception {
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connect();
         client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_LEAST_ONCE).send();
@@ -42,12 +45,15 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
             Assert.assertEquals(publish.getTopic(), MqttTopic.of(topic));
             Assert.assertEquals(publish.getPayloadAsBytes(), msg);
         }
-        client.unsubscribeWith().topicFilter(topic).send();
+        Mqtt5UnsubAck ack = client.unsubscribeWith().topicFilter(topic).send();
+        for (Mqtt5UnsubAckReasonCode reasonCode : ack.getReasonCodes()) {
+            Assert.assertEquals(reasonCode.getCode(), MqttUnsubAckReasonCode.SUCCESS.value());
+        }
         client.disconnect();
     }
 
-    @Test(dataProvider = "mqttTopicNameAndFilter", timeOut = TIMEOUT)
-    public void testTopicNameFilter(String topic, String filter) throws Exception {
+    @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
+    public void testNoSubscribeExisted(String topic) throws Exception {
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connect();
         byte[] msg = "payload".getBytes();
@@ -56,17 +62,26 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
                 .qos(MqttQos.AT_LEAST_ONCE)
                 .payload(msg)
                 .send();
-        client.subscribeWith().topicFilter(filter).qos(MqttQos.AT_LEAST_ONCE).send();
-        client.publishWith()
-                .topic(topic)
-                .qos(MqttQos.AT_LEAST_ONCE)
-                .payload(msg)
-                .send();
-        try (Mqtt5BlockingClient.Mqtt5Publishes publishes = client.publishes(MqttGlobalPublishFilter.ALL)) {
-            Mqtt5Publish publish = publishes.receive();
-            Assert.assertEquals(publish.getPayloadAsBytes(), msg);
+        Mqtt5UnsubAck ack = client.unsubscribeWith().topicFilter(topic).send();
+        for (Mqtt5UnsubAckReasonCode reasonCode : ack.getReasonCodes()) {
+            Assert.assertEquals(reasonCode.getCode(), MqttUnsubAckReasonCode.NO_SUBSCRIPTION_EXISTED.value());
         }
-        client.unsubscribeWith().topicFilter(filter).send();
         client.disconnect();
     }
+
+    @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
+    public void testTopicFilterInvalid(String topic) throws Exception {
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        client.connect();
+        try {
+            client.unsubscribeWith().topicFilter(topic).send();
+        } catch (Mqtt5UnsubAckException ex) {
+            for (Mqtt5UnsubAckReasonCode reasonCode : ex.getMqttMessage().getReasonCodes()) {
+                Assert.assertEquals(reasonCode.getCode(), MqttUnsubAckReasonCode.TOPIC_FILTER_INVALID.value());
+            }
+        } finally {
+            client.disconnect();
+        }
+    }
+
 }
