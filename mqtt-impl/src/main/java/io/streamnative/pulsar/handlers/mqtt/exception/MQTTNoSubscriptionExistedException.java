@@ -13,7 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.exception;
 
-/** Mqtt no subscription existed exception. */
+/**
+ * Mqtt no subscription existed exception.
+ */
 public class MQTTNoSubscriptionExistedException extends RuntimeException{
     public MQTTNoSubscriptionExistedException() {
     }

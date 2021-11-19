@@ -14,7 +14,9 @@
 package io.streamnative.pulsar.handlers.mqtt.exception;
 
 
-/** * Mqtt topic not existed exception. */
+/**
+ * Mqtt topic not existed exception.
+ */
 public class MQTTTopicNotExistedException extends RuntimeException{
     public MQTTTopicNotExistedException() {
     }
