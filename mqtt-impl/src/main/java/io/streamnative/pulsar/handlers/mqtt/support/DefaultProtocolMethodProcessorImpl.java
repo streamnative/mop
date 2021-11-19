@@ -91,7 +91,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     private final MQTTConnectionManager connectionManager;
     private final MQTTSubscriptionManager subscriptionManager;
 
-    public DefaultProtocolMethodProcessorImpl(MQTTService mqttService, ChannelHandlerContext ctx) {
+    public DefaultProtocolMethodProcessorImpl (MQTTService mqttService, ChannelHandlerContext ctx) {
         this.pulsarService = mqttService.getPulsarService();
         this.configuration = mqttService.getServerConfiguration();
         this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration);
@@ -206,7 +206,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             doPublish(channel, msg);
         } else {
             this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
-                            userRole, new AuthenticationDataCommand(userRole))
+                    userRole, new AuthenticationDataCommand(userRole))
                     .thenAccept((authorized) -> {
                         if (!authorized) {
                             log.error("[Publish] no authorization to pub topic={}, userRole={}, CId= {}",
@@ -270,7 +270,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             log.debug("[Disconnect] [{}] ", clientId);
         }
         metricsCollector.removeClient(NettyUtils.getAddress(channel));
-        Connection connection = NettyUtils.getConnection(channel);
+        Connection connection =  NettyUtils.getConnection(channel);
         // When login, checkState(msg) failed, connection is null.
         if (connection != null) {
             connectionManager.removeConnection(connection);
@@ -290,7 +290,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
         if (StringUtils.isNotEmpty(clientId)) {
             metricsCollector.removeClient(NettyUtils.getAddress(channel));
-            Connection connection = NettyUtils.getConnection(channel);
+            Connection connection =  NettyUtils.getConnection(channel);
             if (connection != null) {
                 connectionManager.removeConnection(connection);
                 connection.removeSubscriptions();
@@ -337,15 +337,15 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         } else {
             List<CompletableFuture<Void>> authorizationFutures = new ArrayList<>();
             AtomicBoolean authorizedFlag = new AtomicBoolean(true);
-            for (MqttTopicSubscription topic : msg.payload().topicSubscriptions()) {
+            for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
                 authorizationFutures.add(this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
                         userRole, new AuthenticationDataCommand(userRole), userRole).thenAccept((authorized) -> {
-                    if (!authorized) {
-                        authorizedFlag.set(authorized);
-                        log.warn("[Subscribe] no authorization to sub topic={}, userRole={}, CId= {}",
-                                topic.topicName(), userRole, clientID);
-                    }
-                }));
+                            if (!authorized) {
+                                authorizedFlag.set(authorized);
+                                log.warn("[Subscribe] no authorization to sub topic={}, userRole={}, CId= {}",
+                                        topic.topicName(), userRole, clientID);
+                            }
+                        }));
             }
             FutureUtil.waitForAll(authorizationFutures).thenAccept(__ -> {
                 if (!authorizedFlag.get()) {
@@ -452,7 +452,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                                 }
                                 try {
                                     MQTTConsumer consumer = new MQTTConsumer(subscription, topicFilter,
-                                            topic, clientID, serverCnx, qos, packetIdGenerator,
+                                        topic, clientID, serverCnx, qos, packetIdGenerator,
                                             outstandingPacketContainer, metricsCollector);
                                     topicOp.get().getSubscription(clientID).removeConsumer(consumer);
                                     topicOp.get().unsubscribe(clientID).get();

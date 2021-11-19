@@ -74,7 +74,7 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
         Mqtt5BlockingClient client = MQTT5ClientFactory.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connect();
         try {
-            Mqtt5UnsubAck ack = client.unsubscribeWith().topicFilter(topic).send();
+            client.unsubscribeWith().topicFilter(topic).send();
         } catch (Mqtt5UnsubAckException ex) {
             for (Mqtt5UnsubAckReasonCode reasonCode : ex.getMqttMessage().getReasonCodes()) {
                 Assert.assertEquals(reasonCode.getCode(), MqttUnsubAckReasonCode.TOPIC_FILTER_INVALID.value());
