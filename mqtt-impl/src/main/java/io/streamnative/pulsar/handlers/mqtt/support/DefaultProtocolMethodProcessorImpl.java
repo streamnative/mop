@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttWillMessage;
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createSubAckMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createWillMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
 import io.netty.channel.Channel;
@@ -27,7 +26,6 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
@@ -45,6 +43,7 @@ import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTSubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTUnsubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MQTT5ExceptionUtils;
@@ -398,8 +397,12 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             });
             futureList.add(completableFuture);
         }
+        int protocolVersion = NettyUtils.getProtocolVersion(channel);
         FutureUtil.waitForAll(futureList).thenAccept(v -> {
-            MqttSubAckMessage ackMessage = createSubAckMessage(subTopics, messageID);
+            MqttMessage ackMessage =
+                    // Support MQTT 5
+                    MqttUtils.isMqtt5(protocolVersion) ? MQTTSubAckMessageUtils.createMqtt5(messageID, subTopics) :
+                            MQTTSubAckMessageUtils.createMqtt(messageID, subTopics);
             if (log.isDebugEnabled()) {
                 log.debug("Sending SUB-ACK message {} to {}", ackMessage, clientID);
             }

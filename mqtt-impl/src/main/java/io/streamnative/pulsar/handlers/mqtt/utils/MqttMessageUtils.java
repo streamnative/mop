@@ -29,8 +29,6 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttSubAckMessage;
-import io.netty.handler.codec.mqtt.MqttSubAckPayload;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
@@ -113,18 +111,6 @@ public class MqttMessageUtils {
             ackTopics.add(new MqttTopicSubscription(req.topicName(), qos));
         }
         return ackTopics;
-    }
-
-    public static MqttSubAckMessage createSubAckMessage(List<MqttTopicSubscription> topicFilters, int messageId) {
-        List<Integer> grantedQoSLevels = new ArrayList<>();
-        for (MqttTopicSubscription req : topicFilters) {
-            grantedQoSLevels.add(req.qualityOfService().value());
-        }
-
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, AT_MOST_ONCE,
-                false, 0);
-        MqttSubAckPayload payload = new MqttSubAckPayload(grantedQoSLevels);
-        return new MqttSubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageId), payload);
     }
 
     public static WillMessage createWillMessage(MqttConnectMessage msg) {
