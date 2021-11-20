@@ -45,6 +45,7 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTSubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTUnsubAckMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MQTT5ExceptionUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
@@ -320,12 +321,20 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
         String clientID = NettyUtils.getClientId(channel);
         String userRole = NettyUtils.getUserRole(channel);
+        int protocolVersion = NettyUtils.getProtocolVersion(channel);
         if (log.isDebugEnabled()) {
             log.debug("[Subscribe] [{}] msg: {}", clientID, msg);
         }
 
         if (StringUtils.isEmpty(clientID)) {
             log.error("clientId is empty for sub [{}] close channel", msg);
+            if (MqttUtils.isMqtt5(protocolVersion)) {
+                // Support mqtt version 5.0
+                MqttMessage subAckMessage = MQTTSubAckMessageUtils.createMqtt5(msg.variableHeader().messageId(),
+                        MqttSubAckReasonCode.UNSPECIFIED_ERROR,
+                        "The client id not found.");
+                channel.writeAndFlush(subAckMessage);
+            }
             channel.close();
             return;
         }
@@ -349,11 +358,13 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             }
             FutureUtil.waitForAll(authorizationFutures).thenAccept(__ -> {
                 if (!authorizedFlag.get()) {
-                    MqttConnAckMessage connAck = MqttMessageUtils.
-                            connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
-                    channel.writeAndFlush(connAck);
+                    MqttMessage subscribeAckMessage = MqttUtils.isMqtt5(protocolVersion)
+                            ? MQTTSubAckMessageUtils.createMqtt5(msg.variableHeader().messageId(),
+                            MqttSubAckReasonCode.NOT_AUTHORIZED,
+                            String.format("The client %s not authorized.", clientID)) :
+                            MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
+                    channel.writeAndFlush(subscribeAckMessage);
                     channel.close();
-                    return;
                 } else {
                     doSubscribe(channel, msg, clientID);
                 }
@@ -414,7 +425,12 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             NettyUtils.setTopicSubscriptions(channel, topicSubscriptions);
         }).exceptionally(e -> {
             log.error("[{}] Failed to process MQTT subscribe.", clientID, e);
-            channel.close();
+            // Support Mqtt5
+            if (MqttUtils.isMqtt5(protocolVersion)) {
+                MQTT5ExceptionUtils.handleSubScribeException(messageID, channel, e);
+            } else {
+                channel.close();
+            }
             return null;
         });
     }

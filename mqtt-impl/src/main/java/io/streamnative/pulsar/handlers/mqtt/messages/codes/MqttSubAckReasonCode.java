@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.messages.codes;
 
 import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttVersion;
 
 public enum MqttSubAckReasonCode {
     GRANTED_QOS0(0x0),
@@ -52,14 +51,6 @@ public enum MqttSubAckReasonCode {
                 return MqttSubAckReasonCode.GRANTED_QOS2;
             default:
                 return MqttSubAckReasonCode.UNSPECIFIED_ERROR;
-        }
-    }
-
-    public MqttSubAckReasonCode limitForMqttVersion(MqttVersion version) {
-        if (version != MqttVersion.MQTT_5 && shortValue > UNSPECIFIED_ERROR.shortValue) {
-            return UNSPECIFIED_ERROR;
-        } else {
-            return this;
         }
     }
 }
