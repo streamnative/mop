@@ -15,13 +15,17 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTPubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTSubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTUnsubAckMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttPubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
+import org.apache.pulsar.broker.service.BrokerServiceException;
 
 /**
  * MQTT version 5.0 exception handler.
@@ -75,6 +79,32 @@ public class MQTT5ExceptionUtils {
             MqttMessage subscribeAckMessage = MQTTSubAckMessageUtils
                     .createMqtt5(messageID, MqttSubAckReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage());
             channel.writeAndFlush(subscribeAckMessage);
+        }
+    }
+
+    /**
+     * handle publish Exception.
+     *
+     * @param packetId - Mqtt packet exception
+     * @param channel  - Netty Nio channel
+     * @param ex       - exception
+     */
+    public static void handlePublishException(int packetId, Channel channel, Throwable ex) {
+        if (ex instanceof BrokerServiceException.TopicNotFoundException) {
+            MqttMessage unspecifiedErrorPubAckMessage =
+                    MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.TOPIC_NAME_INVALID,
+                            ex.getMessage());
+            channel.writeAndFlush(unspecifiedErrorPubAckMessage);
+        } else if (ex instanceof MQTTNoMatchingSubscriberException) {
+            MqttMessage unspecifiedErrorPubAckMessage =
+                    MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.NO_MATCHING_SUBSCRIBERS,
+                            ex.getMessage());
+            channel.writeAndFlush(unspecifiedErrorPubAckMessage);
+        } else {
+            MqttMessage unspecifiedErrorPubAckMessage =
+                    MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.UNSPECIFIED_ERROR,
+                            ex.getMessage());
+            channel.writeAndFlush(unspecifiedErrorPubAckMessage);
         }
     }
 }

@@ -18,14 +18,19 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTPubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttPubAckReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.utils.MQTT5ExceptionUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.zookeeper.KeeperException;
+
 /**
  * Publish handler implementation for Qos 1.
  */
@@ -38,15 +43,19 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
 
     @Override
     public void publish(Channel channel, MqttPublishMessage msg) {
-        final int protocolVersion = NettyUtils.getProtocolVersion(channel);
-        final int packetId = msg.variableHeader().packetId();
+        int protocolVersion = NettyUtils.getProtocolVersion(channel);
+        final boolean isMqtt5 = MqttUtils.isMqtt5(protocolVersion);
+        int packetId = msg.variableHeader().packetId();
         final String topic = msg.variableHeader().topicName();
-        writeToPulsarTopic(msg).whenComplete((p, e) -> {
+        // Support mqtt 5 version.
+        CompletableFuture<PositionImpl> writeToPulsarResultFuture =
+                isMqtt5 ? writeToPulsarTopicAndCheckIfSubscriptionMatching(msg) : writeToPulsarTopic(msg);
+        writeToPulsarResultFuture.whenComplete((p, e) -> {
             if (e == null) {
                 if (log.isDebugEnabled()) {
                     log.debug("[{}] Write {} to Pulsar topic succeed.", topic, msg);
                 }
-                MqttMessage mqttPubAckMessage = MqttUtils.isMqtt5(protocolVersion)
+                MqttMessage mqttPubAckMessage = isMqtt5
                         ? MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.SUCCESS) :
                         MQTTPubAckMessageUtils.createMqtt(packetId);
                 channel.writeAndFlush(mqttPubAckMessage).addListener(future -> {
@@ -61,8 +70,15 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                     }
                 });
             } else {
-                log.error("[{}] Write {} to Pulsar topic failed.", topic, msg, e);
                 Throwable cause = e.getCause();
+                if (cause instanceof MQTTNoMatchingSubscriberException) {
+                    log.debug("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
+                } else {
+                    log.error("[{}] Write {} to Pulsar topic failed.", topic, msg, e);
+                }
+                if (isMqtt5) {
+                    MQTT5ExceptionUtils.handlePublishException(packetId, channel, cause);
+                }
                 if (cause instanceof BrokerServiceException.ServerMetadataException) {
                     cause = cause.getCause();
                     if (cause instanceof KeeperException.NoNodeException) {

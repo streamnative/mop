@@ -43,8 +43,10 @@ import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTPubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTSubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTUnsubAckMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttPubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MQTT5ExceptionUtils;
@@ -201,6 +203,9 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
         String clientID = NettyUtils.getClientId(channel);
         String userRole = NettyUtils.getUserRole(channel);
+        final int protocolVersion = NettyUtils.getProtocolVersion(channel);
+        final int packetId = msg.variableHeader().packetId();
+
         // Authorization the client
         if (!configuration.isMqttAuthorizationEnabled()) {
             log.info("[Publish] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
@@ -212,9 +217,12 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                         if (!authorized) {
                             log.error("[Publish] no authorization to pub topic={}, userRole={}, CId= {}",
                                     msg.variableHeader().topicName(), userRole, clientID);
-                            MqttConnAckMessage connAck = MqttMessageUtils.
-                                    connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
-                            channel.writeAndFlush(connAck);
+                            // Support Mqtt 5
+                            MqttMessage mqttPubAckMessage = MqttUtils.isMqtt5(protocolVersion)
+                                    ? MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.NOT_AUTHORIZED,
+                                    String.format("The client %s not authorized.", clientID)) :
+                                    MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
+                            channel.writeAndFlush(mqttPubAckMessage);
                             channel.close();
                         } else {
                             doPublish(channel, msg);

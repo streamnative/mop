@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter.toPulsarMsg;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
 import io.streamnative.pulsar.handlers.mqtt.utils.MessagePublishContext;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.Optional;
@@ -53,5 +54,19 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
             return ret;
         }).orElseGet(() -> FutureUtil.failedFuture(
                 new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
+    }
+
+    protected CompletableFuture<PositionImpl> writeToPulsarTopicAndCheckIfSubscriptionMatching(MqttPublishMessage msg) {
+        return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
+                    MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
+                    CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
+                    message.release();
+                    if (topic.getSubscriptions().isEmpty()) {
+                        throw new MQTTNoMatchingSubscriberException(msg.variableHeader().topicName());
+                    }
+                    return ret;
+                })
+                .orElseGet(() -> FutureUtil.failedFuture(
+                        new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
     }
 }
