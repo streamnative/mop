@@ -18,7 +18,9 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTSubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTUnsubAckMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
 
 /**
@@ -53,6 +55,26 @@ public class MQTT5ExceptionUtils {
             MqttMessage unSpecifiedError = MQTTUnsubAckMessageUtils.createMqtt5(messageID,
                     MqttUnsubAckReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage());
             channel.writeAndFlush(unSpecifiedError);
+        }
+    }
+
+    /**
+     * handle subscribe Exception.
+     *
+     * @param messageID - Mqtt message exception
+     * @param channel   - Netty Nio channel
+     * @param ex        - exception
+     */
+    public static void handleSubScribeException(int messageID, Channel channel, Throwable ex) {
+        if (ex.getCause() instanceof MQTTServerException) {
+            MqttMessage mqtt5SubAckMessage =
+                    MQTTSubAckMessageUtils.createMqtt5(messageID, MqttSubAckReasonCode.IMPLEMENTATION_SPECIFIC_ERROR,
+                            ex.getCause().getMessage());
+            channel.writeAndFlush(mqtt5SubAckMessage);
+        } else {
+            MqttMessage subscribeAckMessage = MQTTSubAckMessageUtils
+                    .createMqtt5(messageID, MqttSubAckReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage());
+            channel.writeAndFlush(subscribeAckMessage);
         }
     }
 }
