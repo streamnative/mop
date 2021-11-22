@@ -29,7 +29,10 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTSubAckMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.net.InetSocketAddress;
@@ -114,6 +117,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         NettyUtils.setConnectMsg(channel, connectMessage);
         NettyUtils.setKeepAliveTime(channel, MqttMessageUtils.getKeepAliveTime(msg));
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
+        NettyUtils.setProtocolVersion(channel, msg.variableHeader().version());
 
         Connection connection = new Connection(clientId, channel, msg.variableHeader().isCleanSession());
         connectionManager.addConnection(connection);
@@ -217,6 +221,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
         String clientId = NettyUtils.getClientId(channel);
+        int protocolVersion = NettyUtils.getProtocolVersion(channel);
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
@@ -225,6 +230,14 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                 proxyConfig.getDefaultTopicDomain());
 
         if (topicListFuture == null) {
+            if (MqttUtils.isMqtt5(protocolVersion)) {
+                // Support mqtt version 5.0
+                MqttMessage subAckMessage = MQTTSubAckMessageUtils.createMqtt5(msg.variableHeader().messageId(),
+                        MqttSubAckReasonCode.UNSPECIFIED_ERROR,
+                        String.format("Client %s can not found topics %s.", clientId,
+                                msg.payload().topicSubscriptions()));
+                channel.writeAndFlush(subAckMessage);
+            }
             channel.close();
             return;
         }
@@ -241,6 +254,12 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             return FutureUtil.waitForAll(futures);
         }).exceptionally(ex -> {
             log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
+            if (MqttUtils.isMqtt5(protocolVersion)) {
+                // Support mqtt version 5.0
+                MqttMessage subAckMessage = MQTTSubAckMessageUtils.createMqtt5(msg.variableHeader().messageId(),
+                        MqttSubAckReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage());
+                channel.writeAndFlush(subAckMessage);
+            }
             channel.close();
             return null;
         });
