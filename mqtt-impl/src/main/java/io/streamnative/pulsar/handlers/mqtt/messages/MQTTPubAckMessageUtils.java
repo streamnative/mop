@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.messages;
 
-import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageFactory;
@@ -87,7 +86,7 @@ public class MQTTPubAckMessageUtils {
      * @return - MqttMessage
      */
     public static MqttMessage createMqtt(int packetId) {
-        return new MqttPubAckMessage(new MqttFixedHeader(MqttMessageType.PUBACK, false, AT_MOST_ONCE, false, 0),
+        return new MqttPubAckMessage(new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
                 MqttMessageIdVariableHeader.from(packetId));
     }
 
