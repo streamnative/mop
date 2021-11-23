@@ -40,9 +40,12 @@ jobs:
       - name: Spotbugs check
         run: mvn spotbugs:check
 
-      - name: test and report after build
-        run: ｜
+      - name: test after build
+        run:
           /scripts/retry.sh mvn cobertura:cobertura
+
+      - name: report test
+        run:
           bash <(curl -s https://codecov.io/bash)
 
       - name: package surefire artifacts
