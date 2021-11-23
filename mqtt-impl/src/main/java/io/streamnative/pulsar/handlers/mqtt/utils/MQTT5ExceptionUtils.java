@@ -90,21 +90,20 @@ public class MQTT5ExceptionUtils {
      * @param ex       - exception
      */
     public static void handlePublishException(int packetId, Channel channel, Throwable ex) {
+        MqttMessage unspecifiedErrorPubAckMessage;
         if (ex instanceof BrokerServiceException.TopicNotFoundException) {
-            MqttMessage unspecifiedErrorPubAckMessage =
+             unspecifiedErrorPubAckMessage =
                     MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.TOPIC_NAME_INVALID,
                             ex.getMessage());
-            channel.writeAndFlush(unspecifiedErrorPubAckMessage);
         } else if (ex instanceof MQTTNoMatchingSubscriberException) {
-            MqttMessage unspecifiedErrorPubAckMessage =
+            unspecifiedErrorPubAckMessage =
                     MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.NO_MATCHING_SUBSCRIBERS,
                             ex.getMessage());
-            channel.writeAndFlush(unspecifiedErrorPubAckMessage);
         } else {
-            MqttMessage unspecifiedErrorPubAckMessage =
+            unspecifiedErrorPubAckMessage =
                     MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.UNSPECIFIED_ERROR,
                             ex.getMessage());
-            channel.writeAndFlush(unspecifiedErrorPubAckMessage);
         }
+        channel.writeAndFlush(unspecifiedErrorPubAckMessage);
     }
 }
