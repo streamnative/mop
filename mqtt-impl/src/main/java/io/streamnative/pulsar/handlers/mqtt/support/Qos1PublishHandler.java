@@ -14,11 +14,13 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.Channel;
-import io.netty.handler.codec.mqtt.MqttPubAckMessage;
+import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTPubAckMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttPubAckReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
@@ -36,14 +38,18 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
 
     @Override
     public void publish(Channel channel, MqttPublishMessage msg) {
+        final int protocolVersion = NettyUtils.getProtocolVersion(channel);
+        final int packetId = msg.variableHeader().packetId();
         final String topic = msg.variableHeader().topicName();
         writeToPulsarTopic(msg).whenComplete((p, e) -> {
             if (e == null) {
                 if (log.isDebugEnabled()) {
                     log.debug("[{}] Write {} to Pulsar topic succeed.", topic, msg);
                 }
-                MqttPubAckMessage pubAckMessage = MqttMessageUtils.pubAck(msg.variableHeader().packetId());
-                channel.writeAndFlush(pubAckMessage).addListener(future -> {
+                MqttMessage mqttPubAckMessage = MqttUtils.isMqtt5(protocolVersion)
+                        ? MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.SUCCESS) :
+                        MQTTPubAckMessageUtils.createMqtt(packetId);
+                channel.writeAndFlush(mqttPubAckMessage).addListener(future -> {
                     if (future.isSuccess()) {
                         if (log.isDebugEnabled()) {
                             log.debug("[{}] Send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
