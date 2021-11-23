@@ -21,6 +21,7 @@
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/37f8e4d44ffd468c9255fbbb231b261c)](https://app.codacy.com/gh/streamnative/mop?utm_source=github.com&utm_medium=referral&utm_content=streamnative/mop&utm_campaign=Badge_Grade_Settings)
 [![LICENSE](https://img.shields.io/hexpm/l/pulsar.svg)](https://github.com/streamnative/mop/blob/master/LICENSE)
+[![codecov](https://codecov.io/gh/yaalsn/mop/branch/master/graph/badge.svg?token=DOK7QS09LH)](https://codecov.io/gh/yaalsn/mop)
 
 # MQTT on Pulsar (MoP)
 
