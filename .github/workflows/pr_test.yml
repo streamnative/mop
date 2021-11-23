@@ -43,6 +43,9 @@ jobs:
       - name: test after build
         run: ./scripts/retry.sh mvn -B -ntp test
 
+      - name: upload test report
+        run: bash <(curl -s https://codecov.io/bash)
+
       - name: package surefire artifacts
         if: failure()
         run: |
