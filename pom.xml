@@ -259,7 +259,8 @@
                 </executions>
                 <configuration>
                     <generateGitPropertiesFile>true</generateGitPropertiesFile>
-                    <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties
+                    <generateGitPropertiesFilename>
+                        ${project.build.outputDirectory}/git.properties
                     </generateGitPropertiesFilename>
                     <includeOnlyProperties>
                         <includeOnlyProperty>^git.build.(host|time|version)$</includeOnlyProperty>
