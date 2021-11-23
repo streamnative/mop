@@ -13,12 +13,14 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.mqtt5;
 
+import com.hivemq.client.internal.mqtt.message.publish.MqttPublishResult;
 import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.datatypes.MqttTopic;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5UnsubAckException;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
+import com.hivemq.client.mqtt.mqtt5.message.publish.puback.Mqtt5PubAckReasonCode;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAck;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAckReasonCode;
 import com.hivemq.client.mqtt.mqtt5.message.unsubscribe.unsuback.Mqtt5UnsubAck;
@@ -26,6 +28,7 @@ import com.hivemq.client.mqtt.mqtt5.message.unsubscribe.unsuback.Mqtt5UnsubAckRe
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
+import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -101,6 +104,21 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
             Assert.assertEquals(reasonCode.getCode(), MqttSubAckReasonCode.GRANTED_QOS0.value());
         }
         client.unsubscribeWith().topicFilter(topic).send();
+        client.disconnect();
+    }
+
+    @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
+    public void testPublishSuccessAck(String topic) {
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        client.connect();
+        final byte[] msg = "hi pulsar".getBytes(StandardCharsets.UTF_8);
+        MqttPublishResult.MqttQos1Result publishResult = (MqttPublishResult.MqttQos1Result) client.publishWith()
+                .topic(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload(msg)
+                .send();
+        Mqtt5PubAckReasonCode reasonCode = publishResult.getPubAck().getReasonCode();
+        Assert.assertEquals(reasonCode, Mqtt5PubAckReasonCode.SUCCESS);
         client.disconnect();
     }
 }
