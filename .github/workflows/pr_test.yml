@@ -42,7 +42,7 @@ jobs:
 
       - name: test after build
         run:
-          /scripts/retry.sh mvn cobertura:cobertura
+          ./scripts/retry.sh mvn cobertura:cobertura
 
       - name: report test
         run:
