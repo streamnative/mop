@@ -19,6 +19,8 @@ import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.datatypes.MqttTopic;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5UnsubAckException;
+import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck;
+import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAckReasonCode;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import com.hivemq.client.mqtt.mqtt5.message.publish.puback.Mqtt5PubAckReasonCode;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAck;
@@ -138,4 +140,12 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
         client.disconnect();
     }
 
+    @Test(timeOut = TIMEOUT)
+    public void testConnectSuccess() {
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        Mqtt5ConnAck connect = client.connect();
+        Mqtt5ConnAckReasonCode reasonCode = connect.getReasonCode();
+        Assert.assertEquals(reasonCode, Mqtt5ConnAckReasonCode.SUCCESS);
+        client.disconnect();
+    }
 }

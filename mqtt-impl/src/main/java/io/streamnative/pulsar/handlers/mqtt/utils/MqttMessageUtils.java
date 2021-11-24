@@ -17,11 +17,8 @@ import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
-import io.netty.handler.codec.mqtt.MqttConnAckMessage;
-import io.netty.handler.codec.mqtt.MqttConnAckVariableHeader;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
-import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
@@ -48,18 +45,6 @@ public class MqttMessageUtils {
             throw new IllegalStateException(msg.decoderResult().cause().getMessage());
         }
     }
-
-    public static MqttConnAckMessage connAck(MqttConnectReturnCode returnCode) {
-        return connAck(returnCode, false);
-    }
-
-    public static MqttConnAckMessage connAck(MqttConnectReturnCode returnCode, boolean sessionPresent) {
-        MqttFixedHeader mqttFixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, AT_MOST_ONCE,
-                false, 0);
-        MqttConnAckVariableHeader mqttConnAckVariableHeader = new MqttConnAckVariableHeader(returnCode, sessionPresent);
-        return new MqttConnAckMessage(mqttFixedHeader, mqttConnAckVariableHeader);
-    }
-
 
     public static MqttMessage pingResp() {
         MqttFixedHeader pingHeader = new MqttFixedHeader(MqttMessageType.PINGRESP, false, AT_MOST_ONCE, false, 0);

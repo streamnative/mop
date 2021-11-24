@@ -18,10 +18,9 @@ import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DI
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 import io.netty.channel.Channel;
-import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTConAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.Map;
 import java.util.Objects;
@@ -47,23 +46,27 @@ public class Connection {
     private final Channel channel;
     @Getter
     private final boolean cleanSession;
+    @Getter
+    private final int protocolVersion;
 
     volatile ConnectionState connectionState = DISCONNECTED;
 
     private final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
             newUpdater(Connection.class, ConnectionState.class, "connectionState");
 
-    public Connection(String clientId, Channel channel, boolean cleanSession) {
+    public Connection(String clientId, Channel channel, boolean cleanSession, int protocolVersion) {
         this.clientId = clientId;
         this.channel = channel;
         this.cleanSession = cleanSession;
+        this.protocolVersion = protocolVersion;
     }
 
     public void sendConnAck() {
         boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
         if (ret) {
-            MqttConnAckMessage ackMessage = MqttMessageUtils.connAck(MqttConnectReturnCode.CONNECTION_ACCEPTED);
-            channel.writeAndFlush(ackMessage).addListener(future -> {
+            MqttMessage mqttConnAckMessage =
+                    MQTTConAckMessageUtils.createMqtt(MqttConnectReturnCode.CONNECTION_ACCEPTED);
+            channel.writeAndFlush(mqttConnAckMessage).addListener(future -> {
                 if (future.isSuccess()) {
                     if (log.isDebugEnabled()) {
                         log.debug("The CONNECT message has been processed. CId={}", clientId);

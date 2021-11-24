@@ -16,7 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingReq;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import io.netty.channel.Channel;
-import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
@@ -29,6 +28,7 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTConAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTSubAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MQTT5ExceptionUtils;
@@ -84,6 +84,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     // client -> proxy
     @Override
     public void processConnect(Channel channel, MqttConnectMessage msg) {
+        final int protocolVersion = msg.variableHeader().version();
         MqttConnectMessage connectMessage = msg;
         MqttConnectPayload payload = connectMessage.payload();
         String clientId = payload.clientIdentifier();
@@ -105,8 +106,12 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                MqttConnAckMessage connAck = MqttMessageUtils.
-                        connAck(MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD);
+                MqttMessage connAck = MQTTConAckMessageUtils.
+                        createMqtt(
+                                MqttUtils.isMqtt5(protocolVersion)
+                                        ? MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USERNAME_OR_PASSWORD :
+                                        MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD
+                        );
                 channel.writeAndFlush(connAck);
                 channel.close();
                 log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, payload.userName());
@@ -118,9 +123,10 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         NettyUtils.setConnectMsg(channel, connectMessage);
         NettyUtils.setKeepAliveTime(channel, MqttMessageUtils.getKeepAliveTime(msg));
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
-        NettyUtils.setProtocolVersion(channel, msg.variableHeader().version());
+        NettyUtils.setProtocolVersion(channel, protocolVersion);
 
-        Connection connection = new Connection(clientId, channel, msg.variableHeader().isCleanSession());
+        Connection connection =
+                new Connection(clientId, channel, msg.variableHeader().isCleanSession(), protocolVersion);
         connectionManager.addConnection(connection);
         NettyUtils.setConnection(channel, connection);
         connection.sendConnAck();
