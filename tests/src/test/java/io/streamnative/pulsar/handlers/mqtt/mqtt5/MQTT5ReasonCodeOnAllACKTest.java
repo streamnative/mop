@@ -18,10 +18,13 @@ import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.datatypes.MqttTopic;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
+import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
+import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5ConnAckException;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5UnsubAckException;
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck;
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAckReasonCode;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
+import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5WillPublish;
 import com.hivemq.client.mqtt.mqtt5.message.publish.puback.Mqtt5PubAckReasonCode;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAck;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAckReasonCode;
@@ -31,6 +34,7 @@ import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -147,5 +151,27 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
         Mqtt5ConnAckReasonCode reasonCode = connect.getReasonCode();
         Assert.assertEquals(reasonCode, Mqtt5ConnAckReasonCode.SUCCESS);
         client.disconnect();
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testUnSupportWillMessage() {
+        Mqtt5WillPublish willPublish = Mqtt5Publish.builder()
+                .topic("aaa")
+                .qos(MqttQos.EXACTLY_ONCE)
+                .asWill()
+                .build();
+        Mqtt5BlockingClient client = Mqtt5Client.builder()
+                .identifier(UUID.randomUUID().toString())
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .willPublish(willPublish)
+                .buildBlocking();
+        try {
+            client.connect();
+        } catch (Mqtt5ConnAckException ex){
+            Mqtt5ConnAck mqttMessage = ex.getMqttMessage();
+            Mqtt5ConnAckReasonCode reasonCode = mqttMessage.getReasonCode();
+            Assert.assertEquals(reasonCode, Mqtt5ConnAckReasonCode.QOS_NOT_SUPPORTED);
+        }
     }
 }
