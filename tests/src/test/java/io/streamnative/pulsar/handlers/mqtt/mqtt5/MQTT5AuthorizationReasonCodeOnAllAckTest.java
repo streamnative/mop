@@ -16,8 +16,10 @@ package io.streamnative.pulsar.handlers.mqtt.mqtt5;
 import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
+import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5PubAckException;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5SubAckException;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
+import com.hivemq.client.mqtt.mqtt5.message.publish.puback.Mqtt5PubAckReasonCode;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAck;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.base.AuthorizationConfig;
@@ -93,6 +95,31 @@ public class MQTT5AuthorizationReasonCodeOnAllAckTest extends AuthorizationConfi
             for (Mqtt5SubAckReasonCode reasonCode : ex.getMqttMessage().getReasonCodes()) {
                 Assert.assertEquals(reasonCode, Mqtt5SubAckReasonCode.NOT_AUTHORIZED);
             }
+        }
+        Awaitility.await()
+                .untilAsserted(() -> Assert.assertFalse(client.getState().isConnected()));
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testPublishNotAuthorized() {
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        client.connectWith()
+                .simpleAuth()
+                .username("user1")
+                .password("pass1".getBytes(StandardCharsets.UTF_8))
+                .applySimpleAuth()
+                .send();
+        String message = "Hello MQTT Pulsar";
+        try {
+            client.publishWith()
+                    .topic("a")
+                    .payload(message.getBytes(StandardCharsets.UTF_8))
+                    .qos(MqttQos.AT_LEAST_ONCE)
+                    .send();
+            client.subscribeWith().topicFilter("a").qos(MqttQos.AT_LEAST_ONCE).send();
+        } catch (Mqtt5PubAckException ex) {
+            Mqtt5PubAckReasonCode reasonCode = ex.getMqttMessage().getReasonCode();
+            Assert.assertEquals(reasonCode, Mqtt5PubAckReasonCode.NOT_AUTHORIZED);
         }
         Awaitility.await()
                 .untilAsserted(() -> Assert.assertFalse(client.getState().isConnected()));
