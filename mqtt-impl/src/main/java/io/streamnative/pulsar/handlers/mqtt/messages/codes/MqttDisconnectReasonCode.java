@@ -47,11 +47,11 @@ public enum MqttDisconnectReasonCode {
     SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED((byte) 0xA1),
     WILDCARD_SUBSCRIPTIONS_NOT_SUPPORTED((byte) 0xA2);
 
+    private final byte byteValue;
+
     MqttDisconnectReasonCode(byte byteValue) {
         this.byteValue = byteValue;
     }
-
-    private final byte byteValue;
 
     public byte value() {
         return byteValue;
