@@ -22,12 +22,31 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttQoS;
 
+/**
+ * Mqtt connection acknowledgement message factory.
+ */
 public class MQTTConAckMessageUtils {
 
+    /**
+     * Create Mqtt 5 connection acknowledgement with no property.
+     *
+     * @param conAckReasonCode - MqttConnectReturnCode
+     * @return - MqttMessage
+     * @see MqttConnectReturnCode
+     */
     public static MqttMessage createMqtt(MqttConnectReturnCode conAckReasonCode) {
         return createMqtt5(conAckReasonCode, false, MqttProperties.NO_PROPERTIES);
     }
 
+    /**
+     * Create Mqtt 5 connection acknowledgement with no property.
+     *
+     * @param conAckReasonCode - MqttConnectReturnCode
+     * @param sessionPresent   - Session present
+     * @param properties       - Mqtt properties
+     * @return - MqttMessage
+     * @see MqttConnectReturnCode
+     */
     public static MqttMessage createMqtt5(MqttConnectReturnCode conAckReasonCode,
                                           Boolean sessionPresent, MqttProperties properties) {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
