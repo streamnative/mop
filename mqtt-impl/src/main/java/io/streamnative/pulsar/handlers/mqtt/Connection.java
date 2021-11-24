@@ -20,7 +20,7 @@ import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.streamnative.pulsar.handlers.mqtt.messages.MQTTConAckMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTConnAckMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.Map;
 import java.util.Objects;
@@ -65,7 +65,7 @@ public class Connection {
         boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
         if (ret) {
             MqttMessage mqttConnAckMessage =
-                    MQTTConAckMessageUtils.createMqtt(MqttConnectReturnCode.CONNECTION_ACCEPTED);
+                    MQTTConnAckMessageUtils.createMqtt(MqttConnectReturnCode.CONNECTION_ACCEPTED);
             channel.writeAndFlush(mqttConnAckMessage).addListener(future -> {
                 if (future.isSuccess()) {
                     if (log.isDebugEnabled()) {
@@ -78,6 +78,12 @@ public class Connection {
         } else {
             log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
                     DISCONNECTED, CONNECT_ACK, clientId);
+            MqttMessage mqttConnAckMessage =
+                    MQTTConnAckMessageUtils.createMqtt5(
+                            MqttConnectReturnCode.CONNECTION_REFUSED_IMPLEMENTATION_SPECIFIC,
+                            String.format("Unable to assign the state from : %s to : %s for CId=%s, close channel"
+                                    , DISCONNECTED, CONNECT_ACK, clientId));
+            channel.writeAndFlush(mqttConnAckMessage);
             channel.close();
         }
     }

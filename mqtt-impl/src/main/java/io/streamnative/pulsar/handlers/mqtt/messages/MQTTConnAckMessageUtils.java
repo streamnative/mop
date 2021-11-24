@@ -22,10 +22,7 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttQoS;
 
-/**
- * Mqtt connection acknowledgement message factory.
- */
-public class MQTTConAckMessageUtils {
+public class MQTTConnAckMessageUtils {
 
     /**
      * Create Mqtt 5 connection acknowledgement with no property.
@@ -36,6 +33,15 @@ public class MQTTConAckMessageUtils {
      */
     public static MqttMessage createMqtt(MqttConnectReturnCode conAckReasonCode) {
         return createMqtt5(conAckReasonCode, false, MqttProperties.NO_PROPERTIES);
+    }
+
+    public static MqttMessage createMqtt5(MqttConnectReturnCode conAckReasonCode, String reasonStr) {
+        MqttProperties properties = new MqttProperties();
+        MqttProperties.StringProperty reasonStringProperty =
+                new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
+                        reasonStr);
+        properties.add(reasonStringProperty);
+        return createMqtt5(conAckReasonCode, false, properties);
     }
 
     /**
