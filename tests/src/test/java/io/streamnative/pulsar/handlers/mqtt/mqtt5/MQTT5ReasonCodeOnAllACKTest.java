@@ -111,6 +111,7 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
     public void testPublishSuccessAck(String topic) {
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connect();
+        client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_LEAST_ONCE).send();
         final byte[] msg = "hi pulsar".getBytes(StandardCharsets.UTF_8);
         MqttPublishResult.MqttQos1Result publishResult = (MqttPublishResult.MqttQos1Result) client.publishWith()
                 .topic(topic)
@@ -121,4 +122,20 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
         Assert.assertEquals(reasonCode, Mqtt5PubAckReasonCode.SUCCESS);
         client.disconnect();
     }
+
+    @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
+    public void testPublishNoMatchingSubscriber(String topic) {
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        client.connect();
+        final byte[] msg = "hi pulsar".getBytes(StandardCharsets.UTF_8);
+        MqttPublishResult.MqttQos1Result publishResult = (MqttPublishResult.MqttQos1Result) client.publishWith()
+                .topic(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload(msg)
+                .send();
+        Mqtt5PubAckReasonCode reasonCode = publishResult.getPubAck().getReasonCode();
+        Assert.assertEquals(reasonCode, Mqtt5PubAckReasonCode.NO_MATCHING_SUBSCRIBERS);
+        client.disconnect();
+    }
+
 }
