@@ -50,8 +50,7 @@ public class MqttPubExceptionHandler implements MqttExceptionHandler {
 
     private void closeIfKeeperException(Channel channel, Throwable ex) {
         if (ex instanceof BrokerServiceException.ServerMetadataException) {
-            ex = ex.getCause();
-            if (ex instanceof KeeperException.NoNodeException) {
+            if (ex.getCause() instanceof KeeperException.NoNodeException) {
                 channel.close();
             }
         }
