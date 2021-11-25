@@ -174,4 +174,13 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
             Assert.assertEquals(reasonCode, Mqtt5ConnAckReasonCode.QOS_NOT_SUPPORTED);
         }
     }
+
+    @Test(timeOut = TIMEOUT)
+    public void testDisConnectSuccess() {
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        Mqtt5ConnAck connect = client.connect();
+        Mqtt5ConnAckReasonCode reasonCode = connect.getReasonCode();
+        Assert.assertEquals(reasonCode, Mqtt5ConnAckReasonCode.SUCCESS);
+        client.disconnect();
+    }
 }
