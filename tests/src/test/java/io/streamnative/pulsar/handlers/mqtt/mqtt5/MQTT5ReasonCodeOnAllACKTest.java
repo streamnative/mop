@@ -31,8 +31,7 @@ import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAckReasonCo
 import com.hivemq.client.mqtt.mqtt5.message.unsubscribe.unsuback.Mqtt5UnsubAck;
 import com.hivemq.client.mqtt.mqtt5.message.unsubscribe.unsuback.Mqtt5UnsubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -60,13 +59,13 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
         }
         Mqtt5UnsubAck ack = client.unsubscribeWith().topicFilter(topic).send();
         for (Mqtt5UnsubAckReasonCode reasonCode : ack.getReasonCodes()) {
-            Assert.assertEquals(reasonCode.getCode(), MqttUnsubAckReasonCode.SUCCESS.value());
+            Assert.assertEquals(reasonCode.getCode(), Mqtt5UnsubReasonCode.SUCCESS.value());
         }
         client.disconnect();
     }
 
     @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
-    public void testNoSubscribeExisted(String topic) throws Exception {
+    public void testNoSubscribeExisted(String topic) {
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connect();
         byte[] msg = "payload".getBytes();
@@ -77,7 +76,7 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
                 .send();
         Mqtt5UnsubAck ack = client.unsubscribeWith().topicFilter(topic).send();
         for (Mqtt5UnsubAckReasonCode reasonCode : ack.getReasonCodes()) {
-            Assert.assertEquals(reasonCode.getCode(), MqttUnsubAckReasonCode.NO_SUBSCRIPTION_EXISTED.value());
+            Assert.assertEquals(reasonCode.getCode(), Mqtt5UnsubAckReasonCode.NO_SUBSCRIPTIONS_EXISTED.getCode());
         }
         client.disconnect();
     }
@@ -90,7 +89,7 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
             client.unsubscribeWith().topicFilter(topic).send();
         } catch (Mqtt5UnsubAckException ex) {
             for (Mqtt5UnsubAckReasonCode reasonCode : ex.getMqttMessage().getReasonCodes()) {
-                Assert.assertEquals(reasonCode.getCode(), MqttUnsubAckReasonCode.TOPIC_FILTER_INVALID.value());
+                Assert.assertEquals(reasonCode.getCode(), Mqtt5UnsubAckReasonCode.TOPIC_FILTER_INVALID.getCode());
             }
         } finally {
             client.disconnect();
@@ -104,10 +103,10 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
         Mqtt5SubAck firstConsumerACK = client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_LEAST_ONCE).send();
         Mqtt5SubAck secondConsumerACK = client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_MOST_ONCE).send();
         for (Mqtt5SubAckReasonCode reasonCode : firstConsumerACK.getReasonCodes()) {
-            Assert.assertEquals(reasonCode.getCode(), MqttSubAckReasonCode.GRANTED_QOS1.value());
+            Assert.assertEquals(reasonCode.getCode(), Mqtt5SubAckReasonCode.GRANTED_QOS_1.getCode());
         }
         for (Mqtt5SubAckReasonCode reasonCode : secondConsumerACK.getReasonCodes()) {
-            Assert.assertEquals(reasonCode.getCode(), MqttSubAckReasonCode.GRANTED_QOS0.value());
+            Assert.assertEquals(reasonCode.getCode(), Mqtt5SubAckReasonCode.GRANTED_QOS_0.getCode());
         }
         client.unsubscribeWith().topicFilter(topic).send();
         client.disconnect();

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.messages;
+package io.streamnative.pulsar.handlers.mqtt.messages.factory;
 
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
@@ -20,10 +20,17 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttDisconnectReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 
-public class MQTTDisConnAckMessageUtils {
+
+/**
+ * Factory pattern, used to create mqtt protocol disconnection acknowledgement
+ * message.
+ *
+ * @see Mqtt5DisConnReasonCode
+ */
+public class MqttDisConnAckMessageHelper{
 
 
     /**
@@ -31,9 +38,9 @@ public class MQTTDisConnAckMessageUtils {
      *
      * @param code - MqttDisconnectReasonCode
      * @return - MqttMessage
-     * @see MqttDisconnectReasonCode
+     * @see Mqtt5DisConnReasonCode
      */
-    public static MqttMessage createMqtt5(MqttDisconnectReasonCode code) {
+    public static MqttMessage createMqtt5(Mqtt5DisConnReasonCode code) {
         return createMqtt5(code, MqttProperties.NO_PROPERTIES);
     }
 
@@ -43,10 +50,10 @@ public class MQTTDisConnAckMessageUtils {
      * @param code      - MqttDisconnectReasonCode
      * @param reasonStr - Reason string
      * @return - MqttMessage
-     * @see MqttSubAckReasonCode
+     * @see Mqtt5SubReasonCode
      * @see MqttProperties
      */
-    public static MqttMessage createMqtt5(MqttDisconnectReasonCode code, String reasonStr) {
+    public static MqttMessage createMqtt5(Mqtt5DisConnReasonCode code, String reasonStr) {
         MqttProperties mqttProperties = new MqttProperties();
         MqttProperties.StringProperty reasonStringProperty =
                 new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
@@ -61,14 +68,14 @@ public class MQTTDisConnAckMessageUtils {
      * @param code       - MqttDisconnectReasonCode
      * @param properties - MqttProperties
      * @return - MqttMessage
-     * @see MqttDisconnectReasonCode
+     * @see Mqtt5DisConnReasonCode
      * @see MqttProperties
      */
-    public static MqttMessage createMqtt5(MqttDisconnectReasonCode code, MqttProperties properties) {
+    public static MqttMessage createMqtt5(Mqtt5DisConnReasonCode code, MqttProperties properties) {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.DISCONNECT, false, MqttQoS.AT_MOST_ONCE,
                 false, 0);
         MqttReasonCodeAndPropertiesVariableHeader header =
-                new MqttReasonCodeAndPropertiesVariableHeader(code.value(), properties);
+                new MqttReasonCodeAndPropertiesVariableHeader(code.byteValue(), properties);
         return MqttMessageFactory.newMessage(fixedHeader, header, null);
     }
 }

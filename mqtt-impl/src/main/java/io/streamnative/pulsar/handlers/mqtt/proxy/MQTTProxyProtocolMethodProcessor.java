@@ -20,6 +20,7 @@ import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
@@ -28,10 +29,10 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
-import io.streamnative.pulsar.handlers.mqtt.messages.MQTTConnAckMessageUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.MQTTSubAckMessageUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.utils.MQTT5ExceptionUtils;
+import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -106,7 +107,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                MqttMessage connAck = MQTTConnAckMessageUtils.
+                MqttMessage connAck = MqttConnAckMessageHelper.
                         createMqtt(
                                 MqttUtils.isMqtt5(protocolVersion)
                                         ? MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USERNAME_OR_PASSWORD :
@@ -157,10 +158,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             if (null != throwable) {
                 log.error("[Proxy Publish] Failed to perform lookup request for topic : {}, CId : {}",
                         msg.variableHeader().topicName(), NettyUtils.getClientId(channel), throwable);
-                if (MqttUtils.isMqtt5(protocolVersion)) {
-                    MQTT5ExceptionUtils.handlePublishException(packetId, channel, throwable);
-                }
-                channel.close();
+                MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, throwable);
                 return;
             }
             writeToMqttBroker(channel, msg, pulsarTopicName, brokerAddress);
@@ -244,8 +242,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (topicListFuture == null) {
             if (MqttUtils.isMqtt5(protocolVersion)) {
                 // Support mqtt version 5.0
-                MqttMessage subAckMessage = MQTTSubAckMessageUtils.createMqtt5(msg.variableHeader().messageId(),
-                        MqttSubAckReasonCode.UNSPECIFIED_ERROR,
+                MqttMessage subAckMessage = MqttSubAckMessageHelper.createMqtt5(msg.variableHeader().messageId(),
+                        Mqtt5SubReasonCode.UNSPECIFIED_ERROR,
                         String.format("Client %s can not found topics %s.", clientId,
                                 msg.payload().topicSubscriptions()));
                 channel.writeAndFlush(subAckMessage);
@@ -268,8 +266,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
             if (MqttUtils.isMqtt5(protocolVersion)) {
                 // Support mqtt version 5.0
-                MqttMessage subAckMessage = MQTTSubAckMessageUtils.createMqtt5(msg.variableHeader().messageId(),
-                        MqttSubAckReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage());
+                MqttMessage subAckMessage = MqttSubAckMessageHelper.createMqtt5(msg.variableHeader().messageId(),
+                        Mqtt5SubReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage());
                 channel.writeAndFlush(subAckMessage);
             }
             channel.close();

@@ -18,11 +18,11 @@ import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DI
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 import io.netty.channel.Channel;
-import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.streamnative.pulsar.handlers.mqtt.messages.MQTTConnAckMessageUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.MQTTDisConnAckMessageUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttDisconnectReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.Map;
@@ -68,7 +68,7 @@ public class Connection {
         boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
         if (ret) {
             MqttMessage mqttConnAckMessage =
-                    MQTTConnAckMessageUtils.createMqtt(MqttConnectReturnCode.CONNECTION_ACCEPTED);
+                    MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.SUCCESS);
             channel.writeAndFlush(mqttConnAckMessage).addListener(future -> {
                 if (future.isSuccess()) {
                     if (log.isDebugEnabled()) {
@@ -82,8 +82,8 @@ public class Connection {
             log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
                     DISCONNECTED, CONNECT_ACK, clientId);
             MqttMessage mqttConnAckMessage =
-                    MQTTConnAckMessageUtils.createMqtt5(
-                            MqttConnectReturnCode.CONNECTION_REFUSED_IMPLEMENTATION_SPECIFIC,
+                    MqttConnAckMessageHelper.createMqtt5(
+                            Mqtt5ConnReasonCode.BAD_USERNAME_OR_PASSWORD,
                             String.format("Unable to assign the state from : %s to : %s for CId=%s, close channel"
                                     , DISCONNECTED, CONNECT_ACK, clientId));
             channel.writeAndFlush(mqttConnAckMessage);
@@ -143,7 +143,7 @@ public class Connection {
         // Support mqtt 5
         if (MqttUtils.isMqtt5(protocolVersion)){
             MqttMessage mqttDisconnectionAckMessage =
-                    MQTTDisConnAckMessageUtils.createMqtt5(MqttDisconnectReasonCode.NORMAL);
+                    MqttDisConnAckMessageHelper.createMqtt5(Mqtt5DisConnReasonCode.NORMAL);
             channel.writeAndFlush(mqttDisconnectionAckMessage);
         }
         this.channel.close();
