@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.messages;
+package io.streamnative.pulsar.handlers.mqtt.messages.factory;
 
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
@@ -22,12 +22,15 @@ import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPubReplyMessageVariableHeader;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttPubAckReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 
 /**
- * Mqtt publish acknowledgement message factory.
+ * Factory pattern, used to create mqtt protocol publish acknowledgement
+ * message.
+ *
+ * @see Mqtt5PubReasonCode
  */
-public class MQTTPubAckMessageUtils {
+public class MqttPubAckMessageHelper {
 
     /**
      * Create Mqtt 5 publish acknowledgement with no property.
@@ -35,9 +38,9 @@ public class MQTTPubAckMessageUtils {
      * @param packetId             - Mqtt packet id
      * @param mqttPubAckReasonCode - MqttPubAcReasonCode
      * @return - MqttMessage
-     * @see MqttPubAckReasonCode
+     * @see Mqtt5PubReasonCode
      */
-    public static MqttMessage createMqtt5(int packetId, MqttPubAckReasonCode mqttPubAckReasonCode) {
+    public static MqttMessage createMqtt5(int packetId, Mqtt5PubReasonCode mqttPubAckReasonCode) {
         return createMqtt5(packetId, mqttPubAckReasonCode, MqttProperties.NO_PROPERTIES);
     }
 
@@ -48,9 +51,9 @@ public class MQTTPubAckMessageUtils {
      * @param mqttPubAckReasonCode - MqttPubAcReasonCode
      * @param reasonStr            - Reason string
      * @return - MqttMessage
-     * @see MqttPubAckReasonCode
+     * @see Mqtt5PubReasonCode
      */
-    public static MqttMessage createMqtt5(int packetId, MqttPubAckReasonCode mqttPubAckReasonCode, String reasonStr) {
+    public static MqttMessage createMqtt5(int packetId, Mqtt5PubReasonCode mqttPubAckReasonCode, String reasonStr) {
         MqttProperties properties = new MqttProperties();
         MqttProperties.StringProperty reasonStringProperty =
                 new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
@@ -66,15 +69,15 @@ public class MQTTPubAckMessageUtils {
      * @param mqttPubAckReasonCode - MqttPubAcReasonCode
      * @param properties           - MqttProperties
      * @return - MqttMessage
-     * @see MqttPubAckReasonCode
+     * @see Mqtt5PubReasonCode
      * @see MqttProperties
      */
-    public static MqttMessage createMqtt5(int packetId, MqttPubAckReasonCode mqttPubAckReasonCode,
+    public static MqttMessage createMqtt5(int packetId, Mqtt5PubReasonCode mqttPubAckReasonCode,
                                           MqttProperties properties) {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE,
                 false, 0);
         MqttPubReplyMessageVariableHeader mqttPubReplyMessageVariableHeader =
-                new MqttPubReplyMessageVariableHeader(packetId, mqttPubAckReasonCode.getByteValue(),
+                new MqttPubReplyMessageVariableHeader(packetId, mqttPubAckReasonCode.byteValue(),
                         properties);
         return MqttMessageFactory.newMessage(fixedHeader, mqttPubReplyMessageVariableHeader, null);
     }
