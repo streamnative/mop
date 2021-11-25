@@ -11,16 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.messages.codes;
+package io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5;
 
 import io.netty.handler.codec.mqtt.MqttQoS;
 
-public enum MqttSubAckReasonCode {
+
+/**
+ * Mqtt protocol 5.0 subscription acknowledgement reason code.
+ *
+ * see : https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.pdf
+ */
+public enum Mqtt5SubReasonCode implements MqttReasonCode {
     GRANTED_QOS0(0x0),
     GRANTED_QOS1(0x1),
     GRANTED_QOS2(0x2),
     UNSPECIFIED_ERROR(0x80),
-    // mqtt version 5
     IMPLEMENTATION_SPECIFIC_ERROR(0x83),
     NOT_AUTHORIZED(0x87),
     TOPIC_FILTER_INVALID(0x8F),
@@ -30,27 +35,27 @@ public enum MqttSubAckReasonCode {
     SUBSCRIPTION_IDENTIFIERS_NOT_SUPPORTED(0xA1),
     WILDCARD_SUBSCRIPTIONS_NOT_SUPPORTED(0xA2);
 
+    private final int code;
 
-    private final int shortValue;
-
-    MqttSubAckReasonCode(int shortValue) {
-        this.shortValue = shortValue;
+    Mqtt5SubReasonCode(int code) {
+        this.code = code;
     }
 
-    public int value() {
-        return shortValue;
-    }
-
-    public static MqttSubAckReasonCode qosGranted(MqttQoS qos) {
+    public static Mqtt5SubReasonCode qosGranted(MqttQoS qos) {
         switch (qos) {
             case AT_MOST_ONCE:
-                return MqttSubAckReasonCode.GRANTED_QOS0;
+                return Mqtt5SubReasonCode.GRANTED_QOS0;
             case AT_LEAST_ONCE:
-                return MqttSubAckReasonCode.GRANTED_QOS1;
+                return Mqtt5SubReasonCode.GRANTED_QOS1;
             case EXACTLY_ONCE:
-                return MqttSubAckReasonCode.GRANTED_QOS2;
+                return Mqtt5SubReasonCode.GRANTED_QOS2;
             default:
-                return MqttSubAckReasonCode.UNSPECIFIED_ERROR;
+                return Mqtt5SubReasonCode.UNSPECIFIED_ERROR;
         }
+    }
+
+    @Override
+    public int value() {
+        return code;
     }
 }
