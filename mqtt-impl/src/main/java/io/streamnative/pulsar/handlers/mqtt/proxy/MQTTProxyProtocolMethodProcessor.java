@@ -143,7 +143,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     // proxy -> MoP
     @Override
     public void processPublish(Channel channel, MqttPublishMessage msg) {
-        final int protocolVersion = NettyUtils.getProtocolVersion(channel);
         final int packetId = msg.variableHeader().packetId();
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Publish] publish to topic = {}, CId={}",
