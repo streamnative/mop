@@ -15,15 +15,17 @@ package io.streamnative.pulsar.handlers.mqtt.exception.handler;
 
 
 import io.netty.channel.Channel;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class MqttDisConnExceptionHandler implements MqttExceptionHandler{
     @Override
     public void handleVersion3(int identifier, Channel channel, Throwable ex) {
-
+        log.debug("do not implement disconnection exception handler, the ex is {}", ex.getMessage());
     }
 
     @Override
     public void handleVersion5(int identifier, Channel channel, Throwable ex) {
-
+        log.debug("do not implement disconnection exception handler, the ex is {}", ex.getMessage());
     }
 }
