@@ -21,6 +21,9 @@ import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.messages.MQTTConnAckMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.MQTTDisConnAckMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttDisconnectReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.Map;
 import java.util.Objects;
@@ -136,6 +139,12 @@ public class Connection {
         }
         if (!force) {
             assignState(ESTABLISHED, DISCONNECTED);
+        }
+        // Support mqtt 5
+        if (MqttUtils.isMqtt5(protocolVersion)){
+            MqttMessage mqttDisconnectionAckMessage =
+                    MQTTDisConnAckMessageUtils.createMqtt5(MqttDisconnectReasonCode.NORMAL);
+            channel.writeAndFlush(mqttDisconnectionAckMessage);
         }
         this.channel.close();
     }
