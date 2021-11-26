@@ -15,12 +15,12 @@ package io.streamnative.pulsar.handlers.mqtt.messages.factory;
 
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttConnAckVariableHeader;
-import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 
 /**
@@ -34,9 +34,9 @@ public class MqttConnAckMessageHelper {
     /**
      * Create Mqtt 5 connection acknowledgement with no property.
      *
-     * @param conAckReasonCode - MqttConnectReturnCode
+     * @param conAckReasonCode - Mqtt5ConnReasonCode
      * @return - MqttMessage
-     * @see MqttConnectReturnCode
+     * @see Mqtt5ConnReasonCode
      */
     public static MqttMessage createMqtt(Mqtt5ConnReasonCode conAckReasonCode) {
         return createMqtt5(conAckReasonCode, false, MqttProperties.NO_PROPERTIES);
@@ -45,15 +45,15 @@ public class MqttConnAckMessageHelper {
     /**
      * Create Mqtt connection acknowledgement.
      *
-     * @param connectReturnCode - MqttConnectReturnCode
+     * @param connectReturnCode - Mqtt3ConnReasonCode
      * @return - MqttMessage
-     * @see MqttConnectReturnCode
+     * @see Mqtt3ConnReasonCode
      */
-    public static MqttMessage createMqtt(MqttConnectReturnCode connectReturnCode) {
+    public static MqttMessage createMqtt(Mqtt3ConnReasonCode connectReturnCode) {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
                 false, 0);
         MqttConnAckVariableHeader mqttConnAckVariableHeader =
-                new MqttConnAckVariableHeader(connectReturnCode, false);
+                new MqttConnAckVariableHeader(connectReturnCode.convertToNettyKlass(), false);
         return new MqttConnAckMessage(fixedHeader, mqttConnAckVariableHeader);
     }
 
@@ -69,11 +69,11 @@ public class MqttConnAckMessageHelper {
     /**
      * Create Mqtt 5 connection acknowledgement with no property.
      *
-     * @param conAckReasonCode - MqttConnectReturnCode
+     * @param conAckReasonCode - Mqtt5ConnReasonCode
      * @param sessionPresent   - Session present
      * @param properties       - Mqtt properties
      * @return - MqttMessage
-     * @see MqttConnectReturnCode
+     * @see Mqtt5ConnReasonCode
      */
     public static MqttMessage createMqtt5(Mqtt5ConnReasonCode conAckReasonCode,
                                           Boolean sessionPresent, MqttProperties properties) {

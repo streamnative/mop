@@ -26,6 +26,7 @@ import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckPayload;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import java.util.ArrayList;
 import java.util.List;
@@ -111,6 +112,21 @@ public class MqttSubAckMessageHelper {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE,
                 false, 0);
         MqttSubAckPayload payload = new MqttSubAckPayload(grantedQoSLevels);
+        return new MqttSubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageId), payload);
+    }
+
+    /**
+     * Create mqtt subscribe acknowledgement message that version is lower than 5.0.
+     *
+     * @param messageId          - Mqtt message id.
+     * @param reasonCode - mqtt subscription reason code
+     * @return - MqttMessage
+     * @see Mqtt3SubReasonCode
+     */
+    public static MqttSubAckMessage createMqtt(int messageId, Mqtt3SubReasonCode reasonCode) {
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE,
+                false, 0);
+        MqttSubAckPayload payload = new MqttSubAckPayload(reasonCode.value());
         return new MqttSubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageId), payload);
     }
 }
