@@ -11,43 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5;
+package io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3;
 
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttReasonCode;
 
 /**
- * Mqtt protocol 5.0 connection reason code.
+ * Mqtt protocol 3.1.x connection reason code.
  *
- * see : https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.pdf
+ * see : http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.doc
  */
-public enum Mqtt5ConnReasonCode implements MqttReasonCode {
-    SUCCESS(0x00),
-    UNSPECIFIED_ERROR(0x80),
-    MALFORMED_PACKET(0x81),
-    PROTOCOL_ERROR(0x82),
-    IMPLEMENTATION_SPECIFIC(0x83),
-    UNSUPPORTED_PROTOCOL_VERSION(0x84),
-    CLIENT_IDENTIFIER_NOT_VALID(0x85),
-    BAD_USERNAME_OR_PASSWORD(0x86),
-    NOT_AUTHORIZED(0x87),
-    SERVER_UNAVAILABLE(0x88),
-    SERVER_BUSY(0x89),
-    BANNED(0x8A),
-    BAD_AUTHENTICATION_METHOD(0x8C),
-    TOPIC_NAME_INVALID(0x90),
-    PACKET_TOO_LARGE(0x95),
-    QUOTA_EXCEEDED(0x97),
-    PAYLOAD_FORMAT_INVALID(0x99),
-    RETAIN_NOT_SUPPORTED(0x9A),
-    QOS_NOT_SUPPORTED(0x9B),
-    USE_ANOTHER_SERVER(0x9C),
-    SERVER_MOVED(0x9D),
-    CONNECTION_RATE_EXCEEDED(0x9F);
+public enum Mqtt3ConnReasonCode implements MqttReasonCode {
+    CONNECTION_ACCEPTED(0x00),
+    CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION(0x01),
+    CONNECTION_REFUSED_IDENTIFIER_REJECTED(0x02),
+    CONNECTION_REFUSED_SERVER_UNAVAILABLE(0x03),
+    CONNECTION_REFUSED_NOT_AUTHORIZED(0x05);
 
     private final int code;
 
-    Mqtt5ConnReasonCode(int code) {
+    Mqtt3ConnReasonCode(int code) {
         this.code = code;
     }
 

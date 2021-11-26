@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5;
 
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttReasonCode;
 
 
 /**

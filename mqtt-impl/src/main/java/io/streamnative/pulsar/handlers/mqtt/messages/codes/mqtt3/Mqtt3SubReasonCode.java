@@ -11,26 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5;
+package io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3;
+
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttReasonCode;
 
 /**
- * Mqtt protocol reason code interface.
+ * Mqtt protocol 3.1.x connection reason code.
  *
- * @see Mqtt5ConnReasonCode
- * @see Mqtt5SubReasonCode
- * @see Mqtt5PubReasonCode
- * @see Mqtt5UnsubReasonCode
- * @see Mqtt5DisConnReasonCode
+ * see : http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.doc
  */
-public interface MqttReasonCode {
-    int value();
+public enum Mqtt3SubReasonCode implements MqttReasonCode {
+    MAXIMUM_QOS_0(0x00),
+    MAXIMUM_QOS_1(0x01),
+    MAXIMUM_QOS_2(0x02),
+    FAILURE(0x80);
 
-    default byte byteValue() {
-        return (byte) value();
+    private final int code;
+
+    Mqtt3SubReasonCode(int code) {
+        this.code = code;
     }
 
-    default short shortValue() {
-        return (short) value();
+    @Override
+    public int value() {
+        return code;
     }
-
 }
