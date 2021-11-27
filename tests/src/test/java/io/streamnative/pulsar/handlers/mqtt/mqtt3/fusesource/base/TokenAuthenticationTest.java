@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.base;
 
 import io.streamnative.pulsar.handlers.mqtt.base.TokenAuthenticationConfig;
 import lombok.extern.slf4j.Slf4j;
@@ -25,21 +25,14 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
- * Token authentication proxy test.
+ * Token authentication integration tests for MQTT protocol handler.
  */
 @Slf4j
-public class TokenAuthenticationProxyTest extends TokenAuthenticationConfig {
-
-    @Override
-    public MQTTServerConfiguration initConfig() throws Exception{
-        MQTTServerConfiguration conf = super.initConfig();
-        conf.setMqttProxyEnabled(true);
-        return conf;
-    }
+public class TokenAuthenticationTest extends TokenAuthenticationConfig {
 
     @Test(timeOut = TIMEOUT)
-    public void testAuthenticateViaProxy() throws Exception {
-        MQTT mqtt = createMQTTProxyClient();
+    public void testAuthenticate() throws Exception {
+        MQTT mqtt = createMQTTClient();
         String topicName = "persistent://public/default/testAuthentication";
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
@@ -55,7 +48,7 @@ public class TokenAuthenticationProxyTest extends TokenAuthenticationConfig {
 
     @Test(expectedExceptions = {MQTTException.class})
     public void testInvalidCredentials() throws Exception {
-        MQTT mqtt = createMQTTProxyClient();
+        MQTT mqtt = createMQTTClient();
         mqtt.setPassword("invalid");
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
