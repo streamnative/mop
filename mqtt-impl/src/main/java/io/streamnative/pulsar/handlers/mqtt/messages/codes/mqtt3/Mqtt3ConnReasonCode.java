@@ -43,7 +43,7 @@ public enum Mqtt3ConnReasonCode implements MqttReasonCode {
     /**
      * Convert this enum to netty MqttConnectReturnCode.
      *
-     * @return - MqttConnectReturnCode-
+     * @return - MqttConnectReturnCode
      * @see MqttConnectReturnCode
      */
     public MqttConnectReturnCode convertToNettyKlass() {
