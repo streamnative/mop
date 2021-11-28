@@ -13,8 +13,14 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import io.netty.util.HashedWheelTimer;
+import io.netty.util.Timeout;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -24,6 +30,9 @@ import lombok.extern.slf4j.Slf4j;
 public class MQTTConnectionManager {
 
     private final ConcurrentMap<String, Connection> connections;
+    @Getter
+    private static final HashedWheelTimer sessionExpireInterval =
+            new HashedWheelTimer(Executors.defaultThreadFactory(), 1, TimeUnit.SECONDS);
 
     public MQTTConnectionManager() {
         this.connections = new ConcurrentHashMap<>(2048);
@@ -37,6 +46,24 @@ public class MQTTConnectionManager {
             }
             existing.close(true);
         }
+    }
+
+    /**
+     * create new timeout task to process task by expire interval.
+     *
+     * @param task   - task
+     * @param clientId - client identifier
+     * @param interval - expire interval time
+     */
+    public void newSessionExpireInterval(Consumer<Timeout> task, String clientId, int interval) {
+        sessionExpireInterval.newTimeout(timeout -> {
+            Connection connection = connections.get(clientId);
+            if (connection != null
+                    && connection.getConnectionState(connection) != Connection.ConnectionState.DISCONNECTED) {
+                return;
+            }
+            task.accept(timeout);
+        }, interval, TimeUnit.SECONDS);
     }
 
     // Must use connections.remove(key, value).

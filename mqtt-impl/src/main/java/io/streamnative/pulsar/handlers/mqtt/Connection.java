@@ -29,6 +29,7 @@ import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -42,6 +43,7 @@ import org.apache.pulsar.broker.service.Topic;
  * session flag.
  */
 @Slf4j
+@Builder
 public class Connection {
 
     @Getter
@@ -52,18 +54,15 @@ public class Connection {
     private final boolean cleanSession;
     @Getter
     private final int protocolVersion;
-
+    @Getter
+    private final Integer sessionExpireInterval;
+    @Builder.Default
     volatile ConnectionState connectionState = DISCONNECTED;
+    // connection manager
+    private final MQTTConnectionManager manager;
 
-    private final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
+    private static final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
             newUpdater(Connection.class, ConnectionState.class, "connectionState");
-
-    public Connection(String clientId, Channel channel, boolean cleanSession, int protocolVersion) {
-        this.clientId = clientId;
-        this.channel = channel;
-        this.cleanSession = cleanSession;
-        this.protocolVersion = protocolVersion;
-    }
 
     public void sendConnAck() {
         boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
@@ -116,18 +115,26 @@ public class Connection {
         }
     }
 
+    private void doRemoveSubscriptions() {
+        Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
+                .getTopicSubscriptions(channel);
+        // For producer doesn't bind subscriptions
+        if (topicSubscriptions != null) {
+            topicSubscriptions.forEach((k, v) -> {
+                k.unsubscribe(NettyUtils.getClientId(channel));
+                v.getLeft().delete();
+            });
+        }
+    }
+
     public void removeSubscriptions() {
         removeConsumers();
         if (cleanSession) {
-            Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
-                    .getTopicSubscriptions(channel);
-            // For producer doesn't bind subscriptions
-            if (topicSubscriptions != null) {
-                topicSubscriptions.forEach((k, v) -> {
-                    k.unsubscribe(NettyUtils.getClientId(channel));
-                    v.getLeft().delete();
-                });
-            }
+            doRemoveSubscriptions();
+        } else if (sessionExpireInterval != null) {  // when mqtt client support session expire interval variable
+            // clean session delay
+            manager.newSessionExpireInterval(__ ->
+                    doRemoveSubscriptions(), clientId, sessionExpireInterval);
         }
     }
 
@@ -143,7 +150,7 @@ public class Connection {
             assignState(ESTABLISHED, DISCONNECTED);
         }
         // Support mqtt 5
-        if (MqttUtils.isMqtt5(protocolVersion)){
+        if (MqttUtils.isMqtt5(protocolVersion)) {
             MqttMessage mqttDisconnectionAckMessage =
                     MqttDisConnAckMessageHelper.createMqtt5(Mqtt5DisConnReasonCode.NORMAL);
             channel.writeAndFlush(mqttDisconnectionAckMessage);
@@ -172,6 +179,10 @@ public class Connection {
                     newState);
         }
         return ret;
+    }
+
+    public ConnectionState getConnectionState(Connection connection) {
+        return channelState.get(connection);
     }
 
     @Override

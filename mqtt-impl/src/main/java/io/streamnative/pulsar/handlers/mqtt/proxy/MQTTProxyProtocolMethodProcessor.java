@@ -29,6 +29,7 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
@@ -43,6 +44,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -126,8 +128,15 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
         NettyUtils.setProtocolVersion(channel, protocolVersion);
 
-        Connection connection =
-                new Connection(clientId, channel, msg.variableHeader().isCleanSession(), protocolVersion);
+        Connection.ConnectionBuilder connectionBuilder = Connection.builder()
+                .protocolVersion(protocolVersion)
+                .clientId(clientId)
+                .channel(channel)
+                .manager(connectionManager)
+                .cleanSession(msg.variableHeader().isCleanSession());
+        Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(msg.variableHeader().properties());
+        expireInterval.ifPresent(connectionBuilder::sessionExpireInterval);
+        Connection connection = connectionBuilder.build();
         connectionManager.addConnection(connection);
         NettyUtils.setConnection(channel, connection);
         connection.sendConnAck();
