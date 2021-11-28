@@ -111,7 +111,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             if (authResult.isFailed()) {
                 MqttMessage connAck = MqttUtils.isMqtt5(protocolVersion)
                         ? MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.BAD_USERNAME_OR_PASSWORD) :
-                        MqttConnAckMessageHelper.createMqtt(Mqtt3ConnReasonCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
+                        MqttConnAckMessageHelper.createMqtt(
+                                Mqtt3ConnReasonCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD);
                 channel.writeAndFlush(connAck);
                 channel.close();
                 log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, payload.userName());

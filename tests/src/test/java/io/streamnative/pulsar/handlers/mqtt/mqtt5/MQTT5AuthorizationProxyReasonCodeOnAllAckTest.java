@@ -150,7 +150,7 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
                     .send();
         } catch (Mqtt5ConnAckException ex) {
             Mqtt5ConnAckReasonCode reasonCode = ex.getMqttMessage().getReasonCode();
-            Assert.assertEquals(reasonCode, Mqtt5ConnAckReasonCode.NOT_AUTHORIZED);
+            Assert.assertEquals(reasonCode, Mqtt5ConnAckReasonCode.BAD_USER_NAME_OR_PASSWORD);
         }
     }
 
