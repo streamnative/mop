@@ -33,9 +33,6 @@ public class MqttPropertyUtils {
     public static Optional<Integer> getExpireInterval(MqttProperties properties) {
         MqttProperties.MqttProperty<Integer> property = properties
                 .getProperty(MqttProperties.MqttPropertyType.SESSION_EXPIRY_INTERVAL.value());
-        if (property == null) {
-            return Optional.empty();
-        }
         return Optional.ofNullable(property.value());
     }
 };
