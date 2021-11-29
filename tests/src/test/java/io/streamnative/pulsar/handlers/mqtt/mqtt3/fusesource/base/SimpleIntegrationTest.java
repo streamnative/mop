@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.base;
 
 import static org.mockito.Mockito.verify;
 import com.google.gson.Gson;
@@ -21,8 +21,9 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import io.streamnative.pulsar.handlers.mqtt.psk.PSKClient;
+import io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.psk.PSKClient;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.io.BufferedReader;
 import java.io.EOFException;

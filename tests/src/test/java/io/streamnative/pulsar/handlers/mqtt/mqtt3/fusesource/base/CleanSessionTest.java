@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.base;
 
 import com.hivemq.client.mqtt.mqtt3.Mqtt3BlockingClient;
 import com.hivemq.client.mqtt.mqtt3.Mqtt3Client;
@@ -21,7 +21,6 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
 
 @Slf4j
 public class CleanSessionTest extends MQTTTestBase {

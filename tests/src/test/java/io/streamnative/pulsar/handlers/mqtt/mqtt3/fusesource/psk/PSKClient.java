@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.psk;
+package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.psk;
 
 import static org.apache.pulsar.client.impl.PulsarChannelInitializer.TLS_HANDLER;
 import io.netty.channel.ChannelHandlerContext;

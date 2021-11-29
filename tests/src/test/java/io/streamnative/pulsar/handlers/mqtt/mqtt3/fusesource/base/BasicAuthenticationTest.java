@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.base;
 
-import io.streamnative.pulsar.handlers.mqtt.base.TokenAuthenticationConfig;
+import io.streamnative.pulsar.handlers.mqtt.base.BasicAuthenticationConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
@@ -25,10 +25,10 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
- * Token authentication integration tests for MQTT protocol handler.
+ * Basic authentication test.
  */
 @Slf4j
-public class TokenAuthenticationTest extends TokenAuthenticationConfig {
+public class BasicAuthenticationTest extends BasicAuthenticationConfig {
 
     @Test(timeOut = TIMEOUT)
     public void testAuthenticate() throws Exception {
@@ -41,17 +41,18 @@ public class TokenAuthenticationTest extends TokenAuthenticationConfig {
         String message = "Hello MQTT";
         connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
         Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
     }
 
-    @Test(expectedExceptions = {MQTTException.class})
-    public void testInvalidCredentials() throws Exception {
+    @Test(expectedExceptions = {MQTTException.class}, timeOut = TIMEOUT)
+    public void testNoAuthenticated() throws Exception {
         MQTT mqtt = createMQTTClient();
+        mqtt.setUserName("user1");
         mqtt.setPassword("invalid");
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
-        connection.disconnect();
     }
 }

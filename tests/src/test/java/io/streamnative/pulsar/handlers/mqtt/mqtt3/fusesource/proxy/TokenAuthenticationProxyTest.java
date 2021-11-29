@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.proxy;
 
-import io.streamnative.pulsar.handlers.mqtt.base.BasicAuthenticationConfig;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.base.TokenAuthenticationConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
@@ -25,10 +26,10 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
- * Basic authentication proxy test.
+ * Token authentication proxy test.
  */
 @Slf4j
-public class BasicAuthenticationProxyTest extends BasicAuthenticationConfig {
+public class TokenAuthenticationProxyTest extends TokenAuthenticationConfig {
 
     @Override
     public MQTTServerConfiguration initConfig() throws Exception{
@@ -40,7 +41,7 @@ public class BasicAuthenticationProxyTest extends BasicAuthenticationConfig {
     @Test(timeOut = TIMEOUT)
     public void testAuthenticateViaProxy() throws Exception {
         MQTT mqtt = createMQTTProxyClient();
-        String topicName = "persistent://public/default/testAuthenticationWithProxy";
+        String topicName = "persistent://public/default/testAuthentication";
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = {new Topic(topicName, QoS.AT_LEAST_ONCE)};
@@ -48,18 +49,17 @@ public class BasicAuthenticationProxyTest extends BasicAuthenticationConfig {
         String message = "Hello MQTT";
         connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
         Message received = connection.receive();
-        Assert.assertEquals(received.getTopic(), topicName);
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
     }
 
-    @Test(expectedExceptions = {MQTTException.class}, timeOut = TIMEOUT)
-    public void testNoAuthenticated() throws Exception {
+    @Test(expectedExceptions = {MQTTException.class})
+    public void testInvalidCredentials() throws Exception {
         MQTT mqtt = createMQTTProxyClient();
-        mqtt.setUserName("user1");
         mqtt.setPassword("invalid");
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
+        connection.disconnect();
     }
 }
