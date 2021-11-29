@@ -20,7 +20,6 @@ import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import lombok.extern.slf4j.Slf4j;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
 import java.util.UUID;
 
 @Slf4j
