@@ -17,10 +17,11 @@ import com.hivemq.client.mqtt.mqtt3.Mqtt3BlockingClient;
 import com.hivemq.client.mqtt.mqtt3.Mqtt3Client;
 import com.hivemq.client.mqtt.mqtt3.message.connect.connack.Mqtt3ConnAck;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-import java.util.UUID;
+
 
 @Slf4j
 public class CleanSessionTest extends MQTTTestBase {
