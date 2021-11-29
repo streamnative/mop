@@ -13,6 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5;
 
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttReasonCode;
+
 /**
  * Mqtt protocol 5.0 disconnect reason code.
  *
