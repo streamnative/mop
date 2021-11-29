@@ -43,6 +43,17 @@ public class MqttConnAckMessageHelper {
     }
 
     /**
+     * Create Mqtt 5 connection acknowledgement with no property.
+     *
+     * @param conAckReasonCode - Mqtt5ConnReasonCode
+     * @return - MqttMessage
+     * @see Mqtt5ConnReasonCode
+     */
+    public static MqttMessage createMqtt(Mqtt5ConnReasonCode conAckReasonCode, boolean sessionPresent) {
+        return createMqtt5(conAckReasonCode, sessionPresent, MqttProperties.NO_PROPERTIES);
+    }
+
+    /**
      * Create Mqtt connection acknowledgement.
      *
      * @param connectReturnCode - Mqtt3ConnReasonCode
@@ -50,10 +61,21 @@ public class MqttConnAckMessageHelper {
      * @see Mqtt3ConnReasonCode
      */
     public static MqttMessage createMqtt(Mqtt3ConnReasonCode connectReturnCode) {
+      return createMqtt(connectReturnCode, false);
+    }
+
+    /**
+     * Create Mqtt connection acknowledgement.
+     *
+     * @param connectReturnCode - Mqtt3ConnReasonCode
+     * @return - MqttMessage
+     * @see Mqtt3ConnReasonCode
+     */
+    public static MqttMessage createMqtt(Mqtt3ConnReasonCode connectReturnCode, boolean sessionPresent) {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
                 false, 0);
         MqttConnAckVariableHeader mqttConnAckVariableHeader =
-                new MqttConnAckVariableHeader(connectReturnCode.convertToNettyKlass(), false);
+                new MqttConnAckVariableHeader(connectReturnCode.convertToNettyKlass(), sessionPresent);
         return new MqttConnAckMessage(fixedHeader, mqttConnAckVariableHeader);
     }
 

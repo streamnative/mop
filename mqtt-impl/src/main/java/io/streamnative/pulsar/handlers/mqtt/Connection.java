@@ -69,8 +69,8 @@ public class Connection {
         boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
         if (ret) {
             MqttMessage mqttConnAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                    ? MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.SUCCESS) :
-                    MqttConnAckMessageHelper.createMqtt(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED);
+                    ? MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.SUCCESS, !cleanSession) :
+                    MqttConnAckMessageHelper.createMqtt(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED, !cleanSession);
             channel.writeAndFlush(mqttConnAckMessage).addListener(future -> {
                 if (future.isSuccess()) {
                     if (log.isDebugEnabled()) {
