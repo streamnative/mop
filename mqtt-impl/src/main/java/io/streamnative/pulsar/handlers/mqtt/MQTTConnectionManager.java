@@ -15,9 +15,9 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import io.netty.util.HashedWheelTimer;
 import io.netty.util.Timeout;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import lombok.Getter;
@@ -32,7 +32,8 @@ public class MQTTConnectionManager {
     private final ConcurrentMap<String, Connection> connections;
     @Getter
     private static final HashedWheelTimer sessionExpireInterval =
-            new HashedWheelTimer(Executors.defaultThreadFactory(), 1, TimeUnit.SECONDS);
+            new HashedWheelTimer(
+                    new DefaultThreadFactory("session-expire-interval"), 1, TimeUnit.SECONDS);
 
     public MQTTConnectionManager() {
         this.connections = new ConcurrentHashMap<>(2048);
