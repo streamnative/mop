@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.messages;
+package io.streamnative.pulsar.handlers.mqtt.messages.factory;
 
 
 import com.google.common.collect.Lists;
@@ -26,15 +26,19 @@ import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckPayload;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Mqtt subscribe acknowledgement message factory.
+ * Factory pattern, used to create mqtt protocol subscription acknowledgement
+ * message.
+ *
+ * @see Mqtt5SubReasonCode
  */
-public class MQTTSubAckMessageUtils {
+public class MqttSubAckMessageHelper {
     /**
      * Create Mqtt 5 subscribe acknowledgement with no property.
      *
@@ -44,8 +48,8 @@ public class MQTTSubAckMessageUtils {
      * @see MqttTopicSubscription
      */
     public static MqttMessage createMqtt5(int messageID, List<MqttTopicSubscription> topicSubscriptions) {
-        List<MqttSubAckReasonCode> mqttSubAckReasonCodes = topicSubscriptions.stream()
-                .map(sub -> MqttSubAckReasonCode.qosGranted(sub.qualityOfService()))
+        List<Mqtt5SubReasonCode> mqttSubAckReasonCodes = topicSubscriptions.stream()
+                .map(sub -> Mqtt5SubReasonCode.qosGranted(sub.qualityOfService()))
                 .collect(Collectors.toList());
         return createMqtt5(messageID, mqttSubAckReasonCodes, MqttProperties.NO_PROPERTIES);
     }
@@ -57,9 +61,9 @@ public class MQTTSubAckMessageUtils {
      * @param subAckReasonCode - MqttSubAckReasonCode
      * @param reasonStr        - Reason string
      * @return - MqttMessage
-     * @see MqttSubAckReasonCode
+     * @see Mqtt5SubReasonCode
      */
-    public static MqttMessage createMqtt5(int messageID, MqttSubAckReasonCode subAckReasonCode,
+    public static MqttMessage createMqtt5(int messageID, Mqtt5SubReasonCode subAckReasonCode,
                                           String reasonStr) {
         MqttProperties mqttProperties = new MqttProperties();
         MqttProperties.StringProperty reasonStringProperty =
@@ -76,10 +80,10 @@ public class MQTTSubAckMessageUtils {
      * @param subAckReasonCodes - MqttSubAckReasonCode
      * @param properties        - MqttProperties
      * @return - MqttMessage
-     * @see MqttSubAckReasonCode
+     * @see Mqtt5SubReasonCode
      * @see MqttProperties
      */
-    public static MqttMessage createMqtt5(int messageID, List<MqttSubAckReasonCode> subAckReasonCodes,
+    public static MqttMessage createMqtt5(int messageID, List<Mqtt5SubReasonCode> subAckReasonCodes,
                                           MqttProperties properties) {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE,
                 false, 0);
@@ -87,7 +91,7 @@ public class MQTTSubAckMessageUtils {
                 new MqttMessageIdAndPropertiesVariableHeader(messageID, properties);
         MqttSubAckPayload mqttSubAckPayload =
                 new MqttSubAckPayload(
-                        subAckReasonCodes.stream().map(MqttSubAckReasonCode::value).collect(Collectors.toList()));
+                        subAckReasonCodes.stream().map(Mqtt5SubReasonCode::value).collect(Collectors.toList()));
         return MqttMessageFactory.newMessage(fixedHeader, mqttMessageIdAndPropertiesVariableHeader,
                 mqttSubAckPayload);
     }
@@ -108,6 +112,21 @@ public class MQTTSubAckMessageUtils {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE,
                 false, 0);
         MqttSubAckPayload payload = new MqttSubAckPayload(grantedQoSLevels);
+        return new MqttSubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageId), payload);
+    }
+
+    /**
+     * Create mqtt subscribe acknowledgement message that version is lower than 5.0.
+     *
+     * @param messageId          - Mqtt message id.
+     * @param reasonCode - mqtt subscription reason code
+     * @return - MqttMessage
+     * @see Mqtt3SubReasonCode
+     */
+    public static MqttSubAckMessage createMqtt(int messageId, Mqtt3SubReasonCode reasonCode) {
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE,
+                false, 0);
+        MqttSubAckPayload payload = new MqttSubAckPayload(reasonCode.value());
         return new MqttSubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageId), payload);
     }
 }

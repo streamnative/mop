@@ -20,8 +20,8 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
-import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
@@ -42,14 +42,17 @@ import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
-import io.streamnative.pulsar.handlers.mqtt.messages.MQTTConnAckMessageUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.MQTTPubAckMessageUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.MQTTSubAckMessageUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.MQTTUnsubAckMessageUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttPubAckReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttSubAckReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttUnsubAckReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.utils.MQTT5ExceptionUtils;
+import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -120,8 +123,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
         // Check MQTT protocol version.
         if (!MqttUtils.isSupportedVersion(msg.variableHeader().version())) {
-            MqttMessage badProto = MQTTConnAckMessageUtils.
-                    createMqtt(MqttConnectReturnCode.CONNECTION_REFUSED_UNSUPPORTED_PROTOCOL_VERSION);
+            MqttMessage badProto = MqttConnAckMessageHelper.
+                    createMqtt(Mqtt5ConnReasonCode.UNSUPPORTED_PROTOCOL_VERSION);
 
             log.error("MQTT protocol version is not valid. CId={}", clientId);
             channel.writeAndFlush(badProto);
@@ -132,13 +135,10 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
-                MqttMessage badId = MQTTConnAckMessageUtils.
-                        createMqtt(
-                                // Support mqtt version 5
-                                MqttUtils.isMqtt5(protocolVersion)
-                                        ? MqttConnectReturnCode.CONNECTION_REFUSED_CLIENT_IDENTIFIER_NOT_VALID :
-                                        MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED
-                        );
+                MqttMessage badId = MqttUtils.isMqtt5(protocolVersion)
+                        ? MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.CLIENT_IDENTIFIER_NOT_VALID) :
+                        MqttConnAckMessageHelper.createMqtt(
+                                Mqtt3ConnReasonCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED);
                 channel.writeAndFlush(badId);
                 channel.close();
                 log.error("The MQTT client ID cannot be empty. Username={}", username);
@@ -158,13 +158,10 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                MqttMessage connectAuthenticationFailMessage = MQTTConnAckMessageUtils.
-                        createMqtt(
-                                // Support mqtt version 5
-                                MqttUtils.isMqtt5(protocolVersion)
-                                        ? MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED_5 :
-                                        MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED
-                        );
+                MqttMessage connectAuthenticationFailMessage = MqttUtils.isMqtt5(protocolVersion)
+                        ? MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.BAD_USERNAME_OR_PASSWORD)
+                        : MqttConnAckMessageHelper.createMqtt(
+                                Mqtt3ConnReasonCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD);
                 channel.writeAndFlush(connectAuthenticationFailMessage);
                 channel.close();
                 log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
@@ -185,8 +182,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 MqttQoS mqttQoS = MqttQoS.valueOf(willQos);
                 if (mqttQoS == MqttQoS.FAILURE || mqttQoS == MqttQoS.EXACTLY_ONCE) {
                     MqttMessage mqttConnAckMessage =
-                            MQTTConnAckMessageUtils.createMqtt5(
-                                    MqttConnectReturnCode.CONNECTION_REFUSED_QOS_NOT_SUPPORTED,
+                            MqttConnAckMessageHelper.createMqtt5(
+                                    Mqtt5ConnReasonCode.QOS_NOT_SUPPORTED,
                                     "The server do not support will message that qos is exactly once.");
                     channel.writeAndFlush(mqttConnAckMessage);
                     channel.close();
@@ -242,12 +239,12 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                             log.error("[Publish] no authorization to pub topic={}, userRole={}, CId= {}",
                                     msg.variableHeader().topicName(), userRole, clientID);
                             // Support Mqtt 5
-                            MqttMessage mqttPubAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                                    ? MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.NOT_AUTHORIZED,
-                                    String.format("The client %s not authorized.", clientID)) :
-                                    MQTTConnAckMessageUtils.createMqtt(
-                                            MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
-                            channel.writeAndFlush(mqttPubAckMessage);
+                            if (MqttUtils.isMqtt5(protocolVersion)) {
+                                MqttMessage mqttPubAckMessage =
+                                    MqttPubAckMessageHelper.createMqtt5(packetId, Mqtt5PubReasonCode.NOT_AUTHORIZED,
+                                        String.format("The client %s not authorized.", clientID));
+                                channel.writeAndFlush(mqttPubAckMessage);
+                            }
                             channel.close();
                         } else {
                             doPublish(channel, msg);
@@ -361,13 +358,11 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
         if (StringUtils.isEmpty(clientID)) {
             log.error("clientId is empty for sub [{}] close channel", msg);
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                // Support mqtt version 5.0
-                MqttMessage subAckMessage = MQTTSubAckMessageUtils.createMqtt5(msg.variableHeader().messageId(),
-                        MqttSubAckReasonCode.UNSPECIFIED_ERROR,
-                        "The client id not found.");
-                channel.writeAndFlush(subAckMessage);
-            }
+            MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion)
+                    ? MqttSubAckMessageHelper.createMqtt5(msg.variableHeader().messageId(),
+                    Mqtt5SubReasonCode.UNSPECIFIED_ERROR, "The client id not found.") :
+                    MqttSubAckMessageHelper.createMqtt(msg.variableHeader().messageId(), Mqtt3SubReasonCode.FAILURE);
+            channel.writeAndFlush(subAckMessage);
             channel.close();
             return;
         }
@@ -391,11 +386,11 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             }
             FutureUtil.waitForAll(authorizationFutures).thenAccept(__ -> {
                 if (!authorizedFlag.get()) {
+                    int messageId = msg.variableHeader().messageId();
                     MqttMessage subscribeAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                            ? MQTTSubAckMessageUtils.createMqtt5(msg.variableHeader().messageId(),
-                            MqttSubAckReasonCode.NOT_AUTHORIZED,
+                            ? MqttSubAckMessageHelper.createMqtt5(messageId, Mqtt5SubReasonCode.NOT_AUTHORIZED,
                             String.format("The client %s not authorized.", clientID)) :
-                            MQTTConnAckMessageUtils.createMqtt(MqttConnectReturnCode.CONNECTION_REFUSED_NOT_AUTHORIZED);
+                            MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
                     channel.writeAndFlush(subscribeAckMessage);
                     channel.close();
                 } else {
@@ -445,8 +440,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         FutureUtil.waitForAll(futureList).thenAccept(v -> {
             MqttMessage ackMessage =
                     // Support MQTT 5
-                    MqttUtils.isMqtt5(protocolVersion) ? MQTTSubAckMessageUtils.createMqtt5(messageID, subTopics) :
-                            MQTTSubAckMessageUtils.createMqtt(messageID, subTopics);
+                    MqttUtils.isMqtt5(protocolVersion) ? MqttSubAckMessageHelper.createMqtt5(messageID, subTopics) :
+                            MqttSubAckMessageHelper.createMqtt(messageID, subTopics);
             if (log.isDebugEnabled()) {
                 log.debug("Sending SUB-ACK message {} to {}", ackMessage, clientID);
             }
@@ -458,12 +453,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             NettyUtils.setTopicSubscriptions(channel, topicSubscriptions);
         }).exceptionally(e -> {
             log.error("[{}] Failed to process MQTT subscribe.", clientID, e);
-            // Support Mqtt5
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                MQTT5ExceptionUtils.handleSubScribeException(messageID, channel, e);
-            } else {
-                channel.close();
-            }
+            MopExceptionHelper.handle(MqttMessageType.SUBSCRIBE, messageID, channel, e);
             return null;
         });
     }
@@ -525,20 +515,15 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         FutureUtil.waitForAll(futureList).thenAccept(__ -> {
             // ack the client
             MqttMessage ackMessage = MqttUtils.isMqtt5(protocolVersion) ?  // Support Mqtt version 5.0 reason code.
-                    MQTTUnsubAckMessageUtils.createMqtt5(messageID, MqttUnsubAckReasonCode.SUCCESS) :
-                    MQTTUnsubAckMessageUtils.createMqtt(messageID);
+                    MqttUnsubAckMessageHelper.createMqtt5(messageID, Mqtt5UnsubReasonCode.SUCCESS) :
+                    MqttUnsubAckMessageHelper.createMqtt(messageID);
             if (log.isDebugEnabled()) {
                 log.debug("Sending UNSUBACK message {} to {}", ackMessage, clientID);
             }
             channel.writeAndFlush(ackMessage);
         }).exceptionally(ex -> {
             log.error("[{}] Failed to process the UNSUB {}", clientID, msg);
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                // Support Mqtt version 5.0 reason code.
-                MQTT5ExceptionUtils.handleUnSubscribeException(messageID, channel, ex);
-            } else {
-                channel.close();
-            }
+            MopExceptionHelper.handle(MqttMessageType.UNSUBSCRIBE, messageID, channel, ex);
             return null;
         });
     }

@@ -15,21 +15,20 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
-import io.streamnative.pulsar.handlers.mqtt.messages.MQTTPubAckMessageUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttPubAckReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.utils.MQTT5ExceptionUtils;
+import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.service.BrokerServiceException;
-import org.apache.zookeeper.KeeperException;
 
 /**
  * Publish handler implementation for Qos 1.
@@ -56,8 +55,8 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                     log.debug("[{}] Write {} to Pulsar topic succeed.", topic, msg);
                 }
                 MqttMessage mqttPubAckMessage = isMqtt5
-                        ? MQTTPubAckMessageUtils.createMqtt5(packetId, MqttPubAckReasonCode.SUCCESS) :
-                        MQTTPubAckMessageUtils.createMqtt(packetId);
+                        ? MqttPubAckMessageHelper.createMqtt5(packetId, Mqtt5PubReasonCode.SUCCESS) :
+                        MqttPubAckMessageHelper.createMqtt(packetId);
                 channel.writeAndFlush(mqttPubAckMessage).addListener(future -> {
                     if (future.isSuccess()) {
                         if (log.isDebugEnabled()) {
@@ -72,19 +71,11 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
             } else {
                 Throwable cause = e.getCause();
                 if (cause instanceof MQTTNoMatchingSubscriberException) {
-                    log.debug("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
+                    log.warn("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
                 } else {
                     log.error("[{}] Write {} to Pulsar topic failed.", topic, msg, e);
                 }
-                if (isMqtt5) {
-                    MQTT5ExceptionUtils.handlePublishException(packetId, channel, cause);
-                }
-                if (cause instanceof BrokerServiceException.ServerMetadataException) {
-                    cause = cause.getCause();
-                    if (cause instanceof KeeperException.NoNodeException) {
-                        channel.close();
-                    }
-                }
+                MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, cause);
             }
         });
     }
