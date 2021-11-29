@@ -84,7 +84,7 @@ public class Connection {
             log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
                     DISCONNECTED, CONNECT_ACK, clientId);
             MqttMessage mqttConnAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                    ? MqttConnAckMessageHelper.createMqtt5(Mqtt5ConnReasonCode.IMPLEMENTATION_SPECIFIC,
+                    ? MqttConnAckMessageHelper.createMqtt5(Mqtt5ConnReasonCode.SERVER_UNAVAILABLE,
                     String.format("Unable to assign the state from : %s to : %s for CId=%s, close channel"
                             , DISCONNECTED, CONNECT_ACK, clientId)) :
                     MqttConnAckMessageHelper.createMqtt(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE);
