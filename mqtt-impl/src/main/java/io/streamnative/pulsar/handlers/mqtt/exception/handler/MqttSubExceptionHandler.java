@@ -16,13 +16,18 @@ package io.streamnative.pulsar.handlers.mqtt.exception.handler;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 
 public class MqttSubExceptionHandler implements MqttExceptionHandler {
     @Override
     public void handleVersion3(int identifier, Channel channel, Throwable ex) {
+        MqttSubAckMessage ackMessage = MqttSubAckMessageHelper
+                .createMqtt(identifier, Mqtt3SubReasonCode.FAILURE);
+        channel.writeAndFlush(ackMessage);
         channel.close();
     }
 
