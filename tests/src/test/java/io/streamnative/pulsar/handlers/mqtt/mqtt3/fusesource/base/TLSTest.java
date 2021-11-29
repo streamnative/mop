@@ -12,8 +12,9 @@
  * limitations under the License.
  */
 
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.base;
 
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.io.File;
 import java.io.FileInputStream;

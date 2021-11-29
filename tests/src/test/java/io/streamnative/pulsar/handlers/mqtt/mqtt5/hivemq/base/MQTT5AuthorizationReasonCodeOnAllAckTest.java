@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.mqtt5;
+package io.streamnative.pulsar.handlers.mqtt.mqtt5.hivemq.base;
 
 import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
@@ -25,11 +25,9 @@ import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import com.hivemq.client.mqtt.mqtt5.message.publish.puback.Mqtt5PubAckReasonCode;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAck;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAckReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.AuthorizationConfig;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
-import java.util.Random;
 import java.util.Set;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.common.policies.data.AuthAction;
@@ -37,15 +35,7 @@ import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends AuthorizationConfig {
-    private final Random random = new Random();
-
-    @Override
-    public MQTTServerConfiguration initConfig() throws Exception {
-        MQTTServerConfiguration conf = super.initConfig();
-        conf.setMqttProxyEnabled(true);
-        return conf;
-    }
+public class MQTT5AuthorizationReasonCodeOnAllAckTest extends AuthorizationConfig {
 
     @Test(timeOut = TIMEOUT)
     public void testSubScribeAuthorized() throws PulsarAdminException, InterruptedException {
@@ -61,8 +51,8 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
 
         String message = "Hello MQTT Pulsar";
 
-        Mqtt5BlockingClient publisher = MQTT5ClientUtils.createMqtt5ProxyClient(
-                getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
+        Mqtt5BlockingClient publisher = MQTT5ClientUtils.createMqtt5Client(
+                mqttBrokerPortList.get(0));
         publisher.connectWith()
                 .simpleAuth()
                 .username("user1")
@@ -70,8 +60,8 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
                 .applySimpleAuth()
                 .send();
 
-        Mqtt5BlockingClient consumer = MQTT5ClientUtils.createMqtt5ProxyClient(
-                getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
+        Mqtt5BlockingClient consumer = MQTT5ClientUtils.createMqtt5Client(
+                mqttBrokerPortList.get(0));
         consumer.connectWith()
                 .simpleAuth()
                 .username("user2")
@@ -95,7 +85,7 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
 
     @Test(timeOut = TIMEOUT)
     public void testSubScribeNotAuthorized() {
-        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(getMqttBrokerPortList().get(0));
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connectWith()
                 .simpleAuth()
                 .username("user1")
@@ -115,7 +105,7 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
 
     @Test(timeOut = TIMEOUT)
     public void testPublishNotAuthorized() {
-        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(getMqttBrokerPortList().get(0));
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connectWith()
                 .simpleAuth()
                 .username("user1")
@@ -140,7 +130,7 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
 
     @Test(timeOut = TIMEOUT)
     public void testAuthenticationFail() {
-        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(getMqttBrokerPortList().get(0));
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         try {
             client.connectWith()
                     .simpleAuth()
@@ -156,7 +146,7 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
 
     @Test(timeOut = TIMEOUT)
     public void testAuthenticationSuccess() {
-        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(getMqttBrokerPortList().get(0));
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         Mqtt5ConnAck connAck = client.connectWith()
                 .simpleAuth()
                 .username("user1")
@@ -166,4 +156,3 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
         Assert.assertEquals(connAck.getReasonCode(), Mqtt5ConnAckReasonCode.SUCCESS);
     }
 }
-
