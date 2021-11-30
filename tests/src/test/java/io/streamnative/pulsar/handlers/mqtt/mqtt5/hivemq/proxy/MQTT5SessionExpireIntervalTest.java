@@ -109,7 +109,7 @@ public class MQTT5SessionExpireIntervalTest extends MQTTTestBase {
                 .qos(MqttQos.AT_LEAST_ONCE)
                 .send();
         Awaitility.await()
-                .pollDelay(8, TimeUnit.SECONDS)
+                .pollDelay(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> {
                     List<String> reconnectSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
                     Assert.assertTrue(reconnectSubscriptions.contains(clientId));
