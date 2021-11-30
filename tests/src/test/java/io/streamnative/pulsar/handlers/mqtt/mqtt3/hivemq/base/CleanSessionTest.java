@@ -11,30 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.mqtt5.hivemq.base;
+package io.streamnative.pulsar.handlers.mqtt.mqtt3.hivemq.base;
 
 import com.hivemq.client.mqtt.datatypes.MqttQos;
-import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
-import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck;
+import com.hivemq.client.mqtt.mqtt3.Mqtt3BlockingClient;
+import com.hivemq.client.mqtt.mqtt3.Mqtt3Client;
+import com.hivemq.client.mqtt.mqtt3.message.connect.connack.Mqtt3ConnAck;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
+import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 @Slf4j
-public class MQTT5CleanStartTest extends MQTTTestBase {
+public class CleanSessionTest extends MQTTTestBase {
 
     @Test(timeOut = TIMEOUT)
     public void testCleanSession() throws Exception {
         final String topic = "clean-session-test-1";
-        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
-        Mqtt5ConnAck connect = client.connectWith()
-                .cleanStart(true)
-                .send();
+        Mqtt3BlockingClient client = Mqtt3Client.builder()
+                .identifier(UUID.randomUUID().toString())
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        Mqtt3ConnAck connect = client.connect();
         boolean sessionPresent = connect.isSessionPresent();
         Assert.assertFalse(sessionPresent);
         client.subscribeWith()
@@ -54,9 +58,13 @@ public class MQTT5CleanStartTest extends MQTTTestBase {
     @Test(timeOut = TIMEOUT)
     public void testNotCleanSession() throws Exception {
         final String topic = "clean-session-test-2";
-        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
-        Mqtt5ConnAck connect = client.connectWith()
-                .cleanStart(false)
+        Mqtt3BlockingClient client = Mqtt3Client.builder()
+                .identifier(UUID.randomUUID().toString())
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        Mqtt3ConnAck connect = client.connectWith()
+                .cleanSession(false)
                 .send();
         boolean sessionPresent = connect.isSessionPresent();
         Assert.assertTrue(sessionPresent);
@@ -73,4 +81,5 @@ public class MQTT5CleanStartTest extends MQTTTestBase {
         List<String> afterDisconnectionSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
         Assert.assertTrue(afterDisconnectionSubscriptions.contains(clientId));
     }
+
 }
