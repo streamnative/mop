@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.proxy;
 
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.BasicAuthenticationConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.fusesource.mqtt.client.BlockingConnection;
@@ -25,15 +26,22 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
- * Basic authentication test.
+ * Basic authentication proxy test.
  */
 @Slf4j
-public class BasicAuthenticationTest extends BasicAuthenticationConfig {
+public class BasicAuthenticationProxyTest extends BasicAuthenticationConfig {
+
+    @Override
+    public MQTTServerConfiguration initConfig() throws Exception{
+        MQTTServerConfiguration conf = super.initConfig();
+        conf.setMqttProxyEnabled(true);
+        return conf;
+    }
 
     @Test(timeOut = TIMEOUT)
-    public void testAuthenticate() throws Exception {
-        MQTT mqtt = createMQTTClient();
-        String topicName = "persistent://public/default/testAuthentication";
+    public void testAuthenticateViaProxy() throws Exception {
+        MQTT mqtt = createMQTTProxyClient();
+        String topicName = "persistent://public/default/testAuthenticationWithProxy";
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = {new Topic(topicName, QoS.AT_LEAST_ONCE)};
@@ -49,7 +57,7 @@ public class BasicAuthenticationTest extends BasicAuthenticationConfig {
 
     @Test(expectedExceptions = {MQTTException.class}, timeOut = TIMEOUT)
     public void testNoAuthenticated() throws Exception {
-        MQTT mqtt = createMQTTClient();
+        MQTT mqtt = createMQTTProxyClient();
         mqtt.setUserName("user1");
         mqtt.setPassword("invalid");
         BlockingConnection connection = mqtt.blockingConnection();
