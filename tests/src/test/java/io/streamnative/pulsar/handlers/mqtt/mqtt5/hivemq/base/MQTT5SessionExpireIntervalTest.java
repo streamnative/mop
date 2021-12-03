@@ -20,43 +20,25 @@ import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
+import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+
 @Slf4j
-public class MQTT5CleanStartTest extends MQTTTestBase {
+public class MQTT5SessionExpireIntervalTest extends MQTTTestBase {
+
 
     @Test(timeOut = TIMEOUT)
-    public void testCleanSession() throws Exception {
-        final String topic = "clean-session-test-1";
-        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
-        Mqtt5ConnAck connect = client.connectWith()
-                .cleanStart(true)
-                .send();
-        boolean sessionPresent = connect.isSessionPresent();
-        Assert.assertFalse(sessionPresent);
-        client.subscribeWith()
-                .topicFilter(topic)
-                .qos(MqttQos.AT_LEAST_ONCE)
-                .send();
-        String pulsarTopicName = PulsarTopicUtils
-                .getPulsarTopicName(topic, defaultTenant, defaultNamespace, true, defaultTopicDomain);
-        List<String> subscriptions = admin.topics().getSubscriptions(pulsarTopicName);
-        String clientId = Objects.requireNonNull(client.getConfig().getClientIdentifier().orElse(null)).toString();
-        Assert.assertTrue(subscriptions.contains(clientId));
-        client.disconnect();
-        List<String> afterDisconnectionSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
-        Assert.assertTrue(CollectionUtils.isEmpty(afterDisconnectionSubscriptions));
-    }
-
-    @Test(timeOut = TIMEOUT)
-    public void testNotCleanSession() throws Exception {
-        final String topic = "clean-session-test-2";
+    public void testIntervalCleanSession() throws Exception {
+        final String topic = "test-expire-interval-1";
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         Mqtt5ConnAck connect = client.connectWith()
                 .cleanStart(false)
+                .sessionExpiryInterval(5)
                 .send();
         boolean sessionPresent = connect.isSessionPresent();
         Assert.assertTrue(sessionPresent);
@@ -72,5 +54,54 @@ public class MQTT5CleanStartTest extends MQTTTestBase {
         client.disconnect();
         List<String> afterDisconnectionSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
         Assert.assertTrue(afterDisconnectionSubscriptions.contains(clientId));
+        Awaitility
+                .await()
+                .atMost(15, TimeUnit.SECONDS)
+                .untilAsserted(() -> {
+                    List<String> delaySubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
+                    Assert.assertTrue(CollectionUtils.isEmpty(delaySubscriptions));
+                });
     }
+
+    @Test(timeOut = TIMEOUT)
+    public void testStopExpireIntervalWhenClientReconnect() throws Exception {
+        final String topic = "test-expire-interval-2";
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        Mqtt5ConnAck connect = client.connectWith()
+                .cleanStart(false)
+                .sessionExpiryInterval(5)
+                .send();
+        boolean sessionPresent = connect.isSessionPresent();
+        Assert.assertTrue(sessionPresent);
+        client.subscribeWith()
+                .topicFilter(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        String pulsarTopicName = PulsarTopicUtils
+                .getPulsarTopicName(topic, defaultTenant, defaultNamespace, true, defaultTopicDomain);
+        List<String> subscriptions = admin.topics().getSubscriptions(pulsarTopicName);
+        String clientId = Objects.requireNonNull(client.getConfig().getClientIdentifier().orElse(null)).toString();
+        Assert.assertTrue(subscriptions.contains(clientId));
+        client.disconnect();
+        List<String> afterDisconnectionSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
+        Assert.assertTrue(afterDisconnectionSubscriptions.contains(clientId));
+        Mqtt5ConnAck reconnect = client.connectWith()
+                .cleanStart(false)
+                .sessionExpiryInterval(5)
+                .send();
+        boolean reconnectSessionPresent = reconnect.isSessionPresent();
+        Assert.assertTrue(reconnectSessionPresent);
+        client.subscribeWith()
+                .topicFilter(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        Awaitility.await()
+                .pollDelay(8, TimeUnit.SECONDS)
+                .untilAsserted(() -> {
+                    List<String> reconnectSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
+                    Assert.assertTrue(reconnectSubscriptions.contains(clientId));
+                });
+    }
+
+
 }
