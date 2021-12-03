@@ -144,8 +144,12 @@ public class Connection {
             if (MqttUtils.isMqtt5(protocolVersion)
                     && SESSION_EXPIRE_INTERVAL_UPDATER.get(this)
                     != SessionExpireInterval.NEVER_EXPIRE.getSecondTime()) {
-                manager.newSessionExpireInterval(__ ->
-                        doRemoveSubscriptions(), clientId, SESSION_EXPIRE_INTERVAL_UPDATER.get(this));
+                if (sessionExpireInterval == SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()) {
+                    doRemoveSubscriptions();
+                } else {
+                    manager.newSessionExpireInterval(__ ->
+                            doRemoveSubscriptions(), clientId, SESSION_EXPIRE_INTERVAL_UPDATER.get(this));
+                }
             }
         }
     }
@@ -234,7 +238,7 @@ public class Connection {
     public boolean checkIsLegalExpireInterval(Integer sessionExpireInterval) {
         int sei = SESSION_EXPIRE_INTERVAL_UPDATER.get(this);
         int zeroSecond = SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
-        return sei > zeroSecond && sessionExpireInterval > zeroSecond;
+        return sei > zeroSecond && sessionExpireInterval >= zeroSecond;
     }
 
     /**
