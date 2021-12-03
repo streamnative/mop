@@ -43,6 +43,7 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedE
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
@@ -192,9 +193,15 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             NettyUtils.setWillMessage(channel, createWillMessage(msg));
         }
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
-
-        Connection connection =
-                new Connection(clientId, channel, msg.variableHeader().isCleanSession(), protocolVersion);
+        Connection.ConnectionBuilder connectionBuilder = Connection.builder()
+                .clientId(clientId)
+                .protocolVersion(protocolVersion)
+                .channel(channel)
+                .manager(connectionManager)
+                .cleanSession(msg.variableHeader().isCleanSession());
+        Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(msg.variableHeader().properties());
+        expireInterval.ifPresent(connectionBuilder::sessionExpireInterval);
+        Connection connection = connectionBuilder.build();
         connectionManager.addConnection(connection);
         NettyUtils.setConnection(channel, connection);
         connection.sendConnAck();
