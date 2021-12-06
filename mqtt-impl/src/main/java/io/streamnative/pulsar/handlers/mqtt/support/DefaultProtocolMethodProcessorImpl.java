@@ -22,9 +22,11 @@ import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
@@ -47,10 +49,12 @@ import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
@@ -304,11 +308,20 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     @Override
     public void processDisconnect(Channel channel, MqttMessage msg) {
         final String clientId = NettyUtils.getClientId(channel);
+        Connection connection = NettyUtils.getConnection(channel);
+        // when reset expire interval present, we need to reset session expire interval.
+        Object header = msg.variableHeader();
+        if (header instanceof MqttReasonCodeAndPropertiesVariableHeader) {
+            MqttProperties properties = ((MqttReasonCodeAndPropertiesVariableHeader) header).properties();
+            if (!checkAndUpdateSessionExpireIntervalIfNeed(channel, clientId, connection, properties)){
+                // If the session expire interval value is illegal.
+                return;
+            }
+        }
         if (log.isDebugEnabled()) {
             log.debug("[Disconnect] [{}] ", clientId);
         }
         metricsCollector.removeClient(NettyUtils.getAddress(channel));
-        Connection connection =  NettyUtils.getConnection(channel);
         // When login, checkState(msg) failed, connection is null.
         if (connection != null) {
             connectionManager.removeConnection(connection);
@@ -318,6 +331,29 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             log.warn("connection is null. close CId={}", clientId);
             channel.close();
         }
+    }
+
+    private boolean checkAndUpdateSessionExpireIntervalIfNeed(Channel channel, String clientId,
+                                                              Connection connection, MqttProperties properties) {
+        Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(properties);
+        if (expireInterval.isPresent()) {
+            Integer sessionExpireInterval = expireInterval.get();
+            boolean checkResult = connection.checkIsLegalExpireInterval(sessionExpireInterval);
+            if (!checkResult) {
+                // the detail in mqtt 5 3.2.2.1.1
+                MqttMessage mqttPubAckMessage =
+                        MqttDisConnAckMessageHelper.createMqtt5(Mqtt5DisConnReasonCode.PROTOCOL_ERROR,
+                                String.format("The client %s disconnect with wrong "
+                                                + "session expire interval value. the value is %s",
+                                        clientId, sessionExpireInterval));
+                channel.writeAndFlush(mqttPubAckMessage);
+                // close the channel
+                channel.close();
+                return false;
+            }
+            connection.updateSessionExpireInterval(sessionExpireInterval);
+        }
+        return true;
     }
 
     @Override

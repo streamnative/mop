@@ -57,6 +57,7 @@ public class MQTT5CleanStartTest extends MQTTTestBase {
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         Mqtt5ConnAck connect = client.connectWith()
                 .cleanStart(false)
+                .sessionExpiryInterval(0xffffffffL)
                 .send();
         boolean sessionPresent = connect.isSessionPresent();
         Assert.assertTrue(sessionPresent);
