@@ -333,7 +333,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
     }
 
-    private boolean checkAndUpdateSessionExpireIntervalIfNeed(Channel channel, String clientId, Connection connection, MqttProperties properties) {
+    private boolean checkAndUpdateSessionExpireIntervalIfNeed(Channel channel, String clientId,
+                                                              Connection connection, MqttProperties properties) {
         Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(properties);
         if (expireInterval.isPresent()) {
             Integer sessionExpireInterval = expireInterval.get();
