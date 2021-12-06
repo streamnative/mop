@@ -313,23 +313,9 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         Object header = msg.variableHeader();
         if (header instanceof MqttReasonCodeAndPropertiesVariableHeader) {
             MqttProperties properties = ((MqttReasonCodeAndPropertiesVariableHeader) header).properties();
-            Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(properties);
-            if (expireInterval.isPresent()) {
-                Integer sessionExpireInterval = expireInterval.get();
-                boolean checkResult = connection.checkIsLegalExpireInterval(sessionExpireInterval);
-                if (!checkResult) {
-                    // the detail in mqtt 5 3.2.2.1.1
-                    MqttMessage mqttPubAckMessage =
-                            MqttDisConnAckMessageHelper.createMqtt5(Mqtt5DisConnReasonCode.PROTOCOL_ERROR,
-                                    String.format("The client %s disconnect with wrong "
-                                                    + "session expire interval value. the value is %s",
-                                            clientId, sessionExpireInterval));
-                    channel.writeAndFlush(mqttPubAckMessage);
-                    // close the channel
-                    channel.close();
-                    return;
-                }
-                connection.updateSessionExpireInterval(sessionExpireInterval);
+            if (!checkAndUpdateSessionExpireIntervalIfNeed(channel, clientId, connection, properties)){
+                // If the session expire interval value is illegal.
+                return;
             }
         }
         if (log.isDebugEnabled()) {
@@ -345,6 +331,28 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             log.warn("connection is null. close CId={}", clientId);
             channel.close();
         }
+    }
+
+    private boolean checkAndUpdateSessionExpireIntervalIfNeed(Channel channel, String clientId, Connection connection, MqttProperties properties) {
+        Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(properties);
+        if (expireInterval.isPresent()) {
+            Integer sessionExpireInterval = expireInterval.get();
+            boolean checkResult = connection.checkIsLegalExpireInterval(sessionExpireInterval);
+            if (!checkResult) {
+                // the detail in mqtt 5 3.2.2.1.1
+                MqttMessage mqttPubAckMessage =
+                        MqttDisConnAckMessageHelper.createMqtt5(Mqtt5DisConnReasonCode.PROTOCOL_ERROR,
+                                String.format("The client %s disconnect with wrong "
+                                                + "session expire interval value. the value is %s",
+                                        clientId, sessionExpireInterval));
+                channel.writeAndFlush(mqttPubAckMessage);
+                // close the channel
+                channel.close();
+                return false;
+            }
+            connection.updateSessionExpireInterval(sessionExpireInterval);
+        }
+        return true;
     }
 
     @Override
