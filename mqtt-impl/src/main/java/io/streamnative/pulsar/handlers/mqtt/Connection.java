@@ -61,6 +61,8 @@ public class Connection {
     private volatile int sessionExpireInterval = SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
     @Builder.Default
     volatile ConnectionState connectionState = DISCONNECTED;
+    @Getter
+    private int receiveMaximum; // mqtt 5.0 specification.
     // connection manager
     private final MQTTConnectionManager manager;
 

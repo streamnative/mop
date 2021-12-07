@@ -13,8 +13,10 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.mqtt5.hivemq.base;
 
+import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
+import java.util.Random;
 import java.util.UUID;
 
 public class MQTT5ClientUtils {
@@ -34,5 +36,19 @@ public class MQTT5ClientUtils {
                 .buildBlocking();
     }
 
+    public static void publishQos1ARandomMsg(Mqtt5BlockingClient client, String topic) {
+        client.publishWith()
+                .topic(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload(("test" + new Random().nextInt(100)).getBytes())
+                .send();
+    }
 
+    public static void publishQos0ARandomMsg(Mqtt5BlockingClient client, String topic) {
+        client.publishWith()
+                .topic(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload(("test" + new Random().nextInt(100)).getBytes())
+                .send();
+    }
 }
