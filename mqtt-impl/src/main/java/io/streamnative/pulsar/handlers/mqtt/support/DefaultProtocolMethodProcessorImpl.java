@@ -197,14 +197,22 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             NettyUtils.setWillMessage(channel, createWillMessage(msg));
         }
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
+        MqttProperties properties = msg.variableHeader().properties();
+        // Get receive maximum number.
+        Integer receiveMaximum = MqttPropertyUtils.getReceiveMaximum(properties)
+                .orElse(MqttUtils.isMqtt5(protocolVersion)
+                        ? MqttPropertyUtils.MQTT5_DEFAULT_RECEIVE_MAXIMUM :
+                        MqttPropertyUtils.BEFORE_DEFAULT_RECEIVE_MAXIMUM);
         Connection.ConnectionBuilder connectionBuilder = Connection.builder()
                 .clientId(clientId)
                 .protocolVersion(protocolVersion)
                 .channel(channel)
                 .manager(connectionManager)
+                .receiveMaximum(receiveMaximum)
                 .cleanSession(msg.variableHeader().isCleanSession());
-        Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(msg.variableHeader().properties());
-        expireInterval.ifPresent(connectionBuilder::sessionExpireInterval);
+        MqttPropertyUtils.getExpireInterval(properties).ifPresent(connectionBuilder::sessionExpireInterval);
+
+
         Connection connection = connectionBuilder.build();
         connectionManager.addConnection(connection);
         NettyUtils.setConnection(channel, connection);
@@ -445,6 +453,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
     private void doSubscribe(Channel channel, MqttSubscribeMessage msg, String clientID) {
         int messageID = msg.variableHeader().messageId();
+        Connection connection = NettyUtils.getConnection(channel);
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
         subscriptionManager.addSubscriptions(NettyUtils.getClientId(channel), subTopics);
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
@@ -465,7 +474,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                         try {
                             MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(), topic,
                                     clientID, serverCnx, subTopic.qualityOfService(), packetIdGenerator,
-                                    outstandingPacketContainer, metricsCollector);
+                                    outstandingPacketContainer, metricsCollector, connection.getReceiveMaximum());
                             sub.addConsumer(consumer);
                             consumer.addAllPermits();
                             topicSubscriptions.putIfAbsent(sub.getTopic(), Pair.of(sub, consumer));
@@ -504,6 +513,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     @Override
     public void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg) {
         String clientID = NettyUtils.getClientId(channel);
+        Connection connection = NettyUtils.getConnection(channel);
         if (log.isDebugEnabled()) {
             log.debug("[Unsubscribe] [{}] msg: {}", clientID, msg);
         }
@@ -518,36 +528,36 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             CompletableFuture<Void> future = topicListFuture.thenCompose(topics -> {
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 for (String topic : topics) {
-                            PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
-                                    configuration.getDefaultNamespace(), false,
-                                    configuration.getDefaultTopicDomain(), false).thenAccept(topicOp -> {
-                                if (!topicOp.isPresent()) {
-                                    throw new MQTTTopicNotExistedException(
-                                            String.format("Can not found topic %s when %s unSubscribe.", topic,
-                                                    clientID));
-                                }
-                                Subscription subscription = topicOp.get().getSubscription(clientID);
-                                if (subscription == null) {
-                                    throw new MQTTNoSubscriptionExistedException(
-                                            String.format(
-                                                    "Can not found subscription %s when %s unSubscribe. the "
-                                                            + "topic is "
-                                                            + "%s",
-                                                    clientID, clientID, topic));
-                                }
-                                try {
-                                    MQTTConsumer consumer = new MQTTConsumer(subscription, topicFilter,
-                                        topic, clientID, serverCnx, qos, packetIdGenerator,
-                                            outstandingPacketContainer, metricsCollector);
-                                    topicOp.get().getSubscription(clientID).removeConsumer(consumer);
-                                    futures.add(topicOp.get().unsubscribe(clientID));
-                                } catch (Exception e) {
-                                    throw new MQTTServerException(e);
-                                }
-                            }).exceptionally(ex->{
-                                futures.add(FutureUtil.failedFuture(ex));
-                                return null;
-                            });
+                    PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
+                            configuration.getDefaultNamespace(), false,
+                            configuration.getDefaultTopicDomain(), false).thenAccept(topicOp -> {
+                        if (!topicOp.isPresent()) {
+                            throw new MQTTTopicNotExistedException(
+                                    String.format("Can not found topic %s when %s unSubscribe.", topic,
+                                            clientID));
+                        }
+                        Subscription subscription = topicOp.get().getSubscription(clientID);
+                        if (subscription == null) {
+                            throw new MQTTNoSubscriptionExistedException(
+                                    String.format(
+                                            "Can not found subscription %s when %s unSubscribe. the "
+                                                    + "topic is "
+                                                    + "%s",
+                                            clientID, clientID, topic));
+                        }
+                        try {
+                            MQTTConsumer consumer = new MQTTConsumer(subscription, topicFilter,
+                                    topic, clientID, serverCnx, qos, packetIdGenerator,
+                                    outstandingPacketContainer, metricsCollector, connection.getReceiveMaximum());
+                            topicOp.get().getSubscription(clientID).removeConsumer(consumer);
+                            futures.add(topicOp.get().unsubscribe(clientID));
+                        } catch (Exception e) {
+                            throw new MQTTServerException(e);
+                        }
+                    }).exceptionally(ex -> {
+                        futures.add(FutureUtil.failedFuture(ex));
+                        return null;
+                    });
                 }
                 return FutureUtil.waitForAll(futures);
             });

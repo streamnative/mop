@@ -57,11 +57,12 @@ public class MQTTConsumer extends Consumer {
     private static final AtomicIntegerFieldUpdater<MQTTConsumer> ADD_PERMITS_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "addPermits");
     private volatile int addPermits = 0;
-    private final int maxPermits = 1000;
+    private final int maxPermits;
 
     public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, String consumerName,
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
-                        OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector) {
+                        OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector,
+                        int receiveMaximum) {
         super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
                 "", null, false, CommandSubscribe.InitialPosition.Latest, null, MessageId.latest);
         this.pulsarTopicName = pulsarTopicName;
@@ -71,6 +72,7 @@ public class MQTTConsumer extends Consumer {
         this.packetIdGenerator = packetIdGenerator;
         this.outstandingPacketContainer = outstandingPacketContainer;
         this.metricsCollector = metricsCollector;
+        this.maxPermits = receiveMaximum;
     }
 
     @Override
