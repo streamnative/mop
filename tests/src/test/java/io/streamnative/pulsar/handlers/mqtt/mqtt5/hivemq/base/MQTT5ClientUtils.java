@@ -36,7 +36,7 @@ public class MQTT5ClientUtils {
                 .buildBlocking();
     }
 
-    public static void publishARandomMsg(Mqtt5BlockingClient client, String topic) {
+    public static void publishQos1ARandomMsg(Mqtt5BlockingClient client, String topic) {
         client.publishWith()
                 .topic(topic)
                 .qos(MqttQos.AT_LEAST_ONCE)
@@ -44,4 +44,11 @@ public class MQTT5ClientUtils {
                 .send();
     }
 
+    public static void publishQos0ARandomMsg(Mqtt5BlockingClient client, String topic) {
+        client.publishWith()
+                .topic(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload(("test" + new Random().nextInt(100)).getBytes())
+                .send();
+    }
 }
