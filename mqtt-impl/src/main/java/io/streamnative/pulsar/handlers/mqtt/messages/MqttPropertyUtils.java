@@ -24,6 +24,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MqttPropertyUtils {
 
+    // describe by mqtt 5.0 version
+    public static final int MQTT5_DEFAULT_RECEIVE_MAXIMUM = 65535;
+    // For backward compatibility
+    public static final int BEFORE_DEFAULT_RECEIVE_MAXIMUM = 1000;
+
+
     /**
      * Get session expire interval.
      * @param properties - mqtt properties
@@ -34,6 +40,21 @@ public class MqttPropertyUtils {
         MqttProperties.MqttProperty<Integer> property = properties
                 .getProperty(MqttProperties.MqttPropertyType.SESSION_EXPIRY_INTERVAL.value());
         if (property == null){
+            return Optional.empty();
+        }
+        return Optional.ofNullable(property.value());
+    }
+
+    /**
+     * Get receive maximum.
+     * @param properties - mqtt properties
+     * @return Integer - expire interval value
+     */
+    @SuppressWarnings("unchecked")
+    public static Optional<Integer> getReceiveMaximum(MqttProperties properties) {
+        MqttProperties.MqttProperty<Integer> property = properties
+                .getProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value());
+        if (property == null) {
             return Optional.empty();
         }
         return Optional.ofNullable(property.value());
