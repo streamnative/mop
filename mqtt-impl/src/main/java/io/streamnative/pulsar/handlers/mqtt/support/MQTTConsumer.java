@@ -62,7 +62,7 @@ public class MQTTConsumer extends Consumer {
     public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, String consumerName,
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
                         OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector,
-                        int receiveMaximum) {
+                        int clientReceiveMaximum) {
         super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
                 "", null, false, CommandSubscribe.InitialPosition.Latest, null, MessageId.latest);
         this.pulsarTopicName = pulsarTopicName;
@@ -72,7 +72,7 @@ public class MQTTConsumer extends Consumer {
         this.packetIdGenerator = packetIdGenerator;
         this.outstandingPacketContainer = outstandingPacketContainer;
         this.metricsCollector = metricsCollector;
-        this.maxPermits = receiveMaximum;
+        this.maxPermits = clientReceiveMaximum;
     }
 
     @Override

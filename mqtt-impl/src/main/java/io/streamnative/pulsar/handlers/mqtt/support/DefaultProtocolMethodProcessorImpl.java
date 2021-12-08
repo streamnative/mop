@@ -208,7 +208,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 .protocolVersion(protocolVersion)
                 .channel(channel)
                 .manager(connectionManager)
-                .receiveMaximum(receiveMaximum)
+                .clientReceiveMaximum(receiveMaximum)
+                .serverReceivePubMaximum(configuration.getReceiveMaximum())
                 .cleanSession(msg.variableHeader().isCleanSession());
         MqttPropertyUtils.getExpireInterval(properties).ifPresent(connectionBuilder::sessionExpireInterval);
 
@@ -273,6 +274,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     private void doPublish(Channel channel, MqttPublishMessage msg) {
+        boolean isMqtt5 = MqttUtils.isMqtt5(NettyUtils.getProtocolVersion(channel));
         final MqttQoS qos = msg.fixedHeader().qosLevel();
         metricsCollector.addSend(msg.payload().readableBytes());
         switch (qos) {
@@ -280,15 +282,37 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 this.qosPublishHandlers.qos0().publish(channel, msg);
                 break;
             case AT_LEAST_ONCE:
+                if (isMqtt5) {
+                    checkServerReceivePubMessageAndIncrementCounterIfNeeded(channel, msg);
+                }
                 this.qosPublishHandlers.qos1().publish(channel, msg);
                 break;
             case EXACTLY_ONCE:
+                if (isMqtt5) {
+                    checkServerReceivePubMessageAndIncrementCounterIfNeeded(channel, msg);
+                }
                 this.qosPublishHandlers.qos2().publish(channel, msg);
                 break;
             default:
                 log.error("Unknown QoS-Type:{}", qos);
                 channel.close();
                 break;
+        }
+    }
+
+    private void checkServerReceivePubMessageAndIncrementCounterIfNeeded(Channel channel, MqttPublishMessage msg) {
+        Connection connection = NettyUtils.getConnection(channel);
+        if (connection.getServerReceivePubMessage() >= connection.getServerReceivePubMaximum()){
+            log.warn("Client publish exceed server receive maximum , the receive maximum is {}",
+                    connection.getServerReceivePubMaximum());
+            int packetId = msg.variableHeader().packetId();
+            MqttMessage quotaExceededPubAck =
+                    MqttPubAckMessageHelper.createMqtt5(packetId, Mqtt5PubReasonCode.QUOTA_EXCEEDED);
+            channel.writeAndFlush(quotaExceededPubAck);
+            channel.close();
+        } else {
+            connection.incrementServerReceivePubMessage();
+            log.info("increment pubmessage");
         }
     }
 
@@ -474,7 +498,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                         try {
                             MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(), topic,
                                     clientID, serverCnx, subTopic.qualityOfService(), packetIdGenerator,
-                                    outstandingPacketContainer, metricsCollector, connection.getReceiveMaximum());
+                                    outstandingPacketContainer, metricsCollector, connection.getClientReceiveMaximum());
                             sub.addConsumer(consumer);
                             consumer.addAllPermits();
                             topicSubscriptions.putIfAbsent(sub.getTopic(), Pair.of(sub, consumer));
@@ -548,7 +572,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                         try {
                             MQTTConsumer consumer = new MQTTConsumer(subscription, topicFilter,
                                     topic, clientID, serverCnx, qos, packetIdGenerator,
-                                    outstandingPacketContainer, metricsCollector, connection.getReceiveMaximum());
+                                    outstandingPacketContainer, metricsCollector, connection.getClientReceiveMaximum());
                             topicOp.get().getSubscription(clientID).removeConsumer(consumer);
                             futures.add(topicOp.get().unsubscribe(clientID));
                         } catch (Exception e) {
