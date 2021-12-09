@@ -22,13 +22,16 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -42,6 +45,7 @@ import org.apache.pulsar.broker.service.Topic;
  * session flag.
  */
 @Slf4j
+@Builder
 public class Connection {
 
     @Getter
@@ -52,18 +56,21 @@ public class Connection {
     private final boolean cleanSession;
     @Getter
     private final int protocolVersion;
-
+    @Getter
+    @Builder.Default
+    private volatile int sessionExpireInterval = SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
+    @Builder.Default
     volatile ConnectionState connectionState = DISCONNECTED;
+    @Getter
+    private int receiveMaximum; // mqtt 5.0 specification.
+    // connection manager
+    private final MQTTConnectionManager manager;
 
-    private final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
+    private static final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
             newUpdater(Connection.class, ConnectionState.class, "connectionState");
 
-    public Connection(String clientId, Channel channel, boolean cleanSession, int protocolVersion) {
-        this.clientId = clientId;
-        this.channel = channel;
-        this.cleanSession = cleanSession;
-        this.protocolVersion = protocolVersion;
-    }
+    private static final AtomicIntegerFieldUpdater<Connection> SESSION_EXPIRE_INTERVAL_UPDATER =
+            AtomicIntegerFieldUpdater.newUpdater(Connection.class, "sessionExpireInterval");
 
     public void sendConnAck() {
         boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
@@ -116,17 +123,35 @@ public class Connection {
         }
     }
 
+    private void doRemoveSubscriptions() {
+        Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
+                .getTopicSubscriptions(channel);
+        // For producer doesn't bind subscriptions
+        if (topicSubscriptions != null) {
+            topicSubscriptions.forEach((k, v) -> {
+                k.unsubscribe(NettyUtils.getClientId(channel));
+                v.getLeft().delete();
+            });
+        }
+    }
+
     public void removeSubscriptions() {
         removeConsumers();
         if (cleanSession) {
-            Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
-                    .getTopicSubscriptions(channel);
-            // For producer doesn't bind subscriptions
-            if (topicSubscriptions != null) {
-                topicSubscriptions.forEach((k, v) -> {
-                    k.unsubscribe(NettyUtils.getClientId(channel));
-                    v.getLeft().delete();
-                });
+            doRemoveSubscriptions();
+            // when mqtt client support session expire interval variable
+        } else {
+            // when use mqtt5.0 we need to use session expire interval to remove session.
+            // but mqtt protocol version lower than 5.0 we don't do that.
+            if (MqttUtils.isMqtt5(protocolVersion)
+                    && SESSION_EXPIRE_INTERVAL_UPDATER.get(this)
+                    != SessionExpireInterval.NEVER_EXPIRE.getSecondTime()) {
+                if (sessionExpireInterval == SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()) {
+                    doRemoveSubscriptions();
+                } else {
+                    manager.newSessionExpireInterval(__ ->
+                            doRemoveSubscriptions(), clientId, SESSION_EXPIRE_INTERVAL_UPDATER.get(this));
+                }
             }
         }
     }
@@ -143,7 +168,7 @@ public class Connection {
             assignState(ESTABLISHED, DISCONNECTED);
         }
         // Support mqtt 5
-        if (MqttUtils.isMqtt5(protocolVersion)){
+        if (MqttUtils.isMqtt5(protocolVersion)) {
             MqttMessage mqttDisconnectionAckMessage =
                     MqttDisConnAckMessageHelper.createMqtt5(Mqtt5DisConnReasonCode.NORMAL);
             channel.writeAndFlush(mqttDisconnectionAckMessage);
@@ -174,6 +199,14 @@ public class Connection {
         return ret;
     }
 
+    public ConnectionState getConnectionState(Connection connection) {
+        return channelState.get(connection);
+    }
+
+    public void updateSessionExpireInterval(int newSessionInterval) {
+        SESSION_EXPIRE_INTERVAL_UPDATER.set(this, newSessionInterval);
+    }
+
     @Override
     public String toString() {
         return "Connection{" + "clientId=" + clientId + ", channel=" + channel
@@ -196,6 +229,18 @@ public class Connection {
     @Override
     public int hashCode() {
         return Objects.hash(clientId, channel);
+    }
+
+    /**
+     * Check the session expire interval is valid.
+     *
+     * @param sessionExpireInterval session expire interval second time
+     * @return whether param is valid.
+     */
+    public boolean checkIsLegalExpireInterval(Integer sessionExpireInterval) {
+        int sei = SESSION_EXPIRE_INTERVAL_UPDATER.get(this);
+        int zeroSecond = SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
+        return sei > zeroSecond && sessionExpireInterval >= zeroSecond;
     }
 
     /**

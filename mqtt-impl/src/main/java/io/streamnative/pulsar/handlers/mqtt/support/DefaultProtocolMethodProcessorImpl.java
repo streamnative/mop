@@ -22,9 +22,11 @@ import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
@@ -43,13 +45,16 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedE
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
@@ -192,9 +197,23 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             NettyUtils.setWillMessage(channel, createWillMessage(msg));
         }
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
+        MqttProperties properties = msg.variableHeader().properties();
+        // Get receive maximum number.
+        Integer receiveMaximum = MqttPropertyUtils.getReceiveMaximum(properties)
+                .orElse(MqttUtils.isMqtt5(protocolVersion)
+                        ? MqttPropertyUtils.MQTT5_DEFAULT_RECEIVE_MAXIMUM :
+                        MqttPropertyUtils.BEFORE_DEFAULT_RECEIVE_MAXIMUM);
+        Connection.ConnectionBuilder connectionBuilder = Connection.builder()
+                .clientId(clientId)
+                .protocolVersion(protocolVersion)
+                .channel(channel)
+                .manager(connectionManager)
+                .receiveMaximum(receiveMaximum)
+                .cleanSession(msg.variableHeader().isCleanSession());
+        MqttPropertyUtils.getExpireInterval(properties).ifPresent(connectionBuilder::sessionExpireInterval);
 
-        Connection connection =
-                new Connection(clientId, channel, msg.variableHeader().isCleanSession(), protocolVersion);
+
+        Connection connection = connectionBuilder.build();
         connectionManager.addConnection(connection);
         NettyUtils.setConnection(channel, connection);
         connection.sendConnAck();
@@ -297,11 +316,20 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     @Override
     public void processDisconnect(Channel channel, MqttMessage msg) {
         final String clientId = NettyUtils.getClientId(channel);
+        Connection connection = NettyUtils.getConnection(channel);
+        // when reset expire interval present, we need to reset session expire interval.
+        Object header = msg.variableHeader();
+        if (header instanceof MqttReasonCodeAndPropertiesVariableHeader) {
+            MqttProperties properties = ((MqttReasonCodeAndPropertiesVariableHeader) header).properties();
+            if (!checkAndUpdateSessionExpireIntervalIfNeed(channel, clientId, connection, properties)){
+                // If the session expire interval value is illegal.
+                return;
+            }
+        }
         if (log.isDebugEnabled()) {
             log.debug("[Disconnect] [{}] ", clientId);
         }
         metricsCollector.removeClient(NettyUtils.getAddress(channel));
-        Connection connection =  NettyUtils.getConnection(channel);
         // When login, checkState(msg) failed, connection is null.
         if (connection != null) {
             connectionManager.removeConnection(connection);
@@ -311,6 +339,29 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             log.warn("connection is null. close CId={}", clientId);
             channel.close();
         }
+    }
+
+    private boolean checkAndUpdateSessionExpireIntervalIfNeed(Channel channel, String clientId,
+                                                              Connection connection, MqttProperties properties) {
+        Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(properties);
+        if (expireInterval.isPresent()) {
+            Integer sessionExpireInterval = expireInterval.get();
+            boolean checkResult = connection.checkIsLegalExpireInterval(sessionExpireInterval);
+            if (!checkResult) {
+                // the detail in mqtt 5 3.2.2.1.1
+                MqttMessage mqttPubAckMessage =
+                        MqttDisConnAckMessageHelper.createMqtt5(Mqtt5DisConnReasonCode.PROTOCOL_ERROR,
+                                String.format("The client %s disconnect with wrong "
+                                                + "session expire interval value. the value is %s",
+                                        clientId, sessionExpireInterval));
+                channel.writeAndFlush(mqttPubAckMessage);
+                // close the channel
+                channel.close();
+                return false;
+            }
+            connection.updateSessionExpireInterval(sessionExpireInterval);
+        }
+        return true;
     }
 
     @Override
@@ -402,6 +453,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
     private void doSubscribe(Channel channel, MqttSubscribeMessage msg, String clientID) {
         int messageID = msg.variableHeader().messageId();
+        Connection connection = NettyUtils.getConnection(channel);
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
         subscriptionManager.addSubscriptions(NettyUtils.getClientId(channel), subTopics);
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
@@ -422,7 +474,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                         try {
                             MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(), topic,
                                     clientID, serverCnx, subTopic.qualityOfService(), packetIdGenerator,
-                                    outstandingPacketContainer, metricsCollector);
+                                    outstandingPacketContainer, metricsCollector, connection.getReceiveMaximum());
                             sub.addConsumer(consumer);
                             consumer.addAllPermits();
                             topicSubscriptions.putIfAbsent(sub.getTopic(), Pair.of(sub, consumer));
@@ -461,6 +513,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     @Override
     public void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg) {
         String clientID = NettyUtils.getClientId(channel);
+        Connection connection = NettyUtils.getConnection(channel);
         if (log.isDebugEnabled()) {
             log.debug("[Unsubscribe] [{}] msg: {}", clientID, msg);
         }
@@ -475,36 +528,36 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             CompletableFuture<Void> future = topicListFuture.thenCompose(topics -> {
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 for (String topic : topics) {
-                            PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
-                                    configuration.getDefaultNamespace(), false,
-                                    configuration.getDefaultTopicDomain(), false).thenAccept(topicOp -> {
-                                if (!topicOp.isPresent()) {
-                                    throw new MQTTTopicNotExistedException(
-                                            String.format("Can not found topic %s when %s unSubscribe.", topic,
-                                                    clientID));
-                                }
-                                Subscription subscription = topicOp.get().getSubscription(clientID);
-                                if (subscription == null) {
-                                    throw new MQTTNoSubscriptionExistedException(
-                                            String.format(
-                                                    "Can not found subscription %s when %s unSubscribe. the "
-                                                            + "topic is "
-                                                            + "%s",
-                                                    clientID, clientID, topic));
-                                }
-                                try {
-                                    MQTTConsumer consumer = new MQTTConsumer(subscription, topicFilter,
-                                        topic, clientID, serverCnx, qos, packetIdGenerator,
-                                            outstandingPacketContainer, metricsCollector);
-                                    topicOp.get().getSubscription(clientID).removeConsumer(consumer);
-                                    futures.add(topicOp.get().unsubscribe(clientID));
-                                } catch (Exception e) {
-                                    throw new MQTTServerException(e);
-                                }
-                            }).exceptionally(ex->{
-                                futures.add(FutureUtil.failedFuture(ex));
-                                return null;
-                            });
+                    PulsarTopicUtils.getTopicReference(pulsarService, topic, configuration.getDefaultTenant(),
+                            configuration.getDefaultNamespace(), false,
+                            configuration.getDefaultTopicDomain(), false).thenAccept(topicOp -> {
+                        if (!topicOp.isPresent()) {
+                            throw new MQTTTopicNotExistedException(
+                                    String.format("Can not found topic %s when %s unSubscribe.", topic,
+                                            clientID));
+                        }
+                        Subscription subscription = topicOp.get().getSubscription(clientID);
+                        if (subscription == null) {
+                            throw new MQTTNoSubscriptionExistedException(
+                                    String.format(
+                                            "Can not found subscription %s when %s unSubscribe. the "
+                                                    + "topic is "
+                                                    + "%s",
+                                            clientID, clientID, topic));
+                        }
+                        try {
+                            MQTTConsumer consumer = new MQTTConsumer(subscription, topicFilter,
+                                    topic, clientID, serverCnx, qos, packetIdGenerator,
+                                    outstandingPacketContainer, metricsCollector, connection.getReceiveMaximum());
+                            topicOp.get().getSubscription(clientID).removeConsumer(consumer);
+                            futures.add(topicOp.get().unsubscribe(clientID));
+                        } catch (Exception e) {
+                            throw new MQTTServerException(e);
+                        }
+                    }).exceptionally(ex -> {
+                        futures.add(FutureUtil.failedFuture(ex));
+                        return null;
+                    });
                 }
                 return FutureUtil.waitForAll(futures);
             });
