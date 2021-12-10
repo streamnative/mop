@@ -165,24 +165,20 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             userRole = authResult.getUserRole();
         }
 
+        if (!MqttUtils.isQosSupported(msg)) {
+            channel.writeAndFlush(MqttConnAckMessageHelper.createQosNotSupportAck());
+            channel.close();
+            return;
+        }
+        if (msg.variableHeader().isWillFlag()) {
+            NettyUtils.setWillMessage(channel, createWillMessage(msg));
+        }
+
         NettyUtils.setClientId(channel, clientId);
         NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
         NettyUtils.setUserRole(channel, userRole);
         NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
         NettyUtils.setProtocolVersion(channel, protocolVersion);
-        if (msg.variableHeader().isWillFlag()) {
-            // Check willing message [ MQTT5 ]
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                int willQos = msg.variableHeader().willQos();
-                MqttQoS mqttQoS = MqttQoS.valueOf(willQos);
-                if (mqttQoS == MqttQoS.FAILURE || mqttQoS == MqttQoS.EXACTLY_ONCE) {
-                    channel.writeAndFlush(MqttConnAckMessageHelper.createQosNotSupportAck());
-                    channel.close();
-                    return;
-                }
-            }
-            NettyUtils.setWillMessage(channel, createWillMessage(msg));
-        }
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
         MqttProperties properties = msg.variableHeader().properties();
         // Get receive maximum number.
