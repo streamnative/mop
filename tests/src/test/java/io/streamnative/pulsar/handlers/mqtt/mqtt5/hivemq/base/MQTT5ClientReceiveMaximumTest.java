@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 
 
 
-public class MQTT5ReceiveMaximumTest extends MQTTTestBase {
+public class MQTT5ClientReceiveMaximumTest extends MQTTTestBase {
 
 
     @Test(timeOut = TIMEOUT)
