@@ -13,8 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
-import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
@@ -27,27 +25,25 @@ import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
  */
 public interface ProtocolMethodProcessor {
 
-    void processConnect(Channel channel, MqttConnectMessage msg);
+    void processConnect(MqttConnectMessage msg);
 
-    void processPubAck(Channel channel, MqttPubAckMessage msg);
+    void processPubAck(MqttPubAckMessage msg);
 
-    void processPublish(Channel channel, MqttPublishMessage msg);
+    void processPublish(MqttPublishMessage msg);
 
-    void processPubRel(Channel channel, MqttMessage msg);
+    void processPubRel(MqttMessage msg);
 
-    void processPubRec(Channel channel, MqttMessage msg);
+    void processPubRec(MqttMessage msg);
 
-    void processPubComp(Channel channel, MqttMessage msg);
+    void processPubComp(MqttMessage msg);
 
-    void processDisconnect(Channel channel, MqttMessage msg);
+    void processDisconnect(MqttMessage msg);
 
-    void processConnectionLost(Channel channel);
+    void processConnectionLost();
 
-    void processSubscribe(Channel channel, MqttSubscribeMessage msg);
+    void processSubscribe(MqttSubscribeMessage msg);
 
-    void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg);
+    void processUnSubscribe(MqttUnsubscribeMessage msg);
 
-    default void processPingReq(Channel channel) {
-        channel.writeAndFlush(pingResp());
-    }
+    void processPingReq();
 }

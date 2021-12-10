@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingReq;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
@@ -59,7 +60,7 @@ import org.apache.pulsar.common.util.FutureUtil;
 public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor {
 
     private final MQTTProxyService proxyService;
-    private final MQTTProxyHandler proxyHandler;
+    private final Channel channel;
     private final LookupHandler lookupHandler;
     private final MQTTProxyConfiguration proxyConfig;
     private final PulsarService pulsarService;
@@ -71,9 +72,9 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     private final ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId;
     private final MQTTConnectionManager connectionManager;
 
-    public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, MQTTProxyHandler proxyHandler) {
+    public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
         this.proxyService = proxyService;
-        this.proxyHandler = proxyHandler;
+        this.channel = ctx.channel();
         this.pulsarService = proxyService.getPulsarService();
         this.authenticationService = proxyService.getAuthenticationService();
         this.lookupHandler = proxyService.getLookupHandler();
@@ -86,7 +87,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
     // client -> proxy
     @Override
-    public void processConnect(Channel channel, MqttConnectMessage msg) {
+    public void processConnect(MqttConnectMessage msg) {
         final int protocolVersion = msg.variableHeader().version();
         MqttConnectMessage connectMessage = msg;
         MqttConnectPayload payload = connectMessage.payload();
@@ -140,7 +141,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     }
 
     @Override
-    public void processPubAck(Channel channel, MqttPubAckMessage msg) {
+    public void processPubAck(MqttPubAckMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[Proxy PubAck] [{}]", NettyUtils.getClientId(channel));
         }
@@ -148,7 +149,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
     // proxy -> MoP
     @Override
-    public void processPublish(Channel channel, MqttPublishMessage msg) {
+    public void processPublish(MqttPublishMessage msg) {
         final int packetId = msg.variableHeader().packetId();
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Publish] publish to topic = {}, CId={}",
@@ -171,34 +172,34 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     }
 
     @Override
-    public void processPubRel(Channel channel, MqttMessage msg) {
+    public void processPubRel(MqttMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[Proxy PubRel] [{}]", NettyUtils.getClientId(channel));
         }
     }
 
     @Override
-    public void processPubRec(Channel channel, MqttMessage msg) {
+    public void processPubRec(MqttMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[Proxy PubRec] [{}]", NettyUtils.getClientId(channel));
         }
     }
 
     @Override
-    public void processPubComp(Channel channel, MqttMessage msg) {
+    public void processPubComp(MqttMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[Proxy PubComp] [{}]", NettyUtils.getClientId(channel));
         }
     }
 
     @Override
-    public void processPingReq(Channel channel) {
+    public void processPingReq() {
         channel.writeAndFlush(pingResp());
         brokerPool.forEach((k, v) -> v.writeAndFlush(pingReq()));
     }
 
     @Override
-    public void processDisconnect(Channel channel, MqttMessage msg) {
+    public void processDisconnect(MqttMessage msg) {
         String clientId = NettyUtils.getClientId(channel);
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Disconnect] [{}] ", clientId);
@@ -221,7 +222,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     }
 
     @Override
-    public void processConnectionLost(Channel channel) {
+    public void processConnectionLost() {
         String clientId = NettyUtils.getClientId(channel);
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Connection Lost] [{}] ", clientId);
@@ -234,7 +235,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     }
 
     @Override
-    public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
+    public void processSubscribe(MqttSubscribeMessage msg) {
         String clientId = NettyUtils.getClientId(channel);
         int protocolVersion = NettyUtils.getProtocolVersion(channel);
         if (log.isDebugEnabled()) {
@@ -278,7 +279,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     }
 
     @Override
-    public void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg) {
+    public void processUnSubscribe(MqttUnsubscribeMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[Proxy UnSubscribe] [{}]", NettyUtils.getClientId(channel));
         }
@@ -329,8 +330,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         });
     }
 
-    public Channel clientChannel() {
-        return proxyHandler.getCtx().channel();
+    public Channel getChannel() {
+        return this.channel;
     }
 
     public boolean increaseSubscribeTopicsCount(int seq, int count) {
