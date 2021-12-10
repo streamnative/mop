@@ -116,6 +116,15 @@ public class MqttConnAckMessageHelper {
         return new MqttConnAckMessage(fixedHeader, mqttConnAckVariableHeader);
     }
 
+    public static MqttMessage createQosNotSupportAck() {
+        MqttProperties properties = new MqttProperties();
+        MqttProperties.StringProperty reasonStringProperty =
+                new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
+                        "The server do not support will message that qos is exactly once.");
+        properties.add(reasonStringProperty);
+        return createMqtt5(Mqtt5ConnReasonCode.QOS_NOT_SUPPORTED, false, properties);
+    }
+
     public static MqttMessage createMqtt5(Mqtt5ConnReasonCode conAckReasonCode, String reasonStr) {
         MqttProperties properties = new MqttProperties();
         MqttProperties.StringProperty reasonStringProperty =

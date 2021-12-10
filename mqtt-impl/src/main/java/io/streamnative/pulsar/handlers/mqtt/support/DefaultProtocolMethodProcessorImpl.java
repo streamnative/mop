@@ -48,7 +48,6 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedExcepti
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
@@ -177,12 +176,9 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 int willQos = msg.variableHeader().willQos();
                 MqttQoS mqttQoS = MqttQoS.valueOf(willQos);
                 if (mqttQoS == MqttQoS.FAILURE || mqttQoS == MqttQoS.EXACTLY_ONCE) {
-                    MqttMessage mqttConnAckMessage =
-                            MqttConnAckMessageHelper.createMqtt5(
-                                    Mqtt5ConnReasonCode.QOS_NOT_SUPPORTED,
-                                    "The server do not support will message that qos is exactly once.");
-                    channel.writeAndFlush(mqttConnAckMessage);
+                    channel.writeAndFlush(MqttConnAckMessageHelper.createQosNotSupportAck());
                     channel.close();
+                    return;
                 }
             }
             NettyUtils.setWillMessage(channel, createWillMessage(msg));
@@ -200,7 +196,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 .serverReceivePubMaximum(configuration.getReceiveMaximum())
                 .cleanSession(msg.variableHeader().isCleanSession());
         MqttPropertyUtils.getExpireInterval(properties).ifPresent(connectionBuilder::sessionExpireInterval);
-
 
         Connection connection = connectionBuilder.build();
         connectionManager.addConnection(connection);
