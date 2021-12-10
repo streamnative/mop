@@ -47,7 +47,6 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
@@ -131,10 +130,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
 
         // Check MQTT protocol version.
         if (!MqttUtils.isSupportedVersion(msg.variableHeader().version())) {
-            MqttMessage badProto = MqttConnAckMessageHelper.
-                    createMqtt(Mqtt5ConnReasonCode.UNSUPPORTED_PROTOCOL_VERSION);
             log.error("MQTT protocol version is not valid. CId={}", clientId);
-            channel.writeAndFlush(badProto);
+            channel.writeAndFlush(MqttConnAckMessageHelper.createUnsupportedVersionAck());
             channel.close();
             return;
         }
@@ -142,11 +139,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
-                MqttMessage badId = MqttUtils.isMqtt5(protocolVersion)
-                        ? MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.CLIENT_IDENTIFIER_NOT_VALID) :
-                        MqttConnAckMessageHelper.createMqtt(
-                                Mqtt3ConnReasonCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED);
-                channel.writeAndFlush(badId);
+                channel.writeAndFlush(MqttConnAckMessageHelper.createIdentifierInvalidAck(protocolVersion));
                 channel.close();
                 log.error("The MQTT client ID cannot be empty. Username={}", username);
                 return;
@@ -165,11 +158,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                MqttMessage connectAuthenticationFailMessage = MqttUtils.isMqtt5(protocolVersion)
-                        ? MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.BAD_USERNAME_OR_PASSWORD)
-                        : MqttConnAckMessageHelper.createMqtt(
-                                Mqtt3ConnReasonCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD);
-                channel.writeAndFlush(connectAuthenticationFailMessage);
+                channel.writeAndFlush(MqttConnAckMessageHelper.createAuthFailedAck(protocolVersion));
                 channel.close();
                 log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
                 return;
@@ -201,10 +190,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
         MqttProperties properties = msg.variableHeader().properties();
         // Get receive maximum number.
-        Integer receiveMaximum = MqttPropertyUtils.getReceiveMaximum(properties)
-                .orElse(MqttUtils.isMqtt5(protocolVersion)
-                        ? MqttPropertyUtils.MQTT5_DEFAULT_RECEIVE_MAXIMUM :
-                        MqttPropertyUtils.BEFORE_DEFAULT_RECEIVE_MAXIMUM);
+        Integer receiveMaximum = MqttPropertyUtils.getReceiveMaximum(protocolVersion, properties);
         Connection.ConnectionBuilder connectionBuilder = Connection.builder()
                 .clientId(clientId)
                 .protocolVersion(protocolVersion)

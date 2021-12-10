@@ -84,8 +84,8 @@ public class Connection {
         if (ret) {
             MqttMessage mqttConnAckMessage = MqttUtils.isMqtt5(protocolVersion)
                     ? MqttConnAckMessageHelper
-                    .createMqtt(Mqtt5ConnReasonCode.SUCCESS, !cleanSession, serverReceivePubMaximum) :
-                    MqttConnAckMessageHelper.createMqtt(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED, !cleanSession);
+                    .createConnAck(Mqtt5ConnReasonCode.SUCCESS, !cleanSession, serverReceivePubMaximum) :
+                    MqttConnAckMessageHelper.createConnAck(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED, !cleanSession);
             channel.writeAndFlush(mqttConnAckMessage).addListener(future -> {
                 if (future.isSuccess()) {
                     if (log.isDebugEnabled()) {
@@ -102,7 +102,7 @@ public class Connection {
                     ? MqttConnAckMessageHelper.createMqtt5(Mqtt5ConnReasonCode.SERVER_UNAVAILABLE,
                     String.format("Unable to assign the state from : %s to : %s for CId=%s, close channel"
                             , DISCONNECTED, CONNECT_ACK, clientId)) :
-                    MqttConnAckMessageHelper.createMqtt(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE);
+                    MqttConnAckMessageHelper.createConnAck(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE);
             channel.writeAndFlush(mqttConnAckMessage);
             channel.close();
         }

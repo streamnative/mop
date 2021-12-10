@@ -22,6 +22,7 @@ import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 
 /**
  * Factory pattern, used to create mqtt protocol connection acknowledgement
@@ -31,6 +32,22 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReason
  */
 public class MqttConnAckMessageHelper {
 
+    public static MqttMessage createIdentifierInvalidAck(int protocolVersion) {
+        return MqttUtils.isMqtt5(protocolVersion)
+                ? createConnAck(Mqtt5ConnReasonCode.CLIENT_IDENTIFIER_NOT_VALID)
+                : createConnAck(Mqtt3ConnReasonCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED);
+    }
+
+    public static MqttMessage createAuthFailedAck(int protocolVersion) {
+        return MqttUtils.isMqtt5(protocolVersion)
+                ? createConnAck(Mqtt5ConnReasonCode.BAD_USERNAME_OR_PASSWORD)
+                : createConnAck(Mqtt3ConnReasonCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD);
+    }
+
+    public static MqttMessage createUnsupportedVersionAck() {
+        return createConnAck(Mqtt5ConnReasonCode.UNSUPPORTED_PROTOCOL_VERSION);
+    }
+
     /**
      * Create Mqtt 5 connection acknowledgement with no property.
      *
@@ -38,7 +55,7 @@ public class MqttConnAckMessageHelper {
      * @return - MqttMessage
      * @see Mqtt5ConnReasonCode
      */
-    public static MqttMessage createMqtt(Mqtt5ConnReasonCode conAckReasonCode) {
+    public static MqttMessage createConnAck(Mqtt5ConnReasonCode conAckReasonCode) {
         return createMqtt5(conAckReasonCode, false, MqttProperties.NO_PROPERTIES);
     }
 
@@ -49,7 +66,7 @@ public class MqttConnAckMessageHelper {
      * @return - MqttMessage
      * @see Mqtt5ConnReasonCode
      */
-    public static MqttMessage createMqtt(Mqtt5ConnReasonCode conAckReasonCode, boolean sessionPresent) {
+    public static MqttMessage createConnAck(Mqtt5ConnReasonCode conAckReasonCode, boolean sessionPresent) {
         return createMqtt5(conAckReasonCode, sessionPresent, MqttProperties.NO_PROPERTIES);
     }
 
@@ -62,7 +79,7 @@ public class MqttConnAckMessageHelper {
      * @return - MqttMessage
      * @see Mqtt5ConnReasonCode
      */
-    public static MqttMessage createMqtt(Mqtt5ConnReasonCode conAckReasonCode, boolean sessionPresent,
+    public static MqttMessage createConnAck(Mqtt5ConnReasonCode conAckReasonCode, boolean sessionPresent,
                                          Integer serverReceiveMaximum) {
         MqttProperties properties = new MqttProperties();
         MqttProperties.IntegerProperty property =
@@ -80,8 +97,8 @@ public class MqttConnAckMessageHelper {
      * @return - MqttMessage
      * @see Mqtt3ConnReasonCode
      */
-    public static MqttMessage createMqtt(Mqtt3ConnReasonCode connectReturnCode) {
-      return createMqtt(connectReturnCode, false);
+    public static MqttMessage createConnAck(Mqtt3ConnReasonCode connectReturnCode) {
+      return createConnAck(connectReturnCode, false);
     }
 
     /**
@@ -91,7 +108,7 @@ public class MqttConnAckMessageHelper {
      * @return - MqttMessage
      * @see Mqtt3ConnReasonCode
      */
-    public static MqttMessage createMqtt(Mqtt3ConnReasonCode connectReturnCode, boolean sessionPresent) {
+    public static MqttMessage createConnAck(Mqtt3ConnReasonCode connectReturnCode, boolean sessionPresent) {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
                 false, 0);
         MqttConnAckVariableHeader mqttConnAckVariableHeader =
