@@ -256,7 +256,6 @@ public class Connection {
     }
 
     public void decrementServerReceivePubMessage() {
-        log.info("decrement pub message");
         SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER.decrementAndGet(this);
     }
 

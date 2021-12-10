@@ -21,10 +21,16 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 
-
+/**
+ * Test user can limit server receive message maximum.
+ */
 public class MQTT5ServerReceiveMaximumTest extends MQTTTestBase {
     private static final int RECEIVE_MAXIMUM = 1;
 
+    /**
+     * init configuration
+     * @return MQTTServerConfiguration
+     */
     @Override
     protected MQTTServerConfiguration initConfig() throws Exception {
         MQTTServerConfiguration conf = super.initConfig();
@@ -32,6 +38,9 @@ public class MQTT5ServerReceiveMaximumTest extends MQTTTestBase {
         return conf;
     }
 
+    /**
+     * Test client can receive server receive message maximum number configuration.
+     */
     @Test(timeOut = TIMEOUT)
     public void testConfigSuccess() throws Exception {
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));

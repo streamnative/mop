@@ -274,7 +274,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     private void doPublish(Channel channel, MqttPublishMessage msg) {
-        boolean isMqtt5 = MqttUtils.isMqtt5(NettyUtils.getProtocolVersion(channel));
         final MqttQoS qos = msg.fixedHeader().qosLevel();
         metricsCollector.addSend(msg.payload().readableBytes());
         switch (qos) {
@@ -282,15 +281,11 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 this.qosPublishHandlers.qos0().publish(channel, msg);
                 break;
             case AT_LEAST_ONCE:
-                if (isMqtt5) {
-                    checkServerReceivePubMessageAndIncrementCounterIfNeeded(channel, msg);
-                }
+                checkServerReceivePubMessageAndIncrementCounterIfNeeded(channel, msg);
                 this.qosPublishHandlers.qos1().publish(channel, msg);
                 break;
             case EXACTLY_ONCE:
-                if (isMqtt5) {
-                    checkServerReceivePubMessageAndIncrementCounterIfNeeded(channel, msg);
-                }
+                checkServerReceivePubMessageAndIncrementCounterIfNeeded(channel, msg);
                 this.qosPublishHandlers.qos2().publish(channel, msg);
                 break;
             default:
@@ -301,6 +296,10 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     private void checkServerReceivePubMessageAndIncrementCounterIfNeeded(Channel channel, MqttPublishMessage msg) {
+        // check mqtt 5.0
+        if (!MqttUtils.isMqtt5(NettyUtils.getProtocolVersion(channel))) {
+            return;
+        }
         Connection connection = NettyUtils.getConnection(channel);
         if (connection.getServerReceivePubMessage() >= connection.getServerReceivePubMaximum()){
             log.warn("Client publish exceed server receive maximum , the receive maximum is {}",
@@ -312,7 +311,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             channel.close();
         } else {
             connection.incrementServerReceivePubMessage();
-            log.info("increment pubmessage");
         }
     }
 
