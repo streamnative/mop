@@ -131,6 +131,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                 .clientId(clientId)
                 .channel(channel)
                 .manager(connectionManager)
+                .serverReceivePubMaximum(proxyConfig.getReceiveMaximum())
                 .cleanSession(msg.variableHeader().isCleanSession());
         Connection connection = connectionBuilder.build();
         connectionManager.addConnection(connection);

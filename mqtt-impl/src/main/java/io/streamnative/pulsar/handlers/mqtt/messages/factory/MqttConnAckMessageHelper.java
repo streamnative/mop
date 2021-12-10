@@ -54,6 +54,26 @@ public class MqttConnAckMessageHelper {
     }
 
     /**
+     * Create Mqtt 5 connection acknowledgement with receiveMaximum property.
+     *
+     * @param conAckReasonCode     - Mqtt5ConnReasonCode
+     * @param sessionPresent       - session present
+     * @param serverReceiveMaximum - server receive message maximum number
+     * @return - MqttMessage
+     * @see Mqtt5ConnReasonCode
+     */
+    public static MqttMessage createMqtt(Mqtt5ConnReasonCode conAckReasonCode, boolean sessionPresent,
+                                         Integer serverReceiveMaximum) {
+        MqttProperties properties = new MqttProperties();
+        MqttProperties.IntegerProperty property =
+                new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
+                        serverReceiveMaximum);
+        properties.add(property);
+        return createMqtt5(conAckReasonCode, sessionPresent, properties);
+    }
+
+
+    /**
      * Create Mqtt connection acknowledgement.
      *
      * @param connectReturnCode - Mqtt3ConnReasonCode
@@ -97,8 +117,8 @@ public class MqttConnAckMessageHelper {
      * @return - MqttMessage
      * @see Mqtt5ConnReasonCode
      */
-    public static MqttMessage createMqtt5(Mqtt5ConnReasonCode conAckReasonCode,
-                                          Boolean sessionPresent, MqttProperties properties) {
+    private static MqttMessage createMqtt5(Mqtt5ConnReasonCode conAckReasonCode,
+                                           Boolean sessionPresent, MqttProperties properties) {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
                 false, 0);
         MqttConnAckVariableHeader mqttConnAckVariableHeader =
