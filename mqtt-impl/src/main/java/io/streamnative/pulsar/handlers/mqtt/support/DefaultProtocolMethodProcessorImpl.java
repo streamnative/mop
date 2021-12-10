@@ -133,7 +133,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         if (!MqttUtils.isSupportedVersion(msg.variableHeader().version())) {
             MqttMessage badProto = MqttConnAckMessageHelper.
                     createMqtt(Mqtt5ConnReasonCode.UNSUPPORTED_PROTOCOL_VERSION);
-
             log.error("MQTT protocol version is not valid. CId={}", clientId);
             channel.writeAndFlush(badProto);
             channel.close();
