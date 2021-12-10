@@ -28,7 +28,7 @@ public class MQTT5ServerReceiveMaximumTest extends MQTTTestBase {
     private static final int RECEIVE_MAXIMUM = 1;
 
     /**
-     * init configuration
+     * init configuration.
      * @return MQTTServerConfiguration
      */
     @Override
