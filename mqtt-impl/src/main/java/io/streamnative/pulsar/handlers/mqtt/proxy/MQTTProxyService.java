@@ -19,13 +19,13 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
+import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
+import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import java.io.Closeable;
-import java.util.Map;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
 
 /**
@@ -35,9 +35,13 @@ import org.apache.pulsar.common.util.netty.EventLoopUtil;
 public class MQTTProxyService implements Closeable {
 
     @Getter
-    private MQTTProxyConfiguration proxyConfig;
+    private final MQTTProxyConfiguration proxyConfig;
     @Getter
-    private PulsarService pulsarService;
+    private final PulsarService pulsarService;
+    @Getter
+    private final MQTTAuthenticationService authenticationService;
+    @Getter
+    private final MQTTConnectionManager connectionManager;
     @Getter
     private LookupHandler lookupHandler;
 
@@ -50,19 +54,15 @@ public class MQTTProxyService implements Closeable {
     private DefaultThreadFactory acceptorThreadFactory = new DefaultThreadFactory("mqtt-redirect-acceptor");
     private DefaultThreadFactory workerThreadFactory = new DefaultThreadFactory("mqtt-redirect-io");
 
-    @Getter
-    private Map<String, AuthenticationProvider> authProviders;
-
-    public MQTTProxyService(
-            MQTTProxyConfiguration proxyConfig, MQTTService mqttService) {
+    public MQTTProxyService(MQTTService mqttService, MQTTProxyConfiguration proxyConfig) {
         configValid(proxyConfig);
-
-        this.proxyConfig = proxyConfig;
         this.pulsarService = mqttService.getPulsarService();
-        this.authProviders = mqttService.getAuthProviders();
-        acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
+        this.proxyConfig = proxyConfig;
+        this.authenticationService = mqttService.getAuthenticationService();
+        this.connectionManager = new MQTTConnectionManager();
+        this.acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
                 false, acceptorThreadFactory);
-        workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),
+        this.workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),
                 false, workerThreadFactory);
     }
 

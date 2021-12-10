@@ -27,9 +27,10 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
+import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-
 /**
  * MQTT in bound handler.
  */
@@ -37,10 +38,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
 
-    private final ProtocolMethodProcessor processor;
+    private ProtocolMethodProcessor processor;
 
-    public MQTTInboundHandler(ProtocolMethodProcessor processor) {
-        this.processor = processor;
+    @Getter
+    private final MQTTService mqttService;
+
+    public MQTTInboundHandler(MQTTService mqttService) {
+        this.mqttService = mqttService;
     }
 
     @Override
@@ -102,13 +106,12 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-        processor.channelActive(ctx);
+        processor = new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         processor.processConnectionLost(ctx.channel());
-        ctx.close();
     }
 
     @Override
@@ -117,7 +120,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                 "An unexpected exception was caught while processing MQTT message. "
                 + "Closing Netty channel {}. MqttClientId = {}",
                 ctx.channel(),
-                NettyUtils.retrieveClientId(ctx.channel()),
+                NettyUtils.getClientId(ctx.channel()),
                 cause);
         ctx.close();
     }
@@ -126,9 +129,8 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     public void userEventTriggered(ChannelHandlerContext ctx, Object event) throws Exception {
         if (event instanceof IdleStateEvent) {
             IdleStateEvent e = (IdleStateEvent) event;
-            if (e.state() == IdleState.READER_IDLE) {
-                log.warn("close channel : {} due to reached read idle time",
-                        NettyUtils.retrieveClientId(ctx.channel()));
+            if (e.state() == IdleState.ALL_IDLE) {
+                log.warn("close channel : {} due to reached all idle time", NettyUtils.getClientId(ctx.channel()));
                 ctx.close();
             }
         } else {
@@ -139,7 +141,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
         if (ctx.channel().isWritable()) {
-            processor.notifyChannelWritable(ctx.channel());
+            ctx.channel().flush();
         }
         ctx.fireChannelWritabilityChanged();
     }

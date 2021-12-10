@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Entry;
+import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.client.api.CompressionType;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.Schema;
@@ -60,10 +61,10 @@ public class PulsarMessageConverter {
             };
 
     // Convert MQTT message to Pulsar message.
-    public static MessageImpl<byte[]> toPulsarMsg(MqttPublishMessage mqttMsg) {
+    public static MessageImpl<byte[]> toPulsarMsg(Topic topic, MqttPublishMessage mqttMsg) {
         MessageMetadata metadata = LOCAL_MESSAGE_METADATA.get();
         metadata.clear();
-        return MessageImpl.create(metadata, mqttMsg.payload().nioBuffer(), SCHEMA);
+        return MessageImpl.create(metadata, mqttMsg.payload().nioBuffer(), SCHEMA, topic.getName());
     }
 
     public static List<MqttPublishMessage> toMqttMessages(String topicName, Entry entry, int messageId, MqttQoS qos) {

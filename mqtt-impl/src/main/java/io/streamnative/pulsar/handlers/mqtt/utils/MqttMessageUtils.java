@@ -14,18 +14,22 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
-import io.netty.handler.codec.mqtt.MqttConnAckMessage;
-import io.netty.handler.codec.mqtt.MqttConnAckVariableHeader;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
-import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
-import io.netty.handler.codec.mqtt.MqttPubAckMessage;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.apache.commons.codec.binary.Hex;
 
@@ -42,24 +46,13 @@ public class MqttMessageUtils {
         }
     }
 
-    public static MqttConnAckMessage connAck(MqttConnectReturnCode returnCode) {
-        return connAck(returnCode, false);
-    }
-
-    public static MqttConnAckMessage connAck(MqttConnectReturnCode returnCode, boolean sessionPresent) {
-        MqttFixedHeader mqttFixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, AT_MOST_ONCE,
-                false, 0);
-        MqttConnAckVariableHeader mqttConnAckVariableHeader = new MqttConnAckVariableHeader(returnCode, sessionPresent);
-        return new MqttConnAckMessage(mqttFixedHeader, mqttConnAckVariableHeader);
-    }
-
-    public static MqttPubAckMessage pubAck(int packetId) {
-        return new MqttPubAckMessage(new MqttFixedHeader(MqttMessageType.PUBACK, false, AT_MOST_ONCE, false, 0),
-                MqttMessageIdVariableHeader.from(packetId));
-    }
-
     public static MqttMessage pingResp() {
         MqttFixedHeader pingHeader = new MqttFixedHeader(MqttMessageType.PINGRESP, false, AT_MOST_ONCE, false, 0);
+        return new MqttMessage(pingHeader);
+    }
+
+    public static MqttMessage pingReq() {
+        MqttFixedHeader pingHeader = new MqttFixedHeader(MqttMessageType.PINGREQ, false, AT_MOST_ONCE, false, 0);
         return new MqttMessage(pingHeader);
     }
 
@@ -87,5 +80,29 @@ public class MqttMessageUtils {
 
     public static int getKeepAliveTime(MqttConnectMessage msg) {
         return Math.round(msg.variableHeader().keepAliveTimeSeconds() * 1.5f);
+    }
+
+    public static List<MqttTopicSubscription> topicSubscriptions(MqttSubscribeMessage msg) {
+        List<MqttTopicSubscription> ackTopics = new ArrayList<>();
+
+        for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
+            MqttQoS qos = req.qualityOfService();
+            ackTopics.add(new MqttTopicSubscription(req.topicName(), qos));
+        }
+        return ackTopics;
+    }
+
+    public static WillMessage createWillMessage(MqttConnectMessage msg) {
+        final ByteBuf willPayload = Unpooled.copiedBuffer(msg.payload().willMessageInBytes());
+        final String willTopic = msg.payload().willTopic();
+        final boolean retained = msg.variableHeader().isWillRetain();
+        final MqttQoS qos = MqttQoS.valueOf(msg.variableHeader().willQos());
+        return new WillMessage(willTopic, willPayload, qos, retained);
+    }
+
+    public static MqttPublishMessage createMqttWillMessage(WillMessage willMessage) {
+        return MessageBuilder.publish()
+                .topicName(willMessage.getTopic()).payload(willMessage.getPayload())
+                .qos(willMessage.getQos()).retained(willMessage.isRetained()).build();
     }
 }

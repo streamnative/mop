@@ -25,7 +25,6 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
-import io.streamnative.pulsar.handlers.mqtt.utils.AuthUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.net.InetSocketAddress;
 import java.util.Map;
@@ -33,7 +32,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.ServiceConfigurationUtils;
-import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
 import org.apache.pulsar.broker.service.BrokerService;
 /**
@@ -41,8 +39,6 @@ import org.apache.pulsar.broker.service.BrokerService;
  */
 @Slf4j
 public class MQTTProtocolHandler implements ProtocolHandler {
-
-    private Map<String, AuthenticationProvider> authProviders;
 
     @Getter
     private MQTTServerConfiguration mqttConfig;
@@ -92,12 +88,9 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Override
     public void start(BrokerService brokerService) {
         this.brokerService = brokerService;
-        if (mqttConfig.isMqttAuthenticationEnabled()) {
-            this.authProviders = AuthUtils.configureAuthProviders(brokerService.getAuthenticationService(),
-                                                                  mqttConfig.getMqttAuthenticationMethods());
-        }
-        mqttService = new MQTTService(brokerService.pulsar(), mqttConfig, authProviders);
-        if (mqttConfig.isMqttProxyEnable()) {
+        mqttService = new MQTTService(brokerService, mqttConfig);
+
+        if (mqttConfig.isMqttProxyEnabled() || mqttConfig.isMqttProxyEnable()) {
             MQTTProxyConfiguration proxyConfig = new MQTTProxyConfiguration();
             proxyConfig.setDefaultTenant(mqttConfig.getDefaultTenant());
             proxyConfig.setDefaultTopicDomain(mqttConfig.getDefaultTopicDomain());
@@ -115,6 +108,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setMqttProxyNumIOThreads(mqttConfig.getMqttProxyNumIOThreads());
             proxyConfig.setMqttAuthenticationEnabled(mqttConfig.isMqttAuthenticationEnabled());
             proxyConfig.setMqttAuthenticationMethods(mqttConfig.getMqttAuthenticationMethods());
+            proxyConfig.setMqttAuthorizationEnabled(mqttConfig.isMqttAuthorizationEnabled());
             proxyConfig.setBrokerClientAuthenticationPlugin(mqttConfig.getBrokerClientAuthenticationPlugin());
             proxyConfig.setBrokerClientAuthenticationParameters(mqttConfig.getBrokerClientAuthenticationParameters());
 
@@ -139,7 +133,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setTlsKeyStorePassword(mqttConfig.getTlsTrustStorePassword());
             proxyConfig.setTlsKeyFilePath(mqttConfig.getTlsKeyFilePath());
             log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
-            proxyService = new MQTTProxyService(proxyConfig, mqttService);
+            proxyService = new MQTTProxyService(mqttService, proxyConfig);
             try {
                 proxyService.start();
                 log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());

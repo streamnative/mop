@@ -1,0 +1,270 @@
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.proxy;
+
+import static org.mockito.Mockito.verify;
+import com.google.common.util.concurrent.AtomicDouble;
+import com.google.gson.Gson;
+import com.google.gson.internal.LinkedTreeMap;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
+import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.psk.PSKClient;
+import java.io.BufferedReader;
+import java.io.EOFException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.pulsar.client.impl.PulsarClientImpl;
+import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
+import org.apache.pulsar.common.naming.NamespaceName;
+import org.apache.pulsar.common.naming.TopicName;
+import org.awaitility.Awaitility;
+import org.fusesource.mqtt.client.BlockingConnection;
+import org.fusesource.mqtt.client.MQTT;
+import org.fusesource.mqtt.client.Message;
+import org.fusesource.mqtt.client.QoS;
+import org.fusesource.mqtt.client.Topic;
+import org.mockito.Mockito;
+import org.testng.Assert;
+import org.testng.annotations.Test;
+
+/**
+ * Integration tests for MQTT protocol handler with proxy.
+ */
+@Slf4j
+public class ProxyTest extends MQTTTestBase {
+
+    @Override
+    protected MQTTServerConfiguration initConfig() throws Exception {
+        MQTTServerConfiguration mqtt = super.initConfig();
+
+        mqtt.setMqttProxyEnabled(true);
+        mqtt.setMqttProxyTlsPskEnabled(true);
+        mqtt.setTlsPskIdentityHint("alpha");
+        mqtt.setTlsPskIdentity("mqtt:mqtt123");
+        return mqtt;
+    }
+
+    @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT, priority = 4)
+    public void testSendAndConsume(String topicName) throws Exception {
+        MQTT mqtt = createMQTTProxyClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT Proxy";
+        connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
+    }
+
+    @Test(expectedExceptions = {EOFException.class, IllegalStateException.class}, priority = 3)
+    public void testInvalidClientId() throws Exception {
+        MQTT mqtt = createMQTTProxyClient();
+        mqtt.setConnectAttemptsMax(1);
+        // ClientId is invalid, for max length is 23 in mqtt 3.1
+        mqtt.setClientId(UUID.randomUUID().toString().replace("-", ""));
+        BlockingConnection connection = Mockito.spy(mqtt.blockingConnection());
+        connection.connect();
+        verify(connection, Mockito.times(2)).connect();
+    }
+
+    @Test(timeOut = TIMEOUT, priority = 2)
+    public void testSendAndConsumeAcrossProxy() throws Exception {
+        int numMessage = 3;
+        String topicName = "a/b/c";
+        MQTT mqtt0 = new MQTT();
+        mqtt0.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection0 = mqtt0.blockingConnection();
+        connection0.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection0.subscribe(topics);
+
+        String message = "Hello MQTT Proxy";
+        MQTT mqtt1 = new MQTT();
+        mqtt1.setHost("127.0.0.1", mqttProxyPortList.get(1));
+        BlockingConnection connection1 = mqtt1.blockingConnection();
+        connection1.connect();
+        connection1.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+
+        MQTT mqtt2 = new MQTT();
+        mqtt2.setHost("127.0.0.1", mqttProxyPortList.get(2));
+        BlockingConnection connection2 = mqtt2.blockingConnection();
+        connection2.connect();
+        connection2.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+
+        MQTT mqtt3 = new MQTT();
+        mqtt3.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection3 = mqtt3.blockingConnection();
+        connection3.connect();
+        connection3.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
+
+        for (int i = 0; i < numMessage; i++) {
+            Message received = connection0.receive();
+            Assert.assertEquals(received.getTopic(), topicName);
+            Assert.assertEquals(new String(received.getPayload()), message);
+            received.ack();
+        }
+
+        connection3.disconnect();
+        connection2.disconnect();
+        connection1.disconnect();
+        connection0.disconnect();
+    }
+
+    @Test(dataProvider = "mqttTopicNameAndFilter", timeOut = 30000, priority = 1)
+    @SneakyThrows
+    public void testSendAndConsumeWithFilter(String topic, String filter) {
+        MQTT mqtt0 = createMQTTProxyClient();
+        BlockingConnection connection0 = mqtt0.blockingConnection();
+        connection0.connect();
+        Topic[] topics = { new Topic(filter, QoS.AT_MOST_ONCE) };
+        String message = "Hello MQTT Proxy";
+        MQTT mqtt1 = createMQTTProxyClient();
+        BlockingConnection connection1 = mqtt1.blockingConnection();
+        connection1.connect();
+        connection1.publish(topic, message.getBytes(), QoS.AT_MOST_ONCE, false);
+        // wait for the publish topic has been stored
+        Awaitility.await().untilAsserted(() -> {
+                    CompletableFuture<List<String>> listOfTopics = pulsarServiceList.get(0).getNamespaceService()
+                    .getListOfTopics(NamespaceName.get("public/default"), CommandGetTopicsOfNamespace.Mode.PERSISTENT);
+                    Assert.assertTrue(listOfTopics.join().size() >= 1);
+        });
+        connection0.subscribe(topics);
+        connection1.publish(topic, message.getBytes(), QoS.AT_MOST_ONCE, false);
+        Message received = connection0.receive();
+        Assert.assertTrue(new TopicFilterImpl(filter).test(received.getTopic()));
+        Assert.assertEquals(new String(received.getPayload()), message);
+
+        connection1.disconnect();
+        connection0.disconnect();
+    }
+
+    @Test
+    @SneakyThrows
+    public void testTlsPskWithTlsv1() {
+        Bootstrap client = new Bootstrap();
+        EventLoopGroup group = new NioEventLoopGroup();
+        client.group(group);
+        client.channel(NioSocketChannel.class);
+        client.handler(new PSKClient("alpha", "mqtt", "mqtt123"));
+        AtomicBoolean connected = new AtomicBoolean(false);
+        CountDownLatch latch = new CountDownLatch(1);
+        client.connect("localhost", mqttProxyPortTlsPskList.get(0)).addListener((ChannelFutureListener) future -> {
+            connected.set(future.isSuccess());
+            latch.countDown();
+        });
+        latch.await();
+        Assert.assertTrue(connected.get());
+    }
+
+    @Test
+    @SneakyThrows
+    public void testProxyProcessPingReq() {
+        String topic = "persistent://public/default/a";
+        // Producer
+        MQTT mqttProducer = createMQTTProxyClient();
+        mqttProducer.setKeepAlive((short) 2);
+        mqttProducer.setConnectAttemptsMax(0);
+        mqttProducer.setReconnectAttemptsMax(0);
+        BlockingConnection producer = mqttProducer.blockingConnection();
+        producer.connect();
+        producer.publish(topic, "Hello MQTT".getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+        Thread.sleep(4000); // Sleep 2 times of setKeepAlive.
+        Assert.assertTrue(producer.isConnected());
+        // Check for broker
+        CompletableFuture<Pair<InetSocketAddress, InetSocketAddress>> broker =
+                ((PulsarClientImpl) pulsarClient).getLookup().getBroker(TopicName.get(topic));
+        AtomicDouble active = new AtomicDouble(0);
+        AtomicDouble total = new AtomicDouble(0);
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        broker.thenAccept(pair -> {
+            try {
+                HttpClient httpClient = HttpClientBuilder.create().build();
+                final String mopEndPoint = "http://localhost:" + (pair.getLeft().getPort() + 2) + "/mop-stats";
+                HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
+                InputStream inputStream = response.getEntity().getContent();
+                InputStreamReader isReader = new InputStreamReader(inputStream);
+                BufferedReader reader = new BufferedReader(isReader);
+                StringBuffer buffer = new StringBuffer();
+                String str;
+                while ((str = reader.readLine()) != null){
+                    buffer.append(str);
+                }
+                String ret = buffer.toString();
+                LinkedTreeMap treeMap = new Gson().fromJson(ret, LinkedTreeMap.class);
+                LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
+                active.set((Double) clients.get("active"));
+                total.set((Double) clients.get("total"));
+                result.complete(null);
+            } catch (Throwable ex) {
+                result.completeExceptionally(ex);
+            }
+        });
+        result.get(1, TimeUnit.MINUTES);
+        Assert.assertEquals(active.get(), 1.0);
+        Assert.assertEquals(total.get(), 1.0);
+    }
+
+    @Test
+    @SneakyThrows
+    public void testPubAndSubWithDifferentTopics() {
+        MQTT mqtt = createMQTTProxyClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic("subTopic2", QoS.AT_LEAST_ONCE) };
+        connection.subscribe(topics);
+
+        MQTT mqtt2 = createMQTTProxyClient();
+        BlockingConnection connection2 = mqtt2.blockingConnection();
+        connection2.connect();
+        Topic[] topics2 = { new Topic("subTopic1", QoS.AT_LEAST_ONCE) };
+        connection2.subscribe(topics2);
+
+        connection.publish("subTopic1", "mqtt1".getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+        connection2.publish("subTopic2", "mqtt2".getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+
+        Message msg1 = connection2.receive();
+        Message msg2 = connection.receive();
+        Assert.assertEquals(new String(msg1.getPayload()), "mqtt1");
+        Assert.assertEquals(new String(msg2.getPayload()), "mqtt2");
+        //
+        connection.disconnect();
+        connection2.disconnect();
+    }
+}

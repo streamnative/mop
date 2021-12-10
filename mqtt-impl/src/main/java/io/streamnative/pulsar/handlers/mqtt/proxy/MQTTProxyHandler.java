@@ -55,7 +55,7 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         super.channelInactive(ctx);
-        this.close();
+        this.processor.processConnectionLost(ctx.channel());
     }
 
     @Override
@@ -120,7 +120,7 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
                 "An unexpected exception was caught while processing MQTT message. "
                         + "Closing Netty channel {}. MqttClientId = {}",
                 ctx.channel(),
-                NettyUtils.retrieveClientId(ctx.channel()),
+                NettyUtils.getClientId(ctx.channel()),
                 cause);
         ctx.close();
     }
@@ -129,22 +129,13 @@ public class MQTTProxyHandler extends ChannelInboundHandlerAdapter{
     public void userEventTriggered(ChannelHandlerContext ctx, Object event) throws Exception {
         if (event instanceof IdleStateEvent) {
             IdleStateEvent e = (IdleStateEvent) event;
-            if (e.state() == IdleState.READER_IDLE) {
-                log.warn("close channel : {} due to reached read idle time",
-                        NettyUtils.retrieveClientId(ctx.channel()));
+            if (e.state() == IdleState.ALL_IDLE) {
+                log.warn("proxy close channel : {} due to reached all idle time",
+                        NettyUtils.getClientId(ctx.channel()));
                 ctx.close();
             }
         } else {
             super.userEventTriggered(ctx, event);
-        }
-    }
-
-    public void close() {
-        if (log.isDebugEnabled()) {
-            log.debug("ProxyConnection close.");
-        }
-        if (ctx != null) {
-            ctx.close();
         }
     }
 }

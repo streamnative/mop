@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter.toPulsarMsg;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
 import io.streamnative.pulsar.handlers.mqtt.utils.MessagePublishContext;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.Optional;
@@ -33,13 +34,10 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
 
     protected final PulsarService pulsarService;
     protected final MQTTServerConfiguration configuration;
-    protected final ConnectionDescriptorStore connectionDescriptors;
 
-    protected AbstractQosPublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration,
-                                        ConnectionDescriptorStore connectionDescriptors) {
+    protected AbstractQosPublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration) {
         this.pulsarService = pulsarService;
         this.configuration = configuration;
-        this.connectionDescriptors = connectionDescriptors;
     }
 
     protected CompletableFuture<Optional<Topic>> getTopicReference(MqttPublishMessage msg) {
@@ -49,14 +47,26 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     }
 
     protected CompletableFuture<PositionImpl> writeToPulsarTopic(MqttPublishMessage msg) {
-        return getTopicReference(msg).thenCompose(topicOp -> {
-                MessageImpl<byte[]> message = toPulsarMsg(msg);
-                CompletableFuture<PositionImpl> pos = topicOp.map(topic ->
-                        MessagePublishContext.publishMessages(message, topic))
-                        .orElseGet(() -> FutureUtil.failedFuture(
-                                new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName())));
-                message.release();
-                return pos;
-            });
+        return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
+            MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
+            CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
+            message.release();
+            return ret;
+        }).orElseGet(() -> FutureUtil.failedFuture(
+                new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
+    }
+
+    protected CompletableFuture<PositionImpl> writeToPulsarTopicAndCheckIfSubscriptionMatching(MqttPublishMessage msg) {
+        return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
+                    if (topic.getSubscriptions().isEmpty()) {
+                        throw new MQTTNoMatchingSubscriberException(msg.variableHeader().topicName());
+                    }
+                    MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
+                    CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
+                    message.release();
+                    return ret;
+                })
+                .orElseGet(() -> FutureUtil.failedFuture(
+                        new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
     }
 }

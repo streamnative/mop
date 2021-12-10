@@ -14,17 +14,22 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.Channel;
-import io.netty.handler.codec.mqtt.MqttPubAckMessage;
+import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
-import io.streamnative.pulsar.handlers.mqtt.ConnectionDescriptorStore;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
+import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.service.BrokerServiceException;
-import org.apache.zookeeper.KeeperException;
 
 /**
  * Publish handler implementation for Qos 1.
@@ -32,47 +37,56 @@ import org.apache.zookeeper.KeeperException;
 @Slf4j
 public class Qos1PublishHandler extends AbstractQosPublishHandler {
 
-    public Qos1PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration,
-                              ConnectionDescriptorStore connectionDescriptors) {
-        super(pulsarService, configuration, connectionDescriptors);
+    public Qos1PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration) {
+        super(pulsarService, configuration);
     }
 
     @Override
     public void publish(Channel channel, MqttPublishMessage msg) {
+        Connection connection = NettyUtils.getConnection(channel);
+        int protocolVersion = NettyUtils.getProtocolVersion(channel);
+        final boolean isMqtt5 = MqttUtils.isMqtt5(protocolVersion);
+        int packetId = msg.variableHeader().packetId();
         final String topic = msg.variableHeader().topicName();
-        writeToPulsarTopic(msg).whenComplete((p, e) -> {
+        // Support mqtt 5 version.
+        CompletableFuture<PositionImpl> writeToPulsarResultFuture =
+                isMqtt5 ? writeToPulsarTopicAndCheckIfSubscriptionMatching(msg) : writeToPulsarTopic(msg);
+        writeToPulsarResultFuture.whenComplete((p, e) -> {
             if (e == null) {
                 if (log.isDebugEnabled()) {
                     log.debug("[{}] Write {} to Pulsar topic succeed.", topic, msg);
                 }
-                String clientId = NettyUtils.retrieveClientId(channel);
-                sendPubAck(topic, clientId, msg.variableHeader().packetId());
-            } else {
-                log.error("[{}] Write {} to Pulsar topic failed.", topic, msg, e);
-                Throwable cause = e.getCause();
-                if (cause instanceof BrokerServiceException.ServerMetadataException) {
-                    cause = cause.getCause();
-                    if (cause instanceof KeeperException.NoNodeException) {
-                        channel.close();
+                MqttMessage mqttPubAckMessage = isMqtt5
+                        ? MqttPubAckMessageHelper.createMqtt5(packetId, Mqtt5PubReasonCode.SUCCESS) :
+                        MqttPubAckMessageHelper.createMqtt(packetId);
+                channel.writeAndFlush(mqttPubAckMessage).addListener(future -> {
+                    if (future.isSuccess()) {
+                        // decrement server receive publish message counter
+                        connection.decrementServerReceivePubMessage();
+                        if (log.isDebugEnabled()) {
+                            log.debug("[{}] Send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
+                                    NettyUtils.getClientId(channel));
+                        }
+                    } else {
+                        log.warn("[{}] Failed to send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
+                                NettyUtils.getClientId(channel), future.cause());
                     }
+                });
+            } else {
+                Throwable cause = e.getCause();
+                if (cause instanceof MQTTNoMatchingSubscriberException) {
+                    log.warn("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
+                    MqttMessage unspecifiedErrorPubAckMessage =
+                            MqttPubAckMessageHelper.createMqtt5(packetId, Mqtt5PubReasonCode.NO_MATCHING_SUBSCRIBERS,
+                                    cause.getMessage());
+                    channel.writeAndFlush(unspecifiedErrorPubAckMessage);
+                    // decrement server receive publish message counter
+                    connection.decrementServerReceivePubMessage();
+                    return;
                 }
+                log.error("[{}] Write {} to Pulsar topic failed.", topic, msg, e);
+                MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, cause);
             }
         });
-    }
-
-    private void sendPubAck(String topic, String clientId, int packetId) {
-        if (log.isDebugEnabled()) {
-            log.debug("[{}] Send Pub Ack {} to {}", topic, packetId, clientId);
-        }
-        try {
-            if (connectionDescriptors != null && connectionDescriptors.isConnected(clientId)) {
-                MqttPubAckMessage pubAckMessage = MqttMessageUtils.pubAck(packetId);
-                connectionDescriptors.sendMessage(pubAckMessage, packetId, clientId);
-            } else {
-                log.warn("Can't find ConnectionDescriptor: {} for client: {}", connectionDescriptors, clientId);
-            }
-        } catch (Throwable t) {
-            log.error("[{}] Failed to send Pub Ack {} to client {}.", topic, packetId, clientId, t);
-        }
     }
 }

@@ -56,6 +56,13 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
 
     @FieldContext(
             category = CATEGORY_MQTT,
+            required = false,
+            doc = "Whether enable authorization for MQTT."
+    )
+    private boolean mqttAuthorizationEnabled = false;
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
             required = true,
             doc = "The maximum number of channels which can exist concurrently on a connection."
     )
@@ -68,6 +75,14 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     )
     private int maxFrameSize = 4 * 1024 * 1024;
 
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            required = false,
+            doc = "Server uses this value to limit the number of QoS 1 and QoS 2 publications that it is willing to"
+                    + "process concurrently for the Client. It does not provide a mechanism to limit the QoS 0"
+                    + " publications that the Client might try to send."
+    )
+    private int receiveMaximum = 65535;
     @FieldContext(
             category = CATEGORY_MQTT,
             required = true,
@@ -113,9 +128,17 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
             required = false,
+            doc = "Deprecated, use `mqttProxyEnabled` instead"
+    )
+    @Deprecated
+    private boolean mqttProxyEnable = false;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
             doc = "Whether start mqtt protocol handler with proxy"
     )
-    private boolean mqttProxyEnable = false;
+    private boolean mqttProxyEnabled = false;
 
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,

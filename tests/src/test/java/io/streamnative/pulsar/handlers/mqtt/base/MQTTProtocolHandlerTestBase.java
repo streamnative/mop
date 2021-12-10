@@ -52,6 +52,7 @@ import org.apache.pulsar.broker.namespace.NamespaceService;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
+import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.compaction.Compactor;
 import org.apache.pulsar.metadata.impl.ZKMetadataStore;
 import org.apache.pulsar.zookeeper.ZooKeeperClientFactory;
@@ -78,6 +79,10 @@ public abstract class MQTTProtocolHandlerTestBase {
     protected URL brokerUrlTls;
     protected URI lookupUrl;
     protected PulsarClient pulsarClient;
+    protected String defaultTenant = "public";
+    protected String defaultNamespace = "default";
+    protected TopicDomain defaultTopicDomain = TopicDomain.persistent;
+
 
     @Getter
     protected int mqttBrokerPortTls = PortManager.nextFreePort();
@@ -258,7 +263,7 @@ public abstract class MQTTProtocolHandlerTestBase {
 
     protected void startBroker() throws Exception {
         MQTTServerConfiguration conf = initConfig();
-        if (conf.isMqttProxyEnable()) {
+        if (conf.isMqttProxyEnabled()) {
             brokerCount = 3;
         }
         for (int i = 0; i < brokerCount; i++) {
@@ -272,6 +277,12 @@ public abstract class MQTTProtocolHandlerTestBase {
 
         int brokerPortTls = PortManager.nextFreePort();
         brokerPortList.add(brokerPortTls);
+
+        int brokerWebServicePort = PortManager.nextFreePort();
+        brokerWebservicePortList.add(brokerWebServicePort);
+
+        int brokerWebServicePortTls = PortManager.nextFreePort();
+        brokerWebServicePortTlsList.add(brokerWebServicePortTls);
 
         int mqttBrokerPort = PortManager.nextFreePort();
         mqttBrokerPortList.add(mqttBrokerPort);
@@ -290,7 +301,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         int mqttProxyPort = -1;
         int mqttProxyTlsPort = -1;
         int mqttProxyTlsPskPort = -1;
-        if (conf.isMqttProxyEnable()) {
+        if (conf.isMqttProxyEnabled()) {
             mqttProxyPort = PortManager.nextFreePort();
             conf.setMqttProxyPort(mqttProxyPort);
             mqttProxyPortList.add(mqttProxyPort);
@@ -305,12 +316,6 @@ public abstract class MQTTProtocolHandlerTestBase {
                 mqttProxyPortTlsPskList.add(mqttProxyTlsPskPort);
             }
         }
-
-        int brokerWebServicePort = PortManager.nextFreePort();
-        brokerWebservicePortList.add(brokerWebServicePort);
-
-        int brokerWebServicePortTls = PortManager.nextFreePort();
-        brokerWebServicePortTlsList.add(brokerWebServicePortTls);
 
         conf.setBrokerServicePort(Optional.of(brokerPort));
         conf.setBrokerServicePortTls(Optional.of(brokerPortTls));
@@ -328,9 +333,10 @@ public abstract class MQTTProtocolHandlerTestBase {
         conf.setMqttListeners(Joiner.on(",").skipNulls().join(listener, tlsListener, tlsPskListener));
 
         log.info("Start broker info, brokerPort: {}, brokerPortTls : {}, "
+                        + "brokerWebServicePort : {} , brokerWebServicePortTls : {}, "
                         + "mqttBrokerPort: {}, mqttBrokerTlsPort: {}, mqttBrokerTlsPskPort: {}, "
                         + "mqttProxyPort: {}, mqttProxyTlsPort: {}, mqttProxyTlsPskPort: {}",
-                brokerPort, brokerPortTls,
+                brokerPort, brokerPortTls, brokerWebServicePort, brokerWebServicePortTls,
                 mqttBrokerPort, mqttBrokerTlsPort, mqttBrokerTlsPskPort,
                 mqttProxyPort, mqttProxyTlsPort, mqttProxyTlsPskPort);
         this.pulsarServiceList.add(doStartBroker(conf));
