@@ -278,7 +278,7 @@
                 <version>${maven-jacoco-plugin.version}</version>
                 <configuration>
                     <includes>
-                        <include>**/io/streamnative/pulsar/handlers/mqtt/**</include>
+                        <include>**/pulsar/**</include>
                     </includes>
                 </configuration>
                 <executions>
