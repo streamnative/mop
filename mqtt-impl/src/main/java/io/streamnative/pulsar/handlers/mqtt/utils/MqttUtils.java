@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttVersion;
 
 /**
@@ -43,4 +44,9 @@ public class MqttUtils {
         return version == MqttVersion.MQTT_5.protocolLevel();
     }
 
+    public static boolean isQosSupported(MqttConnectMessage msg) {
+        int willQos = msg.variableHeader().willQos();
+        MqttQoS mqttQoS = MqttQoS.valueOf(willQos);
+        return mqttQoS == MqttQoS.AT_LEAST_ONCE || mqttQoS == MqttQoS.AT_MOST_ONCE;
+    }
 }
