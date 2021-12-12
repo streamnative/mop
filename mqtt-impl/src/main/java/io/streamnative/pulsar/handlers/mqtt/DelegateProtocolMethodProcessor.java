@@ -42,6 +42,9 @@ public class DelegateProtocolMethodProcessor extends AbstractProtocolMethodProce
             case 5:
                 v5Delegate.checkWillingMessageIfNeeded(clientId, willQos);
                 break;
+            default:
+                throw new MQTTServerException(String.format("Not support protocol version %s",
+                        protocolVersion));
         }
     }
 
@@ -55,7 +58,8 @@ public class DelegateProtocolMethodProcessor extends AbstractProtocolMethodProce
             case 5:
                 return v5Delegate.buildConnection(connectionBuilder, msg);
             default:
-                throw new MQTTServerException("unsupported protocol version");
+                throw new MQTTServerException(String.format("Not support protocol version %s",
+                        protocolVersion));
         }
     }
 
@@ -70,6 +74,9 @@ public class DelegateProtocolMethodProcessor extends AbstractProtocolMethodProce
             case 5:
                 v5Delegate.checkServerReceivePubMessageAndIncrementCounterIfNeeded(channel, msg);
                 break;
+            default:
+                throw new MQTTServerException(String.format("Not support protocol version %s",
+                        protocolVersion));
         }
     }
 
@@ -84,6 +91,9 @@ public class DelegateProtocolMethodProcessor extends AbstractProtocolMethodProce
             case 5:
                 v5Delegate.parseDisconnectPropertiesIfNeeded(msg);
                 break;
+            default:
+                throw new MQTTServerException(String.format("Not support protocol version %s",
+                        protocolVersion));
         }
     }
 }
