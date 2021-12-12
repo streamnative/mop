@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3;
 
+import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttReasonCode;
 
 /**
@@ -35,5 +36,15 @@ public enum Mqtt3SubReasonCode implements MqttReasonCode {
     @Override
     public int value() {
         return code;
+    }
+
+    /**
+     * Convert this enum to netty MqttConnectReturnCode.
+     *
+     * @return - Mqtt3SubReasonCode
+     * @see MqttConnectReturnCode
+     */
+    public MqttConnectReturnCode convertToNettyKlass() {
+        return MqttConnectReturnCode.valueOf(byteValue());
     }
 }

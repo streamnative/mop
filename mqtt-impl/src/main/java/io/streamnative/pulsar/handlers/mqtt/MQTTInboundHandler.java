@@ -2,9 +2,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -27,10 +28,12 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
-import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
+import io.streamnative.pulsar.handlers.mqtt.exception.handler.GlobalExceptionHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+
 /**
  * MQTT in bound handler.
  */
@@ -97,6 +100,9 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                     log.error("Unknown MessageType:{}", messageType);
                     break;
             }
+        } catch (MQTTServerException ex) {
+            Channel channel = ctx.channel();
+            GlobalExceptionHandler.handleServerException(channel, ex);
         } catch (Throwable ex) {
             log.error("Exception was caught while processing MQTT message, ", ex);
             ctx.close();
@@ -106,7 +112,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-        processor = new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
+        this.processor = new DelegateProtocolMethodProcessor(mqttService, ctx);
     }
 
     @Override
@@ -118,7 +124,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         log.warn(
                 "An unexpected exception was caught while processing MQTT message. "
-                + "Closing Netty channel {}. MqttClientId = {}",
+                        + "Closing Netty channel {}. MqttClientId = {}",
                 ctx.channel(),
                 NettyUtils.getClientId(ctx.channel()),
                 cause);

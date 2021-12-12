@@ -67,7 +67,6 @@ public final class NettyUtils {
     public static void setConnection(Channel channel, Connection connection) {
         channel.attr(NettyUtils.ATTR_KEY_CONNECTION).set(connection);
     }
-
     public static Connection getConnection(Channel channel) {
         return (Connection) channel.attr(NettyUtils.ATTR_KEY_CONNECTION).get();
     }

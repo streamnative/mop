@@ -59,7 +59,8 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     protected CompletableFuture<PositionImpl> writeToPulsarTopicAndCheckIfSubscriptionMatching(MqttPublishMessage msg) {
         return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
                     if (topic.getSubscriptions().isEmpty()) {
-                        throw new MQTTNoMatchingSubscriberException(msg.variableHeader().topicName());
+                        throw new MQTTNoMatchingSubscriberException(msg.variableHeader().topicName(),
+                                msg.variableHeader().packetId());
                     }
                     MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
                     CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);

@@ -13,7 +13,6 @@
  */
 
 package io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5;
-
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttReasonCode;
 
 /**
@@ -39,5 +38,4 @@ public enum Mqtt5UnsubReasonCode implements MqttReasonCode {
     public int value() {
         return code;
     }
-
 }

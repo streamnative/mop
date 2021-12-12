@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static io.netty.handler.codec.mqtt.MqttMessageType.PUBACK;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingReq;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import io.netty.channel.Channel;
@@ -20,7 +21,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
@@ -29,11 +29,12 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
-import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
+import io.streamnative.pulsar.handlers.mqtt.exception.handler.GlobalExceptionHandler;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.handler.ProtocolAckHandlerHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -131,7 +132,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         Connection connection = connectionBuilder.build();
         connectionManager.addConnection(connection);
         NettyUtils.setConnection(channel, connection);
-        connection.sendConnAck();
+        ProtocolAckHandlerHelper.getAndCheckByProtocolVersion(channel)
+                        .connOk(connection);
     }
 
     @Override
@@ -158,7 +160,8 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             if (null != throwable) {
                 log.error("[Proxy Publish] Failed to perform lookup request for topic : {}, CId : {}",
                         msg.variableHeader().topicName(), NettyUtils.getClientId(channel), throwable);
-                MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, throwable);
+                GlobalExceptionHandler.handleServerException(channel, throwable)
+                                .orElseHandleCommon(PUBACK, packetId);
                 return;
             }
             writeToMqttBroker(channel, msg, pulsarTopicName, brokerAddress);
