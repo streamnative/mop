@@ -48,8 +48,8 @@ public class MQTTProxyExchanger {
     MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, InetSocketAddress mqttBroker) {
         this.processor = processor;
         Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(processor.clientChannel().eventLoop())
-                .channel(processor.clientChannel().getClass())
+        bootstrap.group(processor.getChannel().eventLoop())
+                .channel(processor.getChannel().getClass())
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
@@ -75,8 +75,8 @@ public class MQTTProxyExchanger {
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             super.channelActive(ctx);
-            NettyUtils.setClientId(ctx.channel(), NettyUtils.getClientId(processor.clientChannel()));
-            MqttConnectMessage connectMessage = NettyUtils.getConnectMsg(processor.clientChannel());
+            NettyUtils.setClientId(ctx.channel(), NettyUtils.getClientId(processor.getChannel()));
+            MqttConnectMessage connectMessage = NettyUtils.getConnectMsg(processor.getChannel());
             ctx.channel().writeAndFlush(connectMessage);
         }
 
@@ -98,18 +98,18 @@ public class MQTTProxyExchanger {
                         MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
                         if (processor.decreaseSubscribeTopicsCount(
                                 subAckMessage.variableHeader().messageId()) == 0) {
-                            processor.clientChannel().writeAndFlush(message);
+                            processor.getChannel().writeAndFlush(message);
                         }
                         break;
                     default:
-                        processor.clientChannel().writeAndFlush(message);
+                        processor.getChannel().writeAndFlush(message);
                         break;
                 }
             } catch (Throwable ex) {
                 log.error("Exception was caught while processing MQTT broker message", ex);
                 brokerConnectedAck.completeExceptionally(ex);
                 ctx.close();
-                processor.clientChannel().close();
+                processor.getChannel().close();
             }
         }
 
@@ -117,13 +117,13 @@ public class MQTTProxyExchanger {
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             log.error("exception caught when connect with MoP broker.", cause);
             ctx.close();
-            processor.clientChannel().close();
+            processor.getChannel().close();
         }
 
         @Override
         public void channelInactive(ChannelHandlerContext ctx) throws Exception {
             log.error("proxy to broker channel inactive. Cid = {}", NettyUtils.getClientId(ctx.channel()));
-            processor.clientChannel().close();
+            processor.getChannel().close();
         }
     }
 
