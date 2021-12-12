@@ -64,6 +64,9 @@ public class MqttExceptionHelper {
             case UNSUBACK:
                 exceptionHandler.handleUnSubCommonException(channel, packetId, ex);
                 break;
+            default:
+                throw new IllegalArgumentException(String.format("Illegal common exception handler type %s.",
+                        condition));
         }
     }
 
