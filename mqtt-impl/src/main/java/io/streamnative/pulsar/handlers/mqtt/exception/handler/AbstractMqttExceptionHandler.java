@@ -4,7 +4,12 @@ import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnAckMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.streamnative.pulsar.handlers.mqtt.annotation.Ignore;
-import io.streamnative.pulsar.handlers.mqtt.exception.*;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTDisconnectProtocolErrorException;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTExceedServerReceiveMaximumException;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTProtocolVersionNotSupportException;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTQosNotSupportException;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import lombok.extern.slf4j.Slf4j;
 

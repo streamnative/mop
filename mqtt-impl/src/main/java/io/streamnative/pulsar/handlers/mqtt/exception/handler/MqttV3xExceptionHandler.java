@@ -6,7 +6,6 @@ import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTBadUserNameOrPasswordException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTClientIdentifierNotValidException;
-import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNotAuthorizedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerUnavailableException;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
