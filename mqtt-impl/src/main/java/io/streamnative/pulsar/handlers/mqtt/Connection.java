@@ -62,7 +62,11 @@ public class Connection {
     @Builder.Default
     volatile ConnectionState connectionState = DISCONNECTED;
     @Getter
-    private int receiveMaximum; // mqtt 5.0 specification.
+    private int clientReceiveMaximum; // mqtt 5.0 specification.
+    @Getter
+    private int serverReceivePubMaximum;
+    @Builder.Default
+    private volatile int serverCurrentReceiveCounter = 0;
     // connection manager
     private final MQTTConnectionManager manager;
 
@@ -72,11 +76,15 @@ public class Connection {
     private static final AtomicIntegerFieldUpdater<Connection> SESSION_EXPIRE_INTERVAL_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(Connection.class, "sessionExpireInterval");
 
+    private static final AtomicIntegerFieldUpdater<Connection> SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER =
+            AtomicIntegerFieldUpdater.newUpdater(Connection.class, "serverCurrentReceiveCounter");
+
     public void sendConnAck() {
         boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
         if (ret) {
             MqttMessage mqttConnAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                    ? MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.SUCCESS, !cleanSession) :
+                    ? MqttConnAckMessageHelper
+                    .createMqtt(Mqtt5ConnReasonCode.SUCCESS, !cleanSession, serverReceivePubMaximum) :
                     MqttConnAckMessageHelper.createMqtt(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED, !cleanSession);
             channel.writeAndFlush(mqttConnAckMessage).addListener(future -> {
                 if (future.isSuccess()) {
@@ -241,6 +249,18 @@ public class Connection {
         int sei = SESSION_EXPIRE_INTERVAL_UPDATER.get(this);
         int zeroSecond = SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
         return sei > zeroSecond && sessionExpireInterval >= zeroSecond;
+    }
+
+    public void incrementServerReceivePubMessage() {
+        SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER.addAndGet(this, 1);
+    }
+
+    public void decrementServerReceivePubMessage() {
+        SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER.decrementAndGet(this);
+    }
+
+    public int getServerReceivePubMessage() {
+        return SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER.get(this);
     }
 
     /**

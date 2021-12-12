@@ -77,6 +77,14 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
 
     @FieldContext(
             category = CATEGORY_MQTT,
+            required = false,
+            doc = "Server uses this value to limit the number of QoS 1 and QoS 2 publications that it is willing to"
+                    + "process concurrently for the Client. It does not provide a mechanism to limit the QoS 0"
+                    + " publications that the Client might try to send."
+    )
+    private int receiveMaximum = 65535;
+    @FieldContext(
+            category = CATEGORY_MQTT,
             required = true,
             doc = "Default Pulsar tenant that the MQTT server used."
     )
