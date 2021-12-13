@@ -16,11 +16,15 @@ package io.streamnative.pulsar.handlers.mqtt.exception;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import lombok.Getter;
 
 public class MQTTServerUnavailableException extends MQTTServerException {
+    @Getter
+    private final MqttMessageType condition;
 
-    public MQTTServerUnavailableException(MqttMessageType connack, String clientId) {
+    public MQTTServerUnavailableException(MqttMessageType condition, String clientId) {
         super(String.format("Unable to assign the state from : %s to : %s for CId=%s, close channel",
                 DISCONNECTED, CONNECT_ACK, clientId));
+        this.condition = condition;
     }
 }

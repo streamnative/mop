@@ -27,4 +27,4 @@ public class MQTTProtocolVersionNotSupportException extends MQTTServerException 
         this.clientId = clientId;
         this.protocolVersion = protocolVersion;
     }
-};
+}

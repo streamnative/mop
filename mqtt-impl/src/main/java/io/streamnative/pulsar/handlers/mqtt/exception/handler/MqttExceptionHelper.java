@@ -105,6 +105,8 @@ public class MqttExceptionHelper {
                 case PUBACK:
                     exceptionHandler.handlePubNotAuthorized(channel, (MQTTNotAuthorizedException) ex);
                     return true;
+                default:
+                    return false;
             }
         } else if (ex instanceof MQTTQosNotSupportException) {
             exceptionHandler.handleConnQosNotSupport(channel, (MQTTQosNotSupportException) ex);
