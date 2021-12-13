@@ -52,6 +52,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnRea
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
@@ -177,7 +178,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 .userRole(userRole)
                 .willMessage(createWillMessage(msg))
                 .cleanSession(msg.variableHeader().isCleanSession())
-                .sessionExpireInterval(MqttPropertyUtils.getExpireInterval(msg.variableHeader().properties()))
+                .sessionExpireInterval(MqttPropertyUtils.getExpireInterval(msg.variableHeader().properties())
+                        .orElse(SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()))
                 .clientReceiveMaximum(MqttPropertyUtils.getReceiveMaximum(protocolVersion,
                         msg.variableHeader().properties()))
                 .serverReceivePubMaximum(configuration.getReceiveMaximum())

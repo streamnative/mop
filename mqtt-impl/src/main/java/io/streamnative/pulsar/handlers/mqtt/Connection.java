@@ -30,7 +30,6 @@ import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Builder;
@@ -87,8 +86,7 @@ public class Connection {
         this.protocolVersion = builder.protocolVersion;
         this.cleanSession = builder.cleanSession;
         this.willMessage = builder.willMessage;
-        this.sessionExpireInterval = builder.sessionExpireInterval
-                .orElse(SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime());
+        this.sessionExpireInterval = builder.sessionExpireInterval;
         this.clientReceiveMaximum = builder.clientReceiveMaximum;
         this.serverReceivePubMaximum = builder.serverReceivePubMaximum;
         this.userRole = builder.userRole;
@@ -301,7 +299,7 @@ public class Connection {
         private WillMessage willMessage;
         private int clientReceiveMaximum;
         private int serverReceivePubMaximum;
-        private Optional<Integer> sessionExpireInterval = Optional.empty();
+        private int sessionExpireInterval;
         private Channel channel;
         private MQTTConnectionManager connectionManager;
 
@@ -340,7 +338,7 @@ public class Connection {
             return this;
         }
 
-        public ConnectionBuilder sessionExpireInterval(Optional<Integer> sessionExpireInterval) {
+        public ConnectionBuilder sessionExpireInterval(int sessionExpireInterval) {
             this.sessionExpireInterval = sessionExpireInterval;
             return this;
         }
