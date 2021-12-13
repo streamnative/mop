@@ -30,6 +30,7 @@ import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.codec.binary.Hex;
 
@@ -92,12 +93,15 @@ public class MqttMessageUtils {
         return ackTopics;
     }
 
-    public static WillMessage createWillMessage(MqttConnectMessage msg) {
+    public static Optional<WillMessage> createWillMessage(MqttConnectMessage msg) {
+        if (!msg.variableHeader().isWillFlag()) {
+            return Optional.empty();
+        }
         final ByteBuf willPayload = Unpooled.copiedBuffer(msg.payload().willMessageInBytes());
         final String willTopic = msg.payload().willTopic();
         final boolean retained = msg.variableHeader().isWillRetain();
         final MqttQoS qos = MqttQoS.valueOf(msg.variableHeader().willQos());
-        return new WillMessage(willTopic, willPayload, qos, retained);
+        return Optional.of(new WillMessage(willTopic, willPayload, qos, retained));
     }
 
     public static MqttPublishMessage createMqttWillMessage(WillMessage willMessage) {

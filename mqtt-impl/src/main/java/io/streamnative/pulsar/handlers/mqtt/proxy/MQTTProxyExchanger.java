@@ -75,7 +75,6 @@ public class MQTTProxyExchanger {
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             super.channelActive(ctx);
-            NettyUtils.setClientId(ctx.channel(), NettyUtils.getClientId(processor.getChannel()));
             MqttConnectMessage connectMessage = NettyUtils.getConnectMsg(processor.getChannel());
             ctx.channel().writeAndFlush(connectMessage);
         }
@@ -122,7 +121,7 @@ public class MQTTProxyExchanger {
 
         @Override
         public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-            log.error("proxy to broker channel inactive. Cid = {}", NettyUtils.getClientId(ctx.channel()));
+            log.error("proxy to broker channel inactive. connection = {}", NettyUtils.getConnection(ctx.channel()));
             processor.getChannel().close();
         }
     }

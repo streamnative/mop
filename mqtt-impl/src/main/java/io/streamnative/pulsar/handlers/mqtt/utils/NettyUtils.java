@@ -13,15 +13,11 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLEAN_SESSION;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ADDR;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ID;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECTION;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECT_MSG;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_KEEP_ALIVE_TIME;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_PROTOCOL_VERSION;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_TOPIC_SUBS;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_WILL_MESSAGE;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -42,27 +38,13 @@ import org.apache.pulsar.broker.service.Topic;
 public final class NettyUtils {
 
     public static final String ATTR_USERNAME = "username";
-    public static final String ATTR_USER_ROLE = "userRole";
 
-    private static final AttributeKey<Object> ATTR_KEY_CLIENT_ID = AttributeKey.valueOf(ATTR_CLIENT_ID);
     private static final AttributeKey<Object> ATTR_KEY_CONNECTION = AttributeKey.valueOf(ATTR_CONNECTION);
-    private static final AttributeKey<Object> ATTR_KEY_CLEAN_SESSION = AttributeKey.valueOf(ATTR_CLEAN_SESSION);
     private static final AttributeKey<Object> ATTR_KEY_KEEP_ALIVE_TIME = AttributeKey.valueOf(ATTR_KEEP_ALIVE_TIME);
     private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
-    private static final AttributeKey<Object> ATTR_KEY_USER_ROLE = AttributeKey.valueOf(ATTR_USER_ROLE);
     private static final AttributeKey<Object> ATTR_KEY_CONNECT_MSG = AttributeKey.valueOf(ATTR_CONNECT_MSG);
     private static final AttributeKey<Object> ATTR_KEY_TOPIC_SUBS = AttributeKey.valueOf(ATTR_TOPIC_SUBS);
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ADDR = AttributeKey.valueOf(ATTR_CLIENT_ADDR);
-    private static final AttributeKey<Object> ATTR_KEY_WILL_MESSAGE = AttributeKey.valueOf(ATTR_WILL_MESSAGE);
-    private static final AttributeKey<Object> ATTR_KEY_PROTOCOL_VERSION = AttributeKey.valueOf(ATTR_PROTOCOL_VERSION);
-
-    public static void setClientId(Channel channel, String clientId) {
-        channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).set(clientId);
-    }
-
-    public static String getClientId(Channel channel) {
-        return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ID).get();
-    }
 
     public static void setConnection(Channel channel, Connection connection) {
         channel.attr(NettyUtils.ATTR_KEY_CONNECTION).set(connection);
@@ -70,14 +52,6 @@ public final class NettyUtils {
 
     public static Connection getConnection(Channel channel) {
         return (Connection) channel.attr(NettyUtils.ATTR_KEY_CONNECTION).get();
-    }
-
-    public static void setCleanSession(Channel channel, boolean cleanSession) {
-        channel.attr(NettyUtils.ATTR_KEY_CLEAN_SESSION).set(cleanSession);
-    }
-
-    public static boolean getCleanSession(Channel channel) {
-        return (Boolean) channel.attr(NettyUtils.ATTR_KEY_CLEAN_SESSION).get();
     }
 
     public static void setConnectMsg(Channel channel, MqttConnectMessage connectMessage) {
@@ -103,14 +77,6 @@ public final class NettyUtils {
 
     public static void userName(Channel channel, String username) {
         channel.attr(NettyUtils.ATTR_KEY_USERNAME).set(username);
-    }
-
-    public static String getUserRole(Channel channel) {
-        return (String) channel.attr(NettyUtils.ATTR_KEY_USER_ROLE).get();
-    }
-
-    public static void setUserRole(Channel channel, String authRole) {
-        channel.attr(NettyUtils.ATTR_KEY_USER_ROLE).set(authRole);
     }
 
     public static String userName(Channel channel) {
@@ -146,23 +112,6 @@ public final class NettyUtils {
 
     public static String getAddress(Channel channel) {
         return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ADDR).get();
-    }
-
-    public static void setWillMessage(Channel channel, WillMessage willMessage) {
-        channel.attr(NettyUtils.ATTR_KEY_WILL_MESSAGE).set(willMessage);
-    }
-
-    public static Optional<WillMessage> getWillMessage(Channel channel) {
-        WillMessage willMessage = (WillMessage) channel.attr(NettyUtils.ATTR_KEY_WILL_MESSAGE).get();
-        return Optional.ofNullable(willMessage);
-    }
-
-    public static void setProtocolVersion(Channel channel, int mqttVersion) {
-        channel.attr(NettyUtils.ATTR_KEY_PROTOCOL_VERSION).set(mqttVersion);
-    }
-
-    public static int getProtocolVersion(Channel channel) {
-        return (Integer) channel.attr(NettyUtils.ATTR_KEY_PROTOCOL_VERSION).get();
     }
 
     private NettyUtils() {

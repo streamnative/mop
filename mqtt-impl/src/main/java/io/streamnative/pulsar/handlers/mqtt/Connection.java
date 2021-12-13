@@ -27,8 +27,10 @@ import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageH
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Builder;
@@ -45,7 +47,6 @@ import org.apache.pulsar.broker.service.Topic;
  * session flag.
  */
 @Slf4j
-@Builder
 public class Connection {
 
     @Getter
@@ -57,9 +58,9 @@ public class Connection {
     @Getter
     private final int protocolVersion;
     @Getter
-    @Builder.Default
-    private volatile int sessionExpireInterval = SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
-    @Builder.Default
+    private final Optional<WillMessage> willMessage;
+    @Getter
+    private volatile int sessionExpireInterval;
     volatile ConnectionState connectionState = DISCONNECTED;
     @Getter
     private int clientReceiveMaximum; // mqtt 5.0 specification.
@@ -67,7 +68,9 @@ public class Connection {
     private int serverReceivePubMaximum;
     @Builder.Default
     private volatile int serverCurrentReceiveCounter = 0;
-    // connection manager
+    @Getter
+    private String userRole;
+
     private final MQTTConnectionManager manager;
 
     private static final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
@@ -78,6 +81,21 @@ public class Connection {
 
     private static final AtomicIntegerFieldUpdater<Connection> SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(Connection.class, "serverCurrentReceiveCounter");
+
+    Connection(int protocolVersion, String clientId, String userRole, boolean cleanSession,
+               Optional<WillMessage> willMessage, int sessionExpireInterval, int clientReceiveMaximum,
+               int serverReceivePubMaximum, Channel channel, MQTTConnectionManager manager) {
+        this.clientId = clientId;
+        this.protocolVersion = protocolVersion;
+        this.cleanSession = cleanSession;
+        this.willMessage = willMessage;
+        this.sessionExpireInterval = sessionExpireInterval;
+        this.clientReceiveMaximum = clientReceiveMaximum;
+        this.serverReceivePubMaximum = serverReceivePubMaximum;
+        this.userRole = userRole;
+        this.channel = channel;
+        this.manager = manager;
+    }
 
     public void sendConnAck() {
         boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
@@ -137,7 +155,7 @@ public class Connection {
         // For producer doesn't bind subscriptions
         if (topicSubscriptions != null) {
             topicSubscriptions.forEach((k, v) -> {
-                k.unsubscribe(NettyUtils.getClientId(channel));
+                k.unsubscribe(this.clientId);
                 v.getLeft().delete();
             });
         }
@@ -270,5 +288,78 @@ public class Connection {
         DISCONNECTED,
         CONNECT_ACK,
         ESTABLISHED,
+    }
+
+    public static ConnectionBuilder builder(){
+        return new ConnectionBuilder();
+    }
+
+    public static class ConnectionBuilder {
+        private int protocolVersion;
+        private String clientId;
+        private String userRole;
+        private boolean cleanSession;
+        private Optional<WillMessage> willMessage = Optional.empty();
+        private int clientReceiveMaximum;
+        private int serverReceivePubMaximum;
+        private Optional<Integer> sessionExpireInterval = Optional.empty();
+        private Channel channel;
+        private MQTTConnectionManager connectionManager;
+
+        public ConnectionBuilder protocolVersion(int protocolVersion) {
+            this.protocolVersion = protocolVersion;
+            return this;
+        }
+
+        public ConnectionBuilder clientId(String clientId) {
+            this.clientId = clientId;
+            return this;
+        }
+
+        public ConnectionBuilder userRole(String userRole) {
+            this.userRole = userRole;
+            return this;
+        }
+
+        public ConnectionBuilder willMessage(Optional<WillMessage> willMessage) {
+            this.willMessage = willMessage;
+            return this;
+        }
+
+        public ConnectionBuilder cleanSession(boolean cleanSession) {
+            this.cleanSession = cleanSession;
+            return this;
+        }
+
+        public ConnectionBuilder clientReceiveMaximum(int clientReceiveMaximum) {
+            this.clientReceiveMaximum = clientReceiveMaximum;
+            return this;
+        }
+
+        public ConnectionBuilder serverReceivePubMaximum(int serverReceivePubMaximum) {
+            this.serverReceivePubMaximum = serverReceivePubMaximum;
+            return this;
+        }
+
+        public ConnectionBuilder sessionExpireInterval(Optional<Integer> sessionExpireInterval) {
+            this.sessionExpireInterval = sessionExpireInterval;
+            return this;
+        }
+
+        public ConnectionBuilder channel(Channel channel) {
+            this.channel = channel;
+            return this;
+        }
+
+        public ConnectionBuilder connectionManager(MQTTConnectionManager connectionManager) {
+            this.connectionManager = connectionManager;
+            return this;
+        }
+
+        public Connection build() {
+            return new Connection(protocolVersion, clientId, userRole, cleanSession, willMessage,
+                    sessionExpireInterval.orElse(SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()),
+                    clientReceiveMaximum, serverReceivePubMaximum, channel, connectionManager);
+        }
     }
 }
