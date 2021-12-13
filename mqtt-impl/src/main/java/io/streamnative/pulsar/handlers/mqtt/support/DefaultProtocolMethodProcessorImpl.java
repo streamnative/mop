@@ -366,9 +366,9 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         connectionManager.removeConnection(connection);
         connection.removeSubscriptions();
         subscriptionManager.removeSubscription(clientId);
-        Optional<WillMessage> willMessage = connection.getWillMessage();
-        if (willMessage.isPresent()) {
-            fireWillMessage(willMessage.get());
+        WillMessage willMessage = connection.getWillMessage();
+        if (willMessage != null) {
+            fireWillMessage(willMessage);
         }
     }
 

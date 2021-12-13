@@ -58,7 +58,7 @@ public class Connection {
     @Getter
     private final int protocolVersion;
     @Getter
-    private final Optional<WillMessage> willMessage;
+    private final WillMessage willMessage;
     @Getter
     private volatile int sessionExpireInterval;
     volatile ConnectionState connectionState = DISCONNECTED;
@@ -298,7 +298,7 @@ public class Connection {
         private String clientId;
         private String userRole;
         private boolean cleanSession;
-        private Optional<WillMessage> willMessage = Optional.empty();
+        private WillMessage willMessage;
         private int clientReceiveMaximum;
         private int serverReceivePubMaximum;
         private Optional<Integer> sessionExpireInterval = Optional.empty();
@@ -320,7 +320,7 @@ public class Connection {
             return this;
         }
 
-        public ConnectionBuilder willMessage(Optional<WillMessage> willMessage) {
+        public ConnectionBuilder willMessage(WillMessage willMessage) {
             this.willMessage = willMessage;
             return this;
         }

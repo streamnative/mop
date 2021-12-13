@@ -93,15 +93,15 @@ public class MqttMessageUtils {
         return ackTopics;
     }
 
-    public static Optional<WillMessage> createWillMessage(MqttConnectMessage msg) {
+    public static WillMessage createWillMessage(MqttConnectMessage msg) {
         if (!msg.variableHeader().isWillFlag()) {
-            return Optional.empty();
+            return null;
         }
         final ByteBuf willPayload = Unpooled.copiedBuffer(msg.payload().willMessageInBytes());
         final String willTopic = msg.payload().willTopic();
         final boolean retained = msg.variableHeader().isWillRetain();
         final MqttQoS qos = MqttQoS.valueOf(msg.variableHeader().willQos());
-        return Optional.of(new WillMessage(willTopic, willPayload, qos, retained));
+        return new WillMessage(willTopic, willPayload, qos, retained);
     }
 
     public static MqttPublishMessage createMqttWillMessage(WillMessage willMessage) {
