@@ -40,15 +40,18 @@ public class MQTTV3xProtocolMethodProcessor extends AbstractProtocolMethodProces
     @Override
     @Ignore
     void checkWillingMessageIfNeeded(String clientId, int willQos) {
+        // ignore
     }
 
     @Override
     @Ignore
     void checkServerReceivePubMessageAndIncrementCounterIfNeeded(Channel channel, MqttPublishMessage msg) {
+        // ignore
     }
 
     @Override
     @Ignore
     void parseDisconnectPropertiesIfNeeded(MqttMessage msg) {
+        // ignore
     }
 }

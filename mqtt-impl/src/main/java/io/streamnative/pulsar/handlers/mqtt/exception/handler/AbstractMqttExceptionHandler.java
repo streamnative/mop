@@ -59,6 +59,7 @@ public abstract class AbstractMqttExceptionHandler implements MqttExceptionHandl
     @Override
     @Ignore
     public void handleConnQosNotSupport(Channel channel, MQTTQosNotSupportException ex) {
+        // ignore
     }
     /**
      * The default behavior to ignore this exception.
@@ -68,6 +69,7 @@ public abstract class AbstractMqttExceptionHandler implements MqttExceptionHandl
     @Override
     @Ignore
     public void handleDisconnectionProtocolError(Channel channel, MQTTDisconnectProtocolErrorException ex) {
+        // ignore
     }
     /**
      * The default behavior to ignore this exception.
@@ -77,6 +79,7 @@ public abstract class AbstractMqttExceptionHandler implements MqttExceptionHandl
     @Override
     @Ignore
     public void handlePubExceedServerMaximumReceive(Channel channel, MQTTExceedServerReceiveMaximumException ex) {
+        // ignore
     }
     /**
      * The default behavior to ignore this exception.
@@ -86,6 +89,7 @@ public abstract class AbstractMqttExceptionHandler implements MqttExceptionHandl
     @Override
     @Ignore
     public void handlePubNoMatchingSubscriber(Channel channel, MQTTNoMatchingSubscriberException ex) {
+        // ignore
     }
     /**
      * The default behavior to ignore this exception.
@@ -95,5 +99,6 @@ public abstract class AbstractMqttExceptionHandler implements MqttExceptionHandl
     @Override
     @Ignore
     public void handleUnSubNoSubscriptionExisted(Channel channel, MQTTNoSubscriptionExistedException ex) {
+        // ignore
     }
 }
