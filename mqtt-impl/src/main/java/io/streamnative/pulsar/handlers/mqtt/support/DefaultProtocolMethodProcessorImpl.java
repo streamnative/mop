@@ -122,6 +122,10 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     public void processConnect(MqttConnectMessage msg) {
         MqttConnectPayload payload = msg.payload();
         final int protocolVersion = msg.variableHeader().version();
+        // to prepare channel attribute
+        NettyUtils.setProtocolVersion(channel, protocolVersion);
+        NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
+        NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
         String clientId = payload.clientIdentifier();
         String username = payload.userName();
         Optional<ProtocolAckHandler> ackHandler =
@@ -173,10 +177,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
 
         NettyUtils.setClientId(channel, clientId);
-        NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
         NettyUtils.setUserRole(channel, userRole);
-        NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
-        NettyUtils.setProtocolVersion(channel, protocolVersion);
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
         MqttProperties properties = msg.variableHeader().properties();
         // Get receive maximum number.
