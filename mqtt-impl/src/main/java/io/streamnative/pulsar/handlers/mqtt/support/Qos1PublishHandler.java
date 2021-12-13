@@ -24,8 +24,11 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberEx
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.handler.ProtocolAckHandler;
+import io.streamnative.pulsar.handlers.mqtt.messages.handler.ProtocolAckHandlerHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
@@ -43,6 +46,11 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
 
     @Override
     public void publish(Channel channel, MqttPublishMessage msg) {
+        Optional<ProtocolAckHandler> ackHandler =
+                ProtocolAckHandlerHelper.getAndCheckByProtocolVersion(channel);
+        if (!ackHandler.isPresent()){
+            return;
+        }
         Connection connection = NettyUtils.getConnection(channel);
         int protocolVersion = NettyUtils.getProtocolVersion(channel);
         final boolean isMqtt5 = MqttUtils.isMqtt5(protocolVersion);
@@ -52,27 +60,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
         CompletableFuture<PositionImpl> writeToPulsarResultFuture =
                 isMqtt5 ? writeToPulsarTopicAndCheckIfSubscriptionMatching(msg) : writeToPulsarTopic(msg);
         writeToPulsarResultFuture.whenComplete((p, e) -> {
-            if (e == null) {
-                if (log.isDebugEnabled()) {
-                    log.debug("[{}] Write {} to Pulsar topic succeed.", topic, msg);
-                }
-                MqttMessage mqttPubAckMessage = isMqtt5
-                        ? MqttPubAckMessageHelper.createMqtt5(packetId, Mqtt5PubReasonCode.SUCCESS) :
-                        MqttPubAckMessageHelper.createMqtt(packetId);
-                channel.writeAndFlush(mqttPubAckMessage).addListener(future -> {
-                    if (future.isSuccess()) {
-                        // decrement server receive publish message counter
-                        connection.decrementServerReceivePubMessage();
-                        if (log.isDebugEnabled()) {
-                            log.debug("[{}] Send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
-                                    NettyUtils.getClientId(channel));
-                        }
-                    } else {
-                        log.warn("[{}] Failed to send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
-                                NettyUtils.getClientId(channel), future.cause());
-                    }
-                });
-            } else {
+            if (e != null) {
                 Throwable cause = e.getCause();
                 if (cause instanceof MQTTNoMatchingSubscriberException) {
                     log.warn("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
@@ -86,7 +74,12 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                 }
                 log.error("[{}] Write {} to Pulsar topic failed.", topic, msg, e);
                 MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, cause);
+                return;
             }
+            if (log.isDebugEnabled()) {
+                log.debug("[{}] Write {} to Pulsar topic succeed.", topic, msg);
+            }
+            ackHandler.get().pubOk(connection, topic, packetId);
         });
     }
 }

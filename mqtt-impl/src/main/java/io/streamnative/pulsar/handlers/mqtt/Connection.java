@@ -13,22 +13,19 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.handler.ProtocolAckHandler;
+import io.streamnative.pulsar.handlers.mqtt.messages.handler.ProtocolAckHandlerHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Builder;
@@ -78,35 +75,6 @@ public class Connection {
 
     private static final AtomicIntegerFieldUpdater<Connection> SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(Connection.class, "serverCurrentReceiveCounter");
-
-    public void sendConnAck() {
-        boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
-        if (ret) {
-            MqttMessage mqttConnAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                    ? MqttConnAckMessageHelper
-                    .createConnAck(Mqtt5ConnReasonCode.SUCCESS, !cleanSession, serverReceivePubMaximum) :
-                    MqttConnAckMessageHelper.createConnAck(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED, !cleanSession);
-            channel.writeAndFlush(mqttConnAckMessage).addListener(future -> {
-                if (future.isSuccess()) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("The CONNECT message has been processed. CId={}", clientId);
-                    }
-                    assignState(CONNECT_ACK, ESTABLISHED);
-                    log.info("current connection state : {}", channelState.get(this));
-                }
-            });
-        } else {
-            log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
-                    DISCONNECTED, CONNECT_ACK, clientId);
-            MqttMessage mqttConnAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                    ? MqttConnAckMessageHelper.createMqtt5(Mqtt5ConnReasonCode.SERVER_UNAVAILABLE,
-                    String.format("Unable to assign the state from : %s to : %s for CId=%s, close channel"
-                            , DISCONNECTED, CONNECT_ACK, clientId)) :
-                    MqttConnAckMessageHelper.createConnAck(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE);
-            channel.writeAndFlush(mqttConnAckMessage);
-            channel.close();
-        }
-    }
 
     public void send(MqttMessage mqttMessage) {
         channel.writeAndFlush(mqttMessage).addListener(future -> {
@@ -169,22 +137,21 @@ public class Connection {
     }
 
     public void close(boolean force) {
+        Optional<ProtocolAckHandler> ackHandler =
+                ProtocolAckHandlerHelper.getAndCheckByProtocolVersion(channel);
+        if (!ackHandler.isPresent()){
+            return;
+        }
         if (log.isInfoEnabled()) {
             log.info("Closing connection. clientId = {}.", clientId);
         }
         if (!force) {
             assignState(ESTABLISHED, DISCONNECTED);
         }
-        // Support mqtt 5
-        if (MqttUtils.isMqtt5(protocolVersion)) {
-            MqttMessage mqttDisconnectionAckMessage =
-                    MqttDisConnAckMessageHelper.createMqtt5(Mqtt5DisConnReasonCode.NORMAL);
-            channel.writeAndFlush(mqttDisconnectionAckMessage);
-        }
-        this.channel.close();
+        ackHandler.get().disconnectOk(this);
     }
 
-    private boolean assignState(ConnectionState expected, ConnectionState newState) {
+    public boolean assignState(ConnectionState expected, ConnectionState newState) {
         if (log.isDebugEnabled()) {
             log.debug(
                     "Updating state of connection. CId = {}, currentState = {}, "

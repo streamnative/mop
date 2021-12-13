@@ -51,12 +51,12 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonC
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.handler.ProtocolAckHandler;
+import io.streamnative.pulsar.handlers.mqtt.messages.handler.ProtocolAckHandlerHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -70,6 +70,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.commons.lang3.StringUtils;
@@ -123,16 +124,13 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         final int protocolVersion = msg.variableHeader().version();
         String clientId = payload.clientIdentifier();
         String username = payload.userName();
+        Optional<ProtocolAckHandler> ackHandler =
+                ProtocolAckHandlerHelper.getAndCheckByProtocolVersion(channel);
+        if (!ackHandler.isPresent()){
+            return;
+        }
         if (log.isDebugEnabled()) {
             log.debug("process CONNECT message. CId={}, username={}", clientId, username);
-        }
-
-        // Check MQTT protocol version.
-        if (!MqttUtils.isSupportedVersion(msg.variableHeader().version())) {
-            log.error("MQTT protocol version is not valid. CId={}", clientId);
-            channel.writeAndFlush(MqttConnAckMessageHelper.createUnsupportedVersionAck());
-            channel.close();
-            return;
         }
 
         // Client must specify the client ID except enable clean session on the connection.
@@ -196,7 +194,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         Connection connection = connectionBuilder.build();
         connectionManager.addConnection(connection);
         NettyUtils.setConnection(channel, connection);
-        connection.sendConnAck();
+        ackHandler.get().connOk(connection);
     }
 
     @Override
@@ -458,7 +456,11 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     private void doSubscribe(Channel channel, MqttSubscribeMessage msg, String clientID) {
-        int messageID = msg.variableHeader().messageId();
+        Optional<ProtocolAckHandler> ackHandler = ProtocolAckHandlerHelper.getAndCheckByProtocolVersion(channel);
+        if (!ackHandler.isPresent()){
+            return;
+        }
+        int packetId = msg.variableHeader().messageId();
         Connection connection = NettyUtils.getConnection(channel);
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
         subscriptionManager.addSubscriptions(NettyUtils.getClientId(channel), subTopics);
@@ -494,16 +496,10 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             });
             futureList.add(completableFuture);
         }
-        int protocolVersion = NettyUtils.getProtocolVersion(channel);
         FutureUtil.waitForAll(futureList).thenAccept(v -> {
-            MqttMessage ackMessage =
-                    // Support MQTT 5
-                    MqttUtils.isMqtt5(protocolVersion) ? MqttSubAckMessageHelper.createMqtt5(messageID, subTopics) :
-                            MqttSubAckMessageHelper.createMqtt(messageID, subTopics);
-            if (log.isDebugEnabled()) {
-                log.debug("Sending SUB-ACK message {} to {}", ackMessage, clientID);
-            }
-            channel.writeAndFlush(ackMessage);
+            List<MqttQoS> qosList = subTopics.stream().map(MqttTopicSubscription::qualityOfService)
+                    .collect(Collectors.toList());
+            ackHandler.get().subOk(connection, packetId, qosList);
             Map<Topic, Pair<Subscription, Consumer>> existedSubscriptions = NettyUtils.getTopicSubscriptions(channel);
             if (existedSubscriptions != null) {
                 topicSubscriptions.putAll(existedSubscriptions);
@@ -511,7 +507,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             NettyUtils.setTopicSubscriptions(channel, topicSubscriptions);
         }).exceptionally(e -> {
             log.error("[{}] Failed to process MQTT subscribe.", clientID, e);
-            MopExceptionHelper.handle(MqttMessageType.SUBSCRIBE, messageID, channel, e);
+            MopExceptionHelper.handle(MqttMessageType.SUBSCRIBE, packetId, channel, e);
             return null;
         });
     }
@@ -519,7 +515,13 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     @Override
     public void processUnSubscribe(MqttUnsubscribeMessage msg) {
         String clientID = NettyUtils.getClientId(channel);
+        int packetId = msg.variableHeader().messageId();
         Connection connection = NettyUtils.getConnection(channel);
+        Optional<ProtocolAckHandler> ackHandler =
+                ProtocolAckHandlerHelper.getAndCheckByProtocolVersion(channel);
+        if (!ackHandler.isPresent()){
+            return;
+        }
         if (log.isDebugEnabled()) {
             log.debug("[Unsubscribe] [{}] msg: {}", clientID, msg);
         }
@@ -572,14 +574,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         int messageID = msg.variableHeader().messageId();
         int protocolVersion = NettyUtils.getProtocolVersion(channel);
         FutureUtil.waitForAll(futureList).thenAccept(__ -> {
-            // ack the client
-            MqttMessage ackMessage = MqttUtils.isMqtt5(protocolVersion) ?  // Support Mqtt version 5.0 reason code.
-                    MqttUnsubAckMessageHelper.createMqtt5(messageID, Mqtt5UnsubReasonCode.SUCCESS) :
-                    MqttUnsubAckMessageHelper.createMqtt(messageID);
-            if (log.isDebugEnabled()) {
-                log.debug("Sending UNSUBACK message {} to {}", ackMessage, clientID);
-            }
-            channel.writeAndFlush(ackMessage);
+            ackHandler.get().unSubOk(connection, packetId);
         }).exceptionally(ex -> {
             log.error("[{}] Failed to process the UNSUB {}", clientID, msg);
             MopExceptionHelper.handle(MqttMessageType.UNSUBSCRIBE, messageID, channel, ex);
