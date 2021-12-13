@@ -82,19 +82,18 @@ public class Connection {
     private static final AtomicIntegerFieldUpdater<Connection> SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(Connection.class, "serverCurrentReceiveCounter");
 
-    Connection(int protocolVersion, String clientId, String userRole, boolean cleanSession,
-               Optional<WillMessage> willMessage, int sessionExpireInterval, int clientReceiveMaximum,
-               int serverReceivePubMaximum, Channel channel, MQTTConnectionManager manager) {
-        this.clientId = clientId;
-        this.protocolVersion = protocolVersion;
-        this.cleanSession = cleanSession;
-        this.willMessage = willMessage;
-        this.sessionExpireInterval = sessionExpireInterval;
-        this.clientReceiveMaximum = clientReceiveMaximum;
-        this.serverReceivePubMaximum = serverReceivePubMaximum;
-        this.userRole = userRole;
-        this.channel = channel;
-        this.manager = manager;
+    Connection(ConnectionBuilder builder) {
+        this.clientId = builder.clientId;
+        this.protocolVersion = builder.protocolVersion;
+        this.cleanSession = builder.cleanSession;
+        this.willMessage = builder.willMessage;
+        this.sessionExpireInterval = builder.sessionExpireInterval
+                .orElse(SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime());
+        this.clientReceiveMaximum = builder.clientReceiveMaximum;
+        this.serverReceivePubMaximum = builder.serverReceivePubMaximum;
+        this.userRole = builder.userRole;
+        this.channel = builder.channel;
+        this.manager = builder.connectionManager;
     }
 
     public void sendConnAck() {
@@ -357,9 +356,7 @@ public class Connection {
         }
 
         public Connection build() {
-            return new Connection(protocolVersion, clientId, userRole, cleanSession, willMessage,
-                    sessionExpireInterval.orElse(SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()),
-                    clientReceiveMaximum, serverReceivePubMaximum, channel, connectionManager);
+            return new Connection(this);
         }
     }
 }
