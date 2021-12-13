@@ -34,6 +34,8 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonC
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.handler.ProtocolAckHandler;
+import io.streamnative.pulsar.handlers.mqtt.messages.handler.ProtocolAckHandlerHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -42,6 +44,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -93,6 +96,11 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("Proxy CONNECT message. CId={}, username={}", clientId, payload.userName());
         }
+        Optional<ProtocolAckHandler> ackHandler =
+                ProtocolAckHandlerHelper.getAndCheckByProtocolVersion(channel);
+        if (!ackHandler.isPresent()){
+            return;
+        }
         if (StringUtils.isEmpty(clientId)) {
             // Generating client id.
             clientId = MqttMessageUtils.createClientIdentifier(channel);
@@ -131,7 +139,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         Connection connection = connectionBuilder.build();
         connectionManager.addConnection(connection);
         NettyUtils.setConnection(channel, connection);
-        connection.sendConnAck();
+        ackHandler.get().connOk(connection);
     }
 
     @Override
