@@ -13,5 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.annotation;
 
+/**
+ * Descriptive annotation.
+ * We use it to describe a method that does not require method body.
+ */
 public @interface Ignore {
 }

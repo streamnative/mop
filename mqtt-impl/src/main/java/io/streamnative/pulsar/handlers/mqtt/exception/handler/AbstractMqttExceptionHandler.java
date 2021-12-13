@@ -26,11 +26,22 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTQosNotSupportException
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Exception handler.
+ * This handler abstract all same behavior to handle exception in mqtt server.
+ * @see MqttV3xExceptionHandler
+ * @see MqttV5ExceptionHandler
+ */
 @Slf4j
 public abstract class AbstractMqttExceptionHandler implements MqttExceptionHandler {
 
+    /**
+     * When protocol version is not support at connect method, we should return unsupported reason code at connect ack.
+     * @param channel  Channel
+     * @param ex  MQTTProtocolVersionNotSupportException
+     */
     @Override
-    public void handleProtocolVersionNotSupport(Channel channel, MQTTProtocolVersionNotSupportException ex) {
+    public void handleConnProtocolVersionNotSupport(Channel channel, MQTTProtocolVersionNotSupportException ex) {
         log.error(ex.getMessage());
         MqttConnAckMessage connAckMessage = MqttMessageBuilders
                 .connAck()
@@ -40,28 +51,49 @@ public abstract class AbstractMqttExceptionHandler implements MqttExceptionHandl
         channel.close();
     }
 
+    /**
+     * The default behavior to ignore this exception.
+     * @param channel Channel
+     * @param ex MQTTQosNotSupportException
+     */
     @Override
     @Ignore
     public void handleConnQosNotSupport(Channel channel, MQTTQosNotSupportException ex) {
     }
-
+    /**
+     * The default behavior to ignore this exception.
+     * @param channel Channel
+     * @param ex MQTTDisconnectProtocolErrorException
+     */
     @Override
     @Ignore
     public void handleDisconnectionProtocolError(Channel channel, MQTTDisconnectProtocolErrorException ex) {
     }
-
+    /**
+     * The default behavior to ignore this exception.
+     * @param channel Channel
+     * @param ex MQTTExceedServerReceiveMaximumException
+     */
     @Override
     @Ignore
     public void handlePubExceedServerMaximumReceive(Channel channel, MQTTExceedServerReceiveMaximumException ex) {
     }
-
+    /**
+     * The default behavior to ignore this exception.
+     * @param channel Channel
+     * @param ex MQTTNoMatchingSubscriberException
+     */
     @Override
     @Ignore
     public void handlePubNoMatchingSubscriber(Channel channel, MQTTNoMatchingSubscriberException ex) {
     }
-
+    /**
+     * The default behavior to ignore this exception.
+     * @param channel Channel
+     * @param ex MQTTNoSubscriptionExistedException
+     */
     @Override
     @Ignore
-    public void handleUnSubNoSubscriptionExisted(Channel channel, MQTTNoSubscriptionExistedException exception) {
+    public void handleUnSubNoSubscriptionExisted(Channel channel, MQTTNoSubscriptionExistedException ex) {
     }
 }

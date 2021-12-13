@@ -77,7 +77,7 @@ public class MqttExceptionHelper {
                     (MQTTBadUserNameOrPasswordException) ex);
             return true;
         } else if (ex instanceof MQTTProtocolVersionNotSupportException) {
-            exceptionHandler.handleProtocolVersionNotSupport(channel, (MQTTProtocolVersionNotSupportException) ex);
+            exceptionHandler.handleConnProtocolVersionNotSupport(channel, (MQTTProtocolVersionNotSupportException) ex);
             return true;
         } else if (ex instanceof MQTTClientIdentifierNotValidException) {
             exceptionHandler.handleConnClientIdentifierNotValid(channel,

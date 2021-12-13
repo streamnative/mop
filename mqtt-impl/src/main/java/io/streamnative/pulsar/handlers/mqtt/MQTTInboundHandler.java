@@ -30,6 +30,7 @@ import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.GlobalExceptionHandler;
+import io.streamnative.pulsar.handlers.mqtt.support.DelegateProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;

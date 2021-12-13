@@ -28,6 +28,12 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 
+/**
+ * ack method handler.
+ * This handler abstract all same behavior to handle success ack in mqtt server.
+ * @see MqttV3xAckHandler
+ * @see MqttV5AckHandler
+ */
 @Slf4j
 public abstract class AbstractMqttAckHandler implements ProtocolAckHandler {
 

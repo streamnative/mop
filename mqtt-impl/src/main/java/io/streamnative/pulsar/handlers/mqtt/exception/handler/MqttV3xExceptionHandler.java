@@ -25,8 +25,17 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReason
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * The exception handler implements mqtt specification 3.x.
+ * @see AbstractMqttExceptionHandler
+ */
 @Slf4j
 public class MqttV3xExceptionHandler extends AbstractMqttExceptionHandler {
+    /**
+     * When client id is not valid at connect method.
+     * @param channel Netty channel
+     * @param ex MQTTClientIdentifierNotValidException
+     */
     @Override
     public void handleConnClientIdentifierNotValid(Channel channel, MQTTClientIdentifierNotValidException ex) {
         log.error(ex.getMessage());
@@ -38,6 +47,11 @@ public class MqttV3xExceptionHandler extends AbstractMqttExceptionHandler {
         channel.close();
     }
 
+    /**
+     * When authentication fail by bad name or password at connect method.
+     * @param channel Netty channel
+     * @param ex MQTTBadUserNameOrPasswordException
+     */
     @Override
     public void handleConnBadUserNameOrPassword(Channel channel, MQTTBadUserNameOrPasswordException ex) {
         log.error(ex.getMessage());
@@ -49,6 +63,11 @@ public class MqttV3xExceptionHandler extends AbstractMqttExceptionHandler {
         channel.close();
     }
 
+    /**
+     * When server unavailable at connect method.
+     * @param channel Netty channel
+     * @param ex MQTTServerUnavailableException
+     */
     @Override
     public void handleConnServerUnavailable(Channel channel, MQTTServerUnavailableException ex) {
         log.error(ex.getMessage());
@@ -60,12 +79,22 @@ public class MqttV3xExceptionHandler extends AbstractMqttExceptionHandler {
         channel.close();
     }
 
+    /**
+     * When authorization fail at publish method.
+     * @param channel Netty channel
+     * @param ex MQTTNotAuthorizedException
+     */
     @Override
     public void handlePubNotAuthorized(Channel channel, MQTTNotAuthorizedException ex) {
         log.error(ex.getMessage());
         channel.close();
     }
 
+    /**
+     * When authorization fail at subscribe method.
+     * @param channel Netty channel
+     * @param ex MQTTNotAuthorizedException
+     */
     @Override
     public void handleSubNotAuthorized(Channel channel, MQTTNotAuthorizedException ex) {
         log.error(ex.getMessage());
@@ -77,18 +106,34 @@ public class MqttV3xExceptionHandler extends AbstractMqttExceptionHandler {
         channel.close();
     }
 
+    /**
+     * Common exception at unsubscribe method.
+     * @param channel Netty channel
+     * @param packetId packet id
+     * @param ex Throwable
+     */
     @Override
     public void handleUnSubCommonException(Channel channel, int packetId, Throwable ex) {
         log.error(ex.getMessage());
         channel.close();
     }
-
+    /**
+     * Common exception at subscribe common method.
+     * @param channel Netty channel
+     * @param packetId packet id
+     * @param ex Throwable
+     */
     @Override
     public void handleSubCommonException(Channel channel, int packetId, Throwable ex) {
         log.error(ex.getMessage());
         channel.close();
     }
-
+    /**
+     * Common exception at publish method.
+     * @param channel Netty channel
+     * @param packetId packet id
+     * @param ex Throwable
+     */
     @Override
     public void handlePubCommonException(Channel channel, int packetId, Throwable ex) {
         log.error(ex.getMessage());

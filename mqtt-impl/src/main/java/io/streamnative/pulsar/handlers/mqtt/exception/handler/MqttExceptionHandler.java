@@ -28,7 +28,7 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerUnavailableExcep
 
 public interface MqttExceptionHandler {
 
-    void handleProtocolVersionNotSupport(Channel channel, MQTTProtocolVersionNotSupportException ex);
+    void handleConnProtocolVersionNotSupport(Channel channel, MQTTProtocolVersionNotSupportException ex);
 
     void handleConnClientIdentifierNotValid(Channel channel, MQTTClientIdentifierNotValidException ex);
 

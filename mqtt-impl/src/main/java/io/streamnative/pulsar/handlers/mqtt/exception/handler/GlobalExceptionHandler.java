@@ -18,6 +18,11 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * GlobalException to encapsulated exception handler.
+ * We can use this method to achieve chained calls.
+ * @see MqttExceptionHelper
+ */
 @Slf4j
 public class GlobalExceptionHandler {
     private final boolean handled;

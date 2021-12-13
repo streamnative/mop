@@ -13,5 +13,10 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.annotation;
 
+
+/**
+ * Descriptive annotation.
+ * We use it to describe a method that does not require to close the netty channel.
+ */
 public @interface NoNeedCloseChannel {
 }
