@@ -61,6 +61,7 @@ public abstract class AbstractMqttAckHandler implements ProtocolAckHandler {
                     MqttConnAckMessageHelper.createConnAck(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE);
             channel.writeAndFlush(mqttConnAckMessage);
             channel.close();
+            return;
         }
         MqttMessage ackOkMessage = getConnAckOkMessage(connection);
         channel.writeAndFlush(ackOkMessage).addListener(future -> {
