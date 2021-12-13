@@ -572,7 +572,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             futureList.add(future);
         }
         int messageID = msg.variableHeader().messageId();
-        int protocolVersion = NettyUtils.getProtocolVersion(channel);
         FutureUtil.waitForAll(futureList).thenAccept(__ -> {
             ackHandler.get().unSubOk(connection, packetId);
         }).exceptionally(ex -> {
