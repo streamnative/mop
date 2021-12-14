@@ -37,14 +37,14 @@ import org.apache.pulsar.broker.PulsarService;
 @Slf4j
 public class Qos1PublishHandler extends AbstractQosPublishHandler {
 
-    public Qos1PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration) {
-        super(pulsarService, configuration);
+    public Qos1PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration, Channel channel) {
+        super(pulsarService, configuration, channel);
     }
 
     @Override
-    public void publish(Channel channel, MqttPublishMessage msg) {
+    public void publish(MqttPublishMessage msg) {
         Connection connection = NettyUtils.getConnection(channel);
-        int protocolVersion = NettyUtils.getProtocolVersion(channel);
+        int protocolVersion = connection.getProtocolVersion();
         final boolean isMqtt5 = MqttUtils.isMqtt5(protocolVersion);
         int packetId = msg.variableHeader().packetId();
         final String topic = msg.variableHeader().topicName();
@@ -65,11 +65,11 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                         connection.decrementServerReceivePubMessage();
                         if (log.isDebugEnabled()) {
                             log.debug("[{}] Send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
-                                    NettyUtils.getClientId(channel));
+                                    connection.getClientId());
                         }
                     } else {
                         log.warn("[{}] Failed to send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
-                                NettyUtils.getClientId(channel), future.cause());
+                                connection.getClientId(), future.cause());
                     }
                 });
             } else {

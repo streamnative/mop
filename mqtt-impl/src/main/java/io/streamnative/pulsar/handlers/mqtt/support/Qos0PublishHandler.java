@@ -25,12 +25,12 @@ import org.apache.pulsar.broker.PulsarService;
 @Slf4j
 public class Qos0PublishHandler extends AbstractQosPublishHandler {
 
-    public Qos0PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration) {
-        super(pulsarService, configuration);
+    public Qos0PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration, Channel channel) {
+        super(pulsarService, configuration, channel);
     }
 
     @Override
-    public void publish(Channel channel, MqttPublishMessage msg) {
+    public void publish(MqttPublishMessage msg) {
         writeToPulsarTopic(msg).whenComplete((p, e) -> {
             if (e == null) {
                 if (log.isDebugEnabled()) {

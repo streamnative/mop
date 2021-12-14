@@ -93,6 +93,9 @@ public class MqttMessageUtils {
     }
 
     public static WillMessage createWillMessage(MqttConnectMessage msg) {
+        if (!msg.variableHeader().isWillFlag()) {
+            return null;
+        }
         final ByteBuf willPayload = Unpooled.copiedBuffer(msg.payload().willMessageInBytes());
         final String willTopic = msg.payload().willTopic();
         final boolean retained = msg.variableHeader().isWillRetain();
