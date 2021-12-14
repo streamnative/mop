@@ -13,14 +13,12 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
-
 
 /**
  * Interface for Qos publish handler.
  */
 public interface QosPublishHandler {
 
-    void publish(Channel channel, MqttPublishMessage msg);
+    void publish(MqttPublishMessage msg);
 }
