@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
@@ -59,6 +60,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
 
     private final MQTTProxyService proxyService;
     private final Channel channel;
+    @Getter
     private Connection connection;
     private final LookupHandler lookupHandler;
     private final MQTTProxyConfiguration proxyConfig;
@@ -115,20 +117,16 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
                 return;
             }
         }
-        NettyUtils.setConnectMsg(channel, connectMessage);
-        NettyUtils.setKeepAliveTime(channel, MqttMessageUtils.getKeepAliveTime(msg));
-        NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
-
         connection = Connection.builder()
                 .protocolVersion(protocolVersion)
                 .clientId(clientId)
                 .cleanSession(msg.variableHeader().isCleanSession())
+                .connectMessage(connectMessage)
+                .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .serverReceivePubMaximum(proxyConfig.getReceiveMaximum())
                 .build();
-        connectionManager.addConnection(connection);
-        NettyUtils.setConnection(channel, connection);
         connection.sendConnAck();
     }
 

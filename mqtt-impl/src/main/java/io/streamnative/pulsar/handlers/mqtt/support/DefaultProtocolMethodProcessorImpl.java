@@ -137,6 +137,12 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             return;
         }
 
+        if (!MqttUtils.isQosSupported(msg)) {
+            channel.writeAndFlush(MqttConnAckMessageHelper.createQosNotSupportAck());
+            channel.close();
+            return;
+        }
+
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
@@ -166,12 +172,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             }
             userRole = authResult.getUserRole();
         }
-
-        if (!MqttUtils.isQosSupported(msg)) {
-            channel.writeAndFlush(MqttConnAckMessageHelper.createQosNotSupportAck());
-            channel.close();
-            return;
-        }
         connection = Connection.builder()
                 .protocolVersion(protocolVersion)
                 .clientId(clientId)
@@ -183,14 +183,12 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                 .clientReceiveMaximum(MqttPropertyUtils.getReceiveMaximum(protocolVersion,
                         msg.variableHeader().properties()))
                 .serverReceivePubMaximum(configuration.getReceiveMaximum())
+                .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .build();
 
-        connectionManager.addConnection(connection);
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
-        NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
-        NettyUtils.setConnection(channel, connection);
         connection.sendConnAck();
     }
 
@@ -277,8 +275,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             int packetId = msg.variableHeader().packetId();
             MqttMessage quotaExceededPubAck =
                     MqttPubAckMessageHelper.createMqtt5(packetId, Mqtt5PubReasonCode.QUOTA_EXCEEDED);
-            channel.writeAndFlush(quotaExceededPubAck);
-            channel.close();
+            connection.sendThenClose(quotaExceededPubAck);
         } else {
             connection.incrementServerReceivePubMessage();
         }
@@ -320,7 +317,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         Object header = msg.variableHeader();
         if (header instanceof MqttReasonCodeAndPropertiesVariableHeader) {
             MqttProperties properties = ((MqttReasonCodeAndPropertiesVariableHeader) header).properties();
-            if (!checkAndUpdateSessionExpireIntervalIfNeed(channel, clientId, connection, properties)){
+            if (!checkAndUpdateSessionExpireIntervalIfNeed(clientId, connection, properties)){
                 // If the session expire interval value is illegal.
                 return;
             }
@@ -331,7 +328,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         connection.close();
     }
 
-    private boolean checkAndUpdateSessionExpireIntervalIfNeed(Channel channel, String clientId,
+    private boolean checkAndUpdateSessionExpireIntervalIfNeed(String clientId,
                                                               Connection connection, MqttProperties properties) {
         Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(properties);
         if (expireInterval.isPresent()) {
@@ -344,9 +341,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                                 String.format("The client %s disconnect with wrong "
                                                 + "session expire interval value. the value is %s",
                                         clientId, sessionExpireInterval));
-                channel.writeAndFlush(mqttPubAckMessage);
-                // close the channel
-                channel.close();
+                connection.sendThenClose(mqttPubAckMessage);
                 return false;
             }
             connection.updateSessionExpireInterval(sessionExpireInterval);
@@ -407,8 +402,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                     ? MqttSubAckMessageHelper.createMqtt5(msg.variableHeader().messageId(),
                     Mqtt5SubReasonCode.UNSPECIFIED_ERROR, "The client id not found.") :
                     MqttSubAckMessageHelper.createMqtt(msg.variableHeader().messageId(), Mqtt3SubReasonCode.FAILURE);
-            channel.writeAndFlush(subAckMessage);
-            channel.close();
+            connection.sendThenClose(subAckMessage);
             return;
         }
 
@@ -436,8 +430,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                             ? MqttSubAckMessageHelper.createMqtt5(messageId, Mqtt5SubReasonCode.NOT_AUTHORIZED,
                             String.format("The client %s not authorized.", clientId)) :
                             MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
-                    channel.writeAndFlush(subscribeAckMessage);
-                    channel.close();
+                    connection.sendThenClose(subscribeAckMessage);
                 } else {
                     doSubscribe(msg, clientId);
                 }
