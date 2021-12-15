@@ -17,10 +17,8 @@ import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.create
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createWillMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
-import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttProperties;
@@ -32,7 +30,6 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
@@ -40,7 +37,6 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTSubscriptionManager;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
-import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
@@ -53,12 +49,10 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonC
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -89,105 +83,51 @@ import org.apache.pulsar.common.util.FutureUtil;
  * Default implementation of protocol method processor.
  */
 @Slf4j
-public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
+public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMethodProcessor {
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
     private final MQTTServerCnx serverCnx;
     private final PacketIdGenerator packetIdGenerator;
     private final OutstandingPacketContainer outstandingPacketContainer;
-    private final MQTTAuthenticationService authenticationService;
     private final AuthorizationService authorizationService;
     private final MQTTMetricsCollector metricsCollector;
     private final MQTTConnectionManager connectionManager;
     private final MQTTSubscriptionManager subscriptionManager;
-    private final Channel channel;
     private Connection connection;
 
     public DefaultProtocolMethodProcessorImpl (MQTTService mqttService, ChannelHandlerContext ctx) {
+        super(mqttService.getAuthenticationService(),
+                mqttService.getServerConfiguration().isMqttAuthenticationEnabled(), ctx);
         this.pulsarService = mqttService.getPulsarService();
         this.configuration = mqttService.getServerConfiguration();
         this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration, ctx.channel());
         this.packetIdGenerator = PacketIdGenerator.newNonZeroGenerator();
         this.outstandingPacketContainer = new OutstandingPacketContainerImpl();
-        this.authenticationService = mqttService.getAuthenticationService();
         this.authorizationService = mqttService.getAuthorizationService();
         this.metricsCollector = mqttService.getMetricsCollector();
         this.connectionManager = mqttService.getConnectionManager();
         this.subscriptionManager = mqttService.getSubscriptionManager();
         this.serverCnx = new MQTTServerCnx(pulsarService, ctx);
-        this.channel = ctx.channel();
     }
 
     @Override
-    public void processConnect(MqttConnectMessage msg) {
-        MqttConnectPayload payload = msg.payload();
-        final int protocolVersion = msg.variableHeader().version();
-        final String username = payload.userName();
-        String clientId = payload.clientIdentifier();
-        if (log.isDebugEnabled()) {
-            log.debug("process CONNECT message. CId={}, username={}", clientId, username);
-        }
-
-        // Check MQTT protocol version.
-        if (!MqttUtils.isSupportedVersion(msg.variableHeader().version())) {
-            log.error("MQTT protocol version is not valid. CId={}", clientId);
-            channel.writeAndFlush(MqttConnAckMessageHelper.createUnsupportedVersionAck());
-            channel.close();
-            return;
-        }
-
-        if (!MqttUtils.isQosSupported(msg)) {
-            channel.writeAndFlush(MqttConnAckMessageHelper.createQosNotSupportAck());
-            channel.close();
-            return;
-        }
-
-        // Client must specify the client ID except enable clean session on the connection.
-        if (StringUtils.isEmpty(clientId)) {
-            if (!msg.variableHeader().isCleanSession()) {
-                channel.writeAndFlush(MqttConnAckMessageHelper.createIdentifierInvalidAck(protocolVersion));
-                channel.close();
-                log.error("The MQTT client ID cannot be empty. Username={}", username);
-                return;
-            }
-
-            clientId = MqttMessageUtils.createClientIdentifier(channel);
-            if (log.isDebugEnabled()) {
-                log.debug("Client has connected with generated identifier. CId={}", clientId);
-            }
-        }
-
-        String userRole = null;
-        // Authenticate the client
-        if (!configuration.isMqttAuthenticationEnabled()) {
-            log.info("Authentication is disabled, allowing client. CId={}, username={}", clientId, username);
-        } else {
-            MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
-            if (authResult.isFailed()) {
-                channel.writeAndFlush(MqttConnAckMessageHelper.createAuthFailedAck(protocolVersion));
-                channel.close();
-                log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
-                return;
-            }
-            userRole = authResult.getUserRole();
-        }
+    public void doProcessConnect(MqttConnectMessage msg, String userRole) {
         connection = Connection.builder()
-                .protocolVersion(protocolVersion)
-                .clientId(clientId)
+                .protocolVersion(msg.variableHeader().version())
+                .clientId(msg.payload().clientIdentifier())
                 .userRole(userRole)
                 .willMessage(createWillMessage(msg))
                 .cleanSession(msg.variableHeader().isCleanSession())
                 .sessionExpireInterval(MqttPropertyUtils.getExpireInterval(msg.variableHeader().properties())
                         .orElse(SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()))
-                .clientReceiveMaximum(MqttPropertyUtils.getReceiveMaximum(protocolVersion,
+                .clientReceiveMaximum(MqttPropertyUtils.getReceiveMaximum(msg.variableHeader().version(),
                         msg.variableHeader().properties()))
                 .serverReceivePubMaximum(configuration.getReceiveMaximum())
                 .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .build();
-
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
         connection.sendConnAck();
     }
@@ -278,27 +218,6 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             connection.sendThenClose(quotaExceededPubAck);
         } else {
             connection.incrementServerReceivePubMessage();
-        }
-    }
-
-    @Override
-    public void processPubRel(MqttMessage msg) {
-        if (log.isDebugEnabled()) {
-            log.debug("[PubRel] [{}] msg: {}", connection.getClientId(), msg);
-        }
-    }
-
-    @Override
-    public void processPubRec(MqttMessage msg) {
-        if (log.isDebugEnabled()) {
-            log.debug("[PubRec] [{}] msg: {}", connection.getClientId(), msg);
-        }
-    }
-
-    @Override
-    public void processPubComp(MqttMessage msg) {
-        if (log.isDebugEnabled()) {
-            log.debug("[PubComp] [{}] msg: {}", connection.getClientId(), msg);
         }
     }
 
