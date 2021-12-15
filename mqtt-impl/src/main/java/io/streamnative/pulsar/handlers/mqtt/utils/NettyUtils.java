@@ -15,18 +15,12 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ADDR;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECTION;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECT_MSG;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_KEEP_ALIVE_TIME;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_TOPIC_SUBS;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelPipeline;
-import io.netty.handler.codec.mqtt.MqttConnectMessage;
-import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import java.net.InetSocketAddress;
 import java.util.Map;
-import java.util.Optional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.Subscription;
@@ -37,25 +31,12 @@ import org.apache.pulsar.broker.service.Topic;
  */
 public final class NettyUtils {
 
-    public static final String ATTR_USERNAME = "username";
-
-    private static final AttributeKey<Object> ATTR_KEY_CONNECTION = AttributeKey.valueOf(ATTR_CONNECTION);
-    private static final AttributeKey<Object> ATTR_KEY_KEEP_ALIVE_TIME = AttributeKey.valueOf(ATTR_KEEP_ALIVE_TIME);
-    private static final AttributeKey<Object> ATTR_KEY_USERNAME = AttributeKey.valueOf(ATTR_USERNAME);
-    private static final AttributeKey<Object> ATTR_KEY_CONNECT_MSG = AttributeKey.valueOf(ATTR_CONNECT_MSG);
+    public static final AttributeKey<Object> ATTR_KEY_CONNECTION = AttributeKey.valueOf(ATTR_CONNECTION);
     private static final AttributeKey<Object> ATTR_KEY_TOPIC_SUBS = AttributeKey.valueOf(ATTR_TOPIC_SUBS);
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ADDR = AttributeKey.valueOf(ATTR_CLIENT_ADDR);
 
-    public static void setConnection(Channel channel, Connection connection) {
-        channel.attr(NettyUtils.ATTR_KEY_CONNECTION).set(connection);
-    }
-
     public static Connection getConnection(Channel channel) {
         return (Connection) channel.attr(NettyUtils.ATTR_KEY_CONNECTION).get();
-    }
-
-    public static void setConnectMsg(Channel channel, MqttConnectMessage connectMessage) {
-        channel.attr(NettyUtils.ATTR_KEY_CONNECT_MSG).set(connectMessage);
     }
 
     public static void setTopicSubscriptions(Channel channel, Map<Topic, Pair<Subscription, Consumer>> topicSubs) {
@@ -64,39 +45,6 @@ public final class NettyUtils {
 
     public static Map<Topic, Pair<Subscription, Consumer>> getTopicSubscriptions(Channel channel) {
         return (Map<Topic, Pair<Subscription, Consumer>>) channel.attr(NettyUtils.ATTR_KEY_TOPIC_SUBS).get();
-    }
-
-    public static Optional<MqttConnectMessage> getAndRemoveConnectMsg(Channel channel) {
-        return Optional.ofNullable(channel.attr(NettyUtils.ATTR_KEY_CONNECT_MSG).getAndSet(null))
-                .map(o -> (MqttConnectMessage) o);
-    }
-
-    public static MqttConnectMessage getConnectMsg(Channel channel) {
-        return (MqttConnectMessage) channel.attr(NettyUtils.ATTR_KEY_CONNECT_MSG).get();
-    }
-
-    public static void userName(Channel channel, String username) {
-        channel.attr(NettyUtils.ATTR_KEY_USERNAME).set(username);
-    }
-
-    public static String userName(Channel channel) {
-        return (String) channel.attr(NettyUtils.ATTR_KEY_USERNAME).get();
-    }
-
-    public static void addIdleStateHandler(Channel channel, int idleTime) {
-        ChannelPipeline pipeline = channel.pipeline();
-        if (pipeline.names().contains("idleStateHandler")) {
-            pipeline.remove("idleStateHandler");
-        }
-        pipeline.addFirst("idleStateHandler", new IdleStateHandler(0, 0, idleTime));
-    }
-
-    public static void setKeepAliveTime(Channel channel, int keepAliveTime) {
-        channel.attr(NettyUtils.ATTR_KEY_KEEP_ALIVE_TIME).set(keepAliveTime);
-    }
-
-    public static int getKeepAliveTime(Channel channel) {
-        return (Integer) channel.attr(NettyUtils.ATTR_KEY_KEEP_ALIVE_TIME).get();
     }
 
     public static String getAndSetAddress(Channel channel) {
