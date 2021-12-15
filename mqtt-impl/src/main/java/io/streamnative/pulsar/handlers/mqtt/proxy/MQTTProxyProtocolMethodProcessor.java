@@ -18,23 +18,18 @@ import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingRe
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
-import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
-import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
-import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -47,7 +42,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
@@ -56,17 +50,13 @@ import org.apache.pulsar.common.util.FutureUtil;
  * Proxy inbound handler is the bridge between proxy and MoP.
  */
 @Slf4j
-public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor {
+public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMethodProcessor {
 
-    private final MQTTProxyService proxyService;
-    private final Channel channel;
     @Getter
     private Connection connection;
     private final LookupHandler lookupHandler;
     private final MQTTProxyConfiguration proxyConfig;
     private final PulsarService pulsarService;
-    private final MQTTAuthenticationService authenticationService;
-
     private final Map<String, CompletableFuture<MQTTProxyExchanger>> topicBrokers;
     private final Map<InetSocketAddress, MQTTProxyExchanger> brokerPool;
     // Map sequence Id -> topic count
@@ -74,10 +64,9 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     private final MQTTConnectionManager connectionManager;
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
-        this.proxyService = proxyService;
-        this.channel = ctx.channel();
+        super(proxyService.getAuthenticationService(),
+                proxyService.getProxyConfig().isMqttAuthenticationEnabled(), ctx);
         this.pulsarService = proxyService.getPulsarService();
-        this.authenticationService = proxyService.getAuthenticationService();
         this.lookupHandler = proxyService.getLookupHandler();
         this.proxyConfig = proxyService.getProxyConfig();
         this.connectionManager = proxyService.getConnectionManager();
@@ -86,42 +75,14 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         this.topicCountForSequenceId = new ConcurrentHashMap<>();
     }
 
-    // client -> proxy
     @Override
-    public void processConnect(MqttConnectMessage msg) {
-        final int protocolVersion = msg.variableHeader().version();
-        MqttConnectMessage connectMessage = msg;
-        MqttConnectPayload payload = connectMessage.payload();
-        String clientId = payload.clientIdentifier();
-        if (log.isDebugEnabled()) {
-            log.debug("Proxy CONNECT message. CId={}, username={}", clientId, payload.userName());
-        }
-        if (StringUtils.isEmpty(clientId)) {
-            // Generating client id.
-            clientId = MqttMessageUtils.createClientIdentifier(channel);
-            connectMessage = MqttMessageUtils.createMqttConnectMessage(msg, clientId);
-            if (log.isDebugEnabled()) {
-                log.debug("Proxy client has connected with generated identifier. CId={}", clientId);
-            }
-        }
-        // Authenticate the client
-        if (!proxyService.getProxyConfig().isMqttAuthenticationEnabled()) {
-            log.info("Proxy authentication is disabled, allowing client. CId={}, username={}",
-                    clientId, payload.userName());
-        } else {
-            MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
-            if (authResult.isFailed()) {
-                channel.writeAndFlush(MqttConnAckMessageHelper.createAuthFailedAck(protocolVersion));
-                channel.close();
-                log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, payload.userName());
-                return;
-            }
-        }
+    public void doProcessConnect(MqttConnectMessage msg, String userRole) {
         connection = Connection.builder()
-                .protocolVersion(protocolVersion)
-                .clientId(clientId)
+                .protocolVersion(msg.variableHeader().version())
+                .clientId(msg.payload().clientIdentifier())
+                .userRole(userRole)
                 .cleanSession(msg.variableHeader().isCleanSession())
-                .connectMessage(connectMessage)
+                .connectMessage(msg)
                 .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
                 .channel(channel)
                 .connectionManager(connectionManager)
@@ -130,14 +91,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         connection.sendConnAck();
     }
 
-    @Override
-    public void processPubAck(MqttPubAckMessage msg) {
-        if (log.isDebugEnabled()) {
-            log.debug("[Proxy PubAck] [{}]", connection.getClientId());
-        }
-    }
-
-    // proxy -> MoP
     @Override
     public void processPublish(MqttPublishMessage msg) {
         final int packetId = msg.variableHeader().packetId();
@@ -159,27 +112,6 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             }
             writeToMqttBroker(channel, msg, pulsarTopicName, brokerAddress);
         });
-    }
-
-    @Override
-    public void processPubRel(MqttMessage msg) {
-        if (log.isDebugEnabled()) {
-            log.debug("[Proxy PubRel] [{}]", connection.getClientId());
-        }
-    }
-
-    @Override
-    public void processPubRec(MqttMessage msg) {
-        if (log.isDebugEnabled()) {
-            log.debug("[Proxy PubRec] [{}]", connection.getClientId());
-        }
-    }
-
-    @Override
-    public void processPubComp(MqttMessage msg) {
-        if (log.isDebugEnabled()) {
-            log.debug("[Proxy PubComp] [{}]", connection.getClientId());
-        }
     }
 
     @Override
