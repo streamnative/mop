@@ -78,10 +78,6 @@ public class MqttMessageUtils {
         return new MqttConnectMessage(msg.fixedHeader(), msg.variableHeader(), payload);
     }
 
-    public static int getKeepAliveTime(MqttConnectMessage msg) {
-        return Math.round(msg.variableHeader().keepAliveTimeSeconds() * 1.5f);
-    }
-
     public static List<MqttTopicSubscription> topicSubscriptions(MqttSubscribeMessage msg) {
         List<MqttTopicSubscription> ackTopics = new ArrayList<>();
 

@@ -11,20 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.support.handler;
+
+import io.streamnative.pulsar.handlers.mqtt.Connection;
 
 /**
- * Server constants keeper.
+ * Ack handler.
  */
-public final class Constants {
+public interface AckHandler {
 
-    public static final String ATTR_CONNECTION = "Connection";
-    public static final String ATTR_CLIENT_ADDR = "ClientAddr";
-    public static final String AUTH_BASIC = "basic";
-    public static final String AUTH_TOKEN = "token";
-
-    public static final String ATTR_TOPIC_SUBS = "topicSubs";
-
-    private Constants() {
-    }
+    void sendConnAck(Connection connection);
 }
