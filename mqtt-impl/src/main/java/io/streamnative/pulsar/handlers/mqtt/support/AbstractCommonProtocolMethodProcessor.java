@@ -27,6 +27,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReason
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -42,6 +43,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
 
     private final boolean authenticationEnabled;
 
+    @Getter
     protected Connection connection;
 
     public AbstractCommonProtocolMethodProcessor(MQTTAuthenticationService authenticationService,
