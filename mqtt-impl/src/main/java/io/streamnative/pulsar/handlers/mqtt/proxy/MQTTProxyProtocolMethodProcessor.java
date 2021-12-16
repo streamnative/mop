@@ -30,6 +30,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonC
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
+import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.common.naming.TopicDomain;
@@ -51,6 +53,8 @@ import org.apache.pulsar.common.util.FutureUtil;
 @Slf4j
 public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMethodProcessor {
 
+    @Getter
+    private  Connection connection;
     private final LookupHandler lookupHandler;
     private final MQTTProxyConfiguration proxyConfig;
     private final PulsarService pulsarService;
@@ -73,17 +77,20 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     }
 
     @Override
-    public Connection initConnection(MqttConnectMessage msg) {
-        return Connection.builder()
+    public void initConnection(MqttConnectMessage msg, String clientId, String userRole, AckHandler ackHandler) {
+        this.connection =  Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
-                .clientId(msg.payload().clientIdentifier())
+                .clientId(clientId)
+                .userRole(userRole)
                 .cleanSession(msg.variableHeader().isCleanSession())
                 .connectMessage(msg)
                 .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .serverReceivePubMaximum(proxyConfig.getReceiveMaximum())
+                .ackHandler(ackHandler)
                 .build();
+        connection.ackHandler().connAck();
     }
 
     @Override

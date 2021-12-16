@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.support.handler;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
+import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import lombok.extern.slf4j.Slf4j;
@@ -26,9 +27,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class AbstractAckHandler implements AckHandler {
 
-    abstract MqttMessage getConnAckSuccessMessage(Connection connection);
+    abstract MqttMessage getConnSuccessMessage(Connection connection);
 
-    abstract MqttMessage getConnAckServerUnAvailableMessage(Connection connection);
+    abstract MqttMessage getServerUnAvailableMessage(Connection connection);
 
     @Override
     public void sendConnAck(Connection connection) {
@@ -36,11 +37,11 @@ public abstract class AbstractAckHandler implements AckHandler {
         if (!connection.assignState(DISCONNECTED, CONNECT_ACK)) {
             log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
                     DISCONNECTED, CONNECT_ACK, clientId);
-            MqttMessage connAckServerUnAvailableMessage = getConnAckServerUnAvailableMessage(connection);
+            MqttMessage connAckServerUnAvailableMessage = getServerUnAvailableMessage(connection);
             connection.sendThenClose(connAckServerUnAvailableMessage);
             return;
         }
-        MqttMessage ackSuccessMessage = getConnAckSuccessMessage(connection);
+        MqttMessage ackSuccessMessage = getConnSuccessMessage(connection);
         connection.send(ackSuccessMessage).addListener(future -> {
             if (future.isSuccess()) {
                 if (log.isDebugEnabled()) {
@@ -52,32 +53,35 @@ public abstract class AbstractAckHandler implements AckHandler {
         });
     }
 
-    abstract MqttMessage getConnAckQosNotSupportedMessage(Connection connection);
+    abstract MqttMessage getQosNotSupportedMessage(Channel channel);
 
     @Override
-    public void sendConnNotSupportedAck(Connection connection) {
-        log.error("MQTT protocol qos not supported. CId={}", connection.getClientId());
-        MqttMessage connAckQosNotSupportedMessage = getConnAckQosNotSupportedMessage(connection);
-        connection.sendThenClose(connAckQosNotSupportedMessage);
+    public void sendConnNotSupported(Channel channel) {
+        log.error("MQTT protocol qos not supported. the remote address is {}", channel.remoteAddress());
+        MqttMessage connAckQosNotSupportedMessage = getQosNotSupportedMessage(channel);
+        channel.writeAndFlush(connAckQosNotSupportedMessage);
+        channel.close();
     }
 
-    abstract MqttMessage getConnAckClientIdentifierInvalidMessage(Connection connection);
+    abstract MqttMessage getClientIdentifierInvalidMessage(Channel channel);
 
     @Override
-    public void sendConnClientIdentifierInvalidAck(Connection connection) {
+    public void sendConnClientIdentifierInvalid(Channel channel) {
         log.error("The MQTT client ID cannot be empty. the remote address is {}",
-                connection.getChannel().remoteAddress());
+                channel.remoteAddress());
         MqttMessage connAckClientIdentifierInvalidMessage =
-                getConnAckClientIdentifierInvalidMessage(connection);
-        connection.sendThenClose(connAckClientIdentifierInvalidMessage);
+                getClientIdentifierInvalidMessage(channel);
+        channel.writeAndFlush(connAckClientIdentifierInvalidMessage);
+        channel.close();
     }
 
-    abstract MqttMessage getConnAuthenticationFailAck(Connection connection);
+    abstract MqttMessage getAuthenticationFailMessage(Channel channel);
 
     @Override
-    public void sendConnAuthenticationFailAck(Connection connection) {
-        log.error("Invalid or incorrect authentication. CId={}", connection.getClientId());
-        MqttMessage connAuthenticationFailMessage = getConnAuthenticationFailAck(connection);
-        connection.sendThenClose(connAuthenticationFailMessage);
+    public void sendConnAuthenticationFail(Channel channel) {
+        log.error("Invalid or incorrect authentication. the remote address is {}", channel.remoteAddress());
+        MqttMessage connAuthenticationFailMessage = getAuthenticationFailMessage(channel);
+        channel.writeAndFlush(connAuthenticationFailMessage);
+        channel.close();
     }
 }

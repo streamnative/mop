@@ -34,14 +34,14 @@ public class AckHandlerDelegate {
 
 
     public void connQosNotSupported() {
-        delegate.sendConnNotSupportedAck(connection);
+        delegate.sendConnNotSupported(connection.getChannel());
     }
 
     public void connClientIdentifierInvalid() {
-        delegate.sendConnClientIdentifierInvalidAck(connection);
+        delegate.sendConnClientIdentifierInvalid(connection.getChannel());
     }
 
     public void connAuthenticationFail() {
-        delegate.sendConnAuthenticationFailAck(connection);
+        delegate.sendConnAuthenticationFail(connection.getChannel());
     }
 }

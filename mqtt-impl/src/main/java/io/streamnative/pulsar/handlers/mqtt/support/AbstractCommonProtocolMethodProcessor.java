@@ -20,14 +20,14 @@ import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
-import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
+import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerFactory;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -43,8 +43,6 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
 
     private final boolean authenticationEnabled;
 
-    @Getter
-    protected Connection connection;
 
     public AbstractCommonProtocolMethodProcessor(MQTTAuthenticationService authenticationService,
                                                  boolean authenticationEnabled,
@@ -54,7 +52,8 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         this.channel = ctx.channel();
     }
 
-    public abstract Connection initConnection(MqttConnectMessage msg);
+    public abstract void initConnection(MqttConnectMessage msg,
+                                        String clientId, String userRole, AckHandler ackHandler);
 
     @Override
     public void processConnect(MqttConnectMessage connectMessage) {
@@ -74,15 +73,15 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
             return;
         }
         // when mqtt protocol valid.
-        this.connection = initConnection(connectMessage);
+        AckHandler ackHandler = AckHandlerFactory.of(protocolVersion).getAckHandler();
         if (!MqttUtils.isQosSupported(connectMessage)) {
-            connection.ack().connQosNotSupported();
+            ackHandler.sendConnNotSupported(channel);
             return;
         }
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             if (!connectMessage.variableHeader().isCleanSession()) {
-                connection.ack().connClientIdentifierInvalid();
+                ackHandler.sendConnClientIdentifierInvalid(channel);
                 return;
             }
             clientId = MqttMessageUtils.createClientIdentifier(channel);
@@ -96,14 +95,12 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                connection.ack().connAuthenticationFail();
+                ackHandler.sendConnAuthenticationFail(channel);
                 return;
             }
             userRole = authResult.getUserRole();
         }
-        connection.setClientId(clientId);
-        connection.setUserRole(userRole);
-        connection.ack().connAck();
+        initConnection(connectMessage, clientId, userRole, ackHandler);
     }
 
     @Override

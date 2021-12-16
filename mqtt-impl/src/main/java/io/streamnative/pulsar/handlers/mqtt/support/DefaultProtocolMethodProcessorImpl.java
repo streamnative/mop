@@ -53,6 +53,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessa
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -65,6 +66,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.commons.lang3.StringUtils;
@@ -84,6 +86,8 @@ import org.apache.pulsar.common.util.FutureUtil;
  */
 @Slf4j
 public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMethodProcessor {
+    @Getter
+    private  Connection connection;
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
@@ -111,11 +115,11 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     }
 
     @Override
-    public Connection initConnection(MqttConnectMessage msg) {
-        metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
-        return Connection.builder()
+    public void initConnection(MqttConnectMessage msg, String clientId, String userRole, AckHandler ackHandler) {
+        this.connection =  Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
-                .clientId(msg.payload().clientIdentifier())
+                .clientId(clientId)
+                .userRole(userRole)
                 .willMessage(createWillMessage(msg))
                 .cleanSession(msg.variableHeader().isCleanSession())
                 .sessionExpireInterval(MqttPropertyUtils.getExpireInterval(msg.variableHeader().properties())
@@ -126,7 +130,10 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
                 .channel(channel)
                 .connectionManager(connectionManager)
+                .ackHandler(ackHandler)
                 .build();
+        metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
+        connection.ackHandler().connAck();
     }
 
     @Override

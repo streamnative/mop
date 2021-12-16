@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.support.handler;
 
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
+import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttProperties;
@@ -27,7 +28,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReason
 public class MqttV5AckHandler extends AbstractAckHandler {
 
     @Override
-    MqttMessage getConnAckSuccessMessage(Connection connection) {
+    MqttMessage getConnSuccessMessage(Connection connection) {
         MqttProperties properties = new MqttProperties();
         MqttProperties.IntegerProperty property =
                 new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
@@ -41,7 +42,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getConnAckServerUnAvailableMessage(Connection connection) {
+    MqttMessage getServerUnAvailableMessage(Connection connection) {
         MqttProperties properties = new MqttProperties();
         MqttProperties.StringProperty reasonStringProperty =
                 new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
@@ -56,7 +57,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getConnAckQosNotSupportedMessage(Connection connection) {
+    MqttMessage getQosNotSupportedMessage(Channel channel) {
         MqttProperties properties = new MqttProperties();
         MqttProperties.StringProperty reasonStringProperty =
                 new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
@@ -70,7 +71,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getConnAckClientIdentifierInvalidMessage(Connection connection) {
+    MqttMessage getClientIdentifierInvalidMessage(Channel channel) {
         MqttProperties properties = new MqttProperties();
         MqttProperties.StringProperty reasonStringProperty =
                 new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
@@ -84,7 +85,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getConnAuthenticationFailAck(Connection connection) {
+    MqttMessage getAuthenticationFailMessage(Channel channel) {
         MqttProperties properties = new MqttProperties();
         MqttProperties.StringProperty reasonStringProperty =
                 new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),

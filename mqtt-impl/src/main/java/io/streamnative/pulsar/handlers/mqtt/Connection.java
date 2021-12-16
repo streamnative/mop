@@ -26,8 +26,8 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerDelegate;
-import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerFactory;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
@@ -105,7 +105,7 @@ public class Connection {
         this.manager.addConnection(this);
         this.connectMessage = builder.connectMessage;
         this.keepAliveTime = builder.keepAliveTime;
-        this.delegate = AckHandlerDelegate.delegate(this, AckHandlerFactory.of(protocolVersion).getAckHandler());
+        this.delegate = AckHandlerDelegate.delegate(this, builder.ackHandler);
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
         this.addIdleStateHandler();
     }
@@ -119,7 +119,7 @@ public class Connection {
                 Math.round(keepAliveTime * 1.5f)));
     }
 
-    public AckHandlerDelegate ack() {
+    public AckHandlerDelegate ackHandler() {
         return this.delegate;
     }
 
@@ -313,6 +313,7 @@ public class Connection {
         private MQTTConnectionManager connectionManager;
         private MqttConnectMessage connectMessage;
         private int keepAliveTime;
+        private AckHandler ackHandler;
 
         public ConnectionBuilder protocolVersion(int protocolVersion) {
             this.protocolVersion = protocolVersion;
@@ -341,6 +342,11 @@ public class Connection {
 
         public ConnectionBuilder clientReceiveMaximum(int clientReceiveMaximum) {
             this.clientReceiveMaximum = clientReceiveMaximum;
+            return this;
+        }
+
+        public ConnectionBuilder ackHandler(AckHandler handler){
+            this.ackHandler = handler;
             return this;
         }
 

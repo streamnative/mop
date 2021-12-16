@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.handler;
 
+import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
@@ -24,7 +25,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReason
 public class MqttV3xAckHandler extends AbstractAckHandler {
 
     @Override
-    MqttMessage getConnAckSuccessMessage(Connection connection) {
+    MqttMessage getConnSuccessMessage(Connection connection) {
         return MqttMessageBuilders.connAck()
                 .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.convertToNettyKlass())
                 .sessionPresent(!connection.isCleanSession())
@@ -32,7 +33,7 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getConnAckServerUnAvailableMessage(Connection connection) {
+    MqttMessage getServerUnAvailableMessage(Connection connection) {
         return MqttMessageBuilders.connAck()
                 .returnCode(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE.convertToNettyKlass())
                 .sessionPresent(false)
@@ -40,7 +41,7 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getConnAckQosNotSupportedMessage(Connection connection) {
+    MqttMessage getQosNotSupportedMessage(Channel channel) {
         return MqttMessageBuilders.connAck()
                 .returnCode(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE.convertToNettyKlass())
                 .sessionPresent(false)
@@ -48,7 +49,7 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getConnAckClientIdentifierInvalidMessage(Connection connection) {
+    MqttMessage getClientIdentifierInvalidMessage(Channel channel) {
         return MqttMessageBuilders.connAck()
                 .returnCode(Mqtt3ConnReasonCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED.convertToNettyKlass())
                 .sessionPresent(false)
@@ -56,7 +57,7 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getConnAuthenticationFailAck(Connection connection) {
+    MqttMessage getAuthenticationFailMessage(Channel channel) {
         return MqttMessageBuilders.connAck()
                 .returnCode(Mqtt3ConnReasonCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD.convertToNettyKlass())
                 .sessionPresent(false)

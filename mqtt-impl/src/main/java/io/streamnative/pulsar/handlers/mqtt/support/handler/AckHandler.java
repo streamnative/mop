@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.handler;
 
+import io.netty.channel.Channel;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 
 /**
@@ -20,11 +21,12 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
  */
 public interface AckHandler {
 
+    void sendConnNotSupported(Channel channel);
+
+    void sendConnClientIdentifierInvalid(Channel channel);
+
+    void sendConnAuthenticationFail(Channel channel);
+
     void sendConnAck(Connection connection);
 
-    void sendConnNotSupportedAck(Connection connection);
-
-    void sendConnClientIdentifierInvalidAck(Connection connection);
-
-    void sendConnAuthenticationFailAck(Connection connection);
 }
