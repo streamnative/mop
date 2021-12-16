@@ -18,10 +18,6 @@ import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DI
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -30,26 +26,22 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class AbstractAckHandler implements AckHandler {
 
-    abstract MqttMessage getConnAckMessage(Connection connection);
+    abstract MqttMessage getConnAckSuccessMessage(Connection connection);
+
+    abstract MqttMessage getConnAckServerUnAvailableMessage(Connection connection);
 
     @Override
     public void sendConnAck(Connection connection) {
         String clientId = connection.getClientId();
-        boolean ret = connection.assignState(DISCONNECTED, CONNECT_ACK);
-        if (!ret) {
-            int protocolVersion = connection.getProtocolVersion();
+        if (!connection.assignState(DISCONNECTED, CONNECT_ACK)) {
             log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
                     DISCONNECTED, CONNECT_ACK, clientId);
-            MqttMessage mqttConnAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                    ? MqttConnAckMessageHelper.createMqtt5(Mqtt5ConnReasonCode.SERVER_UNAVAILABLE,
-                    String.format("Unable to assign the state from : %s to : %s for CId=%s, close channel"
-                            , DISCONNECTED, CONNECT_ACK, clientId)) :
-                    MqttConnAckMessageHelper.createConnAck(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE);
-            connection.sendThenClose(mqttConnAckMessage);
+            MqttMessage connAckServerUnAvailableMessage = getConnAckServerUnAvailableMessage(connection);
+            connection.sendThenClose(connAckServerUnAvailableMessage);
             return;
         }
-        MqttMessage ackOkMessage = getConnAckMessage(connection);
-        connection.send(ackOkMessage).addListener(future -> {
+        MqttMessage ackSuccessMessage = getConnAckSuccessMessage(connection);
+        connection.send(ackSuccessMessage).addListener(future -> {
             if (future.isSuccess()) {
                 if (log.isDebugEnabled()) {
                     log.debug("The CONNECT message has been processed. CId={}", clientId);
@@ -58,5 +50,35 @@ public abstract class AbstractAckHandler implements AckHandler {
                 log.info("current connection state : {}", connection.getConnectionState(connection));
             }
         });
+    }
+
+    abstract MqttMessage getConnAckQosNotSupportedMessage(Connection connection);
+
+    @Override
+    public void sendConnNotSupportedAck(Connection connection) {
+        log.error("MQTT protocol qos not supported. CId={}", connection.getClientId());
+        MqttMessage connAckQosNotSupportedMessage = getConnAckQosNotSupportedMessage(connection);
+        connection.sendThenClose(connAckQosNotSupportedMessage);
+    }
+
+    abstract MqttMessage getConnAckClientIdentifierInvalidMessage(Connection connection);
+
+    @Override
+    public void sendConnClientIdentifierInvalidAck(Connection connection) {
+        String userName = connection.getConnectMessage().payload().userName();
+        log.error("The MQTT client ID cannot be empty. Username={}", userName);
+        MqttMessage connAckClientIdentifierInvalidMessage =
+                getConnAckClientIdentifierInvalidMessage(connection);
+        connection.sendThenClose(connAckClientIdentifierInvalidMessage);
+    }
+
+    abstract MqttMessage getConnAuthenticationFailAck(Connection connection);
+
+    @Override
+    public void sendConnAuthenticationFailAck(Connection connection) {
+        String userName = connection.getConnectMessage().payload().userName();
+        log.error("Invalid or incorrect authentication. CId={}, username={}", connection.getClientId(), userName);
+        MqttMessage connAuthenticationFailMessage = getConnAuthenticationFailAck(connection);
+        connection.sendThenClose(connAuthenticationFailMessage);
     }
 }

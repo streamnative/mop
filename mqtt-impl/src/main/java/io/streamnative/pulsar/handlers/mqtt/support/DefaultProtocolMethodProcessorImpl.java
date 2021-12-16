@@ -94,7 +94,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     private final MQTTMetricsCollector metricsCollector;
     private final MQTTConnectionManager connectionManager;
     private final MQTTSubscriptionManager subscriptionManager;
-    private Connection connection;
 
     public DefaultProtocolMethodProcessorImpl (MQTTService mqttService, ChannelHandlerContext ctx) {
         super(mqttService.getAuthenticationService(),
@@ -112,11 +111,11 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     }
 
     @Override
-    public void doProcessConnect(MqttConnectMessage msg, String userRole) {
-        connection = Connection.builder()
+    public Connection initConnection(MqttConnectMessage msg) {
+        metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
+        return Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
                 .clientId(msg.payload().clientIdentifier())
-                .userRole(userRole)
                 .willMessage(createWillMessage(msg))
                 .cleanSession(msg.variableHeader().isCleanSession())
                 .sessionExpireInterval(MqttPropertyUtils.getExpireInterval(msg.variableHeader().properties())
@@ -128,8 +127,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .build();
-        metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
-        connection.sendConnAck();
     }
 
     @Override

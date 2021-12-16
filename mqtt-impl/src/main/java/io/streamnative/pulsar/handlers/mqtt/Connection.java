@@ -26,7 +26,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
-import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
+import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerDelegate;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerFactory;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -36,6 +36,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -51,7 +52,8 @@ import org.apache.pulsar.broker.service.Topic;
 public class Connection {
 
     @Getter
-    private final String clientId;
+    @Setter
+    private String clientId;
     @Getter
     private final Channel channel;
     @Getter
@@ -70,13 +72,13 @@ public class Connection {
     @Getter
     private volatile int serverCurrentReceiveCounter = 0;
     @Getter
+    @Setter
     private String userRole;
     @Getter
     private final MQTTConnectionManager manager;
     @Getter
     private final MqttConnectMessage connectMessage;
-    @Getter
-    private final AckHandler ackHandler;
+    private final AckHandlerDelegate delegate;
     @Getter
     private final int keepAliveTime;
 
@@ -103,7 +105,7 @@ public class Connection {
         this.manager.addConnection(this);
         this.connectMessage = builder.connectMessage;
         this.keepAliveTime = builder.keepAliveTime;
-        this.ackHandler = AckHandlerFactory.of(protocolVersion).getAckHandler();
+        this.delegate = AckHandlerDelegate.delegate(this, AckHandlerFactory.of(protocolVersion).getAckHandler());
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
         this.addIdleStateHandler();
     }
@@ -117,8 +119,8 @@ public class Connection {
                 Math.round(keepAliveTime * 1.5f)));
     }
 
-    public void sendConnAck() {
-        ackHandler.sendConnAck(this);
+    public AckHandlerDelegate ack() {
+        return this.delegate;
     }
 
     public ChannelFuture send(MqttMessage mqttMessage) {

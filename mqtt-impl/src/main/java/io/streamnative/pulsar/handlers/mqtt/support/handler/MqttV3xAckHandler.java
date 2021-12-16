@@ -24,10 +24,42 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReason
 public class MqttV3xAckHandler extends AbstractAckHandler {
 
     @Override
-    MqttMessage getConnAckMessage(Connection connection) {
+    MqttMessage getConnAckSuccessMessage(Connection connection) {
         return MqttMessageBuilders.connAck()
                 .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.convertToNettyKlass())
                 .sessionPresent(!connection.isCleanSession())
+                .build();
+    }
+
+    @Override
+    MqttMessage getConnAckServerUnAvailableMessage(Connection connection) {
+        return MqttMessageBuilders.connAck()
+                .returnCode(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE.convertToNettyKlass())
+                .sessionPresent(false)
+                .build();
+    }
+
+    @Override
+    MqttMessage getConnAckQosNotSupportedMessage(Connection connection) {
+        return MqttMessageBuilders.connAck()
+                .returnCode(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE.convertToNettyKlass())
+                .sessionPresent(false)
+                .build();
+    }
+
+    @Override
+    MqttMessage getConnAckClientIdentifierInvalidMessage(Connection connection) {
+        return MqttMessageBuilders.connAck()
+                .returnCode(Mqtt3ConnReasonCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED.convertToNettyKlass())
+                .sessionPresent(false)
+                .build();
+    }
+
+    @Override
+    MqttMessage getConnAuthenticationFailAck(Connection connection) {
+        return MqttMessageBuilders.connAck()
+                .returnCode(Mqtt3ConnReasonCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD.convertToNettyKlass())
+                .sessionPresent(false)
                 .build();
     }
 }

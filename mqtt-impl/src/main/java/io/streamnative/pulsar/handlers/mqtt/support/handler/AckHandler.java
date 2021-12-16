@@ -21,4 +21,10 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 public interface AckHandler {
 
     void sendConnAck(Connection connection);
+
+    void sendConnNotSupportedAck(Connection connection);
+
+    void sendConnClientIdentifierInvalidAck(Connection connection);
+
+    void sendConnAuthenticationFailAck(Connection connection);
 }

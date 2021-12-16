@@ -18,10 +18,12 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -40,6 +42,8 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
 
     private final boolean authenticationEnabled;
 
+    protected Connection connection;
+
     public AbstractCommonProtocolMethodProcessor(MQTTAuthenticationService authenticationService,
                                                  boolean authenticationEnabled,
                                                  ChannelHandlerContext ctx) {
@@ -48,13 +52,12 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         this.channel = ctx.channel();
     }
 
-    public abstract void doProcessConnect(MqttConnectMessage msg, String userRole);
+    public abstract Connection initConnection(MqttConnectMessage msg);
 
     @Override
-    public void processConnect(MqttConnectMessage msg) {
-        MqttConnectPayload payload = msg.payload();
-        MqttConnectMessage connectMessage = msg;
-        final int protocolVersion = msg.variableHeader().version();
+    public void processConnect(MqttConnectMessage connectMessage) {
+        MqttConnectPayload payload = connectMessage.payload();
+        final int protocolVersion = connectMessage.variableHeader().version();
         final String username = payload.userName();
         String clientId = payload.clientIdentifier();
         if (log.isDebugEnabled()) {
@@ -63,25 +66,24 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         // Check MQTT protocol version.
         if (!MqttUtils.isSupportedVersion(protocolVersion)) {
             log.error("MQTT protocol version is not valid. CId={}", clientId);
-            channel.writeAndFlush(MqttConnAckMessageHelper.createUnsupportedVersionAck());
+            channel.writeAndFlush(MqttMessageBuilders.connAck().sessionPresent(false)
+                    .returnCode(Mqtt5ConnReasonCode.UNSUPPORTED_PROTOCOL_VERSION.convertToNettyKlass()));
             channel.close();
             return;
         }
-        if (!MqttUtils.isQosSupported(msg)) {
-            channel.writeAndFlush(MqttConnAckMessageHelper.createQosNotSupportAck());
-            channel.close();
+        // when mqtt protocol valid.
+        this.connection = initConnection(connectMessage);
+        if (!MqttUtils.isQosSupported(connectMessage)) {
+            connection.ack().connQosNotSupported();
             return;
         }
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
-            if (!msg.variableHeader().isCleanSession()) {
-                channel.writeAndFlush(MqttConnAckMessageHelper.createIdentifierInvalidAck(protocolVersion));
-                channel.close();
-                log.error("The MQTT client ID cannot be empty. Username={}", username);
+            if (!connectMessage.variableHeader().isCleanSession()) {
+                connection.ack().connClientIdentifierInvalid();
                 return;
             }
             clientId = MqttMessageUtils.createClientIdentifier(channel);
-            connectMessage = MqttMessageUtils.createMqttConnectMessage(msg, clientId);
             if (log.isDebugEnabled()) {
                 log.debug("Client has connected with generated identifier. CId={}", clientId);
             }
@@ -92,14 +94,14 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                channel.writeAndFlush(MqttConnAckMessageHelper.createAuthFailedAck(protocolVersion));
-                channel.close();
-                log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
+                connection.ack().connAuthenticationFail();
                 return;
             }
             userRole = authResult.getUserRole();
         }
-        doProcessConnect(connectMessage, userRole);
+        connection.setClientId(clientId);
+        connection.setUserRole(userRole);
+        connection.ack().connAck();
     }
 
     @Override

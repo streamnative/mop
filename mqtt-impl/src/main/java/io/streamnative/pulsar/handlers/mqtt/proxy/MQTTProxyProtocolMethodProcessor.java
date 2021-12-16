@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.common.naming.TopicDomain;
@@ -52,8 +51,6 @@ import org.apache.pulsar.common.util.FutureUtil;
 @Slf4j
 public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMethodProcessor {
 
-    @Getter
-    private Connection connection;
     private final LookupHandler lookupHandler;
     private final MQTTProxyConfiguration proxyConfig;
     private final PulsarService pulsarService;
@@ -76,11 +73,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     }
 
     @Override
-    public void doProcessConnect(MqttConnectMessage msg, String userRole) {
-        connection = Connection.builder()
+    public Connection initConnection(MqttConnectMessage msg) {
+        return Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
                 .clientId(msg.payload().clientIdentifier())
-                .userRole(userRole)
                 .cleanSession(msg.variableHeader().isCleanSession())
                 .connectMessage(msg)
                 .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
@@ -88,7 +84,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .connectionManager(connectionManager)
                 .serverReceivePubMaximum(proxyConfig.getReceiveMaximum())
                 .build();
-        connection.sendConnAck();
     }
 
     @Override
