@@ -65,8 +65,8 @@ public abstract class AbstractAckHandler implements AckHandler {
 
     @Override
     public void sendConnClientIdentifierInvalidAck(Connection connection) {
-        String userName = connection.getConnectMessage().payload().userName();
-        log.error("The MQTT client ID cannot be empty. Username={}", userName);
+        log.error("The MQTT client ID cannot be empty. the remote address is {}",
+                connection.getChannel().remoteAddress());
         MqttMessage connAckClientIdentifierInvalidMessage =
                 getConnAckClientIdentifierInvalidMessage(connection);
         connection.sendThenClose(connAckClientIdentifierInvalidMessage);
@@ -76,8 +76,7 @@ public abstract class AbstractAckHandler implements AckHandler {
 
     @Override
     public void sendConnAuthenticationFailAck(Connection connection) {
-        String userName = connection.getConnectMessage().payload().userName();
-        log.error("Invalid or incorrect authentication. CId={}, username={}", connection.getClientId(), userName);
+        log.error("Invalid or incorrect authentication. CId={}", connection.getClientId());
         MqttMessage connAuthenticationFailMessage = getConnAuthenticationFailAck(connection);
         connection.sendThenClose(connAuthenticationFailMessage);
     }
