@@ -51,7 +51,7 @@ import org.apache.pulsar.broker.service.Topic;
 public class Connection {
 
     @Getter
-    private String clientId;
+    private final String clientId;
     @Getter
     private final Channel channel;
     @Getter

@@ -116,7 +116,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
 
     @Override
     public void initConnection(MqttConnectMessage msg, String clientId, String userRole, AckHandler ackHandler) {
-        this.connection =  Connection.builder()
+        connection = Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
                 .clientId(clientId)
                 .userRole(userRole)
