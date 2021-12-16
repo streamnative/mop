@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class AbstractAckHandler implements AckHandler {
 
-    abstract MqttMessage getConnSuccessMessage(Connection connection);
+    abstract MqttMessage getConnAckMessage(Connection connection);
 
     abstract MqttMessage getServerUnAvailableMessage(Connection connection);
 
@@ -41,7 +41,7 @@ public abstract class AbstractAckHandler implements AckHandler {
             connection.sendThenClose(connAckServerUnAvailableMessage);
             return;
         }
-        MqttMessage ackSuccessMessage = getConnSuccessMessage(connection);
+        MqttMessage ackSuccessMessage = getConnAckMessage(connection);
         connection.send(ackSuccessMessage).addListener(future -> {
             if (future.isSuccess()) {
                 if (log.isDebugEnabled()) {

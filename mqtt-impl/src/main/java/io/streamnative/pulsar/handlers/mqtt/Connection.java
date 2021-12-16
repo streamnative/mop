@@ -52,7 +52,6 @@ import org.apache.pulsar.broker.service.Topic;
 public class Connection {
 
     @Getter
-    @Setter
     private String clientId;
     @Getter
     private final Channel channel;
@@ -72,7 +71,6 @@ public class Connection {
     @Getter
     private volatile int serverCurrentReceiveCounter = 0;
     @Getter
-    @Setter
     private String userRole;
     @Getter
     private final MQTTConnectionManager manager;

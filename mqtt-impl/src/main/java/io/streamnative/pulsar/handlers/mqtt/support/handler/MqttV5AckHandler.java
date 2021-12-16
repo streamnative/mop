@@ -28,7 +28,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReason
 public class MqttV5AckHandler extends AbstractAckHandler {
 
     @Override
-    MqttMessage getConnSuccessMessage(Connection connection) {
+    MqttMessage getConnAckMessage(Connection connection) {
         MqttProperties properties = new MqttProperties();
         MqttProperties.IntegerProperty property =
                 new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),

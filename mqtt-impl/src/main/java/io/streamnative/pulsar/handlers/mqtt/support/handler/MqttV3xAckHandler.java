@@ -25,7 +25,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReason
 public class MqttV3xAckHandler extends AbstractAckHandler {
 
     @Override
-    MqttMessage getConnSuccessMessage(Connection connection) {
+    MqttMessage getConnAckMessage(Connection connection) {
         return MqttMessageBuilders.connAck()
                 .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.convertToNettyKlass())
                 .sessionPresent(!connection.isCleanSession())

@@ -54,7 +54,7 @@ import org.apache.pulsar.common.util.FutureUtil;
 public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMethodProcessor {
 
     @Getter
-    private  Connection connection;
+    private Connection connection;
     private final LookupHandler lookupHandler;
     private final MQTTProxyConfiguration proxyConfig;
     private final PulsarService pulsarService;

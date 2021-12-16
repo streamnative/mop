@@ -87,7 +87,7 @@ import org.apache.pulsar.common.util.FutureUtil;
 @Slf4j
 public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMethodProcessor {
     @Getter
-    private  Connection connection;
+    private Connection connection;
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
