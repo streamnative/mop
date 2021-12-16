@@ -28,20 +28,20 @@ public class AckHandlerDelegate {
         return new AckHandlerDelegate(connection, handler);
     }
 
-    public void connAck() {
+    public void sendConnAck() {
         delegate.sendConnAck(connection);
     }
 
 
-    public void connQosNotSupported() {
+    public void sendConnQosNotSupported() {
         delegate.sendConnNotSupported(connection.getChannel());
     }
 
-    public void connClientIdentifierInvalid() {
+    public void sendConnClientIdentifierInvalid() {
         delegate.sendConnClientIdentifierInvalid(connection.getChannel());
     }
 
-    public void connAuthenticationFail() {
+    public void sendConnAuthenticationFail() {
         delegate.sendConnAuthenticationFail(connection.getChannel());
     }
 }

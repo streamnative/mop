@@ -133,7 +133,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 .ackHandler(ackHandler)
                 .build();
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
-        connection.ackHandler().connAck();
+        connection.ackHandler().sendConnAck();
     }
 
     @Override

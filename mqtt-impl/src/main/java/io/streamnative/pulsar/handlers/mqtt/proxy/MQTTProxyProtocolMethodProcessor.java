@@ -90,7 +90,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .serverReceivePubMaximum(proxyConfig.getReceiveMaximum())
                 .ackHandler(ackHandler)
                 .build();
-        connection.ackHandler().connAck();
+        connection.ackHandler().sendConnAck();
     }
 
     @Override
