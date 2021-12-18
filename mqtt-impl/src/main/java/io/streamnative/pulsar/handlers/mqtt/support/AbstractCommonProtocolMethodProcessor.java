@@ -21,7 +21,7 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAck;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -63,25 +63,25 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         // Check MQTT protocol version.
         if (!MqttUtils.isSupportedVersion(protocolVersion)) {
             log.error("MQTT protocol version is not valid. CId={}", clientId);
-            channel.writeAndFlush(MqttConnAckMessageHelper.createUnsupportedVersionAck());
+            channel.writeAndFlush(MqttConnectAck.error().unsupportedVersion());
             channel.close();
             return;
         }
         if (!MqttUtils.isQosSupported(msg)) {
-            channel.writeAndFlush(MqttConnAckMessageHelper.createQosNotSupportAck());
+            channel.writeAndFlush(MqttConnectAck.error().willQosNotSupport(protocolVersion));
             channel.close();
             return;
         }
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
-                channel.writeAndFlush(MqttConnAckMessageHelper.createIdentifierInvalidAck(protocolVersion));
+                channel.writeAndFlush(MqttConnectAck.error().identifierInvalid(protocolVersion));
                 channel.close();
                 log.error("The MQTT client ID cannot be empty. Username={}", username);
                 return;
             }
             clientId = MqttMessageUtils.createClientIdentifier(channel);
-            connectMessage = MqttMessageUtils.createMqttConnectMessage(msg, clientId);
+            connectMessage = MqttMessageUtils.stuffClientIdToConnectMessage(msg, clientId);
             if (log.isDebugEnabled()) {
                 log.debug("Client has connected with generated identifier. CId={}", clientId);
             }
@@ -92,7 +92,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                channel.writeAndFlush(MqttConnAckMessageHelper.createAuthFailedAck(protocolVersion));
+                channel.writeAndFlush(MqttConnectAck.error().authFail(protocolVersion));
                 channel.close();
                 log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
                 return;
