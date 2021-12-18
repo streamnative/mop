@@ -63,19 +63,19 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         // Check MQTT protocol version.
         if (!MqttUtils.isSupportedVersion(protocolVersion)) {
             log.error("MQTT protocol version is not valid. CId={}", clientId);
-            channel.writeAndFlush(MqttConnectAckHelper.error().unsupportedVersion());
+            channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().unsupportedVersion());
             channel.close();
             return;
         }
         if (!MqttUtils.isQosSupported(msg)) {
-            channel.writeAndFlush(MqttConnectAckHelper.error().willQosNotSupport(protocolVersion));
+            channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().willQosNotSupport(protocolVersion));
             channel.close();
             return;
         }
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
-                channel.writeAndFlush(MqttConnectAckHelper.error().identifierInvalid(protocolVersion));
+                channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().identifierInvalid(protocolVersion));
                 channel.close();
                 log.error("The MQTT client ID cannot be empty. Username={}", username);
                 return;
@@ -92,7 +92,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                channel.writeAndFlush(MqttConnectAckHelper.error().authFail(protocolVersion));
+                channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().authFail(protocolVersion));
                 channel.close();
                 log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
                 return;

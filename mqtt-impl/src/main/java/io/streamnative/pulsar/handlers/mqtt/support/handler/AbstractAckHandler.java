@@ -35,7 +35,7 @@ public abstract class AbstractAckHandler implements AckHandler {
         if (!connection.assignState(DISCONNECTED, CONNECT_ACK)) {
             log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
                     DISCONNECTED, CONNECT_ACK, clientId);
-            connection.sendThenClose(MqttConnectAckHelper.error()
+            connection.sendThenClose(MqttConnectAckHelper.errorBuilder()
                     .serverUnavailable(connection.getProtocolVersion())
                     .reasonString(String.format("Unable to assign the server state from : %s to : %s",
                             DISCONNECTED, CONNECT_ACK))

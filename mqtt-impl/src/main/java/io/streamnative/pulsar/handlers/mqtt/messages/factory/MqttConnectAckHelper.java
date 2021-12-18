@@ -35,22 +35,22 @@ public class MqttConnectAckHelper {
         return MqttMessageBuilders.connAck();
     }
 
-    public static MqttConnectAckBuilder error() {
-        return new MqttConnectAckBuilder();
+    public static MqttConnectErrorAckBuilder errorBuilder() {
+        return new MqttConnectErrorAckBuilder();
     }
 
-    public static class MqttConnectAckBuilder {
+    public static class MqttConnectErrorAckBuilder {
         private int protocolVersion;
         private ErrorReason errorReason;
         private String reasonString;
 
-        public MqttConnectAckBuilder serverUnavailable(int protocolVersion) {
+        public MqttConnectErrorAckBuilder serverUnavailable(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.SERVER_UNAVAILABLE;
             return this;
         }
 
-        public MqttConnectAckBuilder reasonString(String reasonStr) {
+        public MqttConnectErrorAckBuilder reasonString(String reasonStr) {
             this.reasonString = reasonStr;
             return this;
         }
