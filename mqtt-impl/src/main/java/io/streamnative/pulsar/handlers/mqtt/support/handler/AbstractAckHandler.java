@@ -18,7 +18,7 @@ import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DI
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -35,7 +35,7 @@ public abstract class AbstractAckHandler implements AckHandler {
         if (!connection.assignState(DISCONNECTED, CONNECT_ACK)) {
             log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
                     DISCONNECTED, CONNECT_ACK, clientId);
-            connection.sendThenClose(MqttConnectAck.error()
+            connection.sendThenClose(MqttConnectAckHelper.error()
                     .serverUnavailable(connection.getProtocolVersion())
                     .reasonString(String.format("Unable to assign the server state from : %s to : %s",
                             DISCONNECTED, CONNECT_ACK))

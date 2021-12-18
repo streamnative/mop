@@ -29,7 +29,7 @@ import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
  * This class base on #{MqttMessageBuilders}
  * @see MqttMessageBuilders
  */
-public class MqttConnectAck {
+public class MqttConnectAckHelper {
 
     public static MqttMessageBuilders.ConnAckBuilder builder() {
         return MqttMessageBuilders.connAck();

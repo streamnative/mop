@@ -17,7 +17,7 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 
 /**
  * MQTT5 ack handler.
@@ -31,7 +31,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
                 new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
                         connection.getServerReceivePubMaximum());
         properties.add(property);
-        return MqttConnectAck.builder()
+        return MqttConnectAckHelper.builder()
                 .returnCode(Mqtt5ConnReasonCode.SUCCESS.convertToNettyKlass())
                 .sessionPresent(!connection.isCleanSession())
                 .properties(properties)
