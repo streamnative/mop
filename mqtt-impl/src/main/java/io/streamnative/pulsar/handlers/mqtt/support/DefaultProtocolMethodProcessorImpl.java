@@ -15,11 +15,10 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttWillMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createWillMessage;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
-import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttProperties;
@@ -31,7 +30,6 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
@@ -39,26 +37,22 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTSubscriptionManager;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
-import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -89,26 +83,27 @@ import org.apache.pulsar.common.util.FutureUtil;
  * Default implementation of protocol method processor.
  */
 @Slf4j
-public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcessor {
+public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMethodProcessor {
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
     private final MQTTServerCnx serverCnx;
     private final PacketIdGenerator packetIdGenerator;
     private final OutstandingPacketContainer outstandingPacketContainer;
-    private final MQTTAuthenticationService authenticationService;
     private final AuthorizationService authorizationService;
     private final MQTTMetricsCollector metricsCollector;
     private final MQTTConnectionManager connectionManager;
     private final MQTTSubscriptionManager subscriptionManager;
+    private Connection connection;
 
     public DefaultProtocolMethodProcessorImpl (MQTTService mqttService, ChannelHandlerContext ctx) {
+        super(mqttService.getAuthenticationService(),
+                mqttService.getServerConfiguration().isMqttAuthenticationEnabled(), ctx);
         this.pulsarService = mqttService.getPulsarService();
         this.configuration = mqttService.getServerConfiguration();
-        this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration);
+        this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration, ctx.channel());
         this.packetIdGenerator = PacketIdGenerator.newNonZeroGenerator();
         this.outstandingPacketContainer = new OutstandingPacketContainerImpl();
-        this.authenticationService = mqttService.getAuthenticationService();
         this.authorizationService = mqttService.getAuthorizationService();
         this.metricsCollector = mqttService.getMetricsCollector();
         this.connectionManager = mqttService.getConnectionManager();
@@ -117,113 +112,30 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     @Override
-    public void processConnect(Channel channel, MqttConnectMessage msg) {
-        MqttConnectPayload payload = msg.payload();
-        final int protocolVersion = msg.variableHeader().version();
-        String clientId = payload.clientIdentifier();
-        String username = payload.userName();
-        if (log.isDebugEnabled()) {
-            log.debug("process CONNECT message. CId={}, username={}", clientId, username);
-        }
-
-        // Check MQTT protocol version.
-        if (!MqttUtils.isSupportedVersion(msg.variableHeader().version())) {
-            MqttMessage badProto = MqttConnAckMessageHelper.
-                    createMqtt(Mqtt5ConnReasonCode.UNSUPPORTED_PROTOCOL_VERSION);
-
-            log.error("MQTT protocol version is not valid. CId={}", clientId);
-            channel.writeAndFlush(badProto);
-            channel.close();
-            return;
-        }
-
-        // Client must specify the client ID except enable clean session on the connection.
-        if (StringUtils.isEmpty(clientId)) {
-            if (!msg.variableHeader().isCleanSession()) {
-                MqttMessage badId = MqttUtils.isMqtt5(protocolVersion)
-                        ? MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.CLIENT_IDENTIFIER_NOT_VALID) :
-                        MqttConnAckMessageHelper.createMqtt(
-                                Mqtt3ConnReasonCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED);
-                channel.writeAndFlush(badId);
-                channel.close();
-                log.error("The MQTT client ID cannot be empty. Username={}", username);
-                return;
-            }
-
-            clientId = MqttMessageUtils.createClientIdentifier(channel);
-            if (log.isDebugEnabled()) {
-                log.debug("Client has connected with generated identifier. CId={}", clientId);
-            }
-        }
-
-        String userRole = null;
-        // Authenticate the client
-        if (!configuration.isMqttAuthenticationEnabled()) {
-            log.info("Authentication is disabled, allowing client. CId={}, username={}", clientId, username);
-        } else {
-            MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
-            if (authResult.isFailed()) {
-                MqttMessage connectAuthenticationFailMessage = MqttUtils.isMqtt5(protocolVersion)
-                        ? MqttConnAckMessageHelper.createMqtt(Mqtt5ConnReasonCode.BAD_USERNAME_OR_PASSWORD)
-                        : MqttConnAckMessageHelper.createMqtt(
-                                Mqtt3ConnReasonCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD);
-                channel.writeAndFlush(connectAuthenticationFailMessage);
-                channel.close();
-                log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
-                return;
-            }
-            userRole = authResult.getUserRole();
-        }
-
-        NettyUtils.setClientId(channel, clientId);
-        NettyUtils.setCleanSession(channel, msg.variableHeader().isCleanSession());
-        NettyUtils.setUserRole(channel, userRole);
-        NettyUtils.addIdleStateHandler(channel, MqttMessageUtils.getKeepAliveTime(msg));
-        NettyUtils.setProtocolVersion(channel, protocolVersion);
-        if (msg.variableHeader().isWillFlag()) {
-            // Check willing message [ MQTT5 ]
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                int willQos = msg.variableHeader().willQos();
-                MqttQoS mqttQoS = MqttQoS.valueOf(willQos);
-                if (mqttQoS == MqttQoS.FAILURE || mqttQoS == MqttQoS.EXACTLY_ONCE) {
-                    MqttMessage mqttConnAckMessage =
-                            MqttConnAckMessageHelper.createMqtt5(
-                                    Mqtt5ConnReasonCode.QOS_NOT_SUPPORTED,
-                                    "The server do not support will message that qos is exactly once.");
-                    channel.writeAndFlush(mqttConnAckMessage);
-                    channel.close();
-                }
-            }
-            NettyUtils.setWillMessage(channel, createWillMessage(msg));
-        }
-        metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
-        MqttProperties properties = msg.variableHeader().properties();
-        // Get receive maximum number.
-        Integer receiveMaximum = MqttPropertyUtils.getReceiveMaximum(properties)
-                .orElse(MqttUtils.isMqtt5(protocolVersion)
-                        ? MqttPropertyUtils.MQTT5_DEFAULT_RECEIVE_MAXIMUM :
-                        MqttPropertyUtils.BEFORE_DEFAULT_RECEIVE_MAXIMUM);
-        Connection.ConnectionBuilder connectionBuilder = Connection.builder()
-                .clientId(clientId)
-                .protocolVersion(protocolVersion)
-                .channel(channel)
-                .manager(connectionManager)
-                .clientReceiveMaximum(receiveMaximum)
+    public void doProcessConnect(MqttConnectMessage msg, String userRole) {
+        connection = Connection.builder()
+                .protocolVersion(msg.variableHeader().version())
+                .clientId(msg.payload().clientIdentifier())
+                .userRole(userRole)
+                .willMessage(createWillMessage(msg))
+                .cleanSession(msg.variableHeader().isCleanSession())
+                .sessionExpireInterval(MqttPropertyUtils.getExpireInterval(msg.variableHeader().properties())
+                        .orElse(SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()))
+                .clientReceiveMaximum(MqttPropertyUtils.getReceiveMaximum(msg.variableHeader().version(),
+                        msg.variableHeader().properties()))
                 .serverReceivePubMaximum(configuration.getReceiveMaximum())
-                .cleanSession(msg.variableHeader().isCleanSession());
-        MqttPropertyUtils.getExpireInterval(properties).ifPresent(connectionBuilder::sessionExpireInterval);
-
-
-        Connection connection = connectionBuilder.build();
-        connectionManager.addConnection(connection);
-        NettyUtils.setConnection(channel, connection);
+                .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
+                .channel(channel)
+                .connectionManager(connectionManager)
+                .build();
+        metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
         connection.sendConnAck();
     }
 
     @Override
-    public void processPubAck(Channel channel, MqttPubAckMessage msg) {
+    public void processPubAck(MqttPubAckMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[PubAck] [{}] msg: {}", NettyUtils.getClientId(channel), msg);
+            log.debug("[PubAck] [{}] msg: {}", connection.getClientId(), msg);
         }
         int packetId = msg.variableHeader().messageId();
         OutstandingPacket packet = outstandingPacketContainer.remove(packetId);
@@ -237,56 +149,53 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     @Override
-    public void processPublish(Channel channel, MqttPublishMessage msg) {
+    public void processPublish(MqttPublishMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Publish] [{}] msg: {}", NettyUtils.getClientId(channel), msg);
+            log.debug("[Publish] [{}] msg: {}", connection.getClientId(), msg);
         }
-
-        String clientID = NettyUtils.getClientId(channel);
-        String userRole = NettyUtils.getUserRole(channel);
-        final int protocolVersion = NettyUtils.getProtocolVersion(channel);
         final int packetId = msg.variableHeader().packetId();
-
         // Authorization the client
         if (!configuration.isMqttAuthorizationEnabled()) {
-            log.info("[Publish] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
-            doPublish(channel, msg);
+            log.info("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
+                    connection.getClientId(), connection.getUserRole());
+            doPublish(msg);
         } else {
             this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
-                    userRole, new AuthenticationDataCommand(userRole))
+                            connection.getUserRole(), new AuthenticationDataCommand(connection.getUserRole()))
                     .thenAccept((authorized) -> {
                         if (!authorized) {
-                            log.error("[Publish] no authorization to pub topic={}, userRole={}, CId= {}",
-                                    msg.variableHeader().topicName(), userRole, clientID);
+                            log.error("[Publish] not authorized to topic={}, userRole={}, CId= {}",
+                                    msg.variableHeader().topicName(), connection.getUserRole(),
+                                    connection.getClientId());
                             // Support Mqtt 5
-                            if (MqttUtils.isMqtt5(protocolVersion)) {
+                            if (MqttUtils.isMqtt5(connection.getProtocolVersion())) {
                                 MqttMessage mqttPubAckMessage =
                                     MqttPubAckMessageHelper.createMqtt5(packetId, Mqtt5PubReasonCode.NOT_AUTHORIZED,
-                                        String.format("The client %s not authorized.", clientID));
+                                        String.format("The client %s not authorized.", connection.getClientId()));
                                 channel.writeAndFlush(mqttPubAckMessage);
                             }
                             channel.close();
                         } else {
-                            doPublish(channel, msg);
+                            doPublish(msg);
                         }
                     });
         }
     }
 
-    private void doPublish(Channel channel, MqttPublishMessage msg) {
+    private void doPublish(MqttPublishMessage msg) {
         final MqttQoS qos = msg.fixedHeader().qosLevel();
         metricsCollector.addSend(msg.payload().readableBytes());
         switch (qos) {
             case AT_MOST_ONCE:
-                this.qosPublishHandlers.qos0().publish(channel, msg);
+                this.qosPublishHandlers.qos0().publish(msg);
                 break;
             case AT_LEAST_ONCE:
-                checkServerReceivePubMessageAndIncrementCounterIfNeeded(channel, msg);
-                this.qosPublishHandlers.qos1().publish(channel, msg);
+                checkServerReceivePubMessageAndIncrementCounterIfNeeded(msg);
+                this.qosPublishHandlers.qos1().publish(msg);
                 break;
             case EXACTLY_ONCE:
-                checkServerReceivePubMessageAndIncrementCounterIfNeeded(channel, msg);
-                this.qosPublishHandlers.qos2().publish(channel, msg);
+                checkServerReceivePubMessageAndIncrementCounterIfNeeded(msg);
+                this.qosPublishHandlers.qos2().publish(msg);
                 break;
             default:
                 log.error("Unknown QoS-Type:{}", qos);
@@ -295,75 +204,50 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
         }
     }
 
-    private void checkServerReceivePubMessageAndIncrementCounterIfNeeded(Channel channel, MqttPublishMessage msg) {
+    private void checkServerReceivePubMessageAndIncrementCounterIfNeeded(MqttPublishMessage msg) {
         // check mqtt 5.0
-        if (!MqttUtils.isMqtt5(NettyUtils.getProtocolVersion(channel))) {
+        if (!MqttUtils.isMqtt5(connection.getProtocolVersion())) {
             return;
         }
-        Connection connection = NettyUtils.getConnection(channel);
-        if (connection.getServerReceivePubMessage() >= connection.getServerReceivePubMaximum()){
+        if (connection.getServerReceivePubMessage() >= connection.getServerReceivePubMaximum()) {
             log.warn("Client publish exceed server receive maximum , the receive maximum is {}",
                     connection.getServerReceivePubMaximum());
             int packetId = msg.variableHeader().packetId();
             MqttMessage quotaExceededPubAck =
                     MqttPubAckMessageHelper.createMqtt5(packetId, Mqtt5PubReasonCode.QUOTA_EXCEEDED);
-            channel.writeAndFlush(quotaExceededPubAck);
-            channel.close();
+            connection.sendThenClose(quotaExceededPubAck);
         } else {
             connection.incrementServerReceivePubMessage();
         }
     }
 
     @Override
-    public void processPubRel(Channel channel, MqttMessage msg) {
-        if (log.isDebugEnabled()) {
-            log.debug("[PubRel] [{}] msg: {}", NettyUtils.getClientId(channel), msg);
+    public void processDisconnect(MqttMessage msg) {
+        // When login, checkState(msg) failed, connection is null.
+        if (connection == null) {
+            channel.close();
+            return;
         }
-    }
-
-    @Override
-    public void processPubRec(Channel channel, MqttMessage msg) {
+        final String clientId = connection.getClientId();
         if (log.isDebugEnabled()) {
-            log.debug("[PubRec] [{}] msg: {}", NettyUtils.getClientId(channel), msg);
+            log.debug("[Disconnect] [{}] ", clientId);
         }
-    }
-
-    @Override
-    public void processPubComp(Channel channel, MqttMessage msg) {
-        if (log.isDebugEnabled()) {
-            log.debug("[PubComp] [{}] msg: {}", NettyUtils.getClientId(channel), msg);
-        }
-    }
-
-    @Override
-    public void processDisconnect(Channel channel, MqttMessage msg) {
-        final String clientId = NettyUtils.getClientId(channel);
-        Connection connection = NettyUtils.getConnection(channel);
         // when reset expire interval present, we need to reset session expire interval.
         Object header = msg.variableHeader();
         if (header instanceof MqttReasonCodeAndPropertiesVariableHeader) {
             MqttProperties properties = ((MqttReasonCodeAndPropertiesVariableHeader) header).properties();
-            if (!checkAndUpdateSessionExpireIntervalIfNeed(channel, clientId, connection, properties)){
+            if (!checkAndUpdateSessionExpireIntervalIfNeed(clientId, connection, properties)){
                 // If the session expire interval value is illegal.
                 return;
             }
         }
-        if (log.isDebugEnabled()) {
-            log.debug("[Disconnect] [{}] ", clientId);
-        }
         metricsCollector.removeClient(NettyUtils.getAddress(channel));
-        // When login, checkState(msg) failed, connection is null.
-        if (connection != null) {
-            connectionManager.removeConnection(connection);
-            connection.removeSubscriptions();
-            connection.close();
-        } else {
-            log.warn("connection is null. close CId={}", clientId);
-            channel.close();
-        }
+        connectionManager.removeConnection(connection);
+        connection.removeSubscriptions();
+        connection.close();
     }
 
-    private boolean checkAndUpdateSessionExpireIntervalIfNeed(Channel channel, String clientId,
+    private boolean checkAndUpdateSessionExpireIntervalIfNeed(String clientId,
                                                               Connection connection, MqttProperties properties) {
         Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(properties);
         if (expireInterval.isPresent()) {
@@ -376,9 +260,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                                 String.format("The client %s disconnect with wrong "
                                                 + "session expire interval value. the value is %s",
                                         clientId, sessionExpireInterval));
-                channel.writeAndFlush(mqttPubAckMessage);
-                // close the channel
-                channel.close();
+                connection.sendThenClose(mqttPubAckMessage);
                 return false;
             }
             connection.updateSessionExpireInterval(sessionExpireInterval);
@@ -387,24 +269,28 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     @Override
-    public void processConnectionLost(Channel channel) {
-        String clientId = NettyUtils.getClientId(channel);
+    public void processConnectionLost() {
+        if (connection == null) {
+            channel.close();
+            return;
+        }
+        String clientId = connection.getClientId();
         if (log.isDebugEnabled()) {
             log.debug("[Connection Lost] [{}] ", clientId);
         }
-        if (StringUtils.isNotEmpty(clientId)) {
-            metricsCollector.removeClient(NettyUtils.getAddress(channel));
-            Connection connection =  NettyUtils.getConnection(channel);
-            if (connection != null) {
-                connectionManager.removeConnection(connection);
-                connection.removeSubscriptions();
-            }
-            subscriptionManager.removeSubscription(clientId);
-            Optional<WillMessage> willMessage = NettyUtils.getWillMessage(channel);
-            if (willMessage.isPresent()) {
-                fireWillMessage(willMessage.get());
-            }
+        metricsCollector.removeClient(NettyUtils.getAddress(channel));
+        connectionManager.removeConnection(connection);
+        connection.removeSubscriptions();
+        subscriptionManager.removeSubscription(clientId);
+        WillMessage willMessage = connection.getWillMessage();
+        if (willMessage != null) {
+            fireWillMessage(willMessage);
         }
+    }
+
+    @Override
+    public void processPingReq() {
+        channel.writeAndFlush(pingResp());
     }
 
     private void fireWillMessage(WillMessage willMessage) {
@@ -421,29 +307,28 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     @Override
-    public void processSubscribe(Channel channel, MqttSubscribeMessage msg) {
-        String clientID = NettyUtils.getClientId(channel);
-        String userRole = NettyUtils.getUserRole(channel);
-        int protocolVersion = NettyUtils.getProtocolVersion(channel);
+    public void processSubscribe(MqttSubscribeMessage msg) {
+        String clientId = connection.getClientId();
+        String userRole = connection.getUserRole();
+        int protocolVersion = connection.getProtocolVersion();
         if (log.isDebugEnabled()) {
-            log.debug("[Subscribe] [{}] msg: {}", clientID, msg);
+            log.debug("[Subscribe] [{}] msg: {}", clientId, msg);
         }
 
-        if (StringUtils.isEmpty(clientID)) {
+        if (StringUtils.isEmpty(clientId)) {
             log.error("clientId is empty for sub [{}] close channel", msg);
             MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion)
                     ? MqttSubAckMessageHelper.createMqtt5(msg.variableHeader().messageId(),
                     Mqtt5SubReasonCode.UNSPECIFIED_ERROR, "The client id not found.") :
                     MqttSubAckMessageHelper.createMqtt(msg.variableHeader().messageId(), Mqtt3SubReasonCode.FAILURE);
-            channel.writeAndFlush(subAckMessage);
-            channel.close();
+            connection.sendThenClose(subAckMessage);
             return;
         }
 
         // Authorization the client
         if (!configuration.isMqttAuthorizationEnabled()) {
-            log.info("[Subscribe] authorization is disabled, allowing client. CId={}, userRole={}", clientID, userRole);
-            doSubscribe(channel, msg, clientID);
+            log.info("[Subscribe] authorization is disabled, allowing client. CId={}, userRole={}", clientId, userRole);
+            doSubscribe(msg, clientId);
         } else {
             List<CompletableFuture<Void>> authorizationFutures = new ArrayList<>();
             AtomicBoolean authorizedFlag = new AtomicBoolean(true);
@@ -453,7 +338,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                             if (!authorized) {
                                 authorizedFlag.set(authorized);
                                 log.warn("[Subscribe] no authorization to sub topic={}, userRole={}, CId= {}",
-                                        topic.topicName(), userRole, clientID);
+                                        topic.topicName(), userRole, clientId);
                             }
                         }));
             }
@@ -462,22 +347,20 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
                     int messageId = msg.variableHeader().messageId();
                     MqttMessage subscribeAckMessage = MqttUtils.isMqtt5(protocolVersion)
                             ? MqttSubAckMessageHelper.createMqtt5(messageId, Mqtt5SubReasonCode.NOT_AUTHORIZED,
-                            String.format("The client %s not authorized.", clientID)) :
+                            String.format("The client %s not authorized.", clientId)) :
                             MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
-                    channel.writeAndFlush(subscribeAckMessage);
-                    channel.close();
+                    connection.sendThenClose(subscribeAckMessage);
                 } else {
-                    doSubscribe(channel, msg, clientID);
+                    doSubscribe(msg, clientId);
                 }
             });
         }
     }
 
-    private void doSubscribe(Channel channel, MqttSubscribeMessage msg, String clientID) {
+    private void doSubscribe(MqttSubscribeMessage msg, String clientID) {
         int messageID = msg.variableHeader().messageId();
-        Connection connection = NettyUtils.getConnection(channel);
         List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
-        subscriptionManager.addSubscriptions(NettyUtils.getClientId(channel), subTopics);
+        subscriptionManager.addSubscriptions(connection.getClientId(), subTopics);
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
         Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = new ConcurrentHashMap<>();
         for (MqttTopicSubscription subTopic : subTopics) {
@@ -510,7 +393,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             });
             futureList.add(completableFuture);
         }
-        int protocolVersion = NettyUtils.getProtocolVersion(channel);
+        int protocolVersion = connection.getProtocolVersion();
         FutureUtil.waitForAll(futureList).thenAccept(v -> {
             MqttMessage ackMessage =
                     // Support MQTT 5
@@ -533,9 +416,8 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
     }
 
     @Override
-    public void processUnSubscribe(Channel channel, MqttUnsubscribeMessage msg) {
-        String clientID = NettyUtils.getClientId(channel);
-        Connection connection = NettyUtils.getConnection(channel);
+    public void processUnSubscribe(MqttUnsubscribeMessage msg) {
+        String clientID = connection.getClientId();
         if (log.isDebugEnabled()) {
             log.debug("[Unsubscribe] [{}] msg: {}", clientID, msg);
         }
@@ -586,7 +468,7 @@ public class DefaultProtocolMethodProcessorImpl implements ProtocolMethodProcess
             futureList.add(future);
         }
         int messageID = msg.variableHeader().messageId();
-        int protocolVersion = NettyUtils.getProtocolVersion(channel);
+        int protocolVersion = connection.getProtocolVersion();
         FutureUtil.waitForAll(futureList).thenAccept(__ -> {
             // ack the client
             MqttMessage ackMessage = MqttUtils.isMqtt5(protocolVersion) ?  // Support Mqtt version 5.0 reason code.

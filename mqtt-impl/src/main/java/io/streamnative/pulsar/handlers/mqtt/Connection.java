@@ -13,25 +13,28 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
+import static io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils.ATTR_KEY_CONNECTION;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
+import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerFactory;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -45,7 +48,6 @@ import org.apache.pulsar.broker.service.Topic;
  * session flag.
  */
 @Slf4j
-@Builder
 public class Connection {
 
     @Getter
@@ -57,18 +59,26 @@ public class Connection {
     @Getter
     private final int protocolVersion;
     @Getter
-    @Builder.Default
-    private volatile int sessionExpireInterval = SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
-    @Builder.Default
+    private final WillMessage willMessage;
+    @Getter
+    private volatile int sessionExpireInterval;
     volatile ConnectionState connectionState = DISCONNECTED;
     @Getter
     private int clientReceiveMaximum; // mqtt 5.0 specification.
     @Getter
     private int serverReceivePubMaximum;
-    @Builder.Default
+    @Getter
     private volatile int serverCurrentReceiveCounter = 0;
-    // connection manager
+    @Getter
+    private String userRole;
+    @Getter
     private final MQTTConnectionManager manager;
+    @Getter
+    private final MqttConnectMessage connectMessage;
+    @Getter
+    private final AckHandler ackHandler;
+    @Getter
+    private final int keepAliveTime;
 
     private static final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
             newUpdater(Connection.class, ConnectionState.class, "connectionState");
@@ -79,41 +89,54 @@ public class Connection {
     private static final AtomicIntegerFieldUpdater<Connection> SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(Connection.class, "serverCurrentReceiveCounter");
 
-    public void sendConnAck() {
-        boolean ret = assignState(DISCONNECTED, CONNECT_ACK);
-        if (ret) {
-            MqttMessage mqttConnAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                    ? MqttConnAckMessageHelper
-                    .createMqtt(Mqtt5ConnReasonCode.SUCCESS, !cleanSession, serverReceivePubMaximum) :
-                    MqttConnAckMessageHelper.createMqtt(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED, !cleanSession);
-            channel.writeAndFlush(mqttConnAckMessage).addListener(future -> {
-                if (future.isSuccess()) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("The CONNECT message has been processed. CId={}", clientId);
-                    }
-                    assignState(CONNECT_ACK, ESTABLISHED);
-                    log.info("current connection state : {}", channelState.get(this));
-                }
-            });
-        } else {
-            log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
-                    DISCONNECTED, CONNECT_ACK, clientId);
-            MqttMessage mqttConnAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                    ? MqttConnAckMessageHelper.createMqtt5(Mqtt5ConnReasonCode.SERVER_UNAVAILABLE,
-                    String.format("Unable to assign the state from : %s to : %s for CId=%s, close channel"
-                            , DISCONNECTED, CONNECT_ACK, clientId)) :
-                    MqttConnAckMessageHelper.createMqtt(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE);
-            channel.writeAndFlush(mqttConnAckMessage);
-            channel.close();
-        }
+    Connection(ConnectionBuilder builder) {
+        this.clientId = builder.clientId;
+        this.protocolVersion = builder.protocolVersion;
+        this.cleanSession = builder.cleanSession;
+        this.willMessage = builder.willMessage;
+        this.sessionExpireInterval = builder.sessionExpireInterval;
+        this.clientReceiveMaximum = builder.clientReceiveMaximum;
+        this.serverReceivePubMaximum = builder.serverReceivePubMaximum;
+        this.userRole = builder.userRole;
+        this.channel = builder.channel;
+        this.manager = builder.connectionManager;
+        this.manager.addConnection(this);
+        this.connectMessage = builder.connectMessage;
+        this.keepAliveTime = builder.keepAliveTime;
+        this.ackHandler = AckHandlerFactory.of(protocolVersion).getAckHandler();
+        this.channel.attr(ATTR_KEY_CONNECTION).set(this);
+        this.addIdleStateHandler();
     }
 
-    public void send(MqttMessage mqttMessage) {
+    private void addIdleStateHandler() {
+        ChannelPipeline pipeline = channel.pipeline();
+        if (pipeline.names().contains("idleStateHandler")) {
+            pipeline.remove("idleStateHandler");
+        }
+        pipeline.addFirst("idleStateHandler", new IdleStateHandler(0, 0,
+                Math.round(keepAliveTime * 1.5f)));
+    }
+
+    public void sendConnAck() {
+        ackHandler.sendConnAck(this);
+    }
+
+    public ChannelFuture send(MqttMessage mqttMessage) {
+        return channel.writeAndFlush(mqttMessage).addListener(future -> {
+            if (!future.isSuccess()) {
+                future.cause().printStackTrace();
+                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+            }
+        });
+    }
+
+    public void sendThenClose(MqttMessage mqttMessage) {
         channel.writeAndFlush(mqttMessage).addListener(future -> {
             if (!future.isSuccess()) {
                 log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
             }
         });
+        channel.close();
     }
 
     public void removeConsumers() {
@@ -137,7 +160,7 @@ public class Connection {
         // For producer doesn't bind subscriptions
         if (topicSubscriptions != null) {
             topicSubscriptions.forEach((k, v) -> {
-                k.unsubscribe(NettyUtils.getClientId(channel));
+                k.unsubscribe(this.clientId);
                 v.getLeft().delete();
             });
         }
@@ -184,12 +207,12 @@ public class Connection {
         this.channel.close();
     }
 
-    private boolean assignState(ConnectionState expected, ConnectionState newState) {
+    public boolean assignState(ConnectionState expected, ConnectionState newState) {
         if (log.isDebugEnabled()) {
             log.debug(
-                    "Updating state of connection. CId = {}, currentState = {}, "
+                    "Updating state of connection = {}, currentState = {}, "
                             + "expectedState = {}, newState = {}.",
-                    clientId,
+                    this,
                     channelState.get(this),
                     expected,
                     newState);
@@ -197,9 +220,8 @@ public class Connection {
         boolean ret = channelState.compareAndSet(this, expected, newState);
         if (!ret) {
             log.error(
-                    "Unable to update state of connection."
-                            + " CId = {}, currentState = {}, expectedState = {}, newState = {}.",
-                    clientId,
+                    "Unable to update state of connection = {}, currentState = {}, expectedState = {}, newState = {}.",
+                    this,
                     channelState.get(this),
                     expected,
                     newState);
@@ -270,5 +292,88 @@ public class Connection {
         DISCONNECTED,
         CONNECT_ACK,
         ESTABLISHED,
+    }
+
+    public static ConnectionBuilder builder(){
+        return new ConnectionBuilder();
+    }
+
+    public static class ConnectionBuilder {
+        private int protocolVersion;
+        private String clientId;
+        private String userRole;
+        private boolean cleanSession;
+        private WillMessage willMessage;
+        private int clientReceiveMaximum;
+        private int serverReceivePubMaximum;
+        private int sessionExpireInterval;
+        private Channel channel;
+        private MQTTConnectionManager connectionManager;
+        private MqttConnectMessage connectMessage;
+        private int keepAliveTime;
+
+        public ConnectionBuilder protocolVersion(int protocolVersion) {
+            this.protocolVersion = protocolVersion;
+            return this;
+        }
+
+        public ConnectionBuilder clientId(String clientId) {
+            this.clientId = clientId;
+            return this;
+        }
+
+        public ConnectionBuilder userRole(String userRole) {
+            this.userRole = userRole;
+            return this;
+        }
+
+        public ConnectionBuilder willMessage(WillMessage willMessage) {
+            this.willMessage = willMessage;
+            return this;
+        }
+
+        public ConnectionBuilder cleanSession(boolean cleanSession) {
+            this.cleanSession = cleanSession;
+            return this;
+        }
+
+        public ConnectionBuilder clientReceiveMaximum(int clientReceiveMaximum) {
+            this.clientReceiveMaximum = clientReceiveMaximum;
+            return this;
+        }
+
+        public ConnectionBuilder serverReceivePubMaximum(int serverReceivePubMaximum) {
+            this.serverReceivePubMaximum = serverReceivePubMaximum;
+            return this;
+        }
+
+        public ConnectionBuilder sessionExpireInterval(int sessionExpireInterval) {
+            this.sessionExpireInterval = sessionExpireInterval;
+            return this;
+        }
+
+        public ConnectionBuilder channel(Channel channel) {
+            this.channel = channel;
+            return this;
+        }
+
+        public ConnectionBuilder connectionManager(MQTTConnectionManager connectionManager) {
+            this.connectionManager = connectionManager;
+            return this;
+        }
+
+        public ConnectionBuilder connectMessage(MqttConnectMessage connectMessage) {
+            this.connectMessage = connectMessage;
+            return this;
+        }
+
+        public ConnectionBuilder keepAliveTime(int keepAliveTime) {
+            this.keepAliveTime = keepAliveTime;
+            return this;
+        }
+
+        public Connection build() {
+            return new Connection(this);
+        }
     }
 }

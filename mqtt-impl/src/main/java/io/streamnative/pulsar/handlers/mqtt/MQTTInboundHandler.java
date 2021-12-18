@@ -60,38 +60,38 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
             switch (messageType) {
                 case CONNECT:
                     checkArgument(msg instanceof MqttConnectMessage);
-                    processor.processConnect(ctx.channel(), (MqttConnectMessage) msg);
+                    processor.processConnect((MqttConnectMessage) msg);
                     break;
                 case SUBSCRIBE:
                     checkArgument(msg instanceof MqttSubscribeMessage);
-                    processor.processSubscribe(ctx.channel(), (MqttSubscribeMessage) msg);
+                    processor.processSubscribe((MqttSubscribeMessage) msg);
                     break;
                 case UNSUBSCRIBE:
                     checkArgument(msg instanceof MqttUnsubscribeMessage);
-                    processor.processUnSubscribe(ctx.channel(), (MqttUnsubscribeMessage) msg);
+                    processor.processUnSubscribe((MqttUnsubscribeMessage) msg);
                     break;
                 case PUBLISH:
                     checkArgument(msg instanceof MqttPublishMessage);
-                    processor.processPublish(ctx.channel(), (MqttPublishMessage) msg);
+                    processor.processPublish((MqttPublishMessage) msg);
                     break;
                 case PUBREC:
-                    processor.processPubRec(ctx.channel(), msg);
+                    processor.processPubRec(msg);
                     break;
                 case PUBCOMP:
-                    processor.processPubComp(ctx.channel(), msg);
+                    processor.processPubComp(msg);
                     break;
                 case PUBREL:
-                    processor.processPubRel(ctx.channel(), msg);
+                    processor.processPubRel(msg);
                     break;
                 case DISCONNECT:
-                    processor.processDisconnect(ctx.channel(), msg);
+                    processor.processDisconnect(msg);
                     break;
                 case PUBACK:
                     checkArgument(msg instanceof MqttPubAckMessage);
-                    processor.processPubAck(ctx.channel(), (MqttPubAckMessage) msg);
+                    processor.processPubAck((MqttPubAckMessage) msg);
                     break;
                 case PINGREQ:
-                    processor.processPingReq(ctx.channel());
+                    processor.processPingReq();
                     break;
                 default:
                     log.error("Unknown MessageType:{}", messageType);
@@ -111,16 +111,16 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        processor.processConnectionLost(ctx.channel());
+        processor.processConnectionLost();
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         log.warn(
                 "An unexpected exception was caught while processing MQTT message. "
-                + "Closing Netty channel {}. MqttClientId = {}",
+                + "Closing Netty channel {}. connection = {}",
                 ctx.channel(),
-                NettyUtils.getClientId(ctx.channel()),
+                NettyUtils.getConnection(ctx.channel()),
                 cause);
         ctx.close();
     }
@@ -130,7 +130,7 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
         if (event instanceof IdleStateEvent) {
             IdleStateEvent e = (IdleStateEvent) event;
             if (e.state() == IdleState.ALL_IDLE) {
-                log.warn("close channel : {} due to reached all idle time", NettyUtils.getClientId(ctx.channel()));
+                log.warn("close connection : {} due to reached all idle time", NettyUtils.getConnection(ctx.channel()));
                 ctx.close();
             }
         } else {

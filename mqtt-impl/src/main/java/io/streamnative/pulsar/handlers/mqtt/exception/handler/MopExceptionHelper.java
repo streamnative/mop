@@ -41,7 +41,7 @@ public class MopExceptionHelper {
             log.error("Could not found exception handler {}", type);
             throw new IllegalArgumentException(String.format("Could not found exception handler %s", type));
         }
-        int protocolVersion = NettyUtils.getProtocolVersion(channel);
+        int protocolVersion = NettyUtils.getConnection(channel).getProtocolVersion();
         if (!MqttUtils.isSupportedVersion(protocolVersion)) {
             log.error("Wrong protocol version present! the protocol version is {}", protocolVersion);
             throw new IllegalArgumentException(
