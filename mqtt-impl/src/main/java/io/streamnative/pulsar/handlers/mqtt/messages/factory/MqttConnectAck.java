@@ -124,4 +124,4 @@ public class MqttConnectAck {
             }
         }
     }
-};
+}
