@@ -36,8 +36,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 
-
-
 /**
  * Base test class for MQTT Client.
  */
@@ -50,44 +48,44 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
     @DataProvider(name = "batchEnabled")
     public Object[][] batchEnabled() {
-        return new Object[][]{
-                {true},
-                {false}
+        return new Object[][] {
+                { true },
+                { false }
         };
     }
 
     @DataProvider(name = "mqttTopicNames")
     public Object[][] mqttTopicNames() {
-        return new Object[][]{
-                {"a/b/c"},
-                {"/a/b/c"},
-                {"a/b/c/"},
-                {"/a/b/c/"},
-                {"persistent://public/default/t0"},
-                {"persistent://public/default/a/b"},
-                {"persistent://public/default//a/b"},
-                {"non-persistent://public/default/t0"},
-                {"non-persistent://public/default/a/b"},
-                {"non-persistent://public/default//a/b"},
+        return new Object[][] {
+                { "a/b/c" },
+                { "/a/b/c" },
+                { "a/b/c/" },
+                { "/a/b/c/" },
+                { "persistent://public/default/t0" },
+                { "persistent://public/default/a/b" },
+                { "persistent://public/default//a/b" },
+                { "non-persistent://public/default/t0" },
+                { "non-persistent://public/default/a/b" },
+                { "non-persistent://public/default//a/b" },
         };
     }
 
     @DataProvider(name = "mqttPersistentTopicNames")
     public Object[][] mqttPersistentTopicNames() {
-        return new Object[][]{
-                {"a/b/c"},
-                {"/a/b/c"},
-                {"a/b/c/"},
-                {"/a/b/c/"},
-                {"persistent://public/default/t0"},
-                {"persistent://public/default/a/b"},
-                {"persistent://public/default//a/b"},
+        return new Object[][] {
+                { "a/b/c" },
+                { "/a/b/c" },
+                { "a/b/c/" },
+                { "/a/b/c/" },
+                { "persistent://public/default/t0" },
+                { "persistent://public/default/a/b" },
+                { "persistent://public/default//a/b" },
         };
     }
 
     @DataProvider(name = "mqttTopicNameAndFilter")
     public Object[][] mqttTopicNameAndFilter() {
-        return new Object[][]{
+        return new Object[][] {
                 {"a/b/c", "a/+/c"},
                 {"a/b/c", "+/+/c"},
                 {"a/b/c", "+/+/+"},

@@ -67,34 +67,4 @@ public class BasicIntegrationTest extends MQTTTestBase {
         client.disconnect();
     }
 
-    @Test(dataProvider = "mqttTopicNameAndFilter", timeOut = TIMEOUT)
-    public void testTopicNameFilter(String topic, String filter) throws Exception {
-        Mqtt3BlockingClient client = createMqtt3Client();
-        client.connect();
-        byte[] msg = "payload".getBytes();
-        client.publishWith()
-                .topic(topic)
-                .qos(MqttQos.AT_LEAST_ONCE)
-                .payload(msg)
-                .send();
-        client.subscribeWith().topicFilter(filter).qos(MqttQos.AT_LEAST_ONCE).send();
-        client.publishWith()
-                .topic(topic)
-                .qos(MqttQos.AT_LEAST_ONCE)
-                .payload(msg)
-                .send();
-        try (Mqtt3BlockingClient.Mqtt3Publishes publishes = client.publishes(MqttGlobalPublishFilter.ALL)) {
-            Mqtt3Publish publish = publishes.receive();
-            Assert.assertEquals(publish.getPayloadAsBytes(), msg);
-        }
-        client.unsubscribeWith().topicFilter(filter).send();
-        client.disconnect();
-    }
-
-    private Mqtt3BlockingClient createMqtt3Client() {
-        return Mqtt3Client.builder()
-                .serverHost("127.0.0.1")
-                .serverPort(getMqttBrokerPortList().get(0))
-                .buildBlocking();
-    }
 }
