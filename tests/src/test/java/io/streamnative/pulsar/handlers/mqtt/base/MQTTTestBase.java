@@ -13,11 +13,20 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.base;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import io.streamnative.pulsar.handlers.mqtt.base.provider.ClientToTopic;
+import io.streamnative.pulsar.handlers.mqtt.client.MqttTestClient;
+import io.streamnative.pulsar.handlers.mqtt.client.options.ClientOptions;
+import io.streamnative.pulsar.handlers.mqtt.client.v3x.FuseSourceV3TestClient;
+import io.streamnative.pulsar.handlers.mqtt.client.v3x.HiveMqV3TestClient;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.policies.data.ClusterData;
 import org.apache.pulsar.common.policies.data.RetentionPolicies;
@@ -26,6 +35,8 @@ import org.fusesource.mqtt.client.MQTT;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
+
+
 
 /**
  * Base test class for MQTT Client.
@@ -39,44 +50,44 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
     @DataProvider(name = "batchEnabled")
     public Object[][] batchEnabled() {
-        return new Object[][] {
-                { true },
-                { false }
+        return new Object[][]{
+                {true},
+                {false}
         };
     }
 
     @DataProvider(name = "mqttTopicNames")
     public Object[][] mqttTopicNames() {
-        return new Object[][] {
-                { "a/b/c" },
-                { "/a/b/c" },
-                { "a/b/c/" },
-                { "/a/b/c/" },
-                { "persistent://public/default/t0" },
-                { "persistent://public/default/a/b" },
-                { "persistent://public/default//a/b" },
-                { "non-persistent://public/default/t0" },
-                { "non-persistent://public/default/a/b" },
-                { "non-persistent://public/default//a/b" },
+        return new Object[][]{
+                {"a/b/c"},
+                {"/a/b/c"},
+                {"a/b/c/"},
+                {"/a/b/c/"},
+                {"persistent://public/default/t0"},
+                {"persistent://public/default/a/b"},
+                {"persistent://public/default//a/b"},
+                {"non-persistent://public/default/t0"},
+                {"non-persistent://public/default/a/b"},
+                {"non-persistent://public/default//a/b"},
         };
     }
 
     @DataProvider(name = "mqttPersistentTopicNames")
     public Object[][] mqttPersistentTopicNames() {
-        return new Object[][] {
-                { "a/b/c" },
-                { "/a/b/c" },
-                { "a/b/c/" },
-                { "/a/b/c/" },
-                { "persistent://public/default/t0" },
-                { "persistent://public/default/a/b" },
-                { "persistent://public/default//a/b" },
+        return new Object[][]{
+                {"a/b/c"},
+                {"/a/b/c"},
+                {"a/b/c/"},
+                {"/a/b/c/"},
+                {"persistent://public/default/t0"},
+                {"persistent://public/default/a/b"},
+                {"persistent://public/default//a/b"},
         };
     }
 
     @DataProvider(name = "mqttTopicNameAndFilter")
     public Object[][] mqttTopicNameAndFilter() {
-        return new Object[][] {
+        return new Object[][]{
                 {"a/b/c", "a/+/c"},
                 {"a/b/c", "+/+/c"},
                 {"a/b/c", "+/+/+"},
@@ -88,6 +99,36 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
                 {"/a/b/c", "/a/+/+"},
                 {"/a/b/c", "/a/#"},
         };
+    }
+
+    @DataProvider(name = "mqttClient")
+    public Object[][] mqttClient() {
+        ClientOptions clientOptions = ClientOptions.builder()
+                .clientId(UUID.randomUUID().toString())
+                .serverUrl("127.0.0.1")
+                .port(mqttBrokerPortList.get(random.nextInt(mqttBrokerPortList.size())))
+                .build();
+        return new Object[][]{
+                {new HiveMqV3TestClient(clientOptions)},
+                {new FuseSourceV3TestClient(clientOptions)}
+        };
+    }
+
+    @DataProvider
+    public Object[][] mqttClientWithPersistentTopicNames() {
+        return Lists.cartesianProduct(
+                        // clients
+                        Arrays.stream(mqttClient())
+                                .flatMap(Arrays::stream)
+                                .collect(Collectors.toList()),
+                        // topics
+                        Arrays.stream(mqttPersistentTopicNames())
+                                .flatMap(Arrays::stream)
+                                .collect(Collectors.toList()))
+                .stream()
+                .map(inner ->
+                        new Object[]{new ClientToTopic((MqttTestClient) inner.get(0), (String) inner.get(1))})
+                .toArray(Object[][]::new);
     }
 
     @BeforeClass(alwaysRun = true)
