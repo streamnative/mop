@@ -18,10 +18,7 @@ import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DI
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnAckMessageHelper;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -35,21 +32,17 @@ public abstract class AbstractAckHandler implements AckHandler {
     @Override
     public void sendConnAck(Connection connection) {
         String clientId = connection.getClientId();
-        boolean ret = connection.assignState(DISCONNECTED, CONNECT_ACK);
-        if (!ret) {
-            int protocolVersion = connection.getProtocolVersion();
+        if (!connection.assignState(DISCONNECTED, CONNECT_ACK)) {
             log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
                     DISCONNECTED, CONNECT_ACK, clientId);
-            MqttMessage mqttConnAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                    ? MqttConnAckMessageHelper.createMqtt5(Mqtt5ConnReasonCode.SERVER_UNAVAILABLE,
-                    String.format("Unable to assign the state from : %s to : %s for CId=%s, close channel"
-                            , DISCONNECTED, CONNECT_ACK, clientId)) :
-                    MqttConnAckMessageHelper.createConnAck(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE);
-            connection.sendThenClose(mqttConnAckMessage);
+            connection.sendThenClose(MqttConnectAckHelper.errorBuilder()
+                    .serverUnavailable(connection.getProtocolVersion())
+                    .reasonString(String.format("Unable to assign the server state from : %s to : %s",
+                            DISCONNECTED, CONNECT_ACK))
+                    .build());
             return;
         }
-        MqttMessage ackOkMessage = getConnAckMessage(connection);
-        connection.send(ackOkMessage).addListener(future -> {
+        connection.send(getConnAckMessage(connection)).addListener(future -> {
             if (future.isSuccess()) {
                 if (log.isDebugEnabled()) {
                     log.debug("The CONNECT message has been processed. CId={}", clientId);
