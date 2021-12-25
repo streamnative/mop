@@ -36,7 +36,7 @@ public class MQTTServiceServlet extends HttpServlet {
 
     // Define transient by spotbugs
     private final transient PulsarService pulsar;
-    private volatile ReflectionUtils.Reference metricsCollectorGetJsonStatsReference;
+    private transient volatile ReflectionUtils.Reference metricsCollectorGetJsonStatsReference;
     private static final AtomicReferenceFieldUpdater<MQTTServiceServlet, ReflectionUtils.Reference>
             JSON_STATS_REFERENCE_UPDATER = newUpdater(MQTTServiceServlet.class, ReflectionUtils.Reference.class,
             "metricsCollectorGetJsonStatsReference");
