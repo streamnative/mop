@@ -13,39 +13,74 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
-import java.io.IOException;
-import javax.servlet.ServletException;
+import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
+import io.streamnative.pulsar.handlers.mqtt.utils.ReflectionUtils;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.protocol.ProtocolHandler;
 import org.eclipse.jetty.http.HttpStatus;
+
 /**
  * MQTT service servlet handler.
  */
+@Slf4j
 public class MQTTServiceServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
 
     // Define transient by spotbugs
     private final transient PulsarService pulsar;
+    private volatile ReflectionUtils.Reference metricsCollectorGetJsonStatsReference;
+    private static final AtomicReferenceFieldUpdater<MQTTServiceServlet, ReflectionUtils.Reference>
+            JSON_STATS_REFERENCE_UPDATER = newUpdater(MQTTServiceServlet.class, ReflectionUtils.Reference.class,
+            "metricsCollectorGetJsonStatsReference");
+
 
     public MQTTServiceServlet(PulsarService pulsar) {
         this.pulsar = pulsar;
     }
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) {
+        checkAndInitReflectionReference();
         response.setStatus(HttpStatus.OK_200);
         response.setContentType("text/plain");
-        response.getOutputStream().write(getMetricsCollector().getJsonStats());
+        try {
+            response.getOutputStream().write((byte[]) JSON_STATS_REFERENCE_UPDATER.get(this).invoke());
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 
-    private MQTTMetricsCollector getMetricsCollector() {
-        return ((MQTTProtocolHandler) pulsar.getProtocolHandlers().protocol("mqtt"))
-                .getMqttService()
-                .getMetricsCollector();
+    /**
+     * Lazy init reference updater.
+     */
+    private void checkAndInitReflectionReference() {
+        if (JSON_STATS_REFERENCE_UPDATER.get(this) == null) {
+            try {
+                ProtocolHandler protocolHandler = pulsar.getProtocolHandlers().protocol("mqtt");
+                Method getMqttService = ReflectionUtils.
+                        reflectAccessibleMethod(protocolHandler.getClass(), "getMqttService");
+                Object mqttService = getMqttService.invoke(protocolHandler);
+                Method getMetricsCollector = ReflectionUtils.
+                        reflectAccessibleMethod(mqttService.getClass(), "getMetricsCollector");
+                Object mqttMetricCollector = getMetricsCollector.invoke(mqttService);
+                Method getJsonStats = ReflectionUtils.
+                        reflectAccessibleMethod(mqttMetricCollector.getClass(), "getJsonStats");
+                JSON_STATS_REFERENCE_UPDATER.
+                        set(this, ReflectionUtils.createReference(getJsonStats, mqttMetricCollector));
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                log.error("Reflect method got error", e);
+                throw new IllegalStateException(e);
+            }
+        }
     }
+
+
 }
