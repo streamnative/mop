@@ -62,7 +62,7 @@ public class MQTTServiceServlet extends HttpServlet {
      * Lazy init reference updater.
      */
     private void checkAndInitReflectionReference() {
-        if (JSON_STATS_REFERENCE_UPDATER.get(this) == null) {
+        if (metricsCollectorGetJsonStatsReference == null) {
             try {
                 ProtocolHandler protocolHandler = pulsar.getProtocolHandlers().protocol("mqtt");
                 Method getMqttService = ReflectionUtils.
@@ -73,8 +73,8 @@ public class MQTTServiceServlet extends HttpServlet {
                 Object mqttMetricCollector = getMetricsCollector.invoke(mqttService);
                 Method getJsonStats = ReflectionUtils.
                         reflectAccessibleMethod(mqttMetricCollector.getClass(), "getJsonStats");
-                JSON_STATS_REFERENCE_UPDATER.
-                        set(this, ReflectionUtils.createReference(getJsonStats, mqttMetricCollector));
+                JSON_STATS_REFERENCE_UPDATER
+                        .compareAndSet(this, null, ReflectionUtils.createReference(getJsonStats, mqttMetricCollector));
             } catch (IllegalAccessException | InvocationTargetException e) {
                 log.error("Reflect method got error", e);
                 throw new IllegalStateException(e);
