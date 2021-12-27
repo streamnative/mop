@@ -27,6 +27,7 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
+import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.Getter;
@@ -92,14 +93,17 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
                     break;
                 case PINGREQ:
                     processor.processPingReq();
+                    ReferenceCountUtil.safeRelease(msg);
                     break;
                 default:
                     log.error("Unknown MessageType:{}", messageType);
+                    ReferenceCountUtil.safeRelease(msg);
                     break;
             }
         } catch (Throwable ex) {
             log.error("Exception was caught while processing MQTT message, ", ex);
             ctx.close();
+            ReferenceCountUtil.safeRelease(msg);
         }
     }
 

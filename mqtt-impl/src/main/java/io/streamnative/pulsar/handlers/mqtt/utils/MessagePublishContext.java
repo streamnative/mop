@@ -92,6 +92,7 @@ public final class MessagePublishContext implements PublishContext {
         topic.publishMessage(headerAndPayload,
                 MessagePublishContext.get(future, topic, System.nanoTime()));
 
+        headerAndPayload.release();
         return future;
     }
 }
