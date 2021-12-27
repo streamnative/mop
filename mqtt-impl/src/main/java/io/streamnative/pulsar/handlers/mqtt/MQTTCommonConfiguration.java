@@ -298,4 +298,10 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "TLS psk identity with plain text"
     )
     private String tlsPskIdentity = null;
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            doc = "Max length for per message."
+    )
+    private int mqttMessageMaxLength = 8192;
 }
