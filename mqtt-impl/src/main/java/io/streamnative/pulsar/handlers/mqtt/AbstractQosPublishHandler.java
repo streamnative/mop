@@ -69,7 +69,7 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
                     MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
                     CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
                     ReferenceCountUtil.safeRelease(message.getDataBuffer());
-                    message.release();
+                    message.recycle();
                     return ret;
                 })
                 .orElseGet(() -> FutureUtil.failedFuture(
