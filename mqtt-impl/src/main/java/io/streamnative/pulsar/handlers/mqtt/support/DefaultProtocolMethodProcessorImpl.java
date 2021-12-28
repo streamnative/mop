@@ -156,8 +156,10 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         final int packetId = msg.variableHeader().packetId();
         // Authorization the client
         if (!configuration.isMqttAuthorizationEnabled()) {
-            log.info("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
-                    connection.getClientId(), connection.getUserRole());
+            if (log.isDebugEnabled()) {
+                log.debug("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
+                        connection.getClientId(), connection.getUserRole());
+            }
             doPublish(msg);
         } else {
             this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
