@@ -111,7 +111,7 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
         } else if (this.enableTlsPsk) {
             ch.pipeline().addLast(TLS_HANDLER, new SslHandler(PSKUtils.createServerEngine(ch, pskConfiguration)));
         }
-        ch.pipeline().addLast("decoder", new MqttDecoder());
+        ch.pipeline().addLast("decoder", new MqttDecoder(proxyConfig.getMqttMessageMaxLength()));
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
         ch.pipeline().addLast("handler", new MQTTProxyHandler(proxyService));
     }
