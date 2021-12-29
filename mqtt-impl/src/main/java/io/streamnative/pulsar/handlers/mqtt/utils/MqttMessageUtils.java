@@ -71,7 +71,7 @@ public class MqttMessageUtils {
         return clientIdentifier;
     }
 
-    public static MqttConnectMessage createMqttConnectMessage(MqttConnectMessage msg, String clientId) {
+    public static MqttConnectMessage stuffClientIdToConnectMessage(MqttConnectMessage msg, String clientId) {
         MqttConnectPayload origin = msg.payload();
         MqttConnectPayload payload = new MqttConnectPayload(clientId, origin.willProperties(), origin.willTopic(),
                 origin.willMessageInBytes(), origin.userName(), origin.passwordInBytes());
