@@ -13,6 +13,7 @@
 |defaultTenant | public | Default Pulsar tenant that the MQTT server used |
 |defaultNamespace | default | Default Pulsar namespace that the MQTT server used | 
 |defaultTopicDomain | persistent | Default Pulsar topic domain that the MQTT server used |
+|mqttMessageMaxLength | 8092 | Max length for per message. |
 
 
 ## MoP Proxy

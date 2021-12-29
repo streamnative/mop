@@ -45,7 +45,7 @@ public class MQTTProxyExchanger {
     private CompletableFuture<Void> brokerConnected = new CompletableFuture<>();
     private CompletableFuture<Void> brokerConnectedAck = new CompletableFuture<>();
 
-    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, InetSocketAddress mqttBroker) {
+    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, InetSocketAddress mqttBroker, int maxMessageLength) {
         this.processor = processor;
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(processor.getChannel().eventLoop())
@@ -53,7 +53,7 @@ public class MQTTProxyExchanger {
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
-                        ch.pipeline().addLast("decoder", new MqttDecoder());
+                        ch.pipeline().addLast("decoder", new MqttDecoder(maxMessageLength));
                         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
                         ch.pipeline().addLast("handler", new ExchangerHandler());
                     }
