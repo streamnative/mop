@@ -243,7 +243,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             CompletableFuture<MQTTProxyExchanger> future = new CompletableFuture<>();
             try {
                 MQTTProxyExchanger result = brokerPool.computeIfAbsent(mqttBroker, addr ->
-                        new MQTTProxyExchanger(this, mqttBroker));
+                        new MQTTProxyExchanger(this, mqttBroker, proxyConfig.getMqttMessageMaxLength()));
                 result.connectedAck().thenAccept(__ -> future.complete(result));
             } catch (Exception ex) {
                 future.completeExceptionally(ex);
