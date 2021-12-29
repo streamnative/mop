@@ -303,5 +303,5 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             category = CATEGORY_MQTT,
             doc = "Max length for per message."
     )
-    private int mqttMessageMaxLength = 8192;
+    private int mqttMessageMaxLength = 8092;
 }
