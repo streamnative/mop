@@ -55,7 +55,8 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
         return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
             MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
             CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
-            message.release();
+            ReferenceCountUtil.safeRelease(message.getDataBuffer());
+            message.recycle();
             return ret;
         }).orElseGet(() -> FutureUtil.failedFuture(
                 new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));

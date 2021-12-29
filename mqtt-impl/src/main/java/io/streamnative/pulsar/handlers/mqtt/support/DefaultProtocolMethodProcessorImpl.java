@@ -159,8 +159,10 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         final int packetId = msg.variableHeader().packetId();
         // Authorization the client
         if (!configuration.isMqttAuthorizationEnabled()) {
-            log.info("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
-                    connection.getClientId(), connection.getUserRole());
+            if (log.isDebugEnabled()) {
+                log.debug("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
+                        connection.getClientId(), connection.getUserRole());
+            }
             doPublish(msg);
         } else {
             this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
@@ -211,7 +213,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     private void checkServerReceivePubMessageAndIncrementCounterIfNeeded(MqttPublishMessage msg) {
         // check mqtt 5.0
         if (!MqttUtils.isMqtt5(connection.getProtocolVersion())) {
-            ReferenceCountUtil.safeRelease(msg);
             return;
         }
         if (connection.getServerReceivePubMessage() >= connection.getServerReceivePubMaximum()) {
@@ -224,7 +225,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         } else {
             connection.incrementServerReceivePubMessage();
         }
-        ReferenceCountUtil.safeRelease(msg);
     }
 
     @Override
