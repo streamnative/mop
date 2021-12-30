@@ -13,6 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -27,9 +30,6 @@ import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.extern.slf4j.Slf4j;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
 
 /**
  * MQTT common in bound handler.
