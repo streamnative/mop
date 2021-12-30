@@ -113,7 +113,7 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
         }
         ch.pipeline().addLast("decoder", new MqttDecoder(proxyConfig.getMqttMessageMaxLength()));
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
-        ch.pipeline().addLast("handler", new MQTTProxyHandler(proxyService));
+        ch.pipeline().addLast("handler", new MQTTProxyInboundHandler(proxyService));
     }
 
 }
