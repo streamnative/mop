@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt;
 import static io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter.toPulsarMsg;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
 import io.streamnative.pulsar.handlers.mqtt.utils.MessagePublishContext;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -54,7 +55,8 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
         return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
             MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
             CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
-            message.release();
+            ReferenceCountUtil.safeRelease(message.getDataBuffer());
+            message.recycle();
             return ret;
         }).orElseGet(() -> FutureUtil.failedFuture(
                 new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
@@ -67,7 +69,8 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
                     }
                     MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
                     CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
-                    message.release();
+                    ReferenceCountUtil.safeRelease(message.getDataBuffer());
+                    message.recycle();
                     return ret;
                 })
                 .orElseGet(() -> FutureUtil.failedFuture(
