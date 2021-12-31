@@ -28,7 +28,6 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
-import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -89,12 +88,10 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
                     processor.processPingReq();
                     break;
                 default:
-                    ReferenceCountUtil.safeRelease(msg);
                     log.error("Unknown MessageType:{}", messageType);
                     break;
             }
         } catch (Throwable ex) {
-            ReferenceCountUtil.safeRelease(msg);
             log.error("Exception was caught while processing MQTT message, ", ex);
             ctx.close();
         }
@@ -114,7 +111,7 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         log.warn(
                 "An unexpected exception was caught while processing MQTT message. "
-                + "Closing Netty channel {}. connection = {}",
+                        + "Closing Netty channel {}. connection = {}",
                 ctx.channel(),
                 NettyUtils.getConnection(ctx.channel()),
                 cause);
