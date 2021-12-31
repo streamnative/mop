@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ public class Qos0PublishHandler extends AbstractQosPublishHandler {
             } else {
                 log.error("[{}] Write {} to Pulsar topic failed.", msg.variableHeader().topicName(), msg, e);
             }
+            ReferenceCountUtil.safeRelease(msg);
         });
     }
 }
