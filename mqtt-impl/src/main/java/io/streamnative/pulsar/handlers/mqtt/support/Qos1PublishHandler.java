@@ -17,6 +17,7 @@ import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
@@ -87,6 +88,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                 log.error("[{}] Write {} to Pulsar topic failed.", topic, msg, e);
                 MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, cause);
             }
+            ReferenceCountUtil.safeRelease(msg);
         });
     }
 }
