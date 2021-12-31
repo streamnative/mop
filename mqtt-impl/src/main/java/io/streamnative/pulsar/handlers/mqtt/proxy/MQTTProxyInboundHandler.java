@@ -11,36 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
-import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
-import lombok.Getter;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonInboundHandler;
 import lombok.extern.slf4j.Slf4j;
+
 /**
- * MQTT in bound handler.
+ * Proxy handler.
  */
-@Sharable
 @Slf4j
-public class MQTTInboundHandler extends MQTTCommonInboundHandler {
+public class MQTTProxyInboundHandler extends MQTTCommonInboundHandler {
 
-    @Getter
-    private final MQTTService mqttService;
+    private final MQTTProxyService proxyService;
 
-    public MQTTInboundHandler(MQTTService mqttService) {
-        this.mqttService = mqttService;
+    public MQTTProxyInboundHandler(MQTTProxyService proxyService) {
+        this.proxyService = proxyService;
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-        processor = new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
+        this.processor = new MQTTProxyProtocolMethodProcessor(proxyService, ctx);
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        processor.processConnectionLost();
+        super.channelInactive(ctx);
+        this.processor.processConnectionLost();
     }
-
 }

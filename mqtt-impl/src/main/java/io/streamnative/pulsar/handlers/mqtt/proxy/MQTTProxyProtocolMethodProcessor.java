@@ -23,6 +23,7 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
+import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
@@ -210,6 +211,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
             lookupResult.whenComplete((brokerAddress, throwable) -> {
                 if (null != throwable) {
+                    ReferenceCountUtil.safeRelease(msg);
                     log.error("[Proxy UnSubscribe] Failed to perform lookup request", throwable);
                     channel.close();
                     return;
@@ -223,6 +225,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         CompletableFuture<MQTTProxyExchanger> proxyExchanger = createProxyExchanger(topic, mqttBroker);
         proxyExchanger.whenComplete((exchanger, error) -> {
             if (error != null) {
+                ReferenceCountUtil.safeRelease(msg);
                 log.error("[{}]] MoP proxy failed to connect with MoP broker({}).",
                         connection.getClientId(), mqttBroker, error);
                 channel.close();
@@ -235,6 +238,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 channel.close();
                 exchanger.close();
             }
+            ReferenceCountUtil.safeRelease(msg);
         });
     }
 

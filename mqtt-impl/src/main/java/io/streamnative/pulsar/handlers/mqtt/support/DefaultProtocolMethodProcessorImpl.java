@@ -131,7 +131,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 .build();
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
         connection.sendConnAck();
-        ReferenceCountUtil.safeRelease(msg);
     }
 
     @Override
@@ -148,7 +147,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             packet.getConsumer().getPendingAcks().remove(packet.getLedgerId(), packet.getEntryId());
             packet.getConsumer().incrementPermits();
         }
-        ReferenceCountUtil.safeRelease(msg);
     }
 
     @Override
@@ -203,9 +201,9 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 this.qosPublishHandlers.qos2().publish(msg);
                 break;
             default:
+                ReferenceCountUtil.safeRelease(msg);
                 log.error("Unknown QoS-Type:{}", qos);
                 channel.close();
-                ReferenceCountUtil.safeRelease(msg);
                 break;
         }
     }
@@ -232,7 +230,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         // When login, checkState(msg) failed, connection is null.
         if (connection == null) {
             channel.close();
-            ReferenceCountUtil.safeRelease(msg);
             return;
         }
         final String clientId = connection.getClientId();
@@ -245,7 +242,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             MqttProperties properties = ((MqttReasonCodeAndPropertiesVariableHeader) header).properties();
             if (!checkAndUpdateSessionExpireIntervalIfNeed(clientId, connection, properties)){
                 // If the session expire interval value is illegal.
-                ReferenceCountUtil.safeRelease(msg);
                 return;
             }
         }
@@ -253,7 +249,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         connectionManager.removeConnection(connection);
         connection.removeSubscriptions();
         connection.close();
-        ReferenceCountUtil.safeRelease(msg);
     }
 
     private boolean checkAndUpdateSessionExpireIntervalIfNeed(String clientId,
@@ -331,7 +326,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                     Mqtt5SubReasonCode.UNSPECIFIED_ERROR, "The client id not found.") :
                     MqttSubAckMessageHelper.createMqtt(msg.variableHeader().messageId(), Mqtt3SubReasonCode.FAILURE);
             connection.sendThenClose(subAckMessage);
-            ReferenceCountUtil.safeRelease(msg);
             return;
         }
 
@@ -360,7 +354,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                             String.format("The client %s not authorized.", clientId)) :
                             MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
                     connection.sendThenClose(subscribeAckMessage);
-                    ReferenceCountUtil.safeRelease(msg);
                 } else {
                     doSubscribe(msg, clientId);
                 }
@@ -419,11 +412,9 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 topicSubscriptions.putAll(existedSubscriptions);
             }
             NettyUtils.setTopicSubscriptions(channel, topicSubscriptions);
-            ReferenceCountUtil.safeRelease(msg);
         }).exceptionally(e -> {
             log.error("[{}] Failed to process MQTT subscribe.", clientID, e);
             MopExceptionHelper.handle(MqttMessageType.SUBSCRIBE, messageID, channel, e);
-            ReferenceCountUtil.safeRelease(msg);
             return null;
         });
     }
@@ -491,11 +482,9 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 log.debug("Sending UNSUBACK message {} to {}", ackMessage, clientID);
             }
             channel.writeAndFlush(ackMessage);
-            ReferenceCountUtil.safeRelease(msg);
         }).exceptionally(ex -> {
             log.error("[{}] Failed to process the UNSUB {}", clientID, msg);
             MopExceptionHelper.handle(MqttMessageType.UNSUBSCRIBE, messageID, channel, ex);
-            ReferenceCountUtil.safeRelease(msg);
             return null;
         });
     }
