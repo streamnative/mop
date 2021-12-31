@@ -106,6 +106,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 TopicName.get(pulsarTopicName));
         lookupResult.whenComplete((brokerAddress, throwable) -> {
             if (null != throwable) {
+                ReferenceCountUtil.safeRelease(msg);
                 log.error("[Proxy Publish] Failed to perform lookup request for topic : {}, CId : {}",
                         msg.variableHeader().topicName(), connection.getClientId(), throwable);
                 MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, throwable);
@@ -211,7 +212,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
             lookupResult.whenComplete((brokerAddress, throwable) -> {
                 if (null != throwable) {
-                    ReferenceCountUtil.safeRelease(msg);
                     log.error("[Proxy UnSubscribe] Failed to perform lookup request", throwable);
                     channel.close();
                     return;
