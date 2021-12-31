@@ -29,6 +29,7 @@ import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
+import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
@@ -200,6 +201,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 this.qosPublishHandlers.qos2().publish(msg);
                 break;
             default:
+                ReferenceCountUtil.safeRelease(msg);
                 log.error("Unknown QoS-Type:{}", qos);
                 channel.close();
                 break;
