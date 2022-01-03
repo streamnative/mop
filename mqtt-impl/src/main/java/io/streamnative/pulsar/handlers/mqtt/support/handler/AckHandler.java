@@ -14,7 +14,10 @@
 package io.streamnative.pulsar.handlers.mqtt.support.handler;
 
 import io.netty.channel.ChannelFuture;
+import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
+import java.util.List;
 
 /**
  * Ack handler.
@@ -22,4 +25,11 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 public interface AckHandler {
 
     ChannelFuture sendConnAck(Connection connection);
+
+    void sendSubAck(Connection connection, int packetId, List<MqttQoS> grantedQoses);
+
+    void sendSubError(Connection connection, int packetId, MqttSubAckMessageHelper.ErrorReason errorReason);
+
+    void sendSubError(Connection connection, int packetId, String reasonStr);
+
 }

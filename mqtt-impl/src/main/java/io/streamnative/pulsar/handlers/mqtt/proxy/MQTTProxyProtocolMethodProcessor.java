@@ -27,11 +27,9 @@ import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
+import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
+import io.streamnative.pulsar.handlers.mqtt.utils.ExceptionUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.net.InetSocketAddress;
@@ -161,7 +159,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     @Override
     public void processSubscribe(MqttSubscribeMessage msg) {
         final String clientId = connection.getClientId();
-        final int protocolVersion = connection.getProtocolVersion();
+        AckHandler ackHandler = connection.getAckHandler();
+        int packetId = msg.variableHeader().messageId();
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
@@ -181,14 +180,9 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     return FutureUtil.waitForAll(writeToBrokerFuture);
                 })
                 .exceptionally(ex -> {
-                    log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
-                    int messageId = msg.variableHeader().messageId();
-                    subscribeTopicsCount.remove(messageId);
-                    MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                            ? MqttSubAckMessageHelper.createMqtt5(
-                            messageId, Mqtt5SubReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage()) :
-                            MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
-                    connection.sendThenClose(subAckMessage);
+                    Throwable causeIfExist = ExceptionUtils.getCauseIfExist(ex);
+                    log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, causeIfExist);
+                    ackHandler.sendSubError(connection, packetId, "[ MOP ERROR ]" + causeIfExist.getMessage());
                     return null;
                 });
     }

@@ -14,9 +14,12 @@
 package io.streamnative.pulsar.handlers.mqtt.support.handler;
 
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
+import java.util.List;
 
 /**
  * Mqtt3x ack handler.
@@ -28,6 +31,14 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
         return MqttConnectAckHelper.builder()
                 .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.convertToNettyKlass())
                 .sessionPresent(!connection.isCleanSession())
+                .build();
+    }
+
+    @Override
+    MqttMessage getSubAckMessage(Connection connection, int packetId, List<MqttQoS> grantedQoses) {
+        return MqttSubAckMessageHelper.builder()
+                .packetId(packetId)
+                .addGrantedQoses(grantedQoses.toArray(new MqttQoS[]{}))
                 .build();
     }
 }
