@@ -88,7 +88,9 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         }
         String userRole = null;
         if (!authenticationEnabled) {
-            log.info("Authentication is disabled, allowing client. CId={}, username={}", clientId, username);
+            if (log.isDebugEnabled()) {
+                log.debug("Authentication is disabled, allowing client. CId={}, username={}", clientId, username);
+            }
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
