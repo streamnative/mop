@@ -86,9 +86,11 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
                     processor.processPubAck((MqttPubAckMessage) msg);
                     break;
                 case PINGREQ:
+                    ReferenceCountUtil.safeRelease(msg);
                     processor.processPingReq();
                     break;
                 default:
+                    ReferenceCountUtil.safeRelease(msg);
                     log.error("Unknown MessageType:{}", messageType);
                     break;
             }
