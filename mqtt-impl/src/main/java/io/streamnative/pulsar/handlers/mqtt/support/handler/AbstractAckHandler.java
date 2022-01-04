@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.support.handler;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
+import io.netty.channel.ChannelFuture;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
@@ -30,19 +31,18 @@ public abstract class AbstractAckHandler implements AckHandler {
     abstract MqttMessage getConnAckMessage(Connection connection);
 
     @Override
-    public void sendConnAck(Connection connection) {
+    public ChannelFuture sendConnAck(Connection connection) {
         String clientId = connection.getClientId();
         if (!connection.assignState(DISCONNECTED, CONNECT_ACK)) {
             log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
                     DISCONNECTED, CONNECT_ACK, clientId);
-            connection.sendThenClose(MqttConnectAckHelper.errorBuilder()
+            return connection.sendThenClose(MqttConnectAckHelper.errorBuilder()
                     .serverUnavailable(connection.getProtocolVersion())
                     .reasonString(String.format("Unable to assign the server state from : %s to : %s",
                             DISCONNECTED, CONNECT_ACK))
                     .build());
-            return;
         }
-        connection.send(getConnAckMessage(connection)).addListener(future -> {
+        return connection.send(getConnAckMessage(connection)).addListener(future -> {
             if (future.isSuccess()) {
                 if (log.isDebugEnabled()) {
                     log.debug("The CONNECT message has been processed. CId={}", clientId);
