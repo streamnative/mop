@@ -89,7 +89,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .connectionManager(connectionManager)
                 .serverReceivePubMaximum(proxyConfig.getReceiveMaximum())
                 .build();
-        connection.sendConnAck();
+        connection.sendConnAck().addListener(__ -> ReferenceCountUtil.safeRelease(msg));
     }
 
     @Override
@@ -104,16 +104,16 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
         CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(
                 TopicName.get(pulsarTopicName));
-        lookupResult.whenComplete((brokerAddress, throwable) -> {
-            if (null != throwable) {
-                ReferenceCountUtil.safeRelease(msg);
-                log.error("[Proxy Publish] Failed to perform lookup request for topic : {}, CId : {}",
-                        msg.variableHeader().topicName(), connection.getClientId(), throwable);
-                MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, throwable);
-                return;
-            }
-            writeToMqttBroker(channel, msg, pulsarTopicName, brokerAddress);
-        });
+        lookupResult
+                .thenCompose(brokerAddress -> writeToMqttBroker(msg, pulsarTopicName, brokerAddress))
+                .thenAccept(__ -> ReferenceCountUtil.safeRelease(msg))
+                .exceptionally(ex -> {
+                    ReferenceCountUtil.safeRelease(msg);
+                    log.error("[Proxy Publish] Failed to perform lookup request for topic : {}, CId : {}",
+                            msg.variableHeader().topicName(), connection.getClientId(), ex);
+                    MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, ex);
+                    return null;
+                });
     }
 
     @Override
@@ -128,8 +128,13 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Disconnect] [{}] ", clientId);
         }
+        AtomicInteger latch = new AtomicInteger(brokerPool.size());
         brokerPool.forEach((k, v) -> {
-            v.writeAndFlush(msg);
+            v.writeAndFlush(msg).addListener(listener -> {
+                if (latch.decrementAndGet() == 0) {
+                    ReferenceCountUtil.safeRelease(msg);
+                }
+            });
             v.close();
         });
         brokerPool.clear();
@@ -175,8 +180,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     ? MqttSubAckMessageHelper.createMqtt5(messageId, Mqtt5SubReasonCode.UNSPECIFIED_ERROR,
                     String.format("Client %s can not found topics %s.", clientId, msg.payload().topicSubscriptions())) :
                     MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
-            channel.writeAndFlush(subAckMessage);
-            channel.close();
+            ReferenceCountUtil.safeRelease(msg);
+            connection.sendThenClose(subAckMessage);
             return;
         }
 
@@ -184,20 +189,20 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             List<CompletableFuture<Void>> futures = new ArrayList<>();
             for (String topic : topics) {
                 CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
-                futures.add(lookupResult.thenAccept(brokerAddress -> {
-                    increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1);
-                    writeToMqttBroker(channel, msg, topic, brokerAddress);
-                }));
+                futures.add(lookupResult
+                        .thenCompose(brokerAddress -> writeToMqttBroker(msg, topic, brokerAddress))
+                        .thenAccept(__ -> increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1)));
             }
             return FutureUtil.waitForAll(futures);
-        }).exceptionally(ex -> {
+        }).thenAccept(__ -> ReferenceCountUtil.safeRelease(msg))
+          .exceptionally(ex -> {
             log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
             int messageId = msg.variableHeader().messageId();
             MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion) ? MqttSubAckMessageHelper.createMqtt5(
                     messageId, Mqtt5SubReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage()) :
                     MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
-            channel.writeAndFlush(subAckMessage);
-            channel.close();
+            connection.sendThenClose(subAckMessage);
+            ReferenceCountUtil.safeRelease(msg);
             return null;
         });
     }
@@ -208,38 +213,40 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             log.debug("[Proxy UnSubscribe] [{}]", connection.getClientId());
         }
         List<String> topics = msg.payload().topics();
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (String topic : topics) {
             CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
-            lookupResult.whenComplete((brokerAddress, throwable) -> {
-                if (null != throwable) {
-                    log.error("[Proxy UnSubscribe] Failed to perform lookup request", throwable);
-                    channel.close();
-                    return;
-                }
-                writeToMqttBroker(channel, msg, topic, brokerAddress);
-            });
+            futures.add(
+                    lookupResult.thenCompose(brokerAddress -> writeToMqttBroker(msg, topic, brokerAddress)));
         }
+        FutureUtil.waitForAll(futures)
+                .thenAccept(__ -> ReferenceCountUtil.safeRelease(msg))
+                .exceptionally(ex -> {
+                    log.error("[Proxy UnSubscribe] Failed to perform lookup request", ex);
+                    ReferenceCountUtil.safeRelease(msg);
+                    channel.close();
+                    return null;
+        });
     }
 
-    private void writeToMqttBroker(Channel channel, MqttMessage msg, String topic, InetSocketAddress mqttBroker) {
+    private CompletableFuture<Void> writeToMqttBroker(MqttMessage msg, String topic, InetSocketAddress mqttBroker) {
         CompletableFuture<MQTTProxyExchanger> proxyExchanger = createProxyExchanger(topic, mqttBroker);
-        proxyExchanger.whenComplete((exchanger, error) -> {
-            if (error != null) {
-                ReferenceCountUtil.safeRelease(msg);
-                log.error("[{}]] MoP proxy failed to connect with MoP broker({}).",
-                        connection.getClientId(), mqttBroker, error);
-                channel.close();
-                return;
-            }
-            if (exchanger.isWritable()) {
-                exchanger.writeAndFlush(msg);
-            } else {
-                log.error("The broker channel({}) is not writable!", mqttBroker);
-                channel.close();
-                exchanger.close();
-            }
-            ReferenceCountUtil.safeRelease(msg);
-        });
+        return proxyExchanger.thenCompose(exchanger -> write(exchanger, msg));
+    }
+
+    private CompletableFuture<Void> write(MQTTProxyExchanger exchanger, MqttMessage msg) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        if (exchanger.isWritable()) {
+            exchanger.writeAndFlush(msg).addListener(__ -> {
+                result.complete(null);
+            });
+        } else {
+            log.error("The broker channel({}) is not writable!", exchanger.getMqttBroker());
+            channel.close();
+            exchanger.close();
+            result.complete(null);
+        }
+        return result;
     }
 
     private CompletableFuture<MQTTProxyExchanger> createProxyExchanger(String topic, InetSocketAddress mqttBroker) {
