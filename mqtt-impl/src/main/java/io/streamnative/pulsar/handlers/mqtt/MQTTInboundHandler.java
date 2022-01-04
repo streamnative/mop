@@ -37,10 +37,4 @@ public class MQTTInboundHandler extends MQTTCommonInboundHandler {
         super.channelActive(ctx);
         processor = new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
     }
-
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        processor.processConnectionLost();
-    }
-
 }
