@@ -14,13 +14,12 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.Lists;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
-import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -184,28 +183,18 @@ public class PulsarTopicUtils {
     public static CompletableFuture<List<String>> asyncGetTopicsForSubscribeMsg(MqttSubscribeMessage msg,
                  String defaultTenant, String defaultNamespace, PulsarService pulsarService,
                                                                                 String defaultTopicDomain) {
-        List<CompletableFuture<List<String>>> topicListFuture =
-                new ArrayList<>(msg.payload().topicSubscriptions().size());
-
-        for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
-            topicListFuture.add(asyncGetTopicListFromTopicSubscription(req.topicName(), defaultTenant, defaultNamespace,
-                    pulsarService, defaultTopicDomain));
-        }
-
-        CompletableFuture<List<String>> completeTopicListFuture = null;
-        for (CompletableFuture<List<String>> future : topicListFuture) {
-            if (completeTopicListFuture == null) {
-                completeTopicListFuture = future;
-            } else {
-                completeTopicListFuture = completeTopicListFuture.thenCombine(future, (l, r) -> {
-                    List<String> topics = new ArrayList<>(l.size() + r.size());
-                    topics.addAll(l);
-                    topics.addAll(r);
-                    return topics;
-                });
-            }
-        }
-        return completeTopicListFuture;
+        return msg.payload().topicSubscriptions().stream()
+                .map(mqttTopicSubscription ->
+                        asyncGetTopicListFromTopicSubscription(
+                                mqttTopicSubscription.topicName(), defaultTenant, defaultNamespace,
+                        pulsarService, defaultTopicDomain))
+                .reduce((pre, curr)-> pre.thenCombine(curr, (l, r) -> {
+                        List<String> topics = Lists.newArrayListWithCapacity(l.size() + r.size());
+                        topics.addAll(l);
+                        topics.addAll(r);
+                        return topics;
+                    })
+                ).orElse(CompletableFuture.completedFuture(Collections.emptyList()));
     }
 
     public static CompletableFuture<List<String>> asyncGetTopicListFromTopicSubscription(String topicFilter,
