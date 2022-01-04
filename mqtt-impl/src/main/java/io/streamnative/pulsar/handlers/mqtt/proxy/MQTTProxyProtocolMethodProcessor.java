@@ -185,9 +185,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                                             .thenAccept(__ -> increaseSubscribeTopicsCount(
                                                     msg.variableHeader().messageId(), 1)))
                                     .collect(Collectors.toList());
-                    return FutureUtil.waitForAll(writeToBrokerFuture)
-                            .thenAccept(__ -> ReferenceCountUtil.safeRelease(msg));
-                }).exceptionally(ex -> {
+                    return FutureUtil.waitForAll(writeToBrokerFuture);
+                })
+                .thenAccept(__ -> ReferenceCountUtil.safeRelease(msg))
+                .exceptionally(ex -> {
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
                     int messageId = msg.variableHeader().messageId();
                     MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion)
