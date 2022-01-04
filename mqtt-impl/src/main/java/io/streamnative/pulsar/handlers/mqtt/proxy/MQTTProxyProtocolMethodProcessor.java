@@ -176,7 +176,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                         proxyConfig.getDefaultNamespace(), pulsarService, proxyConfig.getDefaultTopicDomain())
                 .thenCompose(topics -> {
                     if (CollectionUtils.isEmpty(topics)) {
-                        throw new MQTTProxyException(String.format("Client %s can not found topics %s",
+                        throw new RuntimeException(String.format("Client %s can not found topics %s",
                                 clientId, msg.payload().topicSubscriptions()));
                     }
                     List<CompletableFuture<Void>> writeToBrokerFuture =

@@ -194,7 +194,7 @@ public class PulsarTopicUtils {
                         topics.addAll(r);
                         return topics;
                     })
-                ).orElse(CompletableFuture.completedFuture(Collections.emptyList()));
+                ).orElseGet(()-> CompletableFuture.completedFuture(Collections.emptyList()));
     }
 
     public static CompletableFuture<List<String>> asyncGetTopicListFromTopicSubscription(String topicFilter,
