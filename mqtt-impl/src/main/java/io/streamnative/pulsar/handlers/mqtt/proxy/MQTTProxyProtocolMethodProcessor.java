@@ -41,8 +41,10 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
@@ -170,41 +172,33 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
-        CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg,
-                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
-                proxyConfig.getDefaultTopicDomain());
-
-        if (topicListFuture == null) {
-            int messageId = msg.variableHeader().messageId();
-            MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                    ? MqttSubAckMessageHelper.createMqtt5(messageId, Mqtt5SubReasonCode.UNSPECIFIED_ERROR,
-                    String.format("Client %s can not found topics %s.", clientId, msg.payload().topicSubscriptions())) :
-                    MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
-            ReferenceCountUtil.safeRelease(msg);
-            connection.sendThenClose(subAckMessage);
-            return;
-        }
-
-        topicListFuture.thenCompose(topics -> {
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-            for (String topic : topics) {
-                CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
-                futures.add(lookupResult
-                        .thenCompose(brokerAddress -> writeToMqttBroker(msg, topic, brokerAddress))
-                        .thenAccept(__ -> increaseSubscribeTopicsCount(msg.variableHeader().messageId(), 1)));
-            }
-            return FutureUtil.waitForAll(futures);
-        }).thenAccept(__ -> ReferenceCountUtil.safeRelease(msg))
-          .exceptionally(ex -> {
-            log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
-            int messageId = msg.variableHeader().messageId();
-            MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion) ? MqttSubAckMessageHelper.createMqtt5(
-                    messageId, Mqtt5SubReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage()) :
-                    MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
-            connection.sendThenClose(subAckMessage);
-            ReferenceCountUtil.safeRelease(msg);
-            return null;
-        });
+        PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg, proxyConfig.getDefaultTenant(),
+                        proxyConfig.getDefaultNamespace(), pulsarService, proxyConfig.getDefaultTopicDomain())
+                .thenCompose(topics -> {
+                    if (CollectionUtils.isEmpty(topics)) {
+                        throw new RuntimeException(String.format("Client %s can not found topics %s",
+                                clientId, msg.payload().topicSubscriptions()));
+                    }
+                    List<CompletableFuture<Void>> writeToBrokerFuture =
+                            topics.stream().map(topic -> lookupHandler.findBroker(TopicName.get(topic))
+                                            .thenCompose(brokerAddress -> writeToMqttBroker(msg, topic, brokerAddress))
+                                            .thenAccept(__ -> increaseSubscribeTopicsCount(
+                                                    msg.variableHeader().messageId(), 1)))
+                                    .collect(Collectors.toList());
+                    return FutureUtil.waitForAll(writeToBrokerFuture);
+                })
+                .thenAccept(__ -> ReferenceCountUtil.safeRelease(msg))
+                .exceptionally(ex -> {
+                    log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
+                    int messageId = msg.variableHeader().messageId();
+                    MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion)
+                            ? MqttSubAckMessageHelper.createMqtt5(
+                            messageId, Mqtt5SubReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage()) :
+                            MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
+                    connection.sendThenClose(subAckMessage);
+                    ReferenceCountUtil.safeRelease(msg);
+                    return null;
+                });
     }
 
     @Override
