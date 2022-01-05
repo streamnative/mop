@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.messages;
 
 import io.netty.handler.codec.mqtt.MqttProperties;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,12 +52,12 @@ public class MqttPropertyUtils {
      * @return Integer - expire interval value
      */
     @SuppressWarnings("unchecked")
-    public static Optional<Integer> getReceiveMaximum(MqttProperties properties) {
+    public static Integer getReceiveMaximum(int protocolVersion, MqttProperties properties) {
         MqttProperties.MqttProperty<Integer> property = properties
                 .getProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value());
         if (property == null) {
-            return Optional.empty();
+            return MqttUtils.isMqtt5(protocolVersion) ? MQTT5_DEFAULT_RECEIVE_MAXIMUM : BEFORE_DEFAULT_RECEIVE_MAXIMUM;
         }
-        return Optional.ofNullable(property.value());
+        return property.value();
     }
 }

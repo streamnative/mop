@@ -59,7 +59,7 @@ public class MqttMessageUtilsTest {
         InetSocketAddress socketAddress = new InetSocketAddress("192.168.0.01", 11533);
         when(channel.remoteAddress()).thenReturn(socketAddress);
         String clientId = MqttMessageUtils.createClientIdentifier(channel);
-        MqttConnectMessage connectMessage2 = MqttMessageUtils.createMqttConnectMessage(connectMessage1, clientId);
+        MqttConnectMessage connectMessage2 = MqttMessageUtils.stuffClientIdToConnectMessage(connectMessage1, clientId);
         Assert.assertEquals(connectMessage2.payload().clientIdentifier(), clientId);
         Assert.assertEquals(connectMessage2.payload().willTopic(), connectMessage1.payload().willTopic());
         Assert.assertEquals(connectMessage2.payload().willProperties(), connectMessage1.payload().willProperties());
