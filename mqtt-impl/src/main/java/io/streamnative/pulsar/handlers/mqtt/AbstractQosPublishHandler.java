@@ -16,8 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt;
 import static io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter.toPulsarMsg;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
-import io.netty.util.ReferenceCountUtil;
-import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
 import io.streamnative.pulsar.handlers.mqtt.utils.MessagePublishContext;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -53,16 +51,13 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     }
 
     protected CompletableFuture<PositionImpl> writeToPulsarTopic(MqttPublishMessage msg) {
-        return getTopicReference(msg).thenCompose(topicOp -> {
-                MessageImpl<byte[]> message = toPulsarMsg(msg);
-                CompletableFuture<PositionImpl> pos = topicOp.map(topic ->
-                        MessagePublishContext.publishMessages(message, topic))
-                        .orElseGet(() -> FutureUtil.failedFuture(
-                                new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName())));
-                ReferenceCountUtil.safeRelease(message.getDataBuffer());
-                message.recycle();
-                return pos;
-            });
+        return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
+            MessageImpl<byte[]> message = toPulsarMsg(msg);
+            CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
+            message.recycle();
+            return ret;
+        }).orElseGet(() -> FutureUtil.failedFuture(
+                new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
     }
 
     protected CompletableFuture<PositionImpl> writeToPulsarTopicAndCheckIfSubscriptionMatching(MqttPublishMessage msg) {
@@ -72,11 +67,9 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
                     }
                     MessageImpl<byte[]> message = toPulsarMsg(msg);
                     CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
-                    ReferenceCountUtil.safeRelease(message.getDataBuffer());
                     message.recycle();
                     return ret;
-                })
-                .orElseGet(() -> FutureUtil.failedFuture(
+                }).orElseGet(() -> FutureUtil.failedFuture(
                         new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
     }
 }
