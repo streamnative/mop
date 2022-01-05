@@ -418,5 +418,6 @@ Currently, MoP has the following implementations that do not meet the MQTT Spec:
 
 ## Project maintainers
 
--   [@Technoboy-](https://github.com/Technoboy-)
--   [@codelipenghui](https://github.com/codelipenghui)
+- [@Technoboy-](https://github.com/Technoboy-)
+- [@codelipenghui](https://github.com/codelipenghui)
+- [@mattisonchao](https://github.com/mattisonchao)
