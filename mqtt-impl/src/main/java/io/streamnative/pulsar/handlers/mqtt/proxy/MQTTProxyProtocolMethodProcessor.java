@@ -110,7 +110,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         lookupResult
                 .thenCompose(brokerAddress -> writeToBroker(brokerAddress, pulsarTopicName, msg))
                 .exceptionally(ex -> {
-                    ReferenceCountUtil.safeRelease(msg);
+                    msg.release();
                     log.error("[Proxy Publish] Failed to publish for topic : {}, CId : {}",
                             msg.variableHeader().topicName(), connection.getClientId(), ex);
                     MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, ex);
