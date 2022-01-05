@@ -43,7 +43,7 @@ public class MQTTProxyExchanger {
     private final MQTTProxyProtocolMethodProcessor processor;
     @Getter
     private final InetSocketAddress mqttBroker;
-
+    @Getter
     private Channel brokerChannel;
     private CompletableFuture<Void> brokerConnected = new CompletableFuture<>();
     private CompletableFuture<Void> brokerConnectedAck = new CompletableFuture<>();

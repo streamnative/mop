@@ -15,9 +15,9 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
-import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 /**
@@ -31,16 +31,7 @@ public class Qos0PublishHandler extends AbstractQosPublishHandler {
     }
 
     @Override
-    public void publish(MqttPublishMessage msg) {
-        writeToPulsarTopic(msg).whenComplete((p, e) -> {
-            if (e == null) {
-                if (log.isDebugEnabled()) {
-                    log.debug("[{}] Write {} to Pulsar topic succeed.", msg.variableHeader().topicName(), msg);
-                }
-            } else {
-                log.error("[{}] Write {} to Pulsar topic failed.", msg.variableHeader().topicName(), msg, e);
-            }
-            ReferenceCountUtil.safeRelease(msg);
-        });
+    public CompletableFuture<Void> publish(MqttPublishMessage msg) {
+        return writeToPulsarTopic(msg).thenAccept(__ -> CompletableFuture.completedFuture(null));
     }
 }
