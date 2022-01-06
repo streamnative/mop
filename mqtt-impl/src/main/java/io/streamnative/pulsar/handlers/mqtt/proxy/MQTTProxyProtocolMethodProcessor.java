@@ -24,7 +24,6 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
-import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
@@ -110,7 +109,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         lookupResult
                 .thenCompose(brokerAddress -> writeToBroker(brokerAddress, pulsarTopicName, msg))
                 .exceptionally(ex -> {
-                    ReferenceCountUtil.safeRelease(msg);
+                    msg.release();
                     log.error("[Proxy Publish] Failed to publish for topic : {}, CId : {}",
                             msg.variableHeader().topicName(), connection.getClientId(), ex);
                     MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, ex);
