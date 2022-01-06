@@ -117,26 +117,25 @@ public class Connection {
                 Math.round(keepAliveTime * 1.5f)));
     }
 
-    public void sendConnAck() {
-        ackHandler.sendConnAck(this);
+    public ChannelFuture sendConnAck() {
+        return ackHandler.sendConnAck(this);
     }
 
     public ChannelFuture send(MqttMessage mqttMessage) {
         return channel.writeAndFlush(mqttMessage).addListener(future -> {
             if (!future.isSuccess()) {
-                future.cause().printStackTrace();
                 log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
             }
         });
     }
 
-    public void sendThenClose(MqttMessage mqttMessage) {
+    public ChannelFuture sendThenClose(MqttMessage mqttMessage) {
         channel.writeAndFlush(mqttMessage).addListener(future -> {
             if (!future.isSuccess()) {
                 log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
             }
         });
-        channel.close();
+        return channel.close();
     }
 
     public void removeConsumers() {

@@ -41,7 +41,7 @@ public final class MessagePublishContext implements PublishContext {
     @Override
     public void completed(Exception exception, long ledgerId, long entryId) {
         if (exception != null) {
-            log.error("Failed write entry: ledgerId: {}, entryId: {}. triggered send callback.", ledgerId, entryId);
+            log.error("Failed write entry: ledgerId: {}, entryId: {}.", ledgerId, entryId, exception);
             positionFuture.completeExceptionally(exception);
         } else {
             if (log.isDebugEnabled()) {
@@ -77,6 +77,7 @@ public final class MessagePublishContext implements PublishContext {
     };
 
     public void recycle() {
+        positionFuture = null;
         topic = null;
         startTimeNs = -1;
         recyclerHandle.recycle(this);
@@ -91,7 +92,7 @@ public final class MessagePublishContext implements PublishContext {
         ByteBuf headerAndPayload = messageToByteBuf(message);
         topic.publishMessage(headerAndPayload,
                 MessagePublishContext.get(future, topic, System.nanoTime()));
-
+        headerAndPayload.release();
         return future;
     }
 }

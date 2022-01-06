@@ -31,6 +31,7 @@ import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -39,21 +40,24 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MQTTProxyExchanger {
 
-    private MQTTProxyProtocolMethodProcessor processor;
-
+    private final MQTTProxyProtocolMethodProcessor processor;
+    @Getter
+    private final InetSocketAddress mqttBroker;
+    @Getter
     private Channel brokerChannel;
     private CompletableFuture<Void> brokerConnected = new CompletableFuture<>();
     private CompletableFuture<Void> brokerConnectedAck = new CompletableFuture<>();
 
-    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, InetSocketAddress mqttBroker) {
+    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, InetSocketAddress mqttBroker, int maxMessageLength) {
         this.processor = processor;
+        this.mqttBroker = mqttBroker;
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(processor.getChannel().eventLoop())
                 .channel(processor.getChannel().getClass())
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
-                        ch.pipeline().addLast("decoder", new MqttDecoder());
+                        ch.pipeline().addLast("decoder", new MqttDecoder(maxMessageLength));
                         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
                         ch.pipeline().addLast("handler", new ExchangerHandler());
                     }
@@ -138,7 +142,7 @@ public class MQTTProxyExchanger {
         return this.brokerChannel.isWritable();
     }
 
-    public void writeAndFlush(Object msg) {
-        this.brokerChannel.writeAndFlush(msg);
+    public ChannelFuture writeAndFlush(Object msg) {
+        return this.brokerChannel.writeAndFlush(msg);
     }
 }
