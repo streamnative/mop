@@ -48,7 +48,7 @@ public class TopicSubscriptionManager {
         });
     }
 
-    public CompletableFuture<Void> unsubscribe(Topic topic) {
+    public CompletableFuture<Void> unsubscribe(Topic topic, boolean cleanSubscription) {
         Pair<Subscription, Consumer> subscriptionConsumerPair = topicSubscriptions.get(topic);
         if (subscriptionConsumerPair == null) {
             return FutureUtil.failedFuture(new MQTTNoSubscriptionExistedException(
@@ -62,14 +62,18 @@ public class TopicSubscriptionManager {
             FutureUtil.failedFuture(e);
         }
         return topic.unsubscribe(subscriberName)
-                .thenAccept(__ -> subscriptionConsumerPair.getLeft().delete())
+                .thenAccept(__ -> {
+                    if (cleanSubscription) {
+                        subscriptionConsumerPair.getLeft().delete();
+                    }
+                })
                 .thenAccept(__ -> topicSubscriptions.remove(topic));
     }
 
     public CompletableFuture<Void> removeAllSubscriptions() {
         List<CompletableFuture<Void>> futures = topicSubscriptions.keySet()
                 .stream()
-                .map(this::unsubscribe)
+                .map(topic -> unsubscribe(topic, true))
                 .collect(Collectors.toList());
         return FutureUtil.waitForAll(futures);
     }

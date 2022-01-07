@@ -435,7 +435,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                                         String.format("Can not found topic when %s unSubscribe.", clientId));
                             }
                             return connection.getTopicSubscriptionManager()
-                                    .unsubscribe(topicOp.get());
+                                    .unsubscribe(topicOp.get(), false);
                         }))
                         .collect(Collectors.toList());
                 return FutureUtil.waitForAll(futures);

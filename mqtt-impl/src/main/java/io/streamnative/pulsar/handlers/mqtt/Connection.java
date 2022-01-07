@@ -153,8 +153,6 @@ public class Connection {
             channel.writeAndFlush(mqttDisconnectionAckMessage);
         }
         this.channel.close();
-        // clean subscriptions
-        topicSubscriptionManager.removeAllConsumer();
         if (cleanSession) {
             return topicSubscriptionManager.removeAllSubscriptions();
         }
@@ -165,11 +163,13 @@ public class Connection {
                 != SessionExpireInterval.NEVER_EXPIRE.getSecondTime()) {
             if (sessionExpireInterval == SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()) {
                 return topicSubscriptionManager.removeAllSubscriptions();
-            } else {
-                manager.newSessionExpireInterval(__ ->
-                        topicSubscriptionManager.removeAllSubscriptions(), clientId, SESSION_EXPIRE_INTERVAL_UPDATER.get(this));
             }
+            manager.newSessionExpireInterval(__ -> topicSubscriptionManager.removeAllSubscriptions(),
+                    clientId, SESSION_EXPIRE_INTERVAL_UPDATER.get(this));
+            return CompletableFuture.completedFuture(null);
         }
+        // remove all consumer if we don't need to clean session.
+        topicSubscriptionManager.removeAllConsumer();
         return CompletableFuture.completedFuture(null);
     }
 
