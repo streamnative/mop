@@ -62,6 +62,7 @@ public class TopicSubscriptionManager {
             FutureUtil.failedFuture(e);
         }
         return topic.unsubscribe(subscriberName)
+                .thenAccept(__ -> subscriptionConsumerPair.getLeft().delete())
                 .thenAccept(__ -> topicSubscriptions.remove(topic));
     }
 
