@@ -63,7 +63,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final Map<String, CompletableFuture<MQTTProxyExchanger>> topicBrokers;
     private final Map<InetSocketAddress, MQTTProxyExchanger> brokerPool;
     // Map sequence Id -> topic count
-    private final ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId;
+    private final ConcurrentHashMap<Integer, AtomicInteger> subscribeTopicsCount;
     private final MQTTConnectionManager connectionManager;
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
@@ -75,7 +75,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.connectionManager = proxyService.getConnectionManager();
         this.topicBrokers = new ConcurrentHashMap<>();
         this.brokerPool = new ConcurrentHashMap<>();
-        this.topicCountForSequenceId = new ConcurrentHashMap<>();
+        this.subscribeTopicsCount = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -183,7 +183,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .exceptionally(ex -> {
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
                     int messageId = msg.variableHeader().messageId();
-                    topicCountForSequenceId.remove(messageId);
+                    subscribeTopicsCount.remove(messageId);
                     MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion)
                             ? MqttSubAckMessageHelper.createMqtt5(
                             messageId, Mqtt5SubReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage()) :
@@ -259,14 +259,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
      * @param count
      */
     private void increaseSubscribeTopicsCount(int seq, int count) {
-        AtomicInteger subscribeCount = topicCountForSequenceId.putIfAbsent(seq, new AtomicInteger(count));
+        AtomicInteger subscribeCount = subscribeTopicsCount.putIfAbsent(seq, new AtomicInteger(count));
         if (subscribeCount != null) {
             subscribeCount.addAndGet(count);
         }
     }
 
     private int decreaseSubscribeTopicsCount(int seq) {
-        AtomicInteger subscribeCount = topicCountForSequenceId.get(seq);
+        AtomicInteger subscribeCount = subscribeTopicsCount.get(seq);
         if (subscribeCount == null) {
             log.warn("Unexpected subscribe behavior for the proxy, respond seq {} "
                     + "but but the seq does not tracked by the proxy. ", seq);
@@ -274,7 +274,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         } else {
             int value = subscribeCount.decrementAndGet();
             if (value == 0) {
-                topicCountForSequenceId.remove(seq);
+                subscribeTopicsCount.remove(seq);
             }
             return value;
         }
