@@ -29,19 +29,13 @@ import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessa
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerFactory;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
-import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
-import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.pulsar.broker.service.BrokerServiceException;
-import org.apache.pulsar.broker.service.Consumer;
-import org.apache.pulsar.broker.service.Subscription;
-import org.apache.pulsar.broker.service.Topic;
 
 /**
  * Value object to maintain the information of single connection, like ClientID, Channel, and clean
@@ -74,6 +68,8 @@ public class Connection {
     @Getter
     private final MQTTConnectionManager manager;
     @Getter
+    private final TopicSubscriptionManager topicSubscriptionManager;
+    @Getter
     private final MqttConnectMessage connectMessage;
     @Getter
     private final AckHandler ackHandler;
@@ -105,6 +101,7 @@ public class Connection {
         this.keepAliveTime = builder.keepAliveTime;
         this.ackHandler = AckHandlerFactory.of(protocolVersion).getAckHandler();
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
+        this.topicSubscriptionManager = new TopicSubscriptionManager();
         this.addIdleStateHandler();
     }
 
@@ -138,59 +135,11 @@ public class Connection {
         return channel.close();
     }
 
-    public void removeConsumers() {
-        Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
-                .getTopicSubscriptions(channel);
-        // For producer doesn't bind subscriptions
-        if (topicSubscriptions != null) {
-            topicSubscriptions.forEach((k, v) -> {
-                try {
-                    v.getLeft().removeConsumer(v.getRight());
-                } catch (BrokerServiceException ex) {
-                    log.warn("subscription [{}] remove consumer {} error", v.getLeft(), v.getRight(), ex);
-                }
-            });
-        }
+    public CompletableFuture<Void> close() {
+        return close(false);
     }
 
-    private void doRemoveSubscriptions() {
-        Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
-                .getTopicSubscriptions(channel);
-        // For producer doesn't bind subscriptions
-        if (topicSubscriptions != null) {
-            topicSubscriptions.forEach((k, v) -> {
-                k.unsubscribe(this.clientId);
-                v.getLeft().delete();
-            });
-        }
-    }
-
-    public void removeSubscriptions() {
-        removeConsumers();
-        if (cleanSession) {
-            doRemoveSubscriptions();
-            // when mqtt client support session expire interval variable
-        } else {
-            // when use mqtt5.0 we need to use session expire interval to remove session.
-            // but mqtt protocol version lower than 5.0 we don't do that.
-            if (MqttUtils.isMqtt5(protocolVersion)
-                    && SESSION_EXPIRE_INTERVAL_UPDATER.get(this)
-                    != SessionExpireInterval.NEVER_EXPIRE.getSecondTime()) {
-                if (sessionExpireInterval == SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()) {
-                    doRemoveSubscriptions();
-                } else {
-                    manager.newSessionExpireInterval(__ ->
-                            doRemoveSubscriptions(), clientId, SESSION_EXPIRE_INTERVAL_UPDATER.get(this));
-                }
-            }
-        }
-    }
-
-    public void close() {
-        close(false);
-    }
-
-    public void close(boolean force) {
+    public CompletableFuture<Void> close(boolean force) {
         if (log.isInfoEnabled()) {
             log.info("Closing connection. clientId = {}.", clientId);
         }
@@ -204,6 +153,24 @@ public class Connection {
             channel.writeAndFlush(mqttDisconnectionAckMessage);
         }
         this.channel.close();
+        if (cleanSession) {
+            return topicSubscriptionManager.removeAllSubscriptions();
+        }
+        // when use mqtt5.0 we need to use session expire interval to remove session.
+        // but mqtt protocol version lower than 5.0 we don't do that.
+        if (MqttUtils.isMqtt5(protocolVersion)
+                && SESSION_EXPIRE_INTERVAL_UPDATER.get(this)
+                != SessionExpireInterval.NEVER_EXPIRE.getSecondTime()) {
+            if (sessionExpireInterval == SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()) {
+                return topicSubscriptionManager.removeAllSubscriptions();
+            }
+            manager.newSessionExpireInterval(__ -> topicSubscriptionManager.removeAllSubscriptions(),
+                    clientId, SESSION_EXPIRE_INTERVAL_UPDATER.get(this));
+            return CompletableFuture.completedFuture(null);
+        }
+        // remove all consumer if we don't need to clean session.
+        topicSubscriptionManager.removeAllConsumer();
+        return CompletableFuture.completedFuture(null);
     }
 
     public boolean assignState(ConnectionState expected, ConnectionState newState) {
