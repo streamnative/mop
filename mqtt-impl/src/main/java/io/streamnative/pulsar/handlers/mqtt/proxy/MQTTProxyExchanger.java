@@ -99,8 +99,7 @@ public class MQTTProxyExchanger {
                         break;
                     case SUBACK:
                         MqttSubAckMessage subAckMessage = (MqttSubAckMessage) message;
-                        if (processor.decreaseSubscribeTopicsCount(
-                                subAckMessage.variableHeader().messageId()) == 0) {
+                        if (processor.checkIfSendSubAck(subAckMessage.variableHeader().messageId())) {
                             processor.getChannel().writeAndFlush(message);
                         }
                         break;
