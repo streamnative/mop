@@ -183,6 +183,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .exceptionally(ex -> {
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
                     int messageId = msg.variableHeader().messageId();
+                    topicCountForSequenceId.remove(messageId);
                     MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion)
                             ? MqttSubAckMessageHelper.createMqtt5(
                             messageId, Mqtt5SubReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage()) :
@@ -251,21 +252,41 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         return this.channel;
     }
 
-    public boolean increaseSubscribeTopicsCount(int seq, int count) {
-        return topicCountForSequenceId.putIfAbsent(seq, new AtomicInteger(count)) == null;
+    /**
+     *  MQTT support subscribe many topics in one subscribe request.
+     *  We need to record it's subscribe count.
+     * @param seq
+     * @param count
+     */
+    private void increaseSubscribeTopicsCount(int seq, int count) {
+        AtomicInteger subscribeCount = topicCountForSequenceId.putIfAbsent(seq, new AtomicInteger(count));
+        if (subscribeCount != null) {
+            subscribeCount.addAndGet(count);
+        }
     }
 
-    public int decreaseSubscribeTopicsCount(int seq) {
-        if (topicCountForSequenceId.get(seq) == null) {
+    private int decreaseSubscribeTopicsCount(int seq) {
+        AtomicInteger subscribeCount = topicCountForSequenceId.get(seq);
+        if (subscribeCount == null) {
             log.warn("Unexpected subscribe behavior for the proxy, respond seq {} "
                     + "but but the seq does not tracked by the proxy. ", seq);
             return -1;
         } else {
-            int value = topicCountForSequenceId.get(seq).decrementAndGet();
+            int value = subscribeCount.decrementAndGet();
             if (value == 0) {
                 topicCountForSequenceId.remove(seq);
             }
             return value;
         }
+    }
+
+    /**
+     * If one sub-ack succeed, we need to decrease it's sub-count.
+     * As the sub-count return zero, it means the subscribe action succeed.
+     * @param seq
+     * @return
+     */
+    public boolean checkIfSendSubAck(int seq) {
+        return decreaseSubscribeTopicsCount(seq) == 0;
     }
 }
