@@ -49,7 +49,7 @@ public class TopicSubscriptionManager {
     }
 
     public CompletableFuture<Void> unsubscribe(Topic topic, boolean cleanSubscription) {
-        Pair<Subscription, Consumer> subscriptionConsumerPair = topicSubscriptions.remove(topic);
+        Pair<Subscription, Consumer> subscriptionConsumerPair = topicSubscriptions.get(topic);
         if (subscriptionConsumerPair == null) {
             return FutureUtil.failedFuture(new MQTTNoSubscriptionExistedException(
                     String.format("Can not found subscription for topic %s when unSubscribe", topic)));
@@ -66,7 +66,7 @@ public class TopicSubscriptionManager {
                     if (cleanSubscription) {
                         subscriptionConsumerPair.getLeft().delete();
                     }
-                });
+                }).thenAccept(__ -> topicSubscriptions.remove(topic));
     }
 
     public CompletableFuture<Void> removeSubscriptions() {
