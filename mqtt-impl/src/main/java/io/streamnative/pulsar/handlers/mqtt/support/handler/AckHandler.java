@@ -26,10 +26,10 @@ public interface AckHandler {
 
     ChannelFuture sendConnAck(Connection connection);
 
-    void sendSubAck(Connection connection, int packetId, List<MqttQoS> grantedQoses);
+    ChannelFuture sendSubAck(Connection connection, int packetId, List<MqttQoS> grantedQoses);
 
-    void sendSubError(Connection connection, int packetId, MqttSubAckMessageHelper.ErrorReason errorReason);
+    ChannelFuture sendSubError(Connection connection, int packetId, MqttSubAckMessageHelper.ErrorReason errorReason);
 
-    void sendSubError(Connection connection, int packetId, String reasonStr);
+    ChannelFuture sendSubError(Connection connection, int packetId, String reasonStr);
 
 }

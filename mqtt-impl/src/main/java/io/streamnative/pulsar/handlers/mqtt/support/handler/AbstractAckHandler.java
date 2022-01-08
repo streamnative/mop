@@ -16,9 +16,9 @@ package io.streamnative.pulsar.handlers.mqtt.support.handler;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
-import io.netty.channel.ChannelFuture;
 import static io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper.ErrorReason;
 import static io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper.errorBuilder;
+import io.netty.channel.ChannelFuture;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
@@ -60,32 +60,32 @@ public abstract class AbstractAckHandler implements AckHandler {
     }
 
     @Override
-    public void sendSubError(Connection connection, int packetId,
+    public ChannelFuture sendSubError(Connection connection, int packetId,
                              ErrorReason authorizationFail) {
         MqttMessage subErrorAck = errorBuilder(connection.getProtocolVersion())
                 .errorReason(authorizationFail)
                 .packetId(packetId)
                 .build();
-        connection.sendThenClose(subErrorAck);
+        return connection.sendThenClose(subErrorAck);
     }
 
     @Override
-    public void sendSubError(Connection connection, int packetId, String reasonStr) {
+    public ChannelFuture sendSubError(Connection connection, int packetId, String reasonStr) {
         MqttMessage subErrorAck = errorBuilder(connection.getProtocolVersion())
                 .errorReason(ErrorReason.UNSPECIFIED_ERROR)
                 .packetId(packetId)
                 .reasonString(reasonStr)
                 .build();
-        connection.sendThenClose(subErrorAck);
+        return connection.sendThenClose(subErrorAck);
     }
 
     @Override
-    public void sendSubAck(Connection connection, int packetId, List<MqttQoS> grantedQoses) {
+    public ChannelFuture sendSubAck(Connection connection, int packetId, List<MqttQoS> grantedQoses) {
         String clientId = connection.getClientId();
         MqttMessage subAckMessage = getSubAckMessage(connection, packetId, grantedQoses);
         if (log.isDebugEnabled()) {
             log.debug("Sending SUB-ACK message {} to {}", subAckMessage, clientId);
         }
-        connection.send(subAckMessage);
+        return connection.send(subAckMessage);
     }
 }
