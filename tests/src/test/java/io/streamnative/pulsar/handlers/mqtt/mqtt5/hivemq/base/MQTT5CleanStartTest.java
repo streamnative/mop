@@ -20,8 +20,10 @@ import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
+import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -47,8 +49,9 @@ public class MQTT5CleanStartTest extends MQTTTestBase {
         String clientId = Objects.requireNonNull(client.getConfig().getClientIdentifier().orElse(null)).toString();
         Assert.assertTrue(subscriptions.contains(clientId));
         client.disconnect();
-        List<String> afterDisconnectionSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
-        Assert.assertTrue(CollectionUtils.isEmpty(afterDisconnectionSubscriptions));
+        Awaitility.await()
+                .untilAsserted(() ->
+                        Assert.assertTrue(CollectionUtils.isEmpty(admin.topics().getSubscriptions(pulsarTopicName))));
     }
 
     @Test(timeOut = TIMEOUT)
@@ -71,7 +74,8 @@ public class MQTT5CleanStartTest extends MQTTTestBase {
         String clientId = Objects.requireNonNull(client.getConfig().getClientIdentifier().orElse(null)).toString();
         Assert.assertTrue(subscriptions.contains(clientId));
         client.disconnect();
-        List<String> afterDisconnectionSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
-        Assert.assertTrue(afterDisconnectionSubscriptions.contains(clientId));
+        Awaitility.await().pollDelay(1, TimeUnit.SECONDS)
+                        .untilAsserted(()->
+                                Assert.assertTrue(admin.topics().getSubscriptions(pulsarTopicName).contains(clientId)));
     }
 }
