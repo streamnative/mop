@@ -403,7 +403,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             if (log.isDebugEnabled()) {
                 log.debug("Sending SUB-ACK message {} to {}", ackMessage, connection.getClientId());
             }
-            channel.writeAndFlush(ackMessage);
+            connection.send(ackMessage);
         }).exceptionally(e -> {
             log.error("[{}] Failed to process MQTT subscribe.", connection.getClientId(), e);
             MopExceptionHelper.handle(MqttMessageType.SUBSCRIBE, messageID, channel, e);
@@ -452,7 +452,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             if (log.isDebugEnabled()) {
                 log.debug("Sending UNSUBACK message {} to {}", ackMessage, clientId);
             }
-            channel.writeAndFlush(ackMessage);
+            connection.send(ackMessage);
         }).exceptionally(ex -> {
             log.error("[{}] Failed to process the UNSUB {}", clientId, msg);
             MopExceptionHelper.handle(MqttMessageType.UNSUBSCRIBE, messageId, channel, ex);
