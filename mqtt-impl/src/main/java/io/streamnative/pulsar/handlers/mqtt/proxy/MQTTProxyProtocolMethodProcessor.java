@@ -221,8 +221,12 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private CompletableFuture<Void> writeToBroker(MQTTProxyExchanger exchanger, MqttMessage msg) {
         CompletableFuture<Void> result = new CompletableFuture<>();
         if (exchanger.isWritable()) {
-            exchanger.writeAndFlush(msg).addListener(__ -> {
-                result.complete(null);
+            exchanger.writeAndFlush(msg).addListener(future -> {
+                if (future.isSuccess()) {
+                    result.complete(null);
+                } else {
+                    result.completeExceptionally(future.cause());
+                }
             });
         } else {
             log.error("The broker channel({}) is not writable!", exchanger.getMqttBroker());
