@@ -182,7 +182,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .exceptionally(ex -> {
                     Throwable causeIfExist = ExceptionUtils.getCauseIfExist(ex);
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, causeIfExist);
-                    ackHandler.sendSubError(connection, packetId, "[ MOP ERROR ]" + causeIfExist.getMessage());
+                    ackHandler.sendSubError(connection, packetId, "[ MOP ERROR ]" + causeIfExist.getMessage())
+                            .addListener(__ -> subscribeTopicsCount.remove(packetId));
                     return null;
                 });
     }
