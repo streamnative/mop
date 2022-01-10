@@ -11,8 +11,29 @@ on:
       - branch-*
 
 jobs:
-  build:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
 
+      - name: Get All Tests
+        id: list-test
+        run: |
+          TESTS=`find tests/src/test/java/io/streamnative/pulsar/handlers/mqtt \
+          mqtt-impl/src/test/java/io/streamnative/pulsar/handlers/mqtt -name "*Test.java" | \
+          awk -F "/" '{ print $NF }' | \
+          awk -F "." '{ print $1 }' | \
+          jq -R -s -c 'split("\n") | map(select(. != ""))'`
+          echo "::set-output name=tests::$(echo $TESTS)"
+    outputs:
+      tests: ${{ steps.list-test.outputs.tests }}
+
+
+  build:
+    needs: scan
+    strategy:
+      matrix:
+        test: ${{ fromJson(needs.scan.outputs.tests) }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -43,7 +64,7 @@ jobs:
         run: mvn spotbugs:check
 
       - name: test after build
-        run: ./scripts/retry.sh mvn -B -ntp test
+        run: ./scripts/retry.sh mvn -B -ntp test -Dtest=${{ matrix.test }} -DfailIfNoTests=false
 
       - name: upload test report
         run: bash <(curl -s https://codecov.io/bash)
