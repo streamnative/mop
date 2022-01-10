@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.support.handler;
 
-import io.netty.handler.codec.mqtt.MqttPublishMessage;
-import java.util.concurrent.CompletableFuture;
+import io.netty.channel.ChannelFuture;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
 
 /**
- * Interface for Qos publish handler.
+ * Ack handler.
  */
-public interface QosPublishHandler {
+public interface AckHandler {
 
-    CompletableFuture<Void> publish(MqttPublishMessage msg);
+    ChannelFuture sendConnAck(Connection connection);
 }

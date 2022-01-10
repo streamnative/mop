@@ -396,7 +396,12 @@ MoP will uniformly output its own metrics to Prometheus.
 | mop_received_count| Counter | The total received msg count |
 | mop_received_bytes| Counter | The total received msg in bytes |
 
-MoP also exposes the http interface through `/mop-stats`, and users can obtain mop information in json format through that path.
+MoP can also expose metrics through the http interface. Add below configs first and then restart pulsar broker.
+```
+additionalServlets=mqtt-servlet
+additionalServletDirectory=[protocolHandlerDir]
+```
+Then you can obtain mop information in json format through `/mop-stats`:
 ```
 curl http://pulsar-broker-webservice-address:port/mop-stats/
 {"cluster":"test","subscriptions":{"subs":["/a/b/c"],"count":1},"clients":{"total":1,"maximum":1,"active":0,"active_clients":[]},"namespace":"default","messages":{"received_bytes":57351,"received_count":10,"send_count":20,"send_bytes":60235},"version":"2.9.0-SNAPSHOT","tenant":"public","uptime":"46 seconds"}
@@ -414,5 +419,6 @@ Currently, MoP has the following implementations that do not meet the MQTT Spec:
 
 ## Project maintainers
 
--   [@Technoboy-](https://github.com/Technoboy-)
--   [@codelipenghui](https://github.com/codelipenghui)
+- [@Technoboy-](https://github.com/Technoboy-)
+- [@codelipenghui](https://github.com/codelipenghui)
+- [@mattisonchao](https://github.com/mattisonchao)

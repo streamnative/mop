@@ -71,15 +71,11 @@ public class MqttMessageUtils {
         return clientIdentifier;
     }
 
-    public static MqttConnectMessage createMqttConnectMessage(MqttConnectMessage msg, String clientId) {
+    public static MqttConnectMessage stuffClientIdToConnectMessage(MqttConnectMessage msg, String clientId) {
         MqttConnectPayload origin = msg.payload();
         MqttConnectPayload payload = new MqttConnectPayload(clientId, origin.willProperties(), origin.willTopic(),
                 origin.willMessageInBytes(), origin.userName(), origin.passwordInBytes());
         return new MqttConnectMessage(msg.fixedHeader(), msg.variableHeader(), payload);
-    }
-
-    public static int getKeepAliveTime(MqttConnectMessage msg) {
-        return Math.round(msg.variableHeader().keepAliveTimeSeconds() * 1.5f);
     }
 
     public static List<MqttTopicSubscription> topicSubscriptions(MqttSubscribeMessage msg) {
@@ -93,6 +89,9 @@ public class MqttMessageUtils {
     }
 
     public static WillMessage createWillMessage(MqttConnectMessage msg) {
+        if (!msg.variableHeader().isWillFlag()) {
+            return null;
+        }
         final ByteBuf willPayload = Unpooled.copiedBuffer(msg.payload().willMessageInBytes());
         final String willTopic = msg.payload().willTopic();
         final boolean retained = msg.variableHeader().isWillRetain();

@@ -17,6 +17,7 @@ import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 
@@ -26,13 +27,14 @@ import org.apache.pulsar.broker.PulsarService;
 @Slf4j
 public class Qos2PublishHandler extends AbstractQosPublishHandler {
 
-    public Qos2PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration) {
-        super(pulsarService, configuration);
+    public Qos2PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration, Channel channel) {
+        super(pulsarService, configuration, channel);
     }
 
     @Override
-    public void publish(Channel channel, MqttPublishMessage msg) {
+    public CompletableFuture<Void> publish(MqttPublishMessage msg) {
         log.error("[{}] Failed to write data due to QoS2 does not support.", msg.variableHeader().topicName());
         channel.close();
+        return CompletableFuture.completedFuture(null);
     }
 }

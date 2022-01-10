@@ -33,7 +33,7 @@ jobs:
       matrix:
         test: ${{ fromJson(needs.scan.outputs.tests) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v1
 
@@ -63,6 +63,9 @@ jobs:
 
       - name: test after build
         run: ./scripts/retry.sh mvn -B -ntp test -Dtest=${{ matrix.test }} -DfailIfNoTests=false
+
+      - name: upload test report
+        run: bash <(curl -s https://codecov.io/bash)
 
       - name: package surefire artifacts
         if: failure()
