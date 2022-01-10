@@ -34,10 +34,10 @@ public class TopicSubscriptionManager {
     private final Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = Maps.newConcurrentMap();
 
     public Pair<Subscription, Consumer> putIfAbsent(Topic topic, Subscription subscription, Consumer consumer) {
-        return topicSubscriptions.put(topic, Pair.of(subscription, consumer));
+        return topicSubscriptions.putIfAbsent(topic, Pair.of(subscription, consumer));
     }
 
-    public void removeAllConsumer() {
+    public void removeSubscriptionConsumers() {
         topicSubscriptions.forEach((k, v) -> {
             try {
                 removeConsumerIfExist(v.getLeft(), v.getRight());
@@ -66,11 +66,10 @@ public class TopicSubscriptionManager {
                     if (cleanSubscription) {
                         subscriptionConsumerPair.getLeft().delete();
                     }
-                })
-                .thenAccept(__ -> topicSubscriptions.remove(topic));
+                }).thenAccept(__ -> topicSubscriptions.remove(topic));
     }
 
-    public CompletableFuture<Void> removeAllSubscriptions() {
+    public CompletableFuture<Void> removeSubscriptions() {
         List<CompletableFuture<Void>> futures = topicSubscriptions.keySet()
                 .stream()
                 .map(topic -> unsubscribe(topic, true))
