@@ -15,16 +15,10 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ADDR;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECTION;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_TOPIC_SUBS;
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import java.net.InetSocketAddress;
-import java.util.Map;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.pulsar.broker.service.Consumer;
-import org.apache.pulsar.broker.service.Subscription;
-import org.apache.pulsar.broker.service.Topic;
 
 /**
  * Some Netty's channels utilities.
@@ -32,19 +26,10 @@ import org.apache.pulsar.broker.service.Topic;
 public final class NettyUtils {
 
     public static final AttributeKey<Object> ATTR_KEY_CONNECTION = AttributeKey.valueOf(ATTR_CONNECTION);
-    private static final AttributeKey<Object> ATTR_KEY_TOPIC_SUBS = AttributeKey.valueOf(ATTR_TOPIC_SUBS);
     private static final AttributeKey<Object> ATTR_KEY_CLIENT_ADDR = AttributeKey.valueOf(ATTR_CLIENT_ADDR);
 
     public static Connection getConnection(Channel channel) {
         return (Connection) channel.attr(NettyUtils.ATTR_KEY_CONNECTION).get();
-    }
-
-    public static void setTopicSubscriptions(Channel channel, Map<Topic, Pair<Subscription, Consumer>> topicSubs) {
-        channel.attr(NettyUtils.ATTR_KEY_TOPIC_SUBS).set(topicSubs);
-    }
-
-    public static Map<Topic, Pair<Subscription, Consumer>> getTopicSubscriptions(Channel channel) {
-        return (Map<Topic, Pair<Subscription, Consumer>>) channel.attr(NettyUtils.ATTR_KEY_TOPIC_SUBS).get();
     }
 
     public static String getAndSetAddress(Channel channel) {

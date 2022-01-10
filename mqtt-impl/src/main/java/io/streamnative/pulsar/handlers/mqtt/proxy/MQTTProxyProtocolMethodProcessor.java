@@ -24,7 +24,6 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
-import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
@@ -64,7 +63,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final Map<String, CompletableFuture<MQTTProxyExchanger>> topicBrokers;
     private final Map<InetSocketAddress, MQTTProxyExchanger> brokerPool;
     // Map sequence Id -> topic count
-    private final ConcurrentHashMap<Integer, AtomicInteger> topicCountForSequenceId;
+    private final ConcurrentHashMap<Integer, AtomicInteger> subscribeTopicsCount;
     private final MQTTConnectionManager connectionManager;
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
@@ -76,7 +75,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.connectionManager = proxyService.getConnectionManager();
         this.topicBrokers = new ConcurrentHashMap<>();
         this.brokerPool = new ConcurrentHashMap<>();
-        this.topicCountForSequenceId = new ConcurrentHashMap<>();
+        this.subscribeTopicsCount = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -110,7 +109,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         lookupResult
                 .thenCompose(brokerAddress -> writeToBroker(brokerAddress, pulsarTopicName, msg))
                 .exceptionally(ex -> {
-                    ReferenceCountUtil.safeRelease(msg);
+                    msg.release();
                     log.error("[Proxy Publish] Failed to publish for topic : {}, CId : {}",
                             msg.variableHeader().topicName(), connection.getClientId(), ex);
                     MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, ex);
@@ -142,8 +141,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             log.warn("connection is null. close CId={}", clientId);
             channel.close();
         } else {
-            connectionManager.removeConnection(connection);
-            connection.close();
+            connection.close()
+                    .thenAccept(__-> connectionManager.removeConnection(connection));
         }
     }
 
@@ -184,6 +183,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .exceptionally(ex -> {
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, ex);
                     int messageId = msg.variableHeader().messageId();
+                    subscribeTopicsCount.remove(messageId);
                     MqttMessage subAckMessage = MqttUtils.isMqtt5(protocolVersion)
                             ? MqttSubAckMessageHelper.createMqtt5(
                             messageId, Mqtt5SubReasonCode.UNSPECIFIED_ERROR, ex.getCause().getMessage()) :
@@ -221,8 +221,12 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private CompletableFuture<Void> writeToBroker(MQTTProxyExchanger exchanger, MqttMessage msg) {
         CompletableFuture<Void> result = new CompletableFuture<>();
         if (exchanger.isWritable()) {
-            exchanger.writeAndFlush(msg).addListener(__ -> {
-                result.complete(null);
+            exchanger.writeAndFlush(msg).addListener(future -> {
+                if (future.isSuccess()) {
+                    result.complete(null);
+                } else {
+                    result.completeExceptionally(future.cause());
+                }
             });
         } else {
             log.error("The broker channel({}) is not writable!", exchanger.getMqttBroker());
@@ -252,21 +256,41 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         return this.channel;
     }
 
-    public boolean increaseSubscribeTopicsCount(int seq, int count) {
-        return topicCountForSequenceId.putIfAbsent(seq, new AtomicInteger(count)) == null;
+    /**
+     *  MQTT support subscribe many topics in one subscribe request.
+     *  We need to record it's subscribe count.
+     * @param seq
+     * @param count
+     */
+    private void increaseSubscribeTopicsCount(int seq, int count) {
+        AtomicInteger subscribeCount = subscribeTopicsCount.putIfAbsent(seq, new AtomicInteger(count));
+        if (subscribeCount != null) {
+            subscribeCount.addAndGet(count);
+        }
     }
 
-    public int decreaseSubscribeTopicsCount(int seq) {
-        if (topicCountForSequenceId.get(seq) == null) {
+    private int decreaseSubscribeTopicsCount(int seq) {
+        AtomicInteger subscribeCount = subscribeTopicsCount.get(seq);
+        if (subscribeCount == null) {
             log.warn("Unexpected subscribe behavior for the proxy, respond seq {} "
                     + "but but the seq does not tracked by the proxy. ", seq);
             return -1;
         } else {
-            int value = topicCountForSequenceId.get(seq).decrementAndGet();
+            int value = subscribeCount.decrementAndGet();
             if (value == 0) {
-                topicCountForSequenceId.remove(seq);
+                subscribeTopicsCount.remove(seq);
             }
             return value;
         }
+    }
+
+    /**
+     * If one sub-ack succeed, we need to decrease it's sub-count.
+     * As the sub-count return zero, it means the subscribe action succeed.
+     * @param seq
+     * @return
+     */
+    public boolean checkIfSendSubAck(int seq) {
+        return decreaseSubscribeTopicsCount(seq) == 0;
     }
 }

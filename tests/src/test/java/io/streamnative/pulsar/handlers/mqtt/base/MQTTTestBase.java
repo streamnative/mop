@@ -33,7 +33,7 @@ import org.testng.annotations.DataProvider;
 @Slf4j
 public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
-    public static final int TIMEOUT = 60 * 1000;
+    public static final int TIMEOUT = 80 * 1000;
 
     private final Random random = new Random();
 

@@ -17,7 +17,6 @@ import static io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter.
 import io.netty.buffer.ByteBuf;
 import io.netty.util.Recycler;
 import io.netty.util.Recycler.Handle;
-import io.netty.util.ReferenceCountUtil;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
@@ -93,8 +92,7 @@ public final class MessagePublishContext implements PublishContext {
         ByteBuf headerAndPayload = messageToByteBuf(message);
         topic.publishMessage(headerAndPayload,
                 MessagePublishContext.get(future, topic, System.nanoTime()));
-
-        ReferenceCountUtil.safeRelease(headerAndPayload);
+        headerAndPayload.release();
         return future;
     }
 }

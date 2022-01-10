@@ -51,7 +51,7 @@
         <awaitility.version>4.0.2</awaitility.version>
         <pulsar.version>2.9.0-rc-202110221101</pulsar.version>
         <mqtt.codec.version>4.1.67.Final</mqtt.codec.version>
-        <log4j2.version>2.17.0</log4j2.version>
+        <log4j2.version>2.17.1</log4j2.version>
         <lombok.version>1.18.4</lombok.version>
         <fusesource.client.version>1.16</fusesource.client.version>
         <hivemq.mqtt.client.version>1.2.2</hivemq.mqtt.client.version>
@@ -63,6 +63,7 @@
         <license-maven-plugin.version>3.0.rc1</license-maven-plugin.version>
         <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
         <spotbugs-maven-plugin.version>3.1.8</spotbugs-maven-plugin.version>
+        <maven-jacoco-plugin.version>0.8.7</maven-jacoco-plugin.version>
     </properties>
 
     <dependencies>
@@ -179,7 +180,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
-                    <argLine> -Xmx2G
+                    <argLine>@{argLine}
+                        -Xmx2G
                         -Dpulsar.allocator.pooled=false
                         -Dpulsar.allocator.leak_detection=Advanced
                         -Dlog4j.configurationFile="log4j2.xml"
@@ -257,7 +259,9 @@
                 </executions>
                 <configuration>
                     <generateGitPropertiesFile>true</generateGitPropertiesFile>
-                    <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
+                    <generateGitPropertiesFilename>
+                        ${project.build.outputDirectory}/git.properties
+                    </generateGitPropertiesFilename>
                     <includeOnlyProperties>
                         <includeOnlyProperty>^git.build.(host|time|version)$</includeOnlyProperty>
                         <includeOnlyProperty>^git.commit.id.(abbrev|full)$</includeOnlyProperty>
@@ -266,6 +270,31 @@
                     </includeOnlyProperties>
                     <commitIdGenerationMode>full</commitIdGenerationMode>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${maven-jacoco-plugin.version}</version>
+                <configuration>
+                    <includes>
+                        <include>**/pulsar/**</include>
+                    </includes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
         </plugins>
