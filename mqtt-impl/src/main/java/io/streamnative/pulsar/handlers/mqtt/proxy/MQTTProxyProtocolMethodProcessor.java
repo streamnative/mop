@@ -142,7 +142,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             channel.close();
         } else {
             connection.close()
-                    .thenAccept(__->connectionManager.removeConnection(connection));
+                    .thenAccept(__-> connectionManager.removeConnection(connection));
         }
     }
 
