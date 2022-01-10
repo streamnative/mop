@@ -81,4 +81,4 @@ public final class SubscribeAck {
         }
 
     }
-};
+}
