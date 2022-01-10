@@ -3,10 +3,16 @@ name: mop mvn build check and ut
 on:
   pull_request:
     branches:
-      - master
+      - branch-*
+    path-ignores:
+      - 'docs/**'
+      - 'README.md'
   push:
     branches:
-      - master
+      - branch-*
+    path-ignores:
+      - 'docs/**'
+      - 'README.md'
 
 jobs:
   scan:
