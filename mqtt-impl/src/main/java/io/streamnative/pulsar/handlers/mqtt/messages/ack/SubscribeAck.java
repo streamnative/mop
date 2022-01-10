@@ -27,8 +27,8 @@ public final class SubscribeAck {
     private final MqttSubAckMessageHelper.ErrorReason errorReason;
     private final String reasonStr;
 
-    public SubscribeAck(boolean success, int packetId, List<MqttQoS> grantedQoses,
-                        MqttSubAckMessageHelper.ErrorReason errorReason, String reasonStr) {
+    private SubscribeAck(boolean success, int packetId, List<MqttQoS> grantedQoses,
+                         MqttSubAckMessageHelper.ErrorReason errorReason, String reasonStr) {
         this.success = success;
         this.packetId = packetId;
         this.grantedQoses = grantedQoses;
@@ -37,17 +37,24 @@ public final class SubscribeAck {
     }
 
     public static SubscribeAckBuilder success() {
-        return new SubscribeAckBuilder();
+        return new SubscribeAckBuilder().success(true);
     }
 
-    public static SubScribeAckErrorBuilder error() {
-        return new SubScribeAckErrorBuilder();
+    public static SubscribeAckBuilder error() {
+        return new SubscribeAckBuilder().success(false);
     }
-
 
     public static final class SubscribeAckBuilder {
+        private boolean success;
         private int packetId;
         private final List<MqttQoS> grantedQoses = Lists.newArrayList();
+        private MqttSubAckMessageHelper.ErrorReason errorReason;
+        private String reasonStr;
+
+        public SubscribeAckBuilder success(boolean success) {
+            this.success = success;
+            return this;
+        }
 
         public SubscribeAckBuilder packetId(int packetId) {
             this.packetId = packetId;
@@ -59,36 +66,19 @@ public final class SubscribeAck {
             return this;
         }
 
-        public SubscribeAck build() {
-            return new SubscribeAck(true, packetId, grantedQoses, null, null);
-        }
-
-    }
-
-    public static final class SubScribeAckErrorBuilder {
-        private int packetId;
-        private MqttSubAckMessageHelper.ErrorReason errorReason;
-        private String reasonStr;
-
-        public SubScribeAckErrorBuilder packetId(int packetId) {
-            this.packetId = packetId;
-            return this;
-        }
-
-        public SubScribeAckErrorBuilder errorReason(MqttSubAckMessageHelper.ErrorReason errorReason) {
+        public SubscribeAckBuilder errorReason(MqttSubAckMessageHelper.ErrorReason errorReason) {
             this.errorReason = errorReason;
             return this;
         }
 
-        public SubScribeAckErrorBuilder reasonStr(String reasonStr) {
+        public SubscribeAckBuilder reasonStr(String reasonStr) {
             this.reasonStr = reasonStr;
             return this;
         }
 
         public SubscribeAck build() {
-            return new SubscribeAck(false, packetId, null, errorReason, reasonStr);
+            return new SubscribeAck(success, packetId, grantedQoses, errorReason, reasonStr);
         }
 
     }
-
-}
+};
