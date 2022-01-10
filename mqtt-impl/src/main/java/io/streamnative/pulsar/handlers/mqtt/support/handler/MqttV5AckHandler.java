@@ -17,10 +17,10 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
-import java.util.List;
 
 /**
  * MQTT5 ack handler.
@@ -42,11 +42,11 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getSubAckMessage(Connection connection, int packetId, List<MqttQoS> grantedQoses) {
+    MqttMessage getSubscribeAckMessage(Connection connection, SubscribeAck subscribeAck) {
         // Now this section same to V3, but Mqtt V5 has another different feature that will be supported in the future.
         return MqttSubAckMessageHelper.builder()
-                .packetId(packetId)
-                .addGrantedQoses(grantedQoses.toArray(new MqttQoS[]{}))
+                .packetId(subscribeAck.getPacketId())
+                .addGrantedQoses(subscribeAck.getGrantedQoses().toArray(new MqttQoS[]{}))
                 .build();
     }
 }
