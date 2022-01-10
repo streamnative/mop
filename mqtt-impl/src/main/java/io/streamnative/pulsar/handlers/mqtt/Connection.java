@@ -154,7 +154,7 @@ public class Connection {
         }
         this.channel.close();
         if (cleanSession) {
-            return topicSubscriptionManager.removeAllSubscriptions();
+            return topicSubscriptionManager.removeSubscriptions();
         }
         // when use mqtt5.0 we need to use session expire interval to remove session.
         // but mqtt protocol version lower than 5.0 we don't do that.
@@ -162,14 +162,14 @@ public class Connection {
                 && SESSION_EXPIRE_INTERVAL_UPDATER.get(this)
                 != SessionExpireInterval.NEVER_EXPIRE.getSecondTime()) {
             if (sessionExpireInterval == SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()) {
-                return topicSubscriptionManager.removeAllSubscriptions();
+                return topicSubscriptionManager.removeSubscriptions();
             }
-            manager.newSessionExpireInterval(__ -> topicSubscriptionManager.removeAllSubscriptions(),
+            manager.newSessionExpireInterval(__ -> topicSubscriptionManager.removeSubscriptions(),
                     clientId, SESSION_EXPIRE_INTERVAL_UPDATER.get(this));
             return CompletableFuture.completedFuture(null);
         }
-        // remove all consumer if we don't need to clean session.
-        topicSubscriptionManager.removeAllConsumer();
+        // remove subscription consumer if we don't need to clean session.
+        topicSubscriptionManager.removeSubscriptionConsumers();
         return CompletableFuture.completedFuture(null);
     }
 
