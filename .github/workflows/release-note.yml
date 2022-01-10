@@ -7,7 +7,6 @@ on:
     path-ignores:
       - 'docs/**'
       - 'README.md'
-      - 'CONTRIBUTING.md'
 jobs:
   build:
 
