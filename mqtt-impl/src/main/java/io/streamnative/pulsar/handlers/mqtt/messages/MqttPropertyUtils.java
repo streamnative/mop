@@ -25,6 +25,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MqttPropertyUtils {
 
+
+
+
     // describe by mqtt 5.0 version
     public static final int MQTT5_DEFAULT_RECEIVE_MAXIMUM = 65535;
     // For backward compatibility
