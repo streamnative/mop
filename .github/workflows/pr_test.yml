@@ -67,7 +67,7 @@ jobs:
 
 
   test:
-    needs: scan
+    needs: [scan, check]
     strategy:
       matrix:
         test: ${{ fromJson(needs.scan.outputs.tests) }}
