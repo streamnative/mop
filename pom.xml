@@ -280,6 +280,14 @@
                     <includes>
                         <include>**/pulsar/**</include>
                     </includes>
+                    <fileSets>
+                        <fileSet>
+                            <directory>${project.build.directory}</directory>
+                            <includes>
+                                <include>**/*.exec</include>
+                            </includes>
+                        </fileSet>
+                    </fileSets>
                 </configuration>
                 <executions>
                     <execution>
@@ -289,10 +297,17 @@
                     </execution>
                     <execution>
                         <id>report</id>
-                        <phase>test</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>merge-all-jacoco</id>
+                        <goals>
+                            <goal>merge</goal>
+                        </goals>
+                        <phase>none</phase>
                     </execution>
                 </executions>
             </plugin>
