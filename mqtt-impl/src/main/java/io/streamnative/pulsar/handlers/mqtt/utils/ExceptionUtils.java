@@ -11,19 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.support.handler;
+package io.streamnative.pulsar.handlers.mqtt.utils;
 
-import io.netty.channel.ChannelFuture;
-import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
+public class ExceptionUtils {
 
-/**
- * Ack handler.
- */
-public interface AckHandler {
-
-    ChannelFuture sendConnAck(Connection connection);
-
-    ChannelFuture sendSubscribeAck(Connection connection, SubscribeAck subscribeAck);
-
+    public static Throwable getCauseIfExist(Throwable throwable) {
+        return throwable.getCause() == null ? throwable : throwable.getCause();
+    }
 }
