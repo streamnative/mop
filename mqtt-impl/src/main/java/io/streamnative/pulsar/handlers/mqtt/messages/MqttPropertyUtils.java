@@ -60,4 +60,17 @@ public class MqttPropertyUtils {
         }
         return property.value();
     }
+
+    /**
+     * Stuff reason string to mqtt property.
+     *
+     * @param properties   Mqtt properties
+     * @param reasonString reason string
+     */
+    public static void stuffReasonString(MqttProperties properties, String reasonString) {
+        MqttProperties.StringProperty reasonStringProperty =
+                new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
+                        reasonString);
+        properties.add(reasonStringProperty);
+    }
 }

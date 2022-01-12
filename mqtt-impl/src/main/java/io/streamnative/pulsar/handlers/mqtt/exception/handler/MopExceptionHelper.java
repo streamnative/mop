@@ -30,7 +30,6 @@ public class MopExceptionHelper {
         exceptionHandlers.put(MqttMessageType.CONNECT, new MqttConnExceptionHandler());
         exceptionHandlers.put(MqttMessageType.DISCONNECT, new MqttDisConnExceptionHandler());
         exceptionHandlers.put(MqttMessageType.PUBLISH, new MqttPubExceptionHandler());
-        exceptionHandlers.put(MqttMessageType.SUBSCRIBE, new MqttSubExceptionHandler());
         exceptionHandlers.put(MqttMessageType.UNSUBSCRIBE, new MqttUnsubExceptionHandler());
     }
 

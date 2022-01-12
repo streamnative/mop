@@ -11,19 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.support.handler;
-
-import io.netty.channel.ChannelFuture;
-import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 
 /**
- * Ack handler.
+ * Package info.
  */
-public interface AckHandler {
-
-    ChannelFuture sendConnAck(Connection connection);
-
-    ChannelFuture sendSubscribeAck(Connection connection, SubscribeAck subscribeAck);
-
-}
+package io.streamnative.pulsar.handlers.mqtt.messages.ack;

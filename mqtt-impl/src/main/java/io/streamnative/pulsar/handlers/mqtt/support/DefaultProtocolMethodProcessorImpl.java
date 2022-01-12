@@ -42,16 +42,17 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
+import io.streamnative.pulsar.handlers.mqtt.utils.ExceptionUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -316,6 +317,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     public void processSubscribe(MqttSubscribeMessage msg) {
         final String clientId = connection.getClientId();
         final String userRole = connection.getUserRole();
+        final int packetId = msg.variableHeader().messageId();
+        AckHandler ackHandler = connection.getAckHandler();
         if (log.isDebugEnabled()) {
             log.debug("[Subscribe] [{}] msg: {}", clientId, msg);
         }
@@ -331,7 +334,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 authorizationFutures.add(this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
                         userRole, new AuthenticationDataCommand(userRole), userRole).thenAccept((authorized) -> {
                             if (!authorized) {
-                                authorizedFlag.set(authorized);
+                                authorizedFlag.set(false);
                                 log.warn("[Subscribe] no authorization to sub topic={}, userRole={}, CId= {}",
                                         topic.topicName(), userRole, clientId);
                             }
@@ -339,7 +342,13 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             }
             FutureUtil.waitForAll(authorizationFutures).thenAccept(__ -> {
                 if (!authorizedFlag.get()) {
-                    doUnauthorized(msg);
+                    SubscribeAck subscribeAck = SubscribeAck
+                            .builder()
+                            .isSuccess(false)
+                            .packetId(packetId)
+                            .errorReason(MqttSubAckMessageHelper.ErrorReason.AUTHORIZATION_FAIL)
+                            .build();
+                    ackHandler.sendSubscribeAck(connection, subscribeAck);
                 } else {
                     doSubscribe(msg);
                 }
@@ -347,20 +356,9 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         }
     }
 
-    private CompletableFuture<Void> doUnauthorized(MqttSubscribeMessage msg) {
-        final String clientId = connection.getClientId();
-        final int protocolVersion = connection.getProtocolVersion();
-        final int messageId = msg.variableHeader().messageId();
-        MqttMessage subscribeAckMessage = MqttUtils.isMqtt5(protocolVersion)
-                ? MqttSubAckMessageHelper.createMqtt5(messageId, Mqtt5SubReasonCode.NOT_AUTHORIZED,
-                String.format("The client %s not authorized.", clientId)) :
-                MqttSubAckMessageHelper.createMqtt(messageId, Mqtt3SubReasonCode.FAILURE);
-        connection.sendThenClose(subscribeAckMessage);
-        return CompletableFuture.completedFuture(null);
-    }
-
     private CompletableFuture<Void> doSubscribe(MqttSubscribeMessage msg) {
         final int messageID = msg.variableHeader().messageId();
+        AckHandler ackHandler = connection.getAckHandler();
         final List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
         mqttSubscriptionManager.addSubscriptions(connection.getClientId(), subTopics);
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
@@ -395,18 +393,26 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             futureList.add(completableFuture);
         }
         return FutureUtil.waitForAll(futureList).thenAccept(v -> {
-            MqttMessage ackMessage =
-                    // Support MQTT 5
-                    MqttUtils.isMqtt5(connection.getProtocolVersion())
-                            ? MqttSubAckMessageHelper.createMqtt5(messageID, subTopics)
-                            : MqttSubAckMessageHelper.createMqtt(messageID, subTopics);
-            if (log.isDebugEnabled()) {
-                log.debug("Sending SUB-ACK message {} to {}", ackMessage, connection.getClientId());
-            }
-            connection.send(ackMessage);
+            SubscribeAck subscribeAck = SubscribeAck
+                    .builder()
+                    .isSuccess(true)
+                    .packetId(messageID)
+                    .grantedQoses(subTopics.stream()
+                            .map(MqttTopicSubscription::qualityOfService)
+                            .collect(Collectors.toList()))
+                    .build();
+            ackHandler.sendSubscribeAck(connection, subscribeAck);
         }).exceptionally(e -> {
-            log.error("[{}] Failed to process MQTT subscribe.", connection.getClientId(), e);
-            MopExceptionHelper.handle(MqttMessageType.SUBSCRIBE, messageID, channel, e);
+            Throwable causeError = ExceptionUtils.getCauseIfExist(e);
+            log.error("[Subscribe] [{}] Failed to process MQTT subscribe.", connection.getClientId(), causeError);
+            SubscribeAck subscribeAck = SubscribeAck
+                    .builder()
+                    .isSuccess(false)
+                    .packetId(messageID)
+                    .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
+                    .reasonStr("[ MOP ERROR ]" + causeError.getMessage())
+                    .build();
+            ackHandler.sendSubscribeAck(connection, subscribeAck);
             return null;
         });
     }
