@@ -343,14 +343,15 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             FutureUtil.waitForAll(authorizationFutures).thenAccept(__ -> {
                 if (!authorizedFlag.get()) {
                     SubscribeAck subscribeAck = SubscribeAck
-                            .error()
+                            .builder()
+                            .isSuccess(false)
                             .packetId(packetId)
                             .errorReason(MqttSubAckMessageHelper.ErrorReason.AUTHORIZATION_FAIL)
                             .build();
                     ackHandler.sendSubscribeAck(connection, subscribeAck);
-                    return;
+                } else {
+                    doSubscribe(msg);
                 }
-                doSubscribe(msg);
             });
         }
     }
@@ -393,7 +394,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         }
         return FutureUtil.waitForAll(futureList).thenAccept(v -> {
             SubscribeAck subscribeAck = SubscribeAck
-                    .success()
+                    .builder()
+                    .isSuccess(true)
                     .packetId(messageID)
                     .grantedQoses(subTopics.stream()
                             .map(MqttTopicSubscription::qualityOfService)
@@ -404,7 +406,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             Throwable causeError = ExceptionUtils.getCauseIfExist(e);
             log.error("[Subscribe] [{}] Failed to process MQTT subscribe.", connection.getClientId(), causeError);
             SubscribeAck subscribeAck = SubscribeAck
-                    .error()
+                    .builder()
+                    .isSuccess(false)
                     .packetId(messageID)
                     .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
                     .reasonStr("[ MOP ERROR ]" + causeError.getMessage())

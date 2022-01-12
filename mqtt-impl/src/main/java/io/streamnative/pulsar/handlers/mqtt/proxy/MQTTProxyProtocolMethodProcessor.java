@@ -185,7 +185,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     Throwable causeIfExist = ExceptionUtils.getCauseIfExist(ex);
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, causeIfExist);
                     SubscribeAck subscribeAck = SubscribeAck
-                            .error()
+                            .builder()
+                            .isSuccess(false)
                             .packetId(packetId)
                             .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
                             .reasonStr("[ MOP ERROR ]" + causeIfExist.getMessage())

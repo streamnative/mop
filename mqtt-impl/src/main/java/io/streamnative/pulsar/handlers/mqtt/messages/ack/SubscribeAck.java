@@ -36,12 +36,8 @@ public final class SubscribeAck {
         this.reasonStr = reasonStr;
     }
 
-    public static SubscribeAckBuilder success() {
-        return new SubscribeAckBuilder().success(true);
-    }
-
-    public static SubscribeAckBuilder error() {
-        return new SubscribeAckBuilder().success(false);
+    public static SubscribeAckBuilder builder() {
+        return new SubscribeAckBuilder();
     }
 
     public static final class SubscribeAckBuilder {
@@ -51,7 +47,7 @@ public final class SubscribeAck {
         private MqttSubAckMessageHelper.ErrorReason errorReason;
         private String reasonStr;
 
-        public SubscribeAckBuilder success(boolean success) {
+        public SubscribeAckBuilder isSuccess(boolean success) {
             this.success = success;
             return this;
         }
