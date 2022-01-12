@@ -16,9 +16,11 @@ package io.streamnative.pulsar.handlers.mqtt.support.handler;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
+import static io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper.errorBuilder;
 import io.netty.channel.ChannelFuture;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,6 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class AbstractAckHandler implements AckHandler {
 
     abstract MqttMessage getConnAckMessage(Connection connection);
+
+    abstract MqttMessage getSubscribeAckMessage(Connection connection, SubscribeAck subscribeAck);
 
     @Override
     public ChannelFuture sendConnAck(Connection connection) {
@@ -51,5 +55,24 @@ public abstract class AbstractAckHandler implements AckHandler {
                 log.info("current connection state : {}", connection.getConnectionState(connection));
             }
         });
+    }
+
+    @Override
+    public ChannelFuture sendSubscribeAck(Connection connection, SubscribeAck subscribeAck) {
+        if (subscribeAck.isSuccess()){
+            String clientId = connection.getClientId();
+            MqttMessage subAckMessage = getSubscribeAckMessage(connection, subscribeAck);
+            if (log.isDebugEnabled()) {
+                log.debug("Sending SUB-ACK message {} to {}", subAckMessage, clientId);
+            }
+            return connection.send(subAckMessage);
+        } else {
+            MqttMessage subErrorAck = errorBuilder(connection.getProtocolVersion())
+                    .errorReason(subscribeAck.getErrorReason())
+                    .packetId(subscribeAck.getPacketId())
+                    .reasonString(subscribeAck.getReasonStr())
+                    .build();
+            return connection.sendThenClose(subErrorAck);
+        }
     }
 }
