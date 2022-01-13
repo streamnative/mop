@@ -20,6 +20,7 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisconnectAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
@@ -56,7 +57,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     MqttMessage getDisconnectAckMessage(Connection connection, DisconnectAck disconnectAck) {
         // Now this section same to V3, but Mqtt V5 has another different feature that will be supported in the future.
         return MqttDisconnectAckMessageHelper.builder()
-                .reasonCode(disconnectAck.getErrorReason().byteValue())
+                .reasonCode(Mqtt5DisConnReasonCode.NORMAL.byteValue())
                 .build();
     }
 }
