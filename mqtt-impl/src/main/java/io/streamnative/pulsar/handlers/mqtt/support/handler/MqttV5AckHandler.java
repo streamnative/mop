@@ -66,10 +66,11 @@ public class MqttV5AckHandler extends AbstractAckHandler {
 
     @Override
     MqttMessage getPublishAckMessage(Connection connection, PublishAck publishAck) {
-        // Now this section same to V3, but Mqtt V5 has another different feature that will be supported in the future.
         return MqttPubAckMessageHelper.builder()
                 .packetId(publishAck.getPacketId())
-                .reasonCode(Mqtt5PubReasonCode.SUCCESS.byteValue())
+                // Because of MQTT protocol version 5 has non-error reason code - NoMatchingSubscription
+                .reasonCode(publishAck.getErrorReason() != null
+                        ? publishAck.getErrorReason().byteValue() : Mqtt5PubReasonCode.SUCCESS.byteValue())
                 .build();
     }
 }

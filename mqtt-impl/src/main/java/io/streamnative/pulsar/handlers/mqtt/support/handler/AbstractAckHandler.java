@@ -103,9 +103,6 @@ public abstract class AbstractAckHandler implements AckHandler {
     public ChannelFuture sendPublishAck(Connection connection, PublishAck publishAck) {
         if (publishAck.isSuccess()){
             MqttMessage publishAckMessage = getPublishAckMessage(connection, publishAck);
-            if (log.isDebugEnabled()) {
-                log.debug("[Publish] Sending PUB-ACK message {} to {}", publishAckMessage, connection.getClientId());
-            }
             return connection.send(publishAckMessage);
         } else {
             MqttMessage pubErrorAck = MqttPubAckMessageHelper
@@ -113,9 +110,6 @@ public abstract class AbstractAckHandler implements AckHandler {
                     .errorReason(publishAck.getErrorReason())
                     .reasonString(publishAck.getReasonString())
                     .build();
-            if (log.isDebugEnabled()) {
-                log.debug("[Publish] Sending PUB-ACK message {} to {}", pubErrorAck, connection.getClientId());
-            }
             return connection.sendThenClose(pubErrorAck);
         }
     }

@@ -150,7 +150,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             log.debug("[Publish] [{}] msg: {}", connection.getClientId(), msg);
         }
         CompletableFuture.supplyAsync(() -> {
-            if (configuration.isMqttAuthorizationEnabled()) {
+            if (!configuration.isMqttAuthorizationEnabled()) {
                 if (log.isDebugEnabled()) {
                     log.debug("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
                             connection.getClientId(), connection.getUserRole());

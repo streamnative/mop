@@ -48,11 +48,12 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
         final String topic = msg.variableHeader().topicName();
         // we need to check if subscription exist when protocol version is mqtt 5.x
         return writeToPulsarTopic(msg, isMqtt5)
-                .thenAccept(__ -> {
+                .thenCompose(__ -> {
                     PublishAck publishAck = PublishAck.builder()
                             .success(true)
                             .packetId(packetId)
                             .build();
+                    CompletableFuture<Void> publishAckFuture = new CompletableFuture<>();
                     connection.getAckHandler().sendPublishAck(connection, publishAck)
                             .addListener(result -> {
                                 if (result.isSuccess()) {
@@ -62,21 +63,23 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                                         log.debug("[{}] Send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
                                                 connection.getClientId());
                                     }
+                                    publishAckFuture.complete(null);
                                 } else {
                                     log.warn("[{}] Failed to send Pub Ack {} to {}", topic,
                                             msg.variableHeader().packetId(), connection.getClientId(), result.cause());
+                                    publishAckFuture.completeExceptionally(result.cause());
                                 }
                             });
+                    return publishAckFuture;
                 }).exceptionally(ex -> {
                     Throwable cause = ex.getCause();
                     AckHandler ackHandler = connection.getAckHandler();
                     if (cause instanceof MQTTNoMatchingSubscriberException) {
                         log.warn("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
                         PublishAck noMatchingSubscribersAck = PublishAck.builder()
-                                .success(false)
+                                .success(true)
                                 .packetId(packetId)
                                 .errorReason(Mqtt5PubReasonCode.NO_MATCHING_SUBSCRIBERS)
-                                .reasonString("No Matching subscribers")
                                 .build();
                         ackHandler.sendPublishAck(connection, noMatchingSubscribersAck)
                                 .addListener(__ -> connection.decrementServerReceivePubMessage());
