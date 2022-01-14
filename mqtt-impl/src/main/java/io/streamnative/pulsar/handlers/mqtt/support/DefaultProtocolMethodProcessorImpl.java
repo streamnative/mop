@@ -43,12 +43,12 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedExcepti
 import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
@@ -149,65 +149,59 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         if (log.isDebugEnabled()) {
             log.debug("[Publish] [{}] msg: {}", connection.getClientId(), msg);
         }
-        CompletableFuture<Void> result;
-        if (!configuration.isMqttAuthorizationEnabled()) {
-            if (log.isDebugEnabled()) {
-                log.debug("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
-                        connection.getClientId(), connection.getUserRole());
+        CompletableFuture.supplyAsync(() -> {
+            if (configuration.isMqttAuthorizationEnabled()) {
+                if (log.isDebugEnabled()) {
+                    log.debug("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
+                            connection.getClientId(), connection.getUserRole());
+                }
+                return doPublish(msg);
+            } else {
+                return this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
+                                connection.getUserRole(), new AuthenticationDataCommand(connection.getUserRole()))
+                        .thenCompose(authorized -> authorized ? doPublish(msg) : doUnauthorized(msg));
             }
-            result = doPublish(msg);
-        } else {
-            result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
-                            connection.getUserRole(), new AuthenticationDataCommand(connection.getUserRole()))
-                    .thenCompose(authorized -> authorized ? doPublish(msg) : doUnauthorized(msg));
-        }
-        result.thenAccept(__ -> msg.release())
-              .exceptionally(ex -> {
-                    log.error("[{}] Write {} to Pulsar topic failed.", msg.variableHeader().topicName(), msg, ex);
-                    msg.release();
-                    return null;
-                });
+        }).thenAccept(__ -> msg.release())
+        .exceptionally(ex ->{
+            Throwable cause = ex.getCause();
+            log.error("[Publish] [{}] Write {} to Pulsar topic failed.", msg.variableHeader().topicName(), msg, cause);
+            // Prevent after thenAccept(__ -> msg.release()) get exceptions.
+            if (msg.refCnt() != 0){
+                msg.release();
+            }
+            return null;
+        });
     }
 
     private CompletableFuture<Void> doUnauthorized(MqttPublishMessage msg) {
         log.error("[Publish] not authorized to topic={}, userRole={}, CId= {}",
                 msg.variableHeader().topicName(), connection.getUserRole(),
                 connection.getClientId());
-        // Support Mqtt 5
-        if (MqttUtils.isMqtt5(connection.getProtocolVersion())) {
-            MqttMessage mqttPubAckMessage =
-                    MqttPubAckMessageHelper.createMqtt5(msg.variableHeader().packetId(),
-                            Mqtt5PubReasonCode.NOT_AUTHORIZED,
-                            String.format("The client %s not authorized.", connection.getClientId()));
-            channel.writeAndFlush(mqttPubAckMessage);
-        }
-        channel.close();
+        PublishAck unAuthorizedAck = PublishAck.builder()
+                .success(false)
+                .errorReason(Mqtt5PubReasonCode.NOT_AUTHORIZED)
+                .reasonString("Not Authorized!")
+                .build();
+        connection.getAckHandler().sendPublishAck(connection, unAuthorizedAck);
         return CompletableFuture.completedFuture(null);
     }
 
     private CompletableFuture<Void> doPublish(MqttPublishMessage msg) {
         final MqttQoS qos = msg.fixedHeader().qosLevel();
         metricsCollector.addSend(msg.payload().readableBytes());
-        CompletableFuture<Void> result;
         switch (qos) {
             case AT_MOST_ONCE:
-                result = this.qosPublishHandlers.qos0().publish(msg);
-                break;
+                 return this.qosPublishHandlers.qos0().publish(msg);
             case AT_LEAST_ONCE:
                 checkServerReceivePubMessageAndIncrementCounterIfNeeded(msg);
-                result = this.qosPublishHandlers.qos1().publish(msg);
-                break;
+                return this.qosPublishHandlers.qos1().publish(msg);
             case EXACTLY_ONCE:
                 checkServerReceivePubMessageAndIncrementCounterIfNeeded(msg);
-                result = this.qosPublishHandlers.qos2().publish(msg);
-                break;
+                return this.qosPublishHandlers.qos2().publish(msg);
             default:
-                log.error("Unknown QoS-Type:{}", qos);
-                channel.close();
-                result = CompletableFuture.completedFuture(null);
-                break;
+                log.error("[Publish] Unknown QoS-Type:{}", qos);
+                return connection.close();
         }
-        return result;
     }
 
     private void checkServerReceivePubMessageAndIncrementCounterIfNeeded(MqttPublishMessage msg) {
@@ -218,10 +212,14 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         if (connection.getServerReceivePubMessage() >= connection.getServerReceivePubMaximum()) {
             log.warn("Client publish exceed server receive maximum , the receive maximum is {}",
                     connection.getServerReceivePubMaximum());
-            MqttMessage quotaExceededPubAck =
-                    MqttPubAckMessageHelper.createMqtt5(msg.variableHeader().packetId(),
-                            Mqtt5PubReasonCode.QUOTA_EXCEEDED);
-            connection.sendThenClose(quotaExceededPubAck);
+            PublishAck quotaExceededAck = PublishAck.builder()
+                    .success(false)
+                    .errorReason(Mqtt5PubReasonCode.QUOTA_EXCEEDED)
+                    .packetId(msg.variableHeader().packetId())
+                    .reasonString(String.format("Publish exceed server receive maximum %s.",
+                            connection.getServerReceivePubMaximum()))
+                    .build();
+            connection.getAckHandler().sendPublishAck(connection, quotaExceededAck);
         } else {
             connection.incrementServerReceivePubMessage();
         }

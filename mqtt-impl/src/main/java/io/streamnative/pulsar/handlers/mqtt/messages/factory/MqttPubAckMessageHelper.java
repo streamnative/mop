@@ -13,84 +13,65 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.messages.factory;
 
-import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttMessageFactory;
-import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
-import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttProperties;
-import io.netty.handler.codec.mqtt.MqttPubAckMessage;
-import io.netty.handler.codec.mqtt.MqttPubReplyMessageVariableHeader;
-import io.netty.handler.codec.mqtt.MqttQoS;
+import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 
-/**
- * Factory pattern, used to create mqtt protocol publish acknowledgement
- * message.
- *
- * @see Mqtt5PubReasonCode
- */
 public class MqttPubAckMessageHelper {
 
-    /**
-     * Create Mqtt 5 publish acknowledgement with no property.
-     *
-     * @param packetId             - Mqtt packet id
-     * @param mqttPubAckReasonCode - MqttPubAcReasonCode
-     * @return - MqttMessage
-     * @see Mqtt5PubReasonCode
-     */
-    public static MqttMessage createMqtt5(int packetId, Mqtt5PubReasonCode mqttPubAckReasonCode) {
-        return createMqtt5(packetId, mqttPubAckReasonCode, MqttProperties.NO_PROPERTIES);
+    public static MqttMessageBuilders.PubAckBuilder builder() {
+        return MqttMessageBuilders.pubAck();
     }
 
-    /**
-     * Create error Mqtt 5 publish acknowledgement with reason string.
-     *
-     * @param packetId             - Mqtt packet id
-     * @param mqttPubAckReasonCode - MqttPubAcReasonCode
-     * @param reasonStr            - Reason string
-     * @return - MqttMessage
-     * @see Mqtt5PubReasonCode
-     */
-    public static MqttMessage createMqtt5(int packetId, Mqtt5PubReasonCode mqttPubAckReasonCode, String reasonStr) {
-        MqttProperties properties = new MqttProperties();
-        MqttProperties.StringProperty reasonStringProperty =
-                new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
-                        reasonStr);
-        properties.add(reasonStringProperty);
-        return createMqtt5(packetId, mqttPubAckReasonCode, properties);
+    public static MqttPubAckMessageHelper.MqttPubErrorAckBuilder errorBuilder(int protocolVersion) {
+        return new MqttPubAckMessageHelper.MqttPubErrorAckBuilder(protocolVersion);
     }
 
-    /**
-     * Create Mqtt 5 publish acknowledgement with property.
-     *
-     * @param packetId             - Mqtt packet id
-     * @param mqttPubAckReasonCode - MqttPubAcReasonCode
-     * @param properties           - MqttProperties
-     * @return - MqttMessage
-     * @see Mqtt5PubReasonCode
-     * @see MqttProperties
-     */
-    public static MqttMessage createMqtt5(int packetId, Mqtt5PubReasonCode mqttPubAckReasonCode,
-                                          MqttProperties properties) {
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE,
-                false, 0);
-        MqttPubReplyMessageVariableHeader mqttPubReplyMessageVariableHeader =
-                new MqttPubReplyMessageVariableHeader(packetId, mqttPubAckReasonCode.byteValue(),
-                        properties);
-        return MqttMessageFactory.newMessage(fixedHeader, mqttPubReplyMessageVariableHeader, null);
-    }
+    public final static class MqttPubErrorAckBuilder {
+        private final int protocolVersion;
+        private int packetId;
+        private Mqtt5PubReasonCode errorReason;
+        private String reasonString;
 
-    /**
-     * Create mqtt publish acknowledgement message that version is lower than 5.0.
-     *
-     * @param packetId - Mqtt packet id
-     * @return - MqttMessage
-     */
-    public static MqttMessage createMqtt(int packetId) {
-        return new MqttPubAckMessage(new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
-                MqttMessageIdVariableHeader.from(packetId));
-    }
+        public MqttPubErrorAckBuilder(int protocolVersion) {
+            this.protocolVersion = protocolVersion;
+        }
 
+        public MqttPubAckMessageHelper.MqttPubErrorAckBuilder reasonString(String reasonStr) {
+            this.reasonString = reasonStr;
+            return this;
+        }
+
+        public MqttPubAckMessageHelper.MqttPubErrorAckBuilder packetId(int packetId) {
+            this.packetId = packetId;
+            return this;
+        }
+
+        public MqttPubAckMessageHelper.MqttPubErrorAckBuilder errorReason(
+                Mqtt5PubReasonCode errorReason) {
+            this.errorReason = errorReason;
+            return this;
+        }
+
+        public MqttMessage build() {
+            return MqttMessageBuilders.pubAck()
+                    .reasonCode(errorReason.byteValue())
+                    .packetId(packetId)
+                    .properties(getStuffedProperties())
+                    .build();
+        }
+
+        private MqttProperties getStuffedProperties() {
+            if (MqttUtils.isMqtt5(protocolVersion)) {
+                MqttProperties properties = new MqttProperties();
+                MqttPropertyUtils.stuffReasonString(properties, reasonString);
+                return properties;
+            } else {
+                return MqttProperties.NO_PROPERTIES;
+            }
+        }
+    }
 }
