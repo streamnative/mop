@@ -180,6 +180,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 connection.getClientId());
         PublishAck unAuthorizedAck = PublishAck.builder()
                 .success(false)
+                .packetId(msg.variableHeader().packetId())
                 .errorReason(Mqtt5PubReasonCode.NOT_AUTHORIZED)
                 .reasonString("Not Authorized!")
                 .build();
