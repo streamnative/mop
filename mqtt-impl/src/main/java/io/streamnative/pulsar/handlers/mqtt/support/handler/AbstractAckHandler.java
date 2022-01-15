@@ -26,6 +26,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisconnectAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -105,12 +106,17 @@ public abstract class AbstractAckHandler implements AckHandler {
             MqttMessage publishAckMessage = getPublishAckMessage(connection, publishAck);
             return connection.send(publishAckMessage);
         } else {
-            MqttMessage pubErrorAck = MqttPubAckMessageHelper
-                    .errorBuilder(connection.getProtocolVersion())
-                    .errorReason(publishAck.getErrorReason())
-                    .reasonString(publishAck.getReasonString())
-                    .build();
-            return connection.sendThenClose(pubErrorAck);
+            if (MqttUtils.isMqtt5(connection.getProtocolVersion())) {
+                MqttMessage pubErrorAck = MqttPubAckMessageHelper
+                        .errorBuilder(connection.getProtocolVersion())
+                        .errorReason(publishAck.getErrorReason())
+                        .reasonString(publishAck.getReasonString())
+                        .build();
+                return connection.sendThenClose(pubErrorAck);
+            } else {
+                // mqtt 3.x do not have any ack.
+                return connection.getChannel().close();
+            }
         }
     }
 }

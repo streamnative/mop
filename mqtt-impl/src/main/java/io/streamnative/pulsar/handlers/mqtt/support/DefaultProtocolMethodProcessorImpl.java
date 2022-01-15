@@ -149,28 +149,29 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         if (log.isDebugEnabled()) {
             log.debug("[Publish] [{}] msg: {}", connection.getClientId(), msg);
         }
-        CompletableFuture.supplyAsync(() -> {
-            if (!configuration.isMqttAuthorizationEnabled()) {
-                if (log.isDebugEnabled()) {
-                    log.debug("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
-                            connection.getClientId(), connection.getUserRole());
-                }
-                return doPublish(msg);
-            } else {
-                return this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
-                                connection.getUserRole(), new AuthenticationDataCommand(connection.getUserRole()))
-                        .thenCompose(authorized -> authorized ? doPublish(msg) : doUnauthorized(msg));
+        CompletableFuture<Void> result;
+        if (!configuration.isMqttAuthorizationEnabled()) {
+            if (log.isDebugEnabled()) {
+                log.debug("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
+                        connection.getClientId(), connection.getUserRole());
             }
-        }).thenAccept(__ -> msg.release())
-        .exceptionally(ex ->{
-            Throwable cause = ex.getCause();
-            log.error("[Publish] [{}] Write {} to Pulsar topic failed.", msg.variableHeader().topicName(), msg, cause);
-            // Prevent after thenAccept(__ -> msg.release()) get exceptions.
-            if (msg.refCnt() != 0){
-                msg.release();
-            }
-            return null;
-        });
+            result = doPublish(msg);
+        } else {
+            result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
+                            connection.getUserRole(), new AuthenticationDataCommand(connection.getUserRole()))
+                    .thenCompose(authorized -> authorized ? doPublish(msg) : doUnauthorized(msg));
+        }
+        result.thenAccept(__ -> msg.release())
+                .exceptionally(ex -> {
+                    Throwable cause = ex.getCause();
+                    log.error("[Publish] [{}] Write {} to Pulsar topic failed.",
+                            msg.variableHeader().topicName(), msg, cause);
+                    // Prevent after thenAccept(__ -> msg.release()) get exceptions.
+                    if (msg.refCnt() != 0) {
+                        msg.release();
+                    }
+                    return null;
+                });
     }
 
     private CompletableFuture<Void> doUnauthorized(MqttPublishMessage msg) {
