@@ -166,10 +166,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                     Throwable cause = ex.getCause();
                     log.error("[Publish] [{}] Write {} to Pulsar topic failed.",
                             msg.variableHeader().topicName(), msg, cause);
-                    // Prevent after thenAccept(__ -> msg.release()) get exceptions.
-                    if (msg.refCnt() != 0) {
-                        msg.release();
-                    }
+                    msg.release();
                     return null;
                 });
     }
@@ -193,7 +190,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         metricsCollector.addSend(msg.payload().readableBytes());
         switch (qos) {
             case AT_MOST_ONCE:
-                 return this.qosPublishHandlers.qos0().publish(msg);
+                return this.qosPublishHandlers.qos0().publish(msg);
             case AT_LEAST_ONCE:
                 checkServerReceivePubMessageAndIncrementCounterIfNeeded(msg);
                 return this.qosPublishHandlers.qos1().publish(msg);

@@ -57,13 +57,13 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     /**
      * Convert mqtt protocol message to pulsar message and send it.
      * @param msg                    MQTT protocol message
-     * @param checkSubscriptionExist Check if the subscription exists, throw #{MQTTNoMatchingSubscriberException}
+     * @param checkSubscription Check if the subscription exists, throw #{MQTTNoMatchingSubscriberException}
      *                              if the subscription does not exist;
      */
     protected CompletableFuture<PositionImpl> writeToPulsarTopic(MqttPublishMessage msg,
-                                                                 boolean checkSubscriptionExist) {
+                                                                 boolean checkSubscription) {
         return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
-            if (checkSubscriptionExist && topic.getSubscriptions().isEmpty()) {
+            if (checkSubscription && topic.getSubscriptions().isEmpty()) {
                 throw new MQTTNoMatchingSubscriberException(msg.variableHeader().topicName());
             }
             MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
