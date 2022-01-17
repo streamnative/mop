@@ -23,9 +23,8 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerFactory;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
@@ -146,13 +145,11 @@ public class Connection {
         if (!force) {
             assignState(ESTABLISHED, DISCONNECTED);
         }
-        // Support mqtt 5
-        if (MqttUtils.isMqtt5(protocolVersion)) {
-            MqttMessage mqttDisconnectionAckMessage =
-                    MqttDisConnAckMessageHelper.createMqtt5(Mqtt5DisConnReasonCode.NORMAL);
-            channel.writeAndFlush(mqttDisconnectionAckMessage);
-        }
-        this.channel.close();
+        DisconnectAck disconnectAck = DisconnectAck
+                .builder()
+                .success(true)
+                .build();
+        ackHandler.sendDisconnectAck(this, disconnectAck);
         if (cleanSession) {
             return topicSubscriptionManager.removeSubscriptions();
         }
