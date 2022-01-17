@@ -53,7 +53,7 @@ public class ProxyTest extends MQTTTestBase {
         };
     }
 
-    @Test(dataProvider = "mqttTopicNames", timeOut = 60000)
+    //@Test(dataProvider = "mqttTopicNames", timeOut = 60000)
     public void mqttProxyTest(String topicName) throws Exception {
         setBrokerCount(3);
         int proxyPort = getProxyPort();
