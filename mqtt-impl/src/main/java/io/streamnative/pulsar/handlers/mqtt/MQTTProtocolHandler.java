@@ -92,7 +92,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setMqttMaxFrameSize(mqttConfig.getMaxFrameSize());
             proxyConfig.setMqttHeartBeat(mqttConfig.getHeartBeat());
             proxyConfig.setMqttProxyPort(mqttConfig.getMqttProxyPort());
-            proxyConfig.setBrokerServiceURL("pulsar://" + PulsarService.advertisedAddress(mqttConfig) + ":"
+            proxyConfig.setBrokerServiceURL("pulsar://" + brokerService.getPulsar().getAdvertisedAddress() + ":"
                     + mqttConfig.getBrokerServicePort().get());
             log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
             ProxyService proxyService = new ProxyService(proxyConfig, brokerService.getPulsar());
