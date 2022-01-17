@@ -13,12 +13,15 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.handler;
 
+import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisconnectAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 
 /**
@@ -39,6 +42,14 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
         return MqttSubAckMessageHelper.builder()
                 .packetId(subscribeAck.getPacketId())
                 .addGrantedQoses(subscribeAck.getGrantedQoses().toArray(new MqttQoS[]{}))
+                .build();
+    }
+
+    @Override
+    MqttMessage getDisconnectAckMessage(Connection connection, DisconnectAck disconnectAck) {
+        return MqttDisconnectAckMessageHelper
+                .builder()
+                .reasonCode(MqttConnectReturnCode.CONNECTION_ACCEPTED.byteValue())
                 .build();
     }
 }
