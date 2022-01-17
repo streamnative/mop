@@ -20,8 +20,10 @@ import static io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMe
 import io.netty.channel.ChannelFuture;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisconnectAckMessageHelper;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -33,6 +35,8 @@ public abstract class AbstractAckHandler implements AckHandler {
     abstract MqttMessage getConnAckMessage(Connection connection);
 
     abstract MqttMessage getSubscribeAckMessage(Connection connection, SubscribeAck subscribeAck);
+
+    abstract MqttMessage getDisconnectAckMessage(Connection connection, DisconnectAck disconnectAck);
 
     @Override
     public ChannelFuture sendConnAck(Connection connection) {
@@ -73,6 +77,21 @@ public abstract class AbstractAckHandler implements AckHandler {
                     .reasonString(subscribeAck.getReasonStr())
                     .build();
             return connection.sendThenClose(subErrorAck);
+        }
+    }
+
+    @Override
+    public ChannelFuture sendDisconnectAck(Connection connection, DisconnectAck disconnectAck) {
+        if (disconnectAck.isSuccess()) {
+            MqttMessage disconnectAckMessage = getDisconnectAckMessage(connection, disconnectAck);
+            return connection.sendThenClose(disconnectAckMessage);
+        } else {
+            MqttMessage disconnectErrorAck =
+                    MqttDisconnectAckMessageHelper.errorBuilder(connection.getProtocolVersion())
+                            .errorReason(disconnectAck.getErrorReason())
+                            .reasonString(disconnectAck.getReasonStr())
+                            .build();
+            return connection.sendThenClose(disconnectErrorAck);
         }
     }
 }
