@@ -32,6 +32,6 @@ public class Qos0PublishHandler extends AbstractQosPublishHandler {
 
     @Override
     public CompletableFuture<Void> publish(MqttPublishMessage msg) {
-        return writeToPulsarTopic(msg).thenAccept(__ -> CompletableFuture.completedFuture(null));
+        return writeToPulsarTopic(msg).thenAccept(__ -> {});
     }
 }

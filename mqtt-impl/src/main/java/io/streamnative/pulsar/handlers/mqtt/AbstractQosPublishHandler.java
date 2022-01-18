@@ -51,25 +51,26 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     }
 
     protected CompletableFuture<PositionImpl> writeToPulsarTopic(MqttPublishMessage msg) {
+        return writeToPulsarTopic(msg, false);
+    }
+
+    /**
+     * Convert mqtt protocol message to pulsar message and send it.
+     * @param msg                    MQTT protocol message
+     * @param checkSubscription Check if the subscription exists, throw #{MQTTNoMatchingSubscriberException}
+     *                              if the subscription does not exist;
+     */
+    protected CompletableFuture<PositionImpl> writeToPulsarTopic(MqttPublishMessage msg,
+                                                                 boolean checkSubscription) {
         return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
+            if (checkSubscription && topic.getSubscriptions().isEmpty()) {
+                throw new MQTTNoMatchingSubscriberException(msg.variableHeader().topicName());
+            }
             MessageImpl<byte[]> message = toPulsarMsg(msg);
             CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
             message.recycle();
             return ret;
         }).orElseGet(() -> FutureUtil.failedFuture(
                 new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
-    }
-
-    protected CompletableFuture<PositionImpl> writeToPulsarTopicAndCheckIfSubscriptionMatching(MqttPublishMessage msg) {
-        return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
-                    if (topic.getSubscriptions().isEmpty()) {
-                        throw new MQTTNoMatchingSubscriberException(msg.variableHeader().topicName());
-                    }
-                    MessageImpl<byte[]> message = toPulsarMsg(msg);
-                    CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
-                    message.recycle();
-                    return ret;
-                }).orElseGet(() -> FutureUtil.failedFuture(
-                        new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
     }
 }
