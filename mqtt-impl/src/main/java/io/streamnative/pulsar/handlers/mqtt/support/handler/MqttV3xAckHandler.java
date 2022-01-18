@@ -18,10 +18,12 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisconnectAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 
 /**
@@ -49,6 +51,14 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
     MqttMessage getDisconnectAckMessage(Connection connection, DisconnectAck disconnectAck) {
         return MqttDisconnectAckMessageHelper
                 .builder()
+                .reasonCode(MqttConnectReturnCode.CONNECTION_ACCEPTED.byteValue())
+                .build();
+    }
+
+    @Override
+    MqttMessage getPublishAckMessage(Connection connection, PublishAck publishAck) {
+        return MqttPubAckMessageHelper.builder()
+                .packetId(publishAck.getPacketId())
                 .reasonCode(MqttConnectReturnCode.CONNECTION_ACCEPTED.byteValue())
                 .build();
     }
