@@ -63,7 +63,9 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     MqttMessage getUnsubscribeAckMessage(Connection connection, UnsubscribeAck unsubscribeAck) {
         return MqttUnsubAckMessageHelper.builder()
                 .packetId(unsubscribeAck.getPacketId())
-                .addReasonCode(Mqtt5UnsubReasonCode.SUCCESS.shortValue())
+                // Because of MQTT protocol version 5 has non-error reason code - NO_SUBSCRIPTION_EXISTED
+                .addReasonCode(unsubscribeAck.getReasonCode() != null
+                        ? unsubscribeAck.getReasonCode().shortValue() : Mqtt5PubReasonCode.SUCCESS.shortValue())
                 .build();
     }
 

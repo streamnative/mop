@@ -468,7 +468,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             if (cause instanceof MQTTNoSubscriptionExistedException) {
                 unsubscribeAck = UnsubscribeAck
                         .builder()
-                        .success(false)
+                        .success(true)
                         .packetId(packetId)
                         .reasonCode(Mqtt5UnsubReasonCode.NO_SUBSCRIPTION_EXISTED)
                         .build();
