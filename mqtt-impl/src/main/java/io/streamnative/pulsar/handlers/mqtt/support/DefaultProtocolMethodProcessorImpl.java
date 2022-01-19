@@ -20,7 +20,6 @@ import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicS
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
@@ -38,19 +37,19 @@ import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
-import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.UnsubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.ExceptionUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
@@ -453,20 +452,36 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             });
             futureList.add(future);
         }
-        int messageId = msg.variableHeader().messageId();
-        int protocolVersion = connection.getProtocolVersion();
+        int packetId = msg.variableHeader().messageId();
+        AckHandler ackHandler = connection.getAckHandler();
         FutureUtil.waitForAll(futureList).thenAccept(__ -> {
-            // ack the client
-            MqttMessage ackMessage = MqttUtils.isMqtt5(protocolVersion) ?  // Support Mqtt version 5.0 reason code.
-                    MqttUnsubAckMessageHelper.createMqtt5(messageId, Mqtt5UnsubReasonCode.SUCCESS) :
-                    MqttUnsubAckMessageHelper.createMqtt(messageId);
-            if (log.isDebugEnabled()) {
-                log.debug("Sending UNSUBACK message {} to {}", ackMessage, clientId);
-            }
-            connection.send(ackMessage);
+            UnsubscribeAck unsubscribeAck = UnsubscribeAck
+                    .builder()
+                    .success(true)
+                    .packetId(packetId)
+                    .build();
+            ackHandler.sendUnsubscribeAck(connection, unsubscribeAck);
         }).exceptionally(ex -> {
             log.error("[{}] Failed to process the UNSUB {}", clientId, msg);
-            MopExceptionHelper.handle(MqttMessageType.UNSUBSCRIBE, messageId, channel, ex);
+            Throwable cause = ex.getCause();
+            UnsubscribeAck unsubscribeAck;
+            if (cause instanceof MQTTNoSubscriptionExistedException) {
+                unsubscribeAck = UnsubscribeAck
+                        .builder()
+                        .success(false)
+                        .packetId(packetId)
+                        .reasonCode(Mqtt5UnsubReasonCode.NO_SUBSCRIPTION_EXISTED)
+                        .build();
+            } else {
+                unsubscribeAck = UnsubscribeAck
+                        .builder()
+                        .success(false)
+                        .packetId(packetId)
+                        .reasonCode(Mqtt5UnsubReasonCode.UNSPECIFIED_ERROR)
+                        .reasonString(cause.getMessage())
+                        .build();
+            }
+            ackHandler.sendUnsubscribeAck(connection, unsubscribeAck);
             return null;
         });
     }

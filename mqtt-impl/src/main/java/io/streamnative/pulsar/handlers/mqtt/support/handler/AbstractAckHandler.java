@@ -23,9 +23,11 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.UnsubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisconnectAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,6 +40,8 @@ public abstract class AbstractAckHandler implements AckHandler {
     abstract MqttMessage getConnAckMessage(Connection connection);
 
     abstract MqttMessage getSubscribeAckMessage(Connection connection, SubscribeAck subscribeAck);
+
+    abstract MqttMessage getUnsubscribeAckMessage(Connection connection, UnsubscribeAck unsubscribeAck);
 
     abstract MqttMessage getPublishAckMessage(Connection connection, PublishAck publishAck);
 
@@ -116,6 +120,30 @@ public abstract class AbstractAckHandler implements AckHandler {
                 return connection.sendThenClose(pubErrorAck);
             } else {
                 // mqtt 3.x do not have any ack.
+                return connection.getChannel().close();
+            }
+        }
+    }
+
+    @Override
+    public ChannelFuture sendUnsubscribeAck(Connection connection, UnsubscribeAck unsubscribeAck) {
+        if (unsubscribeAck.isSuccess()) {
+            MqttMessage unsubscribeAckMessage = getUnsubscribeAckMessage(connection, unsubscribeAck);
+            if (log.isDebugEnabled()) {
+                log.debug("Sending UNSUBACK message {} to {}", unsubscribeAck, connection.getClientId());
+            }
+            return connection.send(unsubscribeAckMessage);
+        } else {
+            if (MqttUtils.isMqtt5(connection.getProtocolVersion())) {
+                MqttMessage unsubscribeErrorAck = MqttUnsubAckMessageHelper
+                        .errorBuilder(connection.getProtocolVersion())
+                        .packetId(unsubscribeAck.getPacketId())
+                        .reasonCode(unsubscribeAck.getReasonCode())
+                        .reasonString(unsubscribeAck.getReasonString())
+                        .build();
+                return connection.sendThenClose(unsubscribeErrorAck);
+            } else {
+                // mqtt 3.x do not have unsubscribe ack.
                 return connection.getChannel().close();
             }
         }

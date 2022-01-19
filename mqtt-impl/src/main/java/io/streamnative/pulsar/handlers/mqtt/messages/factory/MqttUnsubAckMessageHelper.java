@@ -14,90 +14,66 @@
 
 package io.streamnative.pulsar.handlers.mqtt.messages.factory;
 
-import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttMessageFactory;
-import io.netty.handler.codec.mqtt.MqttMessageIdAndPropertiesVariableHeader;
-import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
-import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttProperties;
-import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
-import io.netty.handler.codec.mqtt.MqttUnsubAckPayload;
+import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 
-/**
- * Factory pattern, used to create mqtt protocol unsubscription acknowledgement
- * message.
- *
- * @see Mqtt5UnsubReasonCode
- */
 public class MqttUnsubAckMessageHelper {
 
-    /**
-     * Create Mqtt 5 unsubscribe acknowledgement with no property.
-     *
-     * @param messageID              - Mqtt message id.
-     * @param unsubscribeReasonCodes - MqttUnsubAckReasonCode
-     * @return - MqttMessage
-     * @see Mqtt5UnsubReasonCode
-     */
-    public static MqttMessage createMqtt5(int messageID, Mqtt5UnsubReasonCode unsubscribeReasonCodes) {
-        return createMqtt5(messageID, unsubscribeReasonCodes, MqttProperties.NO_PROPERTIES);
+    public static MqttMessageBuilders.UnsubAckBuilder builder() {
+        return MqttMessageBuilders.unsubAck();
     }
 
-    /**
-     * Create error Mqtt 5 unsubscribe acknowledgement with reason string.
-     *
-     * @param messageID              - Mqtt message id
-     * @param unsubscribeReasonCodes - MqttUnsubAckReasonCode
-     * @param reasonStr              - Reason string
-     * @return - MqttMessage
-     * @see Mqtt5UnsubReasonCode
-     */
-    public static MqttMessage createMqtt5(int messageID, Mqtt5UnsubReasonCode unsubscribeReasonCodes,
-                                          String reasonStr) {
-        MqttProperties mqttProperties = new MqttProperties();
-        MqttProperties.StringProperty reasonStringProperty =
-                new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
-                        reasonStr);
-        mqttProperties.add(reasonStringProperty);
-        return createMqtt5(messageID, unsubscribeReasonCodes, mqttProperties);
+    public static MqttUnsubAckMessageHelper.MqttUnsubErrorAckBuilder errorBuilder(int protocolVersion) {
+        return new MqttUnsubAckMessageHelper.MqttUnsubErrorAckBuilder(protocolVersion);
     }
 
-    /**
-     * Create Mqtt 5 unsubscribe acknowledgement with property.
-     *
-     * @param messageID              - Mqtt message id
-     * @param unsubscribeReasonCodes - MqttUnsubAckReasonCode
-     * @param properties             - MqttProperties
-     * @return - MqttMessage
-     * @see Mqtt5UnsubReasonCode
-     * @see MqttProperties
-     */
-    public static MqttMessage createMqtt5(int messageID, Mqtt5UnsubReasonCode unsubscribeReasonCodes,
-                                          MqttProperties properties) {
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.UNSUBACK, false, MqttQoS.AT_MOST_ONCE,
-                false, 0);
-        MqttMessageIdAndPropertiesVariableHeader mqttMessageIdAndPropertiesVariableHeader =
-                new MqttMessageIdAndPropertiesVariableHeader(messageID, properties);
-        MqttUnsubAckPayload mqttUnsubAckPayload =
-                new MqttUnsubAckPayload(unsubscribeReasonCodes.byteValue());
-        return MqttMessageFactory.newMessage(fixedHeader, mqttMessageIdAndPropertiesVariableHeader,
-                mqttUnsubAckPayload);
-    }
+    public static class MqttUnsubErrorAckBuilder {
+        private final int protocolVersion;
+        private int packetId;
+        private Mqtt5UnsubReasonCode reasonCode;
+        private String reasonString;
 
-    /**
-     * Create mqtt unsubscribe acknowledgement message that version is lower than 5.0.
-     *
-     * @param messageID - Mqtt message id
-     * @return - MqttMessage
-     */
-    public static MqttMessage createMqtt(int messageID) {
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.UNSUBACK, false, MqttQoS.AT_MOST_ONCE,
-                false, 0);
-        return new MqttUnsubAckMessage(fixedHeader, MqttMessageIdVariableHeader.from(messageID));
-    }
+        public MqttUnsubErrorAckBuilder(int protocolVersion) {
+            this.protocolVersion = protocolVersion;
+        }
 
+        public MqttUnsubAckMessageHelper.MqttUnsubErrorAckBuilder reasonString(String reasonStr) {
+            this.reasonString = reasonStr;
+            return this;
+        }
+
+        public MqttUnsubAckMessageHelper.MqttUnsubErrorAckBuilder packetId(int packetId) {
+            this.packetId = packetId;
+            return this;
+        }
+
+        public MqttUnsubAckMessageHelper.MqttUnsubErrorAckBuilder reasonCode(Mqtt5UnsubReasonCode reasonCode) {
+            this.reasonCode = reasonCode;
+            return this;
+        }
+
+        public MqttMessage build() {
+            return MqttMessageBuilders.unsubAck()
+                    .packetId(packetId)
+                    .addReasonCode(reasonCode.shortValue())
+                    .properties(getStuffedProperties())
+                    .build();
+        }
+
+        private MqttProperties getStuffedProperties() {
+            if (MqttUtils.isMqtt5(protocolVersion)) {
+                MqttProperties properties = new MqttProperties();
+                MqttPropertyUtils.stuffReasonString(properties, reasonString);
+                return properties;
+            } else {
+                return MqttProperties.NO_PROPERTIES;
+            }
+        }
+
+    }
 
 }
