@@ -65,7 +65,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
                 .packetId(unsubscribeAck.getPacketId())
                 // Because of MQTT protocol version 5 has non-error reason code - NO_SUBSCRIPTION_EXISTED
                 .addReasonCode(unsubscribeAck.getReasonCode() != null
-                        ? unsubscribeAck.getReasonCode().shortValue() : Mqtt5PubReasonCode.SUCCESS.shortValue())
+                        ? unsubscribeAck.getReasonCode().shortValue() : Mqtt5UnsubReasonCode.SUCCESS.shortValue())
                 .build();
     }
 
@@ -83,7 +83,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
                 .packetId(publishAck.getPacketId())
                 // Because of MQTT protocol version 5 has non-error reason code - NoMatchingSubscription
                 .reasonCode(publishAck.getErrorReason() != null
-                        ? publishAck.getErrorReason().byteValue() : Mqtt5UnsubReasonCode.SUCCESS.byteValue())
+                        ? publishAck.getErrorReason().byteValue() : Mqtt5PubReasonCode.SUCCESS.byteValue())
                 .build();
     }
 }
