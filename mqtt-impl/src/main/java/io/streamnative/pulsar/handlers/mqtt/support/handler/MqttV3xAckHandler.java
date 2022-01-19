@@ -53,7 +53,6 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
     MqttMessage getUnsubscribeAckMessage(Connection connection, UnsubscribeAck unsubscribeAck) {
         return MqttUnsubAckMessageHelper.builder()
                 .packetId(unsubscribeAck.getPacketId())
-                .addReasonCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.shortValue())
                 .build();
     }
 
