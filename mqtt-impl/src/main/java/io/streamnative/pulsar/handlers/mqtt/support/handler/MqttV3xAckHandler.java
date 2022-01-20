@@ -20,11 +20,13 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.UnsubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisconnectAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttPubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessageHelper;
 
 /**
  * Mqtt3x ack handler.
@@ -44,6 +46,13 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
         return MqttSubAckMessageHelper.builder()
                 .packetId(subscribeAck.getPacketId())
                 .addGrantedQoses(subscribeAck.getGrantedQoses().toArray(new MqttQoS[]{}))
+                .build();
+    }
+
+    @Override
+    MqttMessage getUnsubscribeAckMessage(Connection connection, UnsubscribeAck unsubscribeAck) {
+        return MqttUnsubAckMessageHelper.builder()
+                .packetId(unsubscribeAck.getPacketId())
                 .build();
     }
 

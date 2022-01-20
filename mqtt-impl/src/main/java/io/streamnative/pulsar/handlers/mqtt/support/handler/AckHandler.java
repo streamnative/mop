@@ -18,6 +18,7 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.UnsubscribeAck;
 
 /**
  * Ack handler.
@@ -27,6 +28,8 @@ public interface AckHandler {
     ChannelFuture sendConnAck(Connection connection);
 
     ChannelFuture sendSubscribeAck(Connection connection, SubscribeAck subscribeAck);
+
+    ChannelFuture sendUnsubscribeAck(Connection connection, UnsubscribeAck unsubscribeAck);
 
     ChannelFuture sendDisconnectAck(Connection connection, DisconnectAck disconnectAck);
 
