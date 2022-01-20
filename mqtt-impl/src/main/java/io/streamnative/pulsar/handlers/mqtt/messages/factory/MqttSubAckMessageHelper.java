@@ -45,7 +45,7 @@ public class MqttSubAckMessageHelper {
 
     public static class MqttSubErrorAckBuilder {
         private int packetId;
-        private int protocolVersion;
+        private final int protocolVersion;
         private MqttSubAckMessageHelper.ErrorReason errorReason;
         private String reasonString;
         private final List<MqttQoS> grantedQoses = Lists.newArrayList();
