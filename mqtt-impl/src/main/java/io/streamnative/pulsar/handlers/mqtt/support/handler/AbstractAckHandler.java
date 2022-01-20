@@ -97,8 +97,8 @@ public abstract class AbstractAckHandler implements AckHandler {
         } else {
             MqttMessage disconnectErrorAck =
                     MqttDisconnectAckMessageHelper.errorBuilder(connection.getProtocolVersion())
-                            .errorReason(disconnectAck.getErrorReason())
-                            .reasonString(disconnectAck.getReasonStr())
+                            .reasonCode(disconnectAck.getReasonCode())
+                            .reasonString(disconnectAck.getReasonString())
                             .build();
             return connection.sendThenClose(disconnectErrorAck);
         }
@@ -114,7 +114,7 @@ public abstract class AbstractAckHandler implements AckHandler {
                 MqttMessage pubErrorAck = MqttPubAckMessageHelper
                         .errorBuilder(connection.getProtocolVersion())
                         .packetId(publishAck.getPacketId())
-                        .errorReason(publishAck.getErrorReason())
+                        .reasonCode(publishAck.getReasonCode())
                         .reasonString(publishAck.getReasonString())
                         .build();
                 return connection.sendThenClose(pubErrorAck);

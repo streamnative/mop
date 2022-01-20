@@ -177,7 +177,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         PublishAck unAuthorizedAck = PublishAck.builder()
                 .success(false)
                 .packetId(msg.variableHeader().packetId())
-                .errorReason(Mqtt5PubReasonCode.NOT_AUTHORIZED)
+                .reasonCode(Mqtt5PubReasonCode.NOT_AUTHORIZED)
                 .reasonString("Not Authorized!")
                 .build();
         connection.getAckHandler().sendPublishAck(connection, unAuthorizedAck);
@@ -212,7 +212,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                     connection.getServerReceivePubMaximum());
             PublishAck quotaExceededAck = PublishAck.builder()
                     .success(false)
-                    .errorReason(Mqtt5PubReasonCode.QUOTA_EXCEEDED)
+                    .reasonCode(Mqtt5PubReasonCode.QUOTA_EXCEEDED)
                     .packetId(msg.variableHeader().packetId())
                     .reasonString(String.format("Publish exceed server receive maximum %s.",
                             connection.getServerReceivePubMaximum()))
@@ -265,8 +265,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 DisconnectAck disconnectAck = DisconnectAck
                         .builder()
                         .success(false)
-                        .errorReason(Mqtt5DisConnReasonCode.PROTOCOL_ERROR)
-                        .reasonStr(String.format("Disconnect with wrong session expire interval value. the value is %s",
+                        .reasonCode(Mqtt5DisConnReasonCode.PROTOCOL_ERROR)
+                        .reasonString(String.format("Disconnect with wrong session expire interval value. the value is %s",
                                 sessionExpireInterval))
                         .build();
                 connection.getAckHandler().sendDisconnectAck(connection, disconnectAck);
@@ -348,7 +348,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 if (!authorizedFlag.get()) {
                     SubscribeAck subscribeAck = SubscribeAck
                             .builder()
-                            .isSuccess(false)
+                            .success(false)
                             .packetId(packetId)
                             .errorReason(MqttSubAckMessageHelper.ErrorReason.AUTHORIZATION_FAIL)
                             .build();
@@ -399,7 +399,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         return FutureUtil.waitForAll(futureList).thenAccept(v -> {
             SubscribeAck subscribeAck = SubscribeAck
                     .builder()
-                    .isSuccess(true)
+                    .success(true)
                     .packetId(messageID)
                     .grantedQoses(subTopics.stream()
                             .map(MqttTopicSubscription::qualityOfService)
@@ -411,7 +411,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             log.error("[Subscribe] [{}] Failed to process MQTT subscribe.", connection.getClientId(), causeError);
             SubscribeAck subscribeAck = SubscribeAck
                     .builder()
-                    .isSuccess(false)
+                    .success(false)
                     .packetId(messageID)
                     .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
                     .reasonStr("[ MOP ERROR ]" + causeError.getMessage())
