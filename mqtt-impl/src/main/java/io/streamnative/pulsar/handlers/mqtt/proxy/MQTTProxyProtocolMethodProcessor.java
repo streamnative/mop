@@ -148,11 +148,12 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
     @Override
     public void processConnectionLost() {
-        if (log.isDebugEnabled()) {
-            log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
+        if (connection != null) {
+            if (log.isDebugEnabled()) {
+                log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
+            }
+            connectionManager.removeConnection(connection);
         }
-        final Connection connection = NettyUtils.getConnection(channel);
-        connectionManager.removeConnection(connection);
         brokerPool.forEach((k, v) -> v.close());
         brokerPool.clear();
         topicBrokers.clear();
