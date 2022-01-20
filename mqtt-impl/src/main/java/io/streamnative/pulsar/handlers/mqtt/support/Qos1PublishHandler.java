@@ -79,7 +79,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                         PublishAck noMatchingSubscribersAck = PublishAck.builder()
                                 .success(true)
                                 .packetId(packetId)
-                                .errorReason(Mqtt5PubReasonCode.NO_MATCHING_SUBSCRIBERS)
+                                .reasonCode(Mqtt5PubReasonCode.NO_MATCHING_SUBSCRIBERS)
                                 .build();
                         ackHandler.sendPublishAck(connection, noMatchingSubscribersAck)
                                 .addListener(__ -> connection.decrementServerReceivePubMessage());
@@ -87,7 +87,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                         PublishAck topicNotFoundAck = PublishAck.builder()
                                 .success(false)
                                 .packetId(packetId)
-                                .errorReason(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
+                                .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
                                 .reasonString("Topic not found")
                                 .build();
                         ackHandler.sendPublishAck(connection, topicNotFoundAck);
@@ -95,7 +95,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                         PublishAck unKnowErrorAck = PublishAck.builder()
                                 .success(false)
                                 .packetId(packetId)
-                                .errorReason(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
+                                .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
                                 .reasonString(cause.getMessage())
                                 .build();
                         ackHandler.sendPublishAck(connection, unKnowErrorAck);
