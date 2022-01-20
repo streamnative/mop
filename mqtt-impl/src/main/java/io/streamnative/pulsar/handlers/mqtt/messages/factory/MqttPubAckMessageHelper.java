@@ -33,7 +33,7 @@ public class MqttPubAckMessageHelper {
     public final static class MqttPubErrorAckBuilder {
         private final int protocolVersion;
         private int packetId;
-        private Mqtt5PubReasonCode errorReason;
+        private Mqtt5PubReasonCode reasonCode;
         private String reasonString;
 
         public MqttPubErrorAckBuilder(int protocolVersion) {
@@ -50,15 +50,15 @@ public class MqttPubAckMessageHelper {
             return this;
         }
 
-        public MqttPubAckMessageHelper.MqttPubErrorAckBuilder errorReason(
-                Mqtt5PubReasonCode errorReason) {
-            this.errorReason = errorReason;
+        public MqttPubAckMessageHelper.MqttPubErrorAckBuilder reasonCode(
+                Mqtt5PubReasonCode reasonCode) {
+            this.reasonCode = reasonCode;
             return this;
         }
 
         public MqttMessage build() {
             return MqttMessageBuilders.pubAck()
-                    .reasonCode(errorReason.byteValue())
+                    .reasonCode(reasonCode.byteValue())
                     .packetId(packetId)
                     .properties(getStuffedProperties())
                     .build();
