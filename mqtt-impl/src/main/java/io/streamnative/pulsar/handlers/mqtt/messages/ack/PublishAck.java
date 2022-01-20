@@ -23,6 +23,6 @@ import lombok.Getter;
 public class PublishAck {
     private final boolean success;
     private final int packetId;
-    private final Mqtt5PubReasonCode errorReason;
+    private final Mqtt5PubReasonCode reasonCode;
     private final String reasonString;
 }

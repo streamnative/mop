@@ -20,14 +20,14 @@ import io.netty.channel.ChannelException;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
-import io.streamnative.pulsar.handlers.mqtt.exception.handler.MopExceptionHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
@@ -110,9 +110,18 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .thenCompose(brokerAddress -> writeToBroker(brokerAddress, pulsarTopicName, msg))
                 .exceptionally(ex -> {
                     msg.release();
+                    Throwable cause = ex.getCause();
                     log.error("[Proxy Publish] Failed to publish for topic : {}, CId : {}",
-                            msg.variableHeader().topicName(), connection.getClientId(), ex);
-                    MopExceptionHelper.handle(MqttMessageType.PUBLISH, packetId, channel, ex);
+                            msg.variableHeader().topicName(), connection.getClientId(), cause);
+                    PublishAck unspecifiedErrorAck = PublishAck.builder()
+                            .success(false)
+                            .packetId(packetId)
+                            .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
+                            .reasonString(String.format("Failed to publish for topic, because of look up error %s",
+                                    cause.getMessage()))
+                            .build();
+                    connection.getAckHandler().sendPublishAck(connection, unspecifiedErrorAck)
+                            .addListener(__ -> connection.decrementServerReceivePubMessage());
                     return null;
                 });
     }
@@ -187,7 +196,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, causeIfExist);
                     SubscribeAck subscribeAck = SubscribeAck
                             .builder()
-                            .isSuccess(false)
+                            .success(false)
                             .packetId(packetId)
                             .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
                             .reasonStr("[ MOP ERROR ]" + causeIfExist.getMessage())

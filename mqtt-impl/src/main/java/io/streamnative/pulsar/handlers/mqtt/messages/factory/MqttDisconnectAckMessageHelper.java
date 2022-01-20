@@ -32,7 +32,7 @@ public class MqttDisconnectAckMessageHelper {
 
     public static class MqttDisConnectErrorAckBuilder {
         private final int protocolVersion;
-        private Mqtt5DisConnReasonCode errorReason;
+        private Mqtt5DisConnReasonCode reasonCode;
         private String reasonString;
 
         public MqttDisConnectErrorAckBuilder(int protocolVersion) {
@@ -45,16 +45,16 @@ public class MqttDisconnectAckMessageHelper {
         }
 
 
-        public MqttDisconnectAckMessageHelper.MqttDisConnectErrorAckBuilder errorReason
-                (Mqtt5DisConnReasonCode errorReason) {
-            this.errorReason = errorReason;
+        public MqttDisconnectAckMessageHelper.MqttDisConnectErrorAckBuilder reasonCode
+                (Mqtt5DisConnReasonCode reasonCode) {
+            this.reasonCode = reasonCode;
             return this;
         }
 
         public MqttMessage build() {
             return MqttMessageBuilders
                     .disconnect()
-                    .reasonCode(errorReason.byteValue())
+                    .reasonCode(reasonCode.byteValue())
                     .properties(getStuffedProperties())
                     .build();
         }
