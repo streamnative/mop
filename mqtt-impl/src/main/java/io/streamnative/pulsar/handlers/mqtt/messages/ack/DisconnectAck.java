@@ -21,6 +21,6 @@ import lombok.Getter;
 @Builder
 public class DisconnectAck {
     private final boolean success;
-    private final Mqtt5DisConnReasonCode errorReason;
-    private final String reasonStr;
+    private final Mqtt5DisConnReasonCode reasonCode;
+    private final String reasonString;
 }

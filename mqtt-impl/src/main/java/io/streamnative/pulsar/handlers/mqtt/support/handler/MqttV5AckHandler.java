@@ -82,8 +82,8 @@ public class MqttV5AckHandler extends AbstractAckHandler {
         return MqttPubAckMessageHelper.builder()
                 .packetId(publishAck.getPacketId())
                 // Because of MQTT protocol version 5 has non-error reason code - NoMatchingSubscription
-                .reasonCode(publishAck.getErrorReason() != null
-                        ? publishAck.getErrorReason().byteValue() : Mqtt5PubReasonCode.SUCCESS.byteValue())
+                .reasonCode(publishAck.getReasonCode() != null
+                        ? publishAck.getReasonCode().byteValue() : Mqtt5PubReasonCode.SUCCESS.byteValue())
                 .build();
     }
 }
