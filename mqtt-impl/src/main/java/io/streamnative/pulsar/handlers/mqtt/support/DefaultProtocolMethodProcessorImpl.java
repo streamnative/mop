@@ -266,7 +266,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                         .builder()
                         .success(false)
                         .reasonCode(Mqtt5DisConnReasonCode.PROTOCOL_ERROR)
-                        .reasonString(String.format("Disconnect with wrong session expire interval value. the value is %s",
+                        .reasonString(
+                                String.format("Disconnect with wrong session expire interval value. the value is %s",
                                 sessionExpireInterval))
                         .build();
                 connection.getAckHandler().sendDisconnectAck(connection, disconnectAck);
