@@ -41,11 +41,11 @@ public class MqttV5AckHandler extends AbstractAckHandler {
         MqttProperties properties = new MqttProperties();
         MqttProperties.IntegerProperty property =
                 new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
-                        connection.getServerReceivePubMaximum());
+                        connection.getServerRestrictions().getServerReceiveMaximum());
         properties.add(property);
         return MqttConnectAckHelper.builder()
                 .returnCode(Mqtt5ConnReasonCode.SUCCESS.convertToNettyKlass())
-                .sessionPresent(!connection.isCleanSession())
+                .sessionPresent(!connection.getClientRestrictions().isCleanSession())
                 .properties(properties)
                 .build();
     }
