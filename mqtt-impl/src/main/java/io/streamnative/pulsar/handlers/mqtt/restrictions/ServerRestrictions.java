@@ -11,20 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.streamnative.pulsar.handlers.mqtt.restrictions;
 
-package io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
 
-public enum SessionExpireInterval {
-    NEVER_EXPIRE(0xFFFFFFFF),
-    EXPIRE_IMMEDIATELY(0);
-
-    private final int secondTime;
-
-    SessionExpireInterval(int secondTime) {
-        this.secondTime = secondTime;
-    }
-
-    public int getSecondTime() {
-        return secondTime;
-    }
+@Builder
+@ToString
+@EqualsAndHashCode
+public class ServerRestrictions {
+    @Getter
+    private int serverReceiveMaximum;
 }

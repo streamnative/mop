@@ -29,6 +29,8 @@ import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.ExceptionUtils;
@@ -79,17 +81,19 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     }
 
     @Override
-    public void doProcessConnect(MqttConnectMessage msg, String userRole) {
+    public void doProcessConnect(MqttConnectMessage msg, String userRole, ClientRestrictions clientRestrictions) {
+        ServerRestrictions serverRestrictions = ServerRestrictions.builder()
+                .serverReceiveMaximum(proxyConfig.getReceiveMaximum())
+                .build();
         connection = Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
                 .clientId(msg.payload().clientIdentifier())
                 .userRole(userRole)
-                .cleanSession(msg.variableHeader().isCleanSession())
                 .connectMessage(msg)
-                .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
+                .clientRestrictions(clientRestrictions)
+                .serverRestrictions(serverRestrictions)
                 .channel(channel)
                 .connectionManager(connectionManager)
-                .serverReceivePubMaximum(proxyConfig.getReceiveMaximum())
                 .build();
         connection.sendConnAck();
     }
