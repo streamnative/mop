@@ -78,6 +78,12 @@ public class MqttConnectAckHelper {
             return build();
         }
 
+        public MqttMessage protocolError(int protocolVersion) {
+            this.protocolVersion = protocolVersion;
+            this.errorReason = ErrorReason.PROTOCOL_ERROR;
+            return build();
+        }
+
         public MqttMessage build() {
             MqttMessageBuilders.ConnAckBuilder connAckBuilder = MqttMessageBuilders.connAck()
                     .sessionPresent(false)
@@ -106,7 +112,9 @@ public class MqttConnectAckHelper {
         WILL_QOS_NOT_SUPPORT(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE,
                 Mqtt5ConnReasonCode.QOS_NOT_SUPPORTED),
         SERVER_UNAVAILABLE(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE,
-                Mqtt5ConnReasonCode.SERVER_UNAVAILABLE);
+                Mqtt5ConnReasonCode.SERVER_UNAVAILABLE),
+        PROTOCOL_ERROR(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE,
+                Mqtt5ConnReasonCode.PROTOCOL_ERROR);
 
         private final Mqtt3ConnReasonCode v3ReasonCode;
         private final Mqtt5ConnReasonCode v5ReasonCode;
