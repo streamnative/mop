@@ -129,9 +129,7 @@ public class Connection {
     }
 
     public CompletableFuture<Void> close(boolean force) {
-        if (log.isInfoEnabled()) {
-            log.info("Closing connection. clientId = {}.", clientId);
-        }
+        log.info("Closing connection. clientId = {}.", clientId);
         if (!force) {
             assignState(ESTABLISHED, DISCONNECTED);
         }
