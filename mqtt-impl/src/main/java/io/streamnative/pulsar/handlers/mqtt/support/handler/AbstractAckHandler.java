@@ -91,16 +91,20 @@ public abstract class AbstractAckHandler implements AckHandler {
 
     @Override
     public ChannelFuture sendDisconnectAck(Connection connection, DisconnectAck disconnectAck) {
-        if (disconnectAck.isSuccess()) {
-            MqttMessage disconnectAckMessage = getDisconnectAckMessage(connection, disconnectAck);
-            return connection.sendThenClose(disconnectAckMessage);
+        if (MqttUtils.isMqtt5(connection.getProtocolVersion())) {
+            if (disconnectAck.isSuccess()) {
+                MqttMessage disconnectAckMessage = getDisconnectAckMessage(connection, disconnectAck);
+                return connection.sendThenClose(disconnectAckMessage);
+            } else {
+                MqttMessage disconnectErrorAck =
+                        MqttDisconnectAckMessageHelper.errorBuilder(connection.getProtocolVersion())
+                                .reasonCode(disconnectAck.getReasonCode())
+                                .reasonString(disconnectAck.getReasonString())
+                                .build();
+                return connection.sendThenClose(disconnectErrorAck);
+            }
         } else {
-            MqttMessage disconnectErrorAck =
-                    MqttDisconnectAckMessageHelper.errorBuilder(connection.getProtocolVersion())
-                            .reasonCode(disconnectAck.getReasonCode())
-                            .reasonString(disconnectAck.getReasonString())
-                            .build();
-            return connection.sendThenClose(disconnectErrorAck);
+            return connection.getChannel().close();
         }
     }
 
