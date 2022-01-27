@@ -37,7 +37,7 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
     MqttMessage getConnAckMessage(Connection connection) {
         return MqttConnectAckHelper.builder()
                 .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.convertToNettyKlass())
-                .sessionPresent(!connection.isCleanSession())
+                .sessionPresent(!connection.getClientRestrictions().isCleanSession())
                 .build();
     }
 

@@ -20,11 +20,9 @@ import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicS
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
@@ -40,6 +38,7 @@ import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
+import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
@@ -48,8 +47,9 @@ import io.streamnative.pulsar.handlers.mqtt.messages.ack.UnsubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.ExceptionUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
@@ -107,19 +107,17 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     }
 
     @Override
-    public void doProcessConnect(MqttConnectMessage msg, String userRole) {
+    public void doProcessConnect(MqttConnectMessage msg, String userRole, ClientRestrictions clientRestrictions) {
+        ServerRestrictions serverRestrictions = ServerRestrictions.builder()
+                .receiveMaximum(configuration.getReceiveMaximum())
+                .build();
         connection = Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
                 .clientId(msg.payload().clientIdentifier())
                 .userRole(userRole)
                 .willMessage(createWillMessage(msg))
-                .cleanSession(msg.variableHeader().isCleanSession())
-                .sessionExpireInterval(MqttPropertyUtils.getExpireInterval(msg.variableHeader().properties())
-                        .orElse(SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()))
-                .clientReceiveMaximum(MqttPropertyUtils.getReceiveMaximum(msg.variableHeader().version(),
-                        msg.variableHeader().properties()))
-                .serverReceivePubMaximum(configuration.getReceiveMaximum())
-                .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
+                .clientRestrictions(clientRestrictions)
+                .serverRestrictions(serverRestrictions)
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .build();
@@ -207,15 +205,15 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         if (!MqttUtils.isMqtt5(connection.getProtocolVersion())) {
             return;
         }
-        if (connection.getServerReceivePubMessage() >= connection.getServerReceivePubMaximum()) {
+        if (connection.getServerReceivePubMessage() >= connection.getClientRestrictions().getReceiveMaximum()) {
             log.warn("Client publish exceed server receive maximum , the receive maximum is {}",
-                    connection.getServerReceivePubMaximum());
+                    connection.getServerRestrictions().getReceiveMaximum());
             PublishAck quotaExceededAck = PublishAck.builder()
                     .success(false)
                     .reasonCode(Mqtt5PubReasonCode.QUOTA_EXCEEDED)
                     .packetId(msg.variableHeader().packetId())
                     .reasonString(String.format("Publish exceed server receive maximum %s.",
-                            connection.getServerReceivePubMaximum()))
+                            connection.getServerRestrictions().getReceiveMaximum()))
                     .build();
             connection.getAckHandler().sendPublishAck(connection, quotaExceededAck);
         } else {
@@ -234,48 +232,34 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         if (log.isDebugEnabled()) {
             log.debug("[Disconnect] [{}] ", clientId);
         }
-        // when reset expire interval present, we need to reset session expire interval.
-        Object header = msg.variableHeader();
-        if (header instanceof MqttReasonCodeAndPropertiesVariableHeader) {
-            MqttProperties properties = ((MqttReasonCodeAndPropertiesVariableHeader) header).properties();
-            if (!checkAndUpdateSessionExpireIntervalIfNeed(clientId, connection, properties)){
-                // If the session expire interval value is illegal.
-                return;
-            }
+        // If client update session timeout interval property.
+        Optional<Integer> newSessionExpireInterval;
+        if ((newSessionExpireInterval = MqttPropertyUtils
+                .getUpdateSessionExpireIntervalIfExist(connection.getProtocolVersion(), msg)).isPresent()) {
+                try {
+                    connection.updateSessionExpireInterval(newSessionExpireInterval.get());
+                } catch (InvalidSessionExpireIntervalException e) {
+                    DisconnectAck disconnectAck = DisconnectAck
+                            .builder()
+                            .success(false)
+                            .reasonCode(Mqtt5DisConnReasonCode.PROTOCOL_ERROR)
+                            .reasonString(String.format("Disconnect with wrong session expire interval value."
+                                    + " the value is %s", newSessionExpireInterval))
+                            .build();
+                    connection.getAckHandler().sendDisconnectAck(connection, disconnectAck);
+                }
+        } else {
+            DisconnectAck disconnectAck = DisconnectAck
+                    .builder()
+                    .success(true)
+                    .build();
+            connection.getAckHandler()
+                    .sendDisconnectAck(connection, disconnectAck)
+                    .addListener(__ -> {
+                        metricsCollector.removeClient(NettyUtils.getAddress(channel));
+                        connectionManager.removeConnection(connection);
+                    });
         }
-        DisconnectAck disconnectAck = DisconnectAck
-                .builder()
-                .success(true)
-                .build();
-        connection.getAckHandler()
-                .sendDisconnectAck(connection, disconnectAck)
-                .addListener(__ -> {
-                    metricsCollector.removeClient(NettyUtils.getAddress(channel));
-                    connectionManager.removeConnection(connection);
-                });
-    }
-
-    private boolean checkAndUpdateSessionExpireIntervalIfNeed(String clientId,
-                                                              Connection connection, MqttProperties properties) {
-        Optional<Integer> expireInterval = MqttPropertyUtils.getExpireInterval(properties);
-        if (expireInterval.isPresent()) {
-            Integer sessionExpireInterval = expireInterval.get();
-            boolean checkResult = connection.checkIsLegalExpireInterval(sessionExpireInterval);
-            if (!checkResult) {
-                DisconnectAck disconnectAck = DisconnectAck
-                        .builder()
-                        .success(false)
-                        .reasonCode(Mqtt5DisConnReasonCode.PROTOCOL_ERROR)
-                        .reasonString(
-                                String.format("Disconnect with wrong session expire interval value. the value is %s",
-                                sessionExpireInterval))
-                        .build();
-                connection.getAckHandler().sendDisconnectAck(connection, disconnectAck);
-                return false;
-            }
-            connection.updateSessionExpireInterval(sessionExpireInterval);
-        }
-        return true;
     }
 
     @Override
@@ -383,7 +367,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                         try {
                             MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(), topic,
                                     connection.getClientId(), serverCnx, subTopic.qualityOfService(), packetIdGenerator,
-                                    outstandingPacketContainer, metricsCollector, connection.getClientReceiveMaximum());
+                                    outstandingPacketContainer, metricsCollector, connection.getClientRestrictions());
                             sub.addConsumer(consumer);
                             consumer.addAllPermits();
                             connection.getTopicSubscriptionManager().putIfAbsent(sub.getTopic(), sub, consumer);
