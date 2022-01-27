@@ -23,8 +23,10 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerFactory;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
@@ -48,22 +50,11 @@ public class Connection {
     @Getter
     private final Channel channel;
     @Getter
-    private final boolean cleanSession;
-    @Getter
     private final int protocolVersion;
     @Getter
     private final WillMessage willMessage;
     @Getter
-    private volatile int sessionExpireInterval;
-    volatile ConnectionState connectionState = DISCONNECTED;
-    @Getter
-    private int clientReceiveMaximum; // mqtt 5.0 specification.
-    @Getter
-    private int serverReceivePubMaximum;
-    @Getter
-    private volatile int serverCurrentReceiveCounter = 0;
-    @Getter
-    private String userRole;
+    private final String userRole;
     @Getter
     private final MQTTConnectionManager manager;
     @Getter
@@ -73,13 +64,15 @@ public class Connection {
     @Getter
     private final AckHandler ackHandler;
     @Getter
-    private final int keepAliveTime;
+    private final ClientRestrictions clientRestrictions;
+    @Getter
+    private final ServerRestrictions serverRestrictions;
+    volatile ConnectionState connectionState = DISCONNECTED;
+    @Getter
+    private volatile int serverCurrentReceiveCounter = 0;
 
     private static final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
             newUpdater(Connection.class, ConnectionState.class, "connectionState");
-
-    private static final AtomicIntegerFieldUpdater<Connection> SESSION_EXPIRE_INTERVAL_UPDATER =
-            AtomicIntegerFieldUpdater.newUpdater(Connection.class, "sessionExpireInterval");
 
     private static final AtomicIntegerFieldUpdater<Connection> SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(Connection.class, "serverCurrentReceiveCounter");
@@ -87,17 +80,14 @@ public class Connection {
     Connection(ConnectionBuilder builder) {
         this.clientId = builder.clientId;
         this.protocolVersion = builder.protocolVersion;
-        this.cleanSession = builder.cleanSession;
         this.willMessage = builder.willMessage;
-        this.sessionExpireInterval = builder.sessionExpireInterval;
-        this.clientReceiveMaximum = builder.clientReceiveMaximum;
-        this.serverReceivePubMaximum = builder.serverReceivePubMaximum;
+        this.clientRestrictions = builder.clientRestrictions;
+        this.serverRestrictions = builder.serverRestrictions;
         this.userRole = builder.userRole;
         this.channel = builder.channel;
         this.manager = builder.connectionManager;
         this.manager.addConnection(this);
         this.connectMessage = builder.connectMessage;
-        this.keepAliveTime = builder.keepAliveTime;
         this.ackHandler = AckHandlerFactory.of(protocolVersion).getAckHandler();
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
         this.topicSubscriptionManager = new TopicSubscriptionManager();
@@ -110,7 +100,7 @@ public class Connection {
             pipeline.remove("idleStateHandler");
         }
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(0, 0,
-                Math.round(keepAliveTime * 1.5f)));
+                Math.round(clientRestrictions.getKeepAliveTime() * 1.5f)));
     }
 
     public ChannelFuture sendConnAck() {
@@ -139,9 +129,7 @@ public class Connection {
     }
 
     public CompletableFuture<Void> close(boolean force) {
-        if (log.isInfoEnabled()) {
-            log.info("Closing connection. clientId = {}.", clientId);
-        }
+        log.info("Closing connection. clientId = {}.", clientId);
         if (!force) {
             assignState(ESTABLISHED, DISCONNECTED);
         }
@@ -150,24 +138,24 @@ public class Connection {
                 .success(true)
                 .build();
         ackHandler.sendDisconnectAck(this, disconnectAck);
-        if (cleanSession) {
+        if (clientRestrictions.isCleanSession()) {
             return topicSubscriptionManager.removeSubscriptions();
         }
         // when use mqtt5.0 we need to use session expire interval to remove session.
         // but mqtt protocol version lower than 5.0 we don't do that.
-        if (MqttUtils.isMqtt5(protocolVersion)
-                && SESSION_EXPIRE_INTERVAL_UPDATER.get(this)
-                != SessionExpireInterval.NEVER_EXPIRE.getSecondTime()) {
-            if (sessionExpireInterval == SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()) {
+        if (MqttUtils.isMqtt5(protocolVersion) && !clientRestrictions.isSessionNeverExpire()) {
+            if (clientRestrictions.isSessionExpireImmediately()) {
                 return topicSubscriptionManager.removeSubscriptions();
+            } else {
+                manager.newSessionExpireInterval(__ -> topicSubscriptionManager.removeSubscriptions(),
+                        clientId, clientRestrictions.getSessionExpireInterval());
+                return CompletableFuture.completedFuture(null);
             }
-            manager.newSessionExpireInterval(__ -> topicSubscriptionManager.removeSubscriptions(),
-                    clientId, SESSION_EXPIRE_INTERVAL_UPDATER.get(this));
+        } else {
+            // remove subscription consumer if we don't need to clean session.
+            topicSubscriptionManager.removeSubscriptionConsumers();
             return CompletableFuture.completedFuture(null);
         }
-        // remove subscription consumer if we don't need to clean session.
-        topicSubscriptionManager.removeSubscriptionConsumers();
-        return CompletableFuture.completedFuture(null);
     }
 
     public boolean assignState(ConnectionState expected, ConnectionState newState) {
@@ -196,14 +184,14 @@ public class Connection {
         return channelState.get(connection);
     }
 
-    public void updateSessionExpireInterval(int newSessionInterval) {
-        SESSION_EXPIRE_INTERVAL_UPDATER.set(this, newSessionInterval);
+    public void updateSessionExpireInterval(int newSessionInterval) throws InvalidSessionExpireIntervalException {
+       clientRestrictions.updateExpireInterval(newSessionInterval);
     }
 
     @Override
     public String toString() {
         return "Connection{" + "clientId=" + clientId + ", channel=" + channel
-                + ", cleanSession=" + cleanSession + ", state="
+                + ", cleanSession=" + clientRestrictions.isCleanSession() + ", state="
                 + channelState.get(this) + '}';
     }
 
@@ -222,18 +210,6 @@ public class Connection {
     @Override
     public int hashCode() {
         return Objects.hash(clientId, channel);
-    }
-
-    /**
-     * Check the session expire interval is valid.
-     *
-     * @param sessionExpireInterval session expire interval second time
-     * @return whether param is valid.
-     */
-    public boolean checkIsLegalExpireInterval(Integer sessionExpireInterval) {
-        int sei = SESSION_EXPIRE_INTERVAL_UPDATER.get(this);
-        int zeroSecond = SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
-        return sei > zeroSecond && sessionExpireInterval >= zeroSecond;
     }
 
     public void incrementServerReceivePubMessage() {
@@ -265,15 +241,12 @@ public class Connection {
         private int protocolVersion;
         private String clientId;
         private String userRole;
-        private boolean cleanSession;
         private WillMessage willMessage;
-        private int clientReceiveMaximum;
-        private int serverReceivePubMaximum;
-        private int sessionExpireInterval;
         private Channel channel;
         private MQTTConnectionManager connectionManager;
         private MqttConnectMessage connectMessage;
-        private int keepAliveTime;
+        private ClientRestrictions clientRestrictions;
+        public ServerRestrictions serverRestrictions;
 
         public ConnectionBuilder protocolVersion(int protocolVersion) {
             this.protocolVersion = protocolVersion;
@@ -295,23 +268,13 @@ public class Connection {
             return this;
         }
 
-        public ConnectionBuilder cleanSession(boolean cleanSession) {
-            this.cleanSession = cleanSession;
+        public ConnectionBuilder clientRestrictions(ClientRestrictions clientRestrictions){
+            this.clientRestrictions = clientRestrictions;
             return this;
         }
 
-        public ConnectionBuilder clientReceiveMaximum(int clientReceiveMaximum) {
-            this.clientReceiveMaximum = clientReceiveMaximum;
-            return this;
-        }
-
-        public ConnectionBuilder serverReceivePubMaximum(int serverReceivePubMaximum) {
-            this.serverReceivePubMaximum = serverReceivePubMaximum;
-            return this;
-        }
-
-        public ConnectionBuilder sessionExpireInterval(int sessionExpireInterval) {
-            this.sessionExpireInterval = sessionExpireInterval;
+        public ConnectionBuilder serverRestrictions(ServerRestrictions serverRestrictions){
+            this.serverRestrictions = serverRestrictions;
             return this;
         }
 
@@ -327,11 +290,6 @@ public class Connection {
 
         public ConnectionBuilder connectMessage(MqttConnectMessage connectMessage) {
             this.connectMessage = connectMessage;
-            return this;
-        }
-
-        public ConnectionBuilder keepAliveTime(int keepAliveTime) {
-            this.keepAliveTime = keepAliveTime;
             return this;
         }
 
