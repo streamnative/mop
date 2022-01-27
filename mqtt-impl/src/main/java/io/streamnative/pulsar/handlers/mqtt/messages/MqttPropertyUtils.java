@@ -36,10 +36,10 @@ public class MqttPropertyUtils {
      * @return Integer - expire interval value
      */
     @SuppressWarnings("unchecked")
-    public static Integer getExpireInterval(MqttProperties properties) {
+    public static Optional<Integer> getExpireInterval(MqttProperties properties) {
         MqttProperties.MqttProperty<Integer> property = properties
                 .getProperty(MqttProperties.MqttPropertyType.SESSION_EXPIRY_INTERVAL.value());
-        return property.value();
+        return Optional.ofNullable(property.value());
     }
 
     /**
@@ -48,10 +48,10 @@ public class MqttPropertyUtils {
      * @return Integer - expire interval value
      */
     @SuppressWarnings("unchecked")
-    private static Integer getReceiveMaximum(MqttProperties properties) {
+    private static Optional<Integer> getReceiveMaximum(MqttProperties properties) {
         MqttProperties.MqttProperty<Integer> property = properties
                 .getProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value());
-        return property.value();
+        return Optional.ofNullable(property.value());
     }
 
     public static void parsePropertiesToStuffRestriction(
@@ -60,16 +60,15 @@ public class MqttPropertyUtils {
             throws InvalidReceiveMaximumException {
         MqttProperties properties = connectMessage.variableHeader().properties();
         // parse expire interval
-        Integer expireInterval = getExpireInterval(properties);
+        getExpireInterval(properties)
+                .ifPresent(clientRestrictionsBuilder::sessionExpireInterval);
         // parse receive maximum
-        Integer receiveMaximum = getReceiveMaximum(properties);
-        if (receiveMaximum == 0) {
+        Optional<Integer> receiveMaximum = getReceiveMaximum(properties);
+        if (receiveMaximum.isPresent() && receiveMaximum.get() == 0) {
             throw new InvalidReceiveMaximumException("Not Allow Receive maximum property value zero");
+        } else {
+            receiveMaximum.ifPresent(clientRestrictionsBuilder::clientReceiveMaximum);
         }
-        // build properties
-        clientRestrictionsBuilder
-                .sessionExpireInterval(expireInterval)
-                .clientReceiveMaximum(receiveMaximum);
     }
 
     /**
