@@ -87,9 +87,9 @@ public class MqttPropertyUtils {
     public static Optional<Integer> getUpdateSessionExpireIntervalIfExist(int protocolVersion, MqttMessage msg) {
         if (MqttUtils.isMqtt5(protocolVersion)
                 && msg.variableHeader() instanceof MqttReasonCodeAndPropertiesVariableHeader) {
-            return Optional.ofNullable(MqttPropertyUtils
+            return MqttPropertyUtils
                     .getExpireInterval(((MqttReasonCodeAndPropertiesVariableHeader)
-                            msg.variableHeader()).properties()));
+                            msg.variableHeader()).properties());
         } else {
             return Optional.empty();
         }
