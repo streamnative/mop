@@ -109,7 +109,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     @Override
     public void doProcessConnect(MqttConnectMessage msg, String userRole, ClientRestrictions clientRestrictions) {
         ServerRestrictions serverRestrictions = ServerRestrictions.builder()
-                .serverReceiveMaximum(configuration.getReceiveMaximum())
+                .receiveMaximum(configuration.getReceiveMaximum())
                 .build();
         connection = Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
@@ -205,15 +205,15 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         if (!MqttUtils.isMqtt5(connection.getProtocolVersion())) {
             return;
         }
-        if (connection.getServerReceivePubMessage() >= connection.getClientRestrictions().getClientReceiveMaximum()) {
+        if (connection.getServerReceivePubMessage() >= connection.getClientRestrictions().getReceiveMaximum()) {
             log.warn("Client publish exceed server receive maximum , the receive maximum is {}",
-                    connection.getServerRestrictions().getServerReceiveMaximum());
+                    connection.getServerRestrictions().getReceiveMaximum());
             PublishAck quotaExceededAck = PublishAck.builder()
                     .success(false)
                     .reasonCode(Mqtt5PubReasonCode.QUOTA_EXCEEDED)
                     .packetId(msg.variableHeader().packetId())
                     .reasonString(String.format("Publish exceed server receive maximum %s.",
-                            connection.getServerRestrictions().getServerReceiveMaximum()))
+                            connection.getServerRestrictions().getReceiveMaximum()))
                     .build();
             connection.getAckHandler().sendPublishAck(connection, quotaExceededAck);
         } else {

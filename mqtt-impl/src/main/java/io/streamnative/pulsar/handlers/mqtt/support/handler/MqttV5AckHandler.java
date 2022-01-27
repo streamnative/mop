@@ -41,7 +41,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
         MqttProperties properties = new MqttProperties();
         MqttProperties.IntegerProperty property =
                 new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
-                        connection.getServerRestrictions().getServerReceiveMaximum());
+                        connection.getServerRestrictions().getReceiveMaximum());
         properties.add(property);
         return MqttConnectAckHelper.builder()
                 .returnCode(Mqtt5ConnReasonCode.SUCCESS.convertToNettyKlass())

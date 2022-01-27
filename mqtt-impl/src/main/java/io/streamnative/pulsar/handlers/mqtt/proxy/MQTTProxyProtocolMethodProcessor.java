@@ -83,7 +83,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     @Override
     public void doProcessConnect(MqttConnectMessage msg, String userRole, ClientRestrictions clientRestrictions) {
         ServerRestrictions serverRestrictions = ServerRestrictions.builder()
-                .serverReceiveMaximum(proxyConfig.getReceiveMaximum())
+                .receiveMaximum(proxyConfig.getReceiveMaximum())
                 .build();
         connection = Connection.builder()
                 .protocolVersion(msg.variableHeader().version())

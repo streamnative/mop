@@ -23,5 +23,5 @@ import lombok.ToString;
 @EqualsAndHashCode
 public class ServerRestrictions {
     @Getter
-    private int serverReceiveMaximum;
+    private int receiveMaximum;
 }

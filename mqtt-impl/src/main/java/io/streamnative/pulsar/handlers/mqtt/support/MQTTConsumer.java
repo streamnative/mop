@@ -58,7 +58,7 @@ public class MQTTConsumer extends Consumer {
     private static final AtomicIntegerFieldUpdater<MQTTConsumer> ADD_PERMITS_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "addPermits");
     private volatile int addPermits = 0;
-    private ClientRestrictions clientRestrictions;
+    private final ClientRestrictions clientRestrictions;
 
     public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, String consumerName,
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
@@ -129,7 +129,7 @@ public class MQTTConsumer extends Consumer {
 
     public void incrementPermits(int permits) {
         int var = ADD_PERMITS_UPDATER.addAndGet(this, permits);
-        if (var > clientRestrictions.getClientReceiveMaximum() / 2) {
+        if (var > clientRestrictions.getReceiveMaximum() / 2) {
             MESSAGE_PERMITS_UPDATER.addAndGet(this, var);
             this.getSubscription().consumerFlow(this, availablePermits);
             ADD_PERMITS_UPDATER.set(this, 0);
@@ -137,7 +137,7 @@ public class MQTTConsumer extends Consumer {
     }
 
     public void addAllPermits() {
-        this.availablePermits = clientRestrictions.getClientReceiveMaximum();
+        this.availablePermits = clientRestrictions.getReceiveMaximum();
         this.getSubscription().consumerFlow(this, availablePermits);
     }
 

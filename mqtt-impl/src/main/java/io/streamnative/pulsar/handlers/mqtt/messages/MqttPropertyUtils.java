@@ -73,7 +73,7 @@ public class MqttPropertyUtils {
         if (receiveMaximum.isPresent() && receiveMaximum.get() == 0) {
             throw new InvalidReceiveMaximumException("Not Allow Receive maximum property value zero");
         } else {
-            receiveMaximum.ifPresent(clientRestrictionsBuilder::clientReceiveMaximum);
+            receiveMaximum.ifPresent(clientRestrictionsBuilder::receiveMaximum);
         }
     }
 

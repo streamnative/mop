@@ -25,12 +25,11 @@ import lombok.ToString;
 @ToString
 @EqualsAndHashCode
 public class ClientRestrictions {
-    // describe by mqtt 5.0 version
-    private static final int MQTT5_DEFAULT_RECEIVE_MAXIMUM = 65535;
-    public static final int BEFORE_DEFAULT_RECEIVE_MAXIMUM = 1000;
+
+    private static final int DEFAULT_RECEIVE_MAXIMUM = 1000;
 
     private Integer sessionExpireInterval;
-    private Integer clientReceiveMaximum;
+    private Integer receiveMaximum;
     private Integer keepAliveTime;
     @Getter
     private boolean cleanSession;
@@ -40,8 +39,8 @@ public class ClientRestrictions {
                 .orElse(SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime());
     }
 
-    public int getClientReceiveMaximum() {
-        return Optional.ofNullable(clientReceiveMaximum).orElse(MQTT5_DEFAULT_RECEIVE_MAXIMUM);
+    public int getReceiveMaximum() {
+        return Optional.ofNullable(receiveMaximum).orElse(DEFAULT_RECEIVE_MAXIMUM);
     }
 
     public int getKeepAliveTime() {
