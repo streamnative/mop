@@ -64,7 +64,7 @@ public class MQTTConsumer extends Consumer {
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
                         OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector,
                         ClientRestrictions clientRestrictions) {
-        super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
+        super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, true, cnx,
                 "", null, false, CommandSubscribe.InitialPosition.Latest, null, MessageId.latest);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
