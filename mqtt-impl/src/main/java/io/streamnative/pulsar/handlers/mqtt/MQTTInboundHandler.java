@@ -31,6 +31,8 @@ import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcess
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+
 /**
  * MQTT in bound handler.
  */
@@ -116,12 +118,14 @@ public class MQTTInboundHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        log.warn(
-                "An unexpected exception was caught while processing MQTT message. "
-                + "Closing Netty channel {}. connection = {}",
-                ctx.channel(),
-                NettyUtils.getConnection(ctx.channel()),
-                cause);
+        if (!(cause instanceof IOException)) {
+            log.warn(
+                    "An unexpected exception was caught while processing MQTT message. "
+                            + "Closing Netty channel {}. connection = {}",
+                    ctx.channel(),
+                    NettyUtils.getConnection(ctx.channel()),
+                    cause);
+        }
         ctx.close();
     }
 

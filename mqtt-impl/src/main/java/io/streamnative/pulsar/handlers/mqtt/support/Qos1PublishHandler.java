@@ -67,7 +67,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                             log.debug("[{}] Send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
                                     connection.getClientId());
                         }
-                    } else {
+                    } else if (channel.isActive()){
                         log.warn("[{}] Failed to send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
                                 connection.getClientId(), future.cause());
                     }
