@@ -31,6 +31,7 @@ import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerFactory;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
+import java.nio.channels.ClosedChannelException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -110,7 +111,11 @@ public class Connection {
     public ChannelFuture send(MqttMessage mqttMessage) {
         return channel.writeAndFlush(mqttMessage).addListener(future -> {
             if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+                if (future.cause() instanceof ClosedChannelException) {
+                    log.error("send mqttMessage : {} failed due to channel closed", mqttMessage);
+                } else {
+                    log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+                }
             }
         });
     }
@@ -118,7 +123,11 @@ public class Connection {
     public ChannelFuture sendThenClose(MqttMessage mqttMessage) {
         channel.writeAndFlush(mqttMessage).addListener(future -> {
             if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+                if (future.cause() instanceof ClosedChannelException) {
+                    log.error("send mqttMessage : {} failed due to channel closed", mqttMessage);
+                } else {
+                    log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+                }
             }
         });
         return channel.close();
