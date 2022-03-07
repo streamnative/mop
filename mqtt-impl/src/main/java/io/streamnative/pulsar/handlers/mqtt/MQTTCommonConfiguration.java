@@ -169,6 +169,20 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     private int mqttProxyNumIOThreads = Runtime.getRuntime().availableProcessors();
 
     @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "Maximum number of lookup requests allowed on "
+                    + "each broker connection to prevent overloading a broker."
+    )
+    private int mqttProxyClientMaxLookupRequest = 50000;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "The number of concurrent lookup requests that can be sent on each broker connection. "
+                    + "Setting a maximum prevents overloading a broker."
+    )
+    private int mqttProxyClientConcurrentLookupRequest = 5000;
+
+    @FieldContext(
             category = CATEGORY_TLS,
             required = false,
             doc = "Whether broker start mqtt protocol handler with tls psk"

@@ -124,6 +124,8 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                     proxyConfig.getBrokerClientAuthenticationParameters())
             );
         }
+        clientConf.setMaxLookupRequest(proxyConfig.getMqttProxyClientMaxLookupRequest());
+        clientConf.setConcurrentLookupRequest(proxyConfig.getMqttProxyClientConcurrentLookupRequest());
         return clientConf;
     }
 }
