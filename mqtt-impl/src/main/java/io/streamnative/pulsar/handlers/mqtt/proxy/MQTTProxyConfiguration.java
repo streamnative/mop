@@ -34,4 +34,20 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
             doc = "The service url points to the broker cluster"
     )
     private String brokerServiceURL;
+
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "Maximum number of lookup requests allowed on "
+                    + "each broker connection to prevent overloading a broker."
+    )
+    private int maxLookupRequest = 50000;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "The number of concurrent lookup requests that can be sent on each broker connection. "
+                    + "Setting a maximum prevents overloading a broker."
+    )
+    private int concurrentLookupRequest = 5000;
+
 }
