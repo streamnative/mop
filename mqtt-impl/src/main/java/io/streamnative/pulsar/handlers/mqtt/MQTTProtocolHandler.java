@@ -83,7 +83,6 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     public void start(BrokerService brokerService) {
         this.brokerService = brokerService;
         mqttService = new MQTTService(brokerService, mqttConfig);
-
         if (mqttConfig.isMqttProxyEnabled() || mqttConfig.isMqttProxyEnable()) {
             try {
                 MQTTProxyConfiguration proxyConfig =
@@ -99,7 +98,6 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                 log.error("Failed to start MQTT proxy service.", ex);
             }
         }
-
         log.info("Starting MqttProtocolHandler, MoP version is: '{}'", MopVersion.getVersion());
         log.info("Git Revision {}", MopVersion.getGitSha());
         log.info("Built by {} on {} at {}",

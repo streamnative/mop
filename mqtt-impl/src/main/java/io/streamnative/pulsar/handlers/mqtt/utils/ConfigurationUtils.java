@@ -198,7 +198,7 @@ public final class ConfigurationUtils {
             } else if (field.getType().equals(Optional.class)) {
                 Type typeClazz = ((ParameterizedType) fieldType).getActualTypeArguments()[0];
                 if (typeClazz instanceof ParameterizedType) {
-                    throw new IllegalArgumentException(String.format("unsupported non-primitive Optional<%s> for %s",
+                    throw new IllegalArgumentException(format("unsupported non-primitive Optional<%s> for %s",
                             typeClazz.getClass(), field.getName()));
                 } else {
                     Optional optional = (Optional) fieldValue;
@@ -209,7 +209,7 @@ public final class ConfigurationUtils {
                     }
                 }
             } else {
-                throw new IllegalArgumentException(String.format("unsupported field-type %s for %s",
+                throw new IllegalArgumentException(format("unsupported field-type %s for %s",
                         field.getType(), field.getName()));
             }
         } else {
