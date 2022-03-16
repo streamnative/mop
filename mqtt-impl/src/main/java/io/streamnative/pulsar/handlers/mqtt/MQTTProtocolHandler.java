@@ -67,13 +67,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Override
     public void initialize(ServiceConfiguration conf) throws Exception {
         // init config
-        if (conf instanceof MQTTServerConfiguration) {
-            // in unit test, passed in conf will be MQTTServerConfiguration
-            mqttConfig = (MQTTServerConfiguration) conf;
-        } else {
-            // when loaded with PulsarService as NAR, `conf` will be type of ServiceConfiguration
-            mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
-        }
+        mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
         this.bindAddress = ServiceConfigurationUtils.getDefaultOrConfiguredAddress(mqttConfig.getBindAddress());
     }
 
@@ -91,50 +85,14 @@ public class MQTTProtocolHandler implements ProtocolHandler {
         mqttService = new MQTTService(brokerService, mqttConfig);
 
         if (mqttConfig.isMqttProxyEnabled() || mqttConfig.isMqttProxyEnable()) {
-            MQTTProxyConfiguration proxyConfig = new MQTTProxyConfiguration();
-            proxyConfig.setDefaultTenant(mqttConfig.getDefaultTenant());
-            proxyConfig.setDefaultTopicDomain(mqttConfig.getDefaultTopicDomain());
-            proxyConfig.setMaxNoOfChannels(mqttConfig.getMaxNoOfChannels());
-            proxyConfig.setMaxFrameSize(mqttConfig.getMaxFrameSize());
-            proxyConfig.setMqttProxyPort(mqttConfig.getMqttProxyPort());
-            proxyConfig.setMqttProxyTlsPort(mqttConfig.getMqttProxyTlsPort());
-            proxyConfig.setMqttProxyTlsPskPort(mqttConfig.getMqttProxyTlsPskPort());
-            proxyConfig.setMqttProxyTlsEnabled(mqttConfig.isMqttProxyTlsEnabled());
-            proxyConfig.setMqttProxyTlsPskEnabled(mqttConfig.isMqttProxyTlsPskEnabled());
-            proxyConfig.setBrokerServiceURL("pulsar://"
-                    + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig, true)
-                    + ":" + mqttConfig.getBrokerServicePort().get());
-            proxyConfig.setMqttProxyNumAcceptorThreads(mqttConfig.getMqttProxyNumAcceptorThreads());
-            proxyConfig.setMqttProxyNumIOThreads(mqttConfig.getMqttProxyNumIOThreads());
-            proxyConfig.setMqttAuthenticationEnabled(mqttConfig.isMqttAuthenticationEnabled());
-            proxyConfig.setMqttAuthenticationMethods(mqttConfig.getMqttAuthenticationMethods());
-            proxyConfig.setMqttAuthorizationEnabled(mqttConfig.isMqttAuthorizationEnabled());
-            proxyConfig.setBrokerClientAuthenticationPlugin(mqttConfig.getBrokerClientAuthenticationPlugin());
-            proxyConfig.setBrokerClientAuthenticationParameters(mqttConfig.getBrokerClientAuthenticationParameters());
-
-            proxyConfig.setTlsCertificateFilePath(mqttConfig.getTlsCertificateFilePath());
-            proxyConfig.setTlsCertRefreshCheckDurationSec(mqttConfig.getTlsCertRefreshCheckDurationSec());
-            proxyConfig.setTlsProtocols(mqttConfig.getTlsProtocols());
-            proxyConfig.setTlsCiphers(mqttConfig.getTlsCiphers());
-            proxyConfig.setTlsAllowInsecureConnection(mqttConfig.isTlsAllowInsecureConnection());
-
-            proxyConfig.setTlsPskIdentityHint(mqttConfig.getTlsPskIdentityHint());
-            proxyConfig.setTlsPskIdentity(mqttConfig.getTlsPskIdentity());
-            proxyConfig.setTlsPskIdentityFile(mqttConfig.getTlsPskIdentityFile());
-
-            proxyConfig.setTlsTrustStore(mqttConfig.getTlsTrustStore());
-            proxyConfig.setTlsTrustCertsFilePath(mqttConfig.getTlsTrustCertsFilePath());
-            proxyConfig.setTlsTrustStoreType(mqttConfig.getTlsTrustStoreType());
-            proxyConfig.setTlsTrustStorePassword(mqttConfig.getTlsTrustStorePassword());
-
-            proxyConfig.setTlsEnabledWithKeyStore(mqttConfig.isTlsEnabledWithKeyStore());
-            proxyConfig.setTlsKeyStore(mqttConfig.getTlsKeyStore());
-            proxyConfig.setTlsKeyStoreType(mqttConfig.getTlsKeyStoreType());
-            proxyConfig.setTlsKeyStorePassword(mqttConfig.getTlsTrustStorePassword());
-            proxyConfig.setTlsKeyFilePath(mqttConfig.getTlsKeyFilePath());
-            log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
-            proxyService = new MQTTProxyService(mqttService, proxyConfig);
             try {
+                MQTTProxyConfiguration proxyConfig =
+                        ConfigurationUtils.create(mqttConfig.getProperties(), MQTTProxyConfiguration.class);
+                proxyConfig.setBrokerServiceURL("pulsar://"
+                        + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig, true)
+                        + ":" + mqttConfig.getBrokerServicePort().get());
+                log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
+                proxyService = new MQTTProxyService(mqttService, proxyConfig);
                 proxyService.start();
                 log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());
             } catch (Exception ex) {
