@@ -55,6 +55,7 @@
         <lombok.version>1.18.4</lombok.version>
         <fusesource.client.version>1.16</fusesource.client.version>
         <hivemq.mqtt.client.version>1.2.2</hivemq.mqtt.client.version>
+        <apache.commons.bean-utils.version>1.9.4</apache.commons.bean-utils.version>
         <javac.target>1.8</javac.target>
         <puppycrawl.checkstyle.version>8.37</puppycrawl.checkstyle.version>
         <maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
@@ -92,6 +93,11 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-mqtt</artifactId>
             <version>${mqtt.codec.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
+            <version>${apache.commons.bean-utils.version}</version>
         </dependency>
         <dependency>
             <groupId>org.testng</groupId>
