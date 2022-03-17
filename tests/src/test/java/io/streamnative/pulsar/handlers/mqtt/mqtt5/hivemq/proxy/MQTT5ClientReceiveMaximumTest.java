@@ -41,7 +41,7 @@ public class MQTT5ClientReceiveMaximumTest extends MQTTTestBase {
 
     @Test(timeOut = TIMEOUT)
     public void testExceedReceiveMaximumWillBlock() throws Exception {
-        final String topic = "proxy-test-receive-maximum-1";
+        final String topic = "proxy/test-receive-maximum-1";
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(
                 getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
         Mqtt5ConnectRestrictions restrictions = Mqtt5ConnectRestrictions.builder()
@@ -70,7 +70,7 @@ public class MQTT5ClientReceiveMaximumTest extends MQTTTestBase {
 
     @Test(timeOut = TIMEOUT)
     public void testReceiveMaximumNormalCondition() throws Exception {
-        final String topic = "proxy-test-receive-maximum-2";
+        final String topic = "proxy/test-receive-maximum-2";
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(
                 getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
         Mqtt5ConnectRestrictions restrictions = Mqtt5ConnectRestrictions.builder()
@@ -103,7 +103,7 @@ public class MQTT5ClientReceiveMaximumTest extends MQTTTestBase {
 
     @Test(timeOut = TIMEOUT)
     public void testQos0ExceedReceiveMaximumWillNotBlock() throws Exception {
-        final String topic = "proxy-test-receive-maximum-3";
+        final String topic = "proxy/test-receive-maximum-3";
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(
                 getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
         Mqtt5ConnectRestrictions restrictions = Mqtt5ConnectRestrictions.builder()
