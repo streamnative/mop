@@ -138,8 +138,11 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         }
         int packetId = msg.variableHeader().messageId();
         String topicName = packetIdTopic.remove(packetId);
-        if (topicName != null) {
-            writeToBroker(topicName, msg)
+        final String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(topicName,
+                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
+                TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
+        if (pulsarTopicName != null) {
+            writeToBroker(pulsarTopicName, msg)
                     .exceptionally(ex -> {
                         log.error("[Proxy Publish] Failed write pub ack {} to topic {} CId : {}",
                                 msg, topicName, connection.getClientId(), ex);
