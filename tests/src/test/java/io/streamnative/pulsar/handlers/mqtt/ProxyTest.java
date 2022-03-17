@@ -20,6 +20,7 @@ import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
+import org.junit.Ignore;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -30,6 +31,7 @@ import org.testng.annotations.Test;
  * MQTT proxy related test.
  */
 @Slf4j
+@Ignore
 public class ProxyTest extends MQTTTestBase {
     @BeforeMethod
     @Override

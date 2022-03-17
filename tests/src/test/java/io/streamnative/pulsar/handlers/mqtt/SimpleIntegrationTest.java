@@ -27,6 +27,7 @@ import org.fusesource.mqtt.client.MQTTException;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
+import org.junit.Ignore;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -37,6 +38,7 @@ import org.testng.annotations.Test;
  * Simple integration tests for MQTT protocol handler.
  */
 @Slf4j
+@Ignore
 public class SimpleIntegrationTest extends MQTTTestBase {
 
     @BeforeClass
