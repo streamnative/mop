@@ -1,0 +1,41 @@
+// ------------------------------------------------------------------
+// Transitive dependencies of this project determined from the
+// maven pom organized by organization.
+// ------------------------------------------------------------------
+
+StreamNative :: Pulsar Protocol Handler :: MQTT
+
+
+From: 'an unknown organization'
+  - Project Lombok (https://projectlombok.org) org.projectlombok:lombok:jar:1.18.4
+    License: The MIT License  (https://projectlombok.org/LICENSE)
+
+From: 'QOS.ch' (http://www.qos.ch)
+  - SLF4J API Module (http://www.slf4j.org) org.slf4j:slf4j-api:jar:1.7.25
+    License: MIT License  (http://www.opensource.org/licenses/mit-license.php)
+
+From: 'The Apache Software Foundation' (https://www.apache.org/)
+  - Apache Log4j API (https://logging.apache.org/log4j/2.x/log4j-api/) org.apache.logging.log4j:log4j-api:jar:2.17.1
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+  - Apache Log4j Core (https://logging.apache.org/log4j/2.x/log4j-core/) org.apache.logging.log4j:log4j-core:jar:2.17.1
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+  - Apache Log4j SLF4J Binding (https://logging.apache.org/log4j/2.x/log4j-slf4j-impl/) org.apache.logging.log4j:log4j-slf4j-impl:jar:2.17.1
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+From: 'The Netty Project' (https://netty.io/)
+  - Netty/Buffer (https://netty.io/netty-buffer/) io.netty:netty-buffer:jar:4.1.67.Final
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0)
+  - Netty/Codec (https://netty.io/netty-codec/) io.netty:netty-codec:jar:4.1.67.Final
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0)
+  - Netty/Codec/MQTT (https://netty.io/netty-codec-mqtt/) io.netty:netty-codec-mqtt:jar:4.1.67.Final
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0)
+  - Netty/Common (https://netty.io/netty-common/) io.netty:netty-common:jar:4.1.67.Final
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0)
+  - Netty/Resolver (https://netty.io/netty-resolver/) io.netty:netty-resolver:jar:4.1.67.Final
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0)
+  - Netty/Transport (https://netty.io/netty-transport/) io.netty:netty-transport:jar:4.1.74.Final
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0)
+
+
+
+
