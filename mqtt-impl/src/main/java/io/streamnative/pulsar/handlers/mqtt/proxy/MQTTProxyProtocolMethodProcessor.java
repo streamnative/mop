@@ -20,6 +20,7 @@ import io.netty.channel.ChannelException;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
@@ -65,6 +66,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final PulsarService pulsarService;
     private final Map<String, CompletableFuture<MQTTProxyExchanger>> topicBrokers;
     private final Map<InetSocketAddress, MQTTProxyExchanger> brokerPool;
+    private final Map<Integer, String> packetIdTopic;
     // Map sequence Id -> topic count
     private final ConcurrentHashMap<Integer, AtomicInteger> subscribeTopicsCount;
     private final MQTTConnectionManager connectionManager;
@@ -79,6 +81,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.topicBrokers = new ConcurrentHashMap<>();
         this.brokerPool = new ConcurrentHashMap<>();
         this.subscribeTopicsCount = new ConcurrentHashMap<>();
+        this.packetIdTopic = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -126,6 +129,26 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             .addListener(__ -> connection.decrementServerReceivePubMessage());
                     return null;
                 });
+    }
+
+    @Override
+    public void processPubAck(MqttPubAckMessage msg) {
+        if (log.isDebugEnabled()) {
+            log.debug("[PubAck] [{}]", NettyUtils.getConnection(channel).getClientId());
+        }
+        int packetId = msg.variableHeader().messageId();
+        String topicName = packetIdTopic.remove(packetId);
+        if (topicName != null) {
+            writeToBroker(topicName, msg)
+                    .exceptionally(ex -> {
+                        log.error("[Proxy Publish] Failed write pub ack {} to topic {} CId : {}",
+                                msg, topicName, connection.getClientId(), ex);
+                        return null;
+                    });
+        } else {
+            log.warn("[Proxy Publish] Failed to get topic name by packet id {} while process pub ack {} CId : {}",
+                   packetId, msg, connection.getClientId());
+        }
     }
 
     @Override
@@ -255,7 +278,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         return topicBrokers.computeIfAbsent(topic,
                 key -> lookupHandler.findBroker(TopicName.get(topic)).thenCompose(mqttBroker -> {
             MQTTProxyExchanger exchanger = brokerPool.computeIfAbsent(mqttBroker, addr ->
-                    new MQTTProxyExchanger(this, mqttBroker, proxyConfig.getMqttMessageMaxLength()));
+                    new MQTTProxyExchanger(this, mqttBroker, packetIdTopic,
+                            proxyConfig.getMqttMessageMaxLength()));
             return exchanger.connectedAck()
                     .thenApply(__ -> exchanger);
         }));
