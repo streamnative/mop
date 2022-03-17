@@ -27,9 +27,11 @@ import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -45,12 +47,16 @@ public class MQTTProxyExchanger {
     private final InetSocketAddress mqttBroker;
     @Getter
     private Channel brokerChannel;
+
+    private final Map<Integer, String> packetIdTopic;
     private CompletableFuture<Void> brokerConnected = new CompletableFuture<>();
     private CompletableFuture<Void> brokerConnectedAck = new CompletableFuture<>();
 
-    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, InetSocketAddress mqttBroker, int maxMessageLength) {
+    MQTTProxyExchanger(MQTTProxyProtocolMethodProcessor processor, InetSocketAddress mqttBroker,
+                       Map<Integer, String> packetIdTopic, int maxMessageLength) {
         this.processor = processor;
         this.mqttBroker = mqttBroker;
+        this.packetIdTopic = packetIdTopic;
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(processor.getChannel().eventLoop())
                 .channel(processor.getChannel().getClass())
@@ -102,6 +108,13 @@ public class MQTTProxyExchanger {
                         if (processor.checkIfSendSubAck(subAckMessage.variableHeader().messageId())) {
                             processor.getChannel().writeAndFlush(message);
                         }
+                        break;
+                    case PUBLISH:
+                        MqttPublishMessage pubMessage = (MqttPublishMessage) message;
+                        int packetId = pubMessage.variableHeader().packetId();
+                        String topicName = pubMessage.variableHeader().topicName();
+                        packetIdTopic.put(packetId, topicName);
+                        processor.getChannel().writeAndFlush(message);
                         break;
                     default:
                         processor.getChannel().writeAndFlush(message);
