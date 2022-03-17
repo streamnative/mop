@@ -22,8 +22,8 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.mqtt5.hivemq.base.MQTT5ClientUtils;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
