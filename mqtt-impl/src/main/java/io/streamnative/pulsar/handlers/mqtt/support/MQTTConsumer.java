@@ -34,6 +34,7 @@ import org.apache.pulsar.broker.service.EntryBatchIndexesAcks;
 import org.apache.pulsar.broker.service.EntryBatchSizes;
 import org.apache.pulsar.broker.service.RedeliveryTracker;
 import org.apache.pulsar.broker.service.Subscription;
+import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.common.api.proto.PulsarApi;
 
 /**
@@ -61,7 +62,7 @@ public class MQTTConsumer extends Consumer {
                         OutstandingPacketContainer outstandingPacketContainer)
             throws BrokerServiceException {
         super(subscription, PulsarApi.CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
-                "", null, false, PulsarApi.CommandSubscribe.InitialPosition.Latest, null);
+                "", null, false, PulsarApi.CommandSubscribe.InitialPosition.Latest, null, MessageId.latest);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
         this.cnx = cnx;
