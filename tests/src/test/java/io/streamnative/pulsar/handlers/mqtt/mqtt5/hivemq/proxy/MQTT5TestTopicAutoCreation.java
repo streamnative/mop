@@ -24,7 +24,6 @@ import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.mqtt5.hivemq.base.MQTT5ClientUtils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
 import java.util.Random;
 
 
