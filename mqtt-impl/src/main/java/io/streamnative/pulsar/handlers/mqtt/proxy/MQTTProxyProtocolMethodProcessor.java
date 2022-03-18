@@ -34,7 +34,6 @@ import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
-import io.streamnative.pulsar.handlers.mqtt.utils.ExceptionUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.net.InetSocketAddress;
@@ -219,14 +218,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     return FutureUtil.waitForAll(writeToBrokerFuture);
                 })
                 .exceptionally(ex -> {
-                    Throwable causeIfExist = ExceptionUtils.getCauseIfExist(ex);
-                    log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, causeIfExist);
+                    Throwable realCause = FutureUtil.unwrapCompletionException(ex);
+                    log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, realCause);
                     SubscribeAck subscribeAck = SubscribeAck
                             .builder()
                             .success(false)
                             .packetId(packetId)
                             .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
-                            .reasonStr("[ MOP ERROR ]" + causeIfExist.getMessage())
+                            .reasonStr("[ MOP ERROR ]" + realCause.getMessage())
                             .build();
                     ackHandler.sendSubscribeAck(connection, subscribeAck)
                             .addListener(__ -> subscribeTopicsCount.remove(packetId));
