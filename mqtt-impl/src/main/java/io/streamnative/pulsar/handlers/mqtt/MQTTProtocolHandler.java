@@ -30,7 +30,6 @@ import java.net.InetSocketAddress;
 import java.util.Map;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.beanutils.BeanUtils;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.ServiceConfigurationUtils;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
@@ -68,13 +67,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Override
     public void initialize(ServiceConfiguration conf) throws Exception {
         // init config
-        if (conf instanceof MQTTServerConfiguration) {
-            // in unit test, passed in conf will be MQTTServerConfiguration
-            mqttConfig = (MQTTServerConfiguration) conf;
-        } else {
-            // when loaded with PulsarService as NAR, `conf` will be type of ServiceConfiguration
-            mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
-        }
+        mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
         this.bindAddress = ServiceConfigurationUtils.getDefaultOrConfiguredAddress(mqttConfig.getBindAddress());
     }
 
@@ -91,12 +84,12 @@ public class MQTTProtocolHandler implements ProtocolHandler {
         this.brokerService = brokerService;
         mqttService = new MQTTService(brokerService, mqttConfig);
         if (mqttConfig.isMqttProxyEnabled() || mqttConfig.isMqttProxyEnable()) {
-            MQTTProxyConfiguration proxyConfig = new MQTTProxyConfiguration();
             try {
-                BeanUtils.copyProperties(proxyConfig, mqttConfig);
+                MQTTProxyConfiguration proxyConfig =
+                        ConfigurationUtils.create(mqttConfig.getProperties(), MQTTProxyConfiguration.class);
                 proxyConfig.setBrokerServiceURL("pulsar://"
-                    + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig, true)
-                    + ":" + mqttConfig.getBrokerServicePort().get());
+                        + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig, true)
+                        + ":" + mqttConfig.getBrokerServicePort().get());
                 log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
                 proxyService = new MQTTProxyService(mqttService, proxyConfig);
                 proxyService.start();
