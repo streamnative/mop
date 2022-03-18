@@ -53,7 +53,7 @@ public class PulsarTopicUtils {
                                                                        boolean encodeTopicName,
                                                                        String defaultTopicDomain) {
         return getTopicReference(pulsarService, topicName, defaultTenant, defaultNamespace, encodeTopicName,
-                defaultTopicDomain, true);
+                defaultTopicDomain, pulsarService.getConfig().isAllowAutoTopicCreation());
     }
 
     public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService, String topicName,
