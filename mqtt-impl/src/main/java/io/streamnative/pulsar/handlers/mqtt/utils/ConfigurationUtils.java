@@ -134,7 +134,7 @@ public final class ConfigurationUtils {
                     f.setAccessible(true);
                     String v = (String) properties.get(f.getName());
                     if (!StringUtils.isBlank(v)) {
-                        f.set(obj, value(v, f));
+                        f.set(obj, value(v.trim(), f));
                     } else {
                         setEmptyValue(v, f, obj);
                     }
