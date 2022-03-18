@@ -18,6 +18,7 @@ import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ES
 import static io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils.ATTR_KEY_CONNECTION;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelException;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -77,6 +78,8 @@ public class Connection {
     private static final AtomicIntegerFieldUpdater<Connection> SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(Connection.class, "serverCurrentReceiveCounter");
 
+    static ChannelException channelInactiveException = new ChannelException("Channel is inactive");
+
     Connection(ConnectionBuilder builder) {
         this.clientId = builder.clientId;
         this.protocolVersion = builder.protocolVersion;
@@ -108,6 +111,10 @@ public class Connection {
     }
 
     public ChannelFuture send(MqttMessage mqttMessage) {
+        if (!channel.isActive()) {
+            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
+            return channel.newFailedFuture(channelInactiveException);
+        }
         return channel.writeAndFlush(mqttMessage).addListener(future -> {
             if (!future.isSuccess()) {
                 log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
@@ -116,6 +123,10 @@ public class Connection {
     }
 
     public ChannelFuture sendThenClose(MqttMessage mqttMessage) {
+        if (!channel.isActive()) {
+            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
+            return channel.newFailedFuture(channelInactiveException);
+        }
         channel.writeAndFlush(mqttMessage).addListener(future -> {
             if (!future.isSuccess()) {
                 log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
