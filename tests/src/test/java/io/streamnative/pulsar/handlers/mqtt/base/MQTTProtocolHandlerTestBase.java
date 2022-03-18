@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.netty.channel.EventLoopGroup;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
@@ -31,7 +32,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -149,10 +149,8 @@ public abstract class MQTTProtocolHandlerTestBase {
             protocolHandlerDir
         );
         mqtt.setMessagingProtocols(Sets.newHashSet("mqtt"));
-        Properties properties = new Properties();
-        properties.setProperty("additionalServlets", "mqtt-servlet");
-        properties.setProperty("additionalServletDirectory", protocolHandlerDir);
-        mqtt.setProperties(properties);
+        mqtt.setAdditionalServlets(Sets.newHashSet("mqtt-servlet"));
+        mqtt.setAdditionalServletDirectory(protocolHandlerDir);
         return mqtt;
     }
 
@@ -337,6 +335,7 @@ public abstract class MQTTProtocolHandlerTestBase {
                 brokerPort, brokerPortTls, brokerWebServicePort, brokerWebServicePortTls,
                 mqttBrokerPort, mqttBrokerTlsPort, mqttBrokerTlsPskPort,
                 mqttProxyPort, mqttProxyTlsPort, mqttProxyTlsPskPort);
+        ConfigurationUtils.extractFieldToProperties(conf);
         this.pulsarServiceList.add(doStartBroker(conf));
     }
 
