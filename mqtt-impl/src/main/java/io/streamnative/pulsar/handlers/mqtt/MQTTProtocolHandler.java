@@ -67,13 +67,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Override
     public void initialize(ServiceConfiguration conf) throws Exception {
         // init config
-        if (conf instanceof MQTTServerConfiguration) {
-            // in unit test, passed in conf will be MQTTServerConfiguration
-            mqttConfig = (MQTTServerConfiguration) conf;
-        } else {
-            // when loaded with PulsarService as NAR, `conf` will be type of ServiceConfiguration
-            mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
-        }
+        mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
         this.bindAddress = ServiceConfigurationUtils.getDefaultOrConfiguredAddress(mqttConfig.getBindAddress());
     }
 
@@ -89,7 +83,6 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     public void start(BrokerService brokerService) {
         this.brokerService = brokerService;
         mqttService = new MQTTService(brokerService, mqttConfig);
-
         if (mqttConfig.isMqttProxyEnabled() || mqttConfig.isMqttProxyEnable()) {
             try {
                 MQTTProxyConfiguration proxyConfig =
@@ -105,7 +98,6 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                 log.error("Failed to start MQTT proxy service.", ex);
             }
         }
-
         log.info("Starting MqttProtocolHandler, MoP version is: '{}'", MopVersion.getVersion());
         log.info("Git Revision {}", MopVersion.getGitSha());
         log.info("Built by {} on {} at {}",
