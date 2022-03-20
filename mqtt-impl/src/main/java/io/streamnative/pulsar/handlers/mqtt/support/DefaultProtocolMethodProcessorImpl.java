@@ -363,21 +363,18 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                             .getOrCreateSubscription(pulsarService, topic, connection.getClientId(),
                                     configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
                                     configuration.getDefaultTopicDomain());
-                    CompletableFuture<Void> result = subFuture.thenAccept(sub -> {
-                        try {
+                    CompletableFuture<Void> result = subFuture.thenCompose(sub -> {
                             MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(), topic,
                                     connection.getClientId(), serverCnx, subTopic.qualityOfService(), packetIdGenerator,
                                     outstandingPacketContainer, metricsCollector, connection.getClientRestrictions());
-                            sub.addConsumer(consumer);
-                            consumer.addAllPermits();
-                            connection.getTopicSubscriptionManager().putIfAbsent(sub.getTopic(), sub, consumer);
-                        } catch (Exception e) {
-                            throw new MQTTServerException(e);
-                        }
+                            return sub.addConsumer(consumer).thenAccept(__ -> {
+                                consumer.addAllPermits();
+                                connection.getTopicSubscriptionManager().putIfAbsent(sub.getTopic(), sub, consumer);
+                            });
                     });
                     futures.add(result);
                 }
-                return FutureUtil.waitForAll(futures);
+                return FutureUtil.waitForAll(Collections.unmodifiableList(futures));
             });
             futureList.add(completableFuture);
         }
