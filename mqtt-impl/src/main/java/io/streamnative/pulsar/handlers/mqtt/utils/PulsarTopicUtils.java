@@ -53,7 +53,7 @@ public class PulsarTopicUtils {
                                                                        String defaultTenant, String defaultNamespace,
                                                                        boolean encodeTopicName,
                                                                        String defaultTopicDomain) {
-        return wrappedGetTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName, defaultTopicDomain)
+        return getTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName, defaultTopicDomain)
                 .thenCompose(topic -> pulsarService.getPulsarResources().getNamespaceResources()
                         .getPoliciesAsync(topic.getNamespaceObject())
                         .thenApply(policies -> {
@@ -76,7 +76,7 @@ public class PulsarTopicUtils {
                                                                        boolean encodeTopicName,
                                                                        String defaultTopicDomain,
                                                                        Boolean createIfMissing) {
-        return wrappedGetTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName, defaultTopicDomain)
+        return getTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName, defaultTopicDomain)
                 .thenCompose(topic -> getTopicReference(pulsarService, topic, createIfMissing));
     }
 
@@ -246,9 +246,9 @@ public class PulsarTopicUtils {
         }
     }
 
-    public static CompletableFuture<TopicName> wrappedGetTopicName(String topicName, String defaultTenant,
-                                                                     String defaultNamespace, boolean encodeTopicName,
-                                                                     String defaultTopicDomain) {
+    public static CompletableFuture<TopicName> getTopicName(String topicName, String defaultTenant,
+                                                            String defaultNamespace, boolean encodeTopicName,
+                                                            String defaultTopicDomain) {
         try {
             return CompletableFuture.completedFuture(
                     TopicName.get(
