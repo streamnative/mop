@@ -120,7 +120,7 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
     public void testSubscribeManyTimes(String topic) throws Exception {
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connect();
-        Mqtt5SubAck firstConsumerACK = client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_LEAST_ONCE).send();
+        client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_LEAST_ONCE).send();
         try {
             client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_MOST_ONCE).send();
         } catch (Mqtt5SubAckException ex) {
