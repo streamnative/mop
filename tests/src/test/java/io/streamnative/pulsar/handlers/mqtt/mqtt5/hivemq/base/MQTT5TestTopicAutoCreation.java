@@ -21,6 +21,9 @@ import com.hivemq.client.mqtt.mqtt5.message.publish.puback.Mqtt5PubAckReasonCode
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAckReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import org.apache.pulsar.client.admin.PulsarAdminException;
+import org.apache.pulsar.common.policies.data.AutoTopicCreationOverride;
+import org.apache.pulsar.common.policies.data.TopicType;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -66,5 +69,47 @@ public class MQTT5TestTopicAutoCreation extends MQTTTestBase {
             Assert.assertTrue(ex.getMqttMessage().getReasonString().isPresent());
             Assert.assertEquals(ex.getMqttMessage().getReasonString().get().toString(), "Topic not found");
         }
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testPublishAllowTopicCreationByNamespacePolicy() throws PulsarAdminException {
+        AutoTopicCreationOverride param = AutoTopicCreationOverride.builder()
+                .topicType(TopicType.NON_PARTITIONED.toString())
+                .allowAutoTopicCreation(true).build();
+        admin.namespaces().setAutoTopicCreation("public/default", param);
+
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        client.connect();
+        byte[] msg = "payload".getBytes();
+        try {
+            client.publishWith()
+                    .topic("topic-not-allow-auto-creation-publish")
+                    .qos(MqttQos.AT_LEAST_ONCE)
+                    .payload(msg)
+                    .send();
+        } catch (Mqtt5PubAckException ex) {
+            Assert.fail("Unexpected result");
+        }
+        client.disconnect();
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testSubscribeAllowTopicCreationByNamespacePolicy() throws PulsarAdminException {
+        AutoTopicCreationOverride param = AutoTopicCreationOverride.builder()
+                .topicType(TopicType.NON_PARTITIONED.toString())
+                .allowAutoTopicCreation(true).build();
+        admin.namespaces().setAutoTopicCreation("public/default", param);
+
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        client.connect();
+        try {
+            client.subscribeWith()
+                    .topicFilter("topic-not-allow-auto-creation-subscribe")
+                    .qos(MqttQos.AT_LEAST_ONCE)
+                    .send();
+        } catch (Mqtt5SubAckException ex) {
+            Assert.fail("Unexpected result");
+        }
+        client.disconnect();
     }
 }
