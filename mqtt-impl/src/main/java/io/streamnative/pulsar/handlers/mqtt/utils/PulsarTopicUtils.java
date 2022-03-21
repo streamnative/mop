@@ -38,6 +38,7 @@ import org.apache.pulsar.common.api.proto.CommandSubscribe;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.policies.data.AutoTopicCreationOverride;
 import org.apache.pulsar.common.util.FutureUtil;
 
 /**
@@ -52,8 +53,22 @@ public class PulsarTopicUtils {
                                                                        String defaultTenant, String defaultNamespace,
                                                                        boolean encodeTopicName,
                                                                        String defaultTopicDomain) {
-        return getTopicReference(pulsarService, topicName, defaultTenant, defaultNamespace, encodeTopicName,
-                defaultTopicDomain, pulsarService.getConfig().isAllowAutoTopicCreation());
+        return getTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName, defaultTopicDomain)
+                .thenCompose(topic -> pulsarService.getPulsarResources().getNamespaceResources()
+                        .getPoliciesAsync(topic.getNamespaceObject())
+                        .thenApply(policies -> {
+                            if (!policies.isPresent()) {
+                                return pulsarService.getConfig().isAllowAutoTopicCreation();
+                            }
+                            AutoTopicCreationOverride autoTopicCreationOverride =
+                                    policies.get().autoTopicCreationOverride;
+                            if (autoTopicCreationOverride == null) {
+                                return pulsarService.getConfig().isAllowAutoTopicCreation();
+                            } else {
+                                return autoTopicCreationOverride.isAllowAutoTopicCreation();
+                            }
+                        }).thenCompose(isAllowTopicCreation ->
+                                getTopicReference(pulsarService, topic, isAllowTopicCreation)));
     }
 
     public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService, String topicName,
@@ -61,13 +76,12 @@ public class PulsarTopicUtils {
                                                                        boolean encodeTopicName,
                                                                        String defaultTopicDomain,
                                                                        Boolean createIfMissing) {
-        final TopicName topic;
-        try {
-            topic = TopicName.get(getPulsarTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName,
-                    TopicDomain.getEnum(defaultTopicDomain)));
-        } catch (Exception e) {
-            return FutureUtil.failedFuture(e);
-        }
+        return getTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName, defaultTopicDomain)
+                .thenCompose(topic -> getTopicReference(pulsarService, topic, createIfMissing));
+    }
+
+    public static CompletableFuture<Optional<Topic>> getTopicReference(PulsarService pulsarService, TopicName topic,
+                                                                       Boolean createIfMissing) {
         return pulsarService.getNamespaceService().getBrokerServiceUrlAsync(topic,
                         LookupOptions.builder().authoritative(false).loadTopicsInBundle(false).build())
                 .thenCompose(lookupOp -> pulsarService.getBrokerService().getTopic(topic.toString(), createIfMissing));
@@ -229,6 +243,19 @@ public class PulsarTopicUtils {
                     + URLDecoder.decode(topicName.getLocalName());
         } else {
             return URLDecoder.decode(TopicName.get(pulsarTopicName).getLocalName());
+        }
+    }
+
+    public static CompletableFuture<TopicName> getTopicName(String topicName, String defaultTenant,
+                                                            String defaultNamespace, boolean encodeTopicName,
+                                                            String defaultTopicDomain) {
+        try {
+            return CompletableFuture.completedFuture(
+                    TopicName.get(
+                            getPulsarTopicName(topicName, defaultTenant, defaultNamespace, encodeTopicName,
+                                TopicDomain.getEnum(defaultTopicDomain))));
+        } catch (Exception e) {
+            return FutureUtil.failedFuture(e);
         }
     }
 }
