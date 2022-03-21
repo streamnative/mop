@@ -36,7 +36,6 @@ import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
-import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
@@ -363,21 +362,18 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                             .getOrCreateSubscription(pulsarService, topic, connection.getClientId(),
                                     configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
                                     configuration.getDefaultTopicDomain());
-                    CompletableFuture<Void> result = subFuture.thenAccept(sub -> {
-                        try {
+                    CompletableFuture<Void> result = subFuture.thenCompose(sub -> {
                             MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(), topic,
                                     connection.getClientId(), serverCnx, subTopic.qualityOfService(), packetIdGenerator,
                                     outstandingPacketContainer, metricsCollector, connection.getClientRestrictions());
-                            sub.addConsumer(consumer);
-                            consumer.addAllPermits();
-                            connection.getTopicSubscriptionManager().putIfAbsent(sub.getTopic(), sub, consumer);
-                        } catch (Exception e) {
-                            throw new MQTTServerException(e);
-                        }
+                            return sub.addConsumer(consumer).thenAccept(__ -> {
+                                consumer.addAllPermits();
+                                connection.getTopicSubscriptionManager().putIfAbsent(sub.getTopic(), sub, consumer);
+                            });
                     });
                     futures.add(result);
                 }
-                return FutureUtil.waitForAll(futures);
+                return FutureUtil.waitForAll(Collections.unmodifiableList(futures));
             });
             futureList.add(completableFuture);
         }
