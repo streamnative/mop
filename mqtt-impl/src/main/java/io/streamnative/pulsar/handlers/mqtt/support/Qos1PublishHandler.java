@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
+import org.apache.pulsar.common.util.FutureUtil;
 
 /**
  * Publish handler implementation for Qos 1.
@@ -72,9 +73,9 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                             });
                     return publishAckFuture;
                 }).exceptionally(ex -> {
-                    Throwable cause = ex.getCause();
+                    Throwable realCause = FutureUtil.unwrapCompletionException(ex);
                     AckHandler ackHandler = connection.getAckHandler();
-                    if (cause instanceof MQTTNoMatchingSubscriberException) {
+                    if (realCause instanceof MQTTNoMatchingSubscriberException) {
                         log.warn("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
                         PublishAck noMatchingSubscribersAck = PublishAck.builder()
                                 .success(true)
@@ -83,7 +84,9 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                                 .build();
                         ackHandler.sendPublishAck(connection, noMatchingSubscribersAck)
                                 .addListener(__ -> connection.decrementServerReceivePubMessage());
-                    } else if (ex instanceof BrokerServiceException.TopicNotFoundException) {
+                    } else if (realCause instanceof BrokerServiceException.TopicNotFoundException) {
+                        log.warn("Topic [{}] Not found, the configuration [isAllowAutoTopicCreation={}]",
+                                topic, pulsarService.getConfig().isAllowAutoTopicCreation());
                         PublishAck topicNotFoundAck = PublishAck.builder()
                                 .success(false)
                                 .packetId(packetId)
@@ -92,11 +95,12 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                                 .build();
                         ackHandler.sendPublishAck(connection, topicNotFoundAck);
                     } else {
+                        log.error("[{}] Publish msg {} fail.", topic, msg, ex);
                         PublishAck unKnowErrorAck = PublishAck.builder()
                                 .success(false)
                                 .packetId(packetId)
                                 .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
-                                .reasonString(cause.getMessage())
+                                .reasonString(realCause.getMessage())
                                 .build();
                         ackHandler.sendPublishAck(connection, unKnowErrorAck);
                     }

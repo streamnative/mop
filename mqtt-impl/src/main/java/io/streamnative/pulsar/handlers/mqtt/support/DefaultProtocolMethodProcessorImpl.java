@@ -50,7 +50,6 @@ import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHe
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
-import io.streamnative.pulsar.handlers.mqtt.utils.ExceptionUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -68,6 +67,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
+import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.naming.TopicName;
@@ -387,17 +387,32 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                             .collect(Collectors.toList()))
                     .build();
             ackHandler.sendSubscribeAck(connection, subscribeAck);
-        }).exceptionally(e -> {
-            Throwable causeError = ExceptionUtils.getCauseIfExist(e);
-            log.error("[Subscribe] [{}] Failed to process MQTT subscribe.", connection.getClientId(), causeError);
-            SubscribeAck subscribeAck = SubscribeAck
-                    .builder()
-                    .success(false)
-                    .packetId(messageID)
-                    .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
-                    .reasonStr("[ MOP ERROR ]" + causeError.getMessage())
-                    .build();
-            ackHandler.sendSubscribeAck(connection, subscribeAck);
+        }).exceptionally(ex -> {
+            Throwable realCause = FutureUtil.unwrapCompletionException(ex);
+            if (realCause instanceof BrokerServiceException.TopicNotFoundException) {
+                log.warn("[Subscribe] Topic filter [{}] Not found, the configuration [isAllowAutoTopicCreation={}]",
+                        subTopics.stream().map(MqttTopicSubscription::topicName)
+                                .collect(Collectors.joining(",")),
+                        pulsarService.getConfig().isAllowAutoTopicCreation());
+                SubscribeAck subscribeAck = SubscribeAck
+                        .builder()
+                        .success(false)
+                        .packetId(messageID)
+                        .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
+                        .reasonStr("Topic not found")
+                        .build();
+                ackHandler.sendSubscribeAck(connection, subscribeAck);
+            } else {
+                log.error("[Subscribe] [{}] Failed to process MQTT subscribe.", connection.getClientId(), ex);
+                SubscribeAck subscribeAck = SubscribeAck
+                        .builder()
+                        .success(false)
+                        .packetId(messageID)
+                        .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
+                        .reasonStr("[ MOP ERROR ]" + realCause.getMessage())
+                        .build();
+                ackHandler.sendSubscribeAck(connection, subscribeAck);
+            }
             return null;
         });
     }
