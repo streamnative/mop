@@ -65,7 +65,7 @@ public abstract class AbstractAckHandler implements AckHandler {
                     log.debug("The CONNECT message has been processed. CId={}", clientId);
                 }
                 connection.assignState(CONNECT_ACK, ESTABLISHED);
-                log.info("current connection state : {}", connection.getConnectionState(connection));
+                log.info("current connection state : {}", connection.getState());
             }
         });
     }
