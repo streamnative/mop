@@ -54,11 +54,15 @@ public class MQTTService {
     @Getter
     private final MQTTSubscriptionManager subscriptionManager;
 
+    @Getter
+    private final MQTTNamespaceBundleOwnershipListener bundleOwnershipListener;
+
     public MQTTService(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
         this.brokerService = brokerService;
         this.pulsarService = brokerService.pulsar();
         this.serverConfiguration = serverConfiguration;
         this.authorizationService = brokerService.getAuthorizationService();
+        this.bundleOwnershipListener = new MQTTNamespaceBundleOwnershipListener(pulsarService.getNamespaceService());
         this.metricsCollector = new MQTTMetricsCollector(serverConfiguration);
         this.metricsProvider = new MQTTMetricsProvider(metricsCollector);
         this.pulsarService.addPrometheusRawMetricsProvider(metricsProvider);
