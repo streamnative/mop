@@ -45,7 +45,11 @@ public class MQTTConnectionManager {
             if (log.isDebugEnabled()) {
                 log.debug("The clientId is existed. Close existing connection. CId={}", existing.getClientId());
             }
-            existing.close(true);
+            existing.close(true)
+                    .exceptionally(ex -> {
+                        log.error("close existing connection : {} error", existing, ex);
+                        return null;
+                    });
         }
     }
 
@@ -60,7 +64,7 @@ public class MQTTConnectionManager {
         sessionExpireInterval.newTimeout(timeout -> {
             Connection connection = connections.get(clientId);
             if (connection != null
-                    && connection.getConnectionState(connection) != Connection.ConnectionState.DISCONNECTED) {
+                    && connection.getState() != Connection.ConnectionState.DISCONNECTED) {
                 return;
             }
             task.accept(timeout);

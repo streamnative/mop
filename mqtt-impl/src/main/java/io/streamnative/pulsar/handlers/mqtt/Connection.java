@@ -136,7 +136,11 @@ public class Connection {
     }
 
     public CompletableFuture<Void> close() {
-        return close(false);
+        return close(false)
+                .exceptionally(ex -> {
+                    log.error("close connection : {} error", this, ex);
+                    return null;
+                });
     }
 
     public CompletableFuture<Void> close(boolean force) {
@@ -191,8 +195,8 @@ public class Connection {
         return ret;
     }
 
-    public ConnectionState getConnectionState(Connection connection) {
-        return channelState.get(connection);
+    public ConnectionState getState() {
+        return channelState.get(this);
     }
 
     public void updateSessionExpireInterval(int newSessionInterval) throws InvalidSessionExpireIntervalException {

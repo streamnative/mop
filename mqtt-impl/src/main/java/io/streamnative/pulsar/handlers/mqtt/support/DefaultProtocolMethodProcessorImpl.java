@@ -348,7 +348,18 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         final int messageID = msg.variableHeader().messageId();
         AckHandler ackHandler = connection.getAckHandler();
         final List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
-        mqttSubscriptionManager.addSubscriptions(connection.getClientId(), subTopics);
+        boolean duplicated = mqttSubscriptionManager.addSubscriptions(connection.getClientId(), subTopics);
+        if (duplicated) {
+            SubscribeAck subscribeAck = SubscribeAck
+                    .builder()
+                    .success(false)
+                    .packetId(messageID)
+                    .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
+                    .reasonStr("Duplicated subscribe")
+                    .build();
+            ackHandler.sendSubscribeAck(connection, subscribeAck);
+            return CompletableFuture.completedFuture(null);
+        }
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
         for (MqttTopicSubscription subTopic : subTopics) {
             metricsCollector.addSub(subTopic.topicName());

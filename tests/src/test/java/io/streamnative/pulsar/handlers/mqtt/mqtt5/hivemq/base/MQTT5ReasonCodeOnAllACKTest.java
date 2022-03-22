@@ -20,6 +20,7 @@ import com.hivemq.client.mqtt.datatypes.MqttTopic;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5ConnAckException;
+import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5SubAckException;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5UnsubAckException;
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck;
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAckReasonCode;
@@ -97,19 +98,34 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
     }
 
     @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
-    public void testSubScribeSuccess(String topic) throws Exception {
+    public void testSubscribeSuccess(String topic) throws Exception {
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
         client.connect();
         Mqtt5SubAck firstConsumerACK = client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_LEAST_ONCE).send();
-        Mqtt5SubAck secondConsumerACK = client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_MOST_ONCE).send();
         for (Mqtt5SubAckReasonCode reasonCode : firstConsumerACK.getReasonCodes()) {
             Assert.assertEquals(reasonCode.getCode(), Mqtt5SubAckReasonCode.GRANTED_QOS_1.getCode());
         }
+        client.unsubscribeWith().topicFilter(topic).send();
+        client.disconnect();
+        client.connect();
+        Mqtt5SubAck secondConsumerACK = client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_MOST_ONCE).send();
         for (Mqtt5SubAckReasonCode reasonCode : secondConsumerACK.getReasonCodes()) {
             Assert.assertEquals(reasonCode.getCode(), Mqtt5SubAckReasonCode.GRANTED_QOS_0.getCode());
         }
         client.unsubscribeWith().topicFilter(topic).send();
         client.disconnect();
+    }
+
+    @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
+    public void testSubscribeManyTimes(String topic) throws Exception {
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        client.connect();
+        client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_LEAST_ONCE).send();
+        try {
+            client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_MOST_ONCE).send();
+        } catch (Mqtt5SubAckException ex) {
+            Assert.assertTrue(ex.getMqttMessage().getReasonCodes().contains(Mqtt5SubAckReasonCode.UNSPECIFIED_ERROR));
+        }
     }
 
     @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
