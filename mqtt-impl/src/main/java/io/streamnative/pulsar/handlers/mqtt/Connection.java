@@ -25,6 +25,7 @@ import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.ConnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
@@ -89,7 +90,6 @@ public class Connection {
         this.userRole = builder.userRole;
         this.channel = builder.channel;
         this.manager = builder.connectionManager;
-        this.manager.addConnection(this);
         this.connectMessage = builder.connectMessage;
         this.ackHandler = AckHandlerFactory.of(protocolVersion).getAckHandler();
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
@@ -107,7 +107,7 @@ public class Connection {
     }
 
     public ChannelFuture sendConnAck() {
-        return ackHandler.sendConnAck(this);
+        return ackHandler.sendConnAck(this, ConnectAck.builder().success(true).build());
     }
 
     public ChannelFuture send(MqttMessage mqttMessage) {

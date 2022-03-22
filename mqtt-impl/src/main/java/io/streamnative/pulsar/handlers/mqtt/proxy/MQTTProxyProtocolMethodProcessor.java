@@ -26,9 +26,11 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.ConnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
@@ -88,6 +90,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         ServerRestrictions serverRestrictions = ServerRestrictions.builder()
                 .receiveMaximum(proxyConfig.getReceiveMaximum())
                 .build();
+        String clientId = msg.payload().clientIdentifier();
         connection = Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
                 .clientId(msg.payload().clientIdentifier())
@@ -98,7 +101,15 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .build();
-        connection.sendConnAck();
+        boolean existSameClientIdConnection = !connectionManager.addConnection(connection);
+        if (existSameClientIdConnection) {
+            log.warn("[CONNECT] Exist same client {} id connection.", clientId);
+            connection.getAckHandler().sendConnAck(connection, ConnectAck.builder().success(false)
+                    .errorReason(MqttConnectAckHelper.ErrorReason.IDENTIFIER_INVALID)
+                    .reasonStr(String.format("Client id %s already exist.", clientId)).build());
+        } else {
+            connection.sendConnAck();
+        }
     }
 
     @Override

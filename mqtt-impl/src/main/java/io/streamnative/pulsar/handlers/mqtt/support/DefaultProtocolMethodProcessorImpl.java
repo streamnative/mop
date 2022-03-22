@@ -39,6 +39,7 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedE
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.ConnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
@@ -46,6 +47,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.ack.UnsubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
+import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
@@ -110,9 +112,10 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         ServerRestrictions serverRestrictions = ServerRestrictions.builder()
                 .receiveMaximum(configuration.getReceiveMaximum())
                 .build();
+        String clientId = msg.payload().clientIdentifier();
         connection = Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
-                .clientId(msg.payload().clientIdentifier())
+                .clientId(clientId)
                 .userRole(userRole)
                 .willMessage(createWillMessage(msg))
                 .clientRestrictions(clientRestrictions)
@@ -120,8 +123,16 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .build();
-        metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
-        connection.sendConnAck();
+        boolean existSameClientIdConnection = !connectionManager.addConnection(connection);
+        if (existSameClientIdConnection) {
+            log.warn("[CONNECT] Exist same client {} id connection.", clientId);
+            connection.getAckHandler().sendConnAck(connection, ConnectAck.builder().success(false)
+                    .errorReason(MqttConnectAckHelper.ErrorReason.IDENTIFIER_INVALID)
+                    .reasonStr(String.format("Client id %s already exist.", clientId)).build());
+        } else {
+            metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
+            connection.sendConnAck();
+        }
     }
 
     @Override

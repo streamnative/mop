@@ -39,18 +39,17 @@ public class MQTTConnectionManager {
         this.connections = new ConcurrentHashMap<>(2048);
     }
 
-    public void addConnection(Connection connection) {
-        Connection existing = connections.put(connection.getClientId(), connection);
-        if (existing != null) {
-            if (log.isDebugEnabled()) {
-                log.debug("The clientId is existed. Close existing connection. CId={}", existing.getClientId());
-            }
-            existing.close(true)
-                    .exceptionally(ex -> {
-                        log.error("close existing connection : {} error", existing, ex);
-                        return null;
-                    });
+    public boolean addConnection(Connection connection) {
+        Connection previousConnection = connections.putIfAbsent(connection.getClientId(), connection);
+        if (previousConnection == null) {
+            return true;
         }
+        boolean active = previousConnection.getChannel().isActive();
+        if (!active) {
+            connections.put(connection.getClientId(), connection);
+            return true;
+        }
+        return false;
     }
 
     /**
