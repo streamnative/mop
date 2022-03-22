@@ -40,7 +40,16 @@ public class MQTTConnectionManager {
     }
 
     public boolean addConnection(Connection connection) {
-        return connections.putIfAbsent(connection.getClientId(), connection) == null;
+        Connection previousConnection = connections.putIfAbsent(connection.getClientId(), connection);
+        if (previousConnection == null) {
+            return true;
+        }
+        boolean active = previousConnection.getChannel().isActive();
+        if (!active) {
+            connections.put(connection.getClientId(), connection);
+            return true;
+        }
+        return false;
     }
 
     /**
