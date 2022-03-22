@@ -23,6 +23,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.psk.PSKClient;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.io.BufferedReader;
@@ -49,6 +50,7 @@ import org.apache.pulsar.common.policies.data.BundlesData;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
+import org.fusesource.mqtt.client.MQTTException;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
@@ -510,7 +512,13 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         mqttProducer2.setConnectAttemptsMax(0);
         mqttProducer2.setReconnectAttemptsMax(0);
         BlockingConnection producer2 = mqttProducer2.blockingConnection();
-        producer2.connect();
+        try {
+            producer2.connect();
+            Assert.fail("Unexpected operation");
+        } catch (MQTTException ex) {
+            Assert.assertTrue(ex.getMessage()
+                    .contains(Mqtt3ConnReasonCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED.name()));
+        }
         //
         HttpClient httpClient = HttpClientBuilder.create().build();
         final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop-stats";
@@ -528,7 +536,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
         Awaitility.await().untilAsserted(() -> {
             Assert.assertEquals(clients.get("active"), 1.0);
-            Assert.assertEquals(clients.get("total"), 2.0);
+            Assert.assertEquals(clients.get("total"), 1.0);
         });
     }
 
