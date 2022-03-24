@@ -113,15 +113,26 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
                 .adminRoles(Sets.newHashSet("appid1", "appid2"))
                 .allowedClusters(Sets.newHashSet("test"))
                 .build();
-        if (!admin.tenants().getTenants().contains("public")) {
+        List<String> tenants = admin.tenants().getTenants();
+        if (!tenants.contains("public")) {
             admin.tenants().createTenant("public", tenantInfo);
         } else {
             admin.tenants().updateTenant("public", tenantInfo);
+        }
+        if (!tenants.contains("pulsar")) {
+            admin.tenants().createTenant("pulsar", tenantInfo);
+        } else {
+            admin.tenants().updateTenant("pulsar", tenantInfo);
         }
 
         if (!admin.namespaces().getNamespaces("public").contains("public/default")) {
             admin.namespaces().createNamespace("public/default");
             admin.namespaces().setRetention("public/default",
+                    new RetentionPolicies(60, 1000));
+        }
+        if (!admin.namespaces().getNamespaces("pulsar").contains("pulsar/system")) {
+            admin.namespaces().createNamespace("pulsar/system");
+            admin.namespaces().setRetention("pulsar/system",
                     new RetentionPolicies(60, 1000));
         }
     }

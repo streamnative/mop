@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.proxy;
 
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.TokenAuthenticationConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.fusesource.mqtt.client.BlockingConnection;
@@ -32,8 +32,8 @@ import org.testng.annotations.Test;
 public class TokenAuthenticationProxyTest extends TokenAuthenticationConfig {
 
     @Override
-    public MQTTServerConfiguration initConfig() throws Exception{
-        MQTTServerConfiguration conf = super.initConfig();
+    public MQTTCommonConfiguration initConfig() throws Exception{
+        MQTTCommonConfiguration conf = super.initConfig();
         conf.setMqttProxyEnabled(true);
         return conf;
     }

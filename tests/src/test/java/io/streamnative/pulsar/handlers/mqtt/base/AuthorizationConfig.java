@@ -17,7 +17,7 @@ import static org.mockito.Mockito.spy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.authentication.AuthenticationProviderBasic;
@@ -32,8 +32,8 @@ import org.apache.pulsar.client.impl.auth.AuthenticationBasic;
 public class AuthorizationConfig extends MQTTTestBase {
 
     @Override
-    public MQTTServerConfiguration initConfig() throws Exception {
-        MQTTServerConfiguration conf = super.initConfig();
+    public MQTTCommonConfiguration initConfig() throws Exception {
+        MQTTCommonConfiguration conf = super.initConfig();
         System.setProperty("pulsar.auth.basic.conf", "./src/test/resources/htpasswd");
         String authParams = "{\"userId\":\"superUser\",\"password\":\"supepass\"}";
 
