@@ -32,6 +32,4 @@ public interface SystemEventService {
     CompletableFuture<Void> sendDisconnectEvent(Connection connection);
 
     CompletableFuture<Void> sendEvent(MqttEvent event);
-
-    boolean containsClientId(String clientId);
 }

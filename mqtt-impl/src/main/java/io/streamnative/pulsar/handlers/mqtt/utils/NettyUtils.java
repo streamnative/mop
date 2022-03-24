@@ -49,7 +49,7 @@ public final class NettyUtils {
 
     public static String getIp(Channel channel) {
         InetSocketAddress address = (InetSocketAddress) channel.remoteAddress();
-        return address.getHostName();
+        return address.getAddress().getHostAddress();
     }
 
     private NettyUtils() {

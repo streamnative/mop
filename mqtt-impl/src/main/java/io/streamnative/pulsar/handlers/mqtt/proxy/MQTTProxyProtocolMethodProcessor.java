@@ -185,7 +185,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             channel.close();
         } else {
             connection.close()
-                    .thenAccept(__ -> eventService.sendDisconnectEvent(connection))
                     .thenAccept(__-> connectionManager.removeConnection(connection));
         }
     }
@@ -197,7 +196,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
             }
             connectionManager.removeConnection(connection);
-            eventService.sendDisconnectEvent(connection);
         }
         brokerPool.forEach((k, v) -> v.close());
         brokerPool.clear();

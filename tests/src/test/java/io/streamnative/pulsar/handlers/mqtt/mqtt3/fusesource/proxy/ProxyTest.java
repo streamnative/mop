@@ -15,9 +15,6 @@
 package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.proxy;
 
 import static org.mockito.Mockito.verify;
-import static org.testng.Assert.fail;
-
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.gson.Gson;
 import com.google.gson.internal.LinkedTreeMap;
@@ -27,7 +24,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.psk.PSKClient;
@@ -43,8 +39,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import lombok.Cleanup;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -52,17 +46,13 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.pulsar.client.admin.PulsarAdminException;
-import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
-import org.apache.pulsar.common.policies.data.TenantInfoImpl;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
-import org.fusesource.mqtt.client.MQTTException;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
@@ -303,33 +293,5 @@ public class ProxyTest extends MQTTTestBase {
         Assert.assertEquals(new String(receive2.getPayload()), msg1);
         Assert.assertEquals(receive2.getTopic(), topicName1);
         consumer.disconnect();
-    }
-
-    @Test
-    public void testDuplicateClientIdInCluster() throws Exception {
-        String topic1 = "non-persistent://public/default/topic1";
-        String topic2 = "non-persistent://public/default/topic2";
-        @Cleanup
-        Producer<byte[]> producer = pulsarClient.newProducer().topic(topic1).create();
-        @Cleanup
-        Producer<byte[]> producer2 = pulsarClient2.newProducer().topic(topic2).create();
-        MQTT mqtt1 = createMQTTProxyClient();
-        mqtt1.setClientId("duplicateclientidtest");
-        BlockingConnection connection1 = mqtt1.blockingConnection();
-        connection1.connect();
-        String msg1 = "hello topic1";
-        connection1.publish(topic1, msg1.getBytes(StandardCharsets.UTF_8), QoS.AT_LEAST_ONCE, false);
-        Thread.sleep(5000);
-        MQTT mqtt2 = createMQTTProxyClient();
-        mqtt2.setClientId("duplicateclientidtest");
-        BlockingConnection connection2 = mqtt2.blockingConnection();
-        connection2.connect();
-        String msg2 = "hello topic2";
-        try {
-            connection2.publish(topic2, msg2.getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
-            fail("Should fail here");
-        } catch (MQTTException ex) {
-            Assert.assertTrue(ex instanceof MQTTException);
-        }
     }
 }

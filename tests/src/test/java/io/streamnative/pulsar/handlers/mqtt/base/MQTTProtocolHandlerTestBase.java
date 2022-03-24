@@ -20,7 +20,6 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.netty.channel.EventLoopGroup;
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -45,6 +44,7 @@ import org.apache.bookkeeper.client.PulsarMockBookKeeper;
 import org.apache.bookkeeper.common.util.OrderedExecutor;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.bookkeeper.util.ZkUtils;
+import org.apache.commons.beanutils.BeanUtils;
 import org.apache.pulsar.broker.BookKeeperClientFactory;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.ServiceConfiguration;
@@ -311,7 +311,10 @@ public abstract class MQTTProtocolHandlerTestBase {
             brokerCount = 3;
         }
         for (int i = 0; i < brokerCount; i++) {
-            startBroker(conf);
+            MQTTCommonConfiguration brokerConf = new MQTTCommonConfiguration();
+            BeanUtils.copyProperties(brokerConf, conf);
+            brokerConf.setProperties(conf.getProperties());
+            startBroker(brokerConf);
         }
     }
 

@@ -19,7 +19,6 @@
 package io.streamnative.pulsar.handlers.mqtt.support.event;
 
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-
 import java.util.concurrent.CompletableFuture;
 
 public class DisabledSystemEventService implements SystemEventService{
@@ -47,10 +46,5 @@ public class DisabledSystemEventService implements SystemEventService{
     @Override
     public CompletableFuture<Void> sendEvent(MqttEvent event) {
         return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
-    public boolean containsClientId(String clientId) {
-        return false;
     }
 }

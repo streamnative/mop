@@ -82,10 +82,13 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
         this.listeners.add(listener);
     }
 
-    @Override
-    public boolean containsClientId(String clientId) {
+    public boolean containsConnection(Connection connection) {
         checkReader();
-        return clusterClientIds.containsKey(clientId);
+        String ip = clusterClientIds.get(connection.getClientId());
+        if (ip != null && !ip.equals(NettyUtils.getIp(connection.getChannel()))) {
+            return true;
+        }
+        return false;
     }
 
     @Override

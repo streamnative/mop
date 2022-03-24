@@ -47,7 +47,6 @@ public class MQTTProxyService implements Closeable {
     private final MQTTConnectionManager connectionManager;
     @Getter
     private final SystemEventService eventService;
-
     @Getter
     private LookupHandler lookupHandler;
 
@@ -120,6 +119,7 @@ public class MQTTProxyService implements Closeable {
         }
 
         this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, proxyConfig);
+        this.eventService.start();
     }
 
     @Override
@@ -133,6 +133,7 @@ public class MQTTProxyService implements Closeable {
         if (listenChannelTlsPsk != null) {
             listenChannelTlsPsk.close();
         }
+        this.eventService.close();
         lookupHandler.close();
         acceptorGroup.shutdownGracefully();
         workerGroup.shutdownGracefully();
