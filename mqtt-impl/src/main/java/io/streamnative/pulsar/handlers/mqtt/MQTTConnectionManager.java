@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MQTTConnectionManager {
 
     private final ConcurrentMap<String, Connection> connections;
+
     @Getter
     private static final HashedWheelTimer sessionExpireInterval =
             new HashedWheelTimer(

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import java.net.URISyntaxException;
 import java.util.Optional;
@@ -40,8 +41,8 @@ public class TokenAuthenticationConfig extends MQTTTestBase {
     private String token;
 
     @Override
-    public MQTTServerConfiguration initConfig() throws Exception {
-        MQTTServerConfiguration conf = super.initConfig();
+    public MQTTCommonConfiguration initConfig() throws Exception {
+        MQTTCommonConfiguration conf = super.initConfig();
         SecretKey secretKey = AuthTokenUtils.createSecretKey(SignatureAlgorithm.HS256);
         Properties properties = new Properties();
         properties.setProperty("tokenSecretKey", AuthTokenUtils.encodeKeyBase64(secretKey));
