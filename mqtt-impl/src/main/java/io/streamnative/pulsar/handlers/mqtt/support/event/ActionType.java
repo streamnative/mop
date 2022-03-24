@@ -15,7 +15,6 @@
 package io.streamnative.pulsar.handlers.mqtt.support.event;
 
 public enum ActionType {
-
     INSERT,
     DELETE,
     UPDATE,

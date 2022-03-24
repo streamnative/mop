@@ -14,6 +14,5 @@
 package io.streamnative.pulsar.handlers.mqtt.support.event;
 
 public enum EventType {
-
     CONNECT;
 }

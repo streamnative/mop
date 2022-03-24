@@ -45,8 +45,8 @@ import org.apache.pulsar.common.naming.TopicName;
 @Beta
 public class SystemTopicBasedSystemEventService implements SystemEventService {
 
+    public static final TopicName SYSTEM_EVENT_TOPIC = TopicName.get("pulsar/system/__mqtt_event");
     private final PulsarService pulsarService;
-    private final TopicName topicName;
     private final SystemTopicClient<MqttEvent> systemTopicClient;
     private final Map<String, SourceEvent> eventCache;
     private final ConcurrentMap<String, String> clusterClientIds;
@@ -58,9 +58,8 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
 
     public SystemTopicBasedSystemEventService(PulsarService pulsarService) {
         this.pulsarService = pulsarService;
-        this.topicName = TopicName.get("pulsar/system/__mqtt_event");
         try {
-            this.systemTopicClient = new MQTTEventSystemTopicClient(pulsarService.getClient(), topicName);
+            this.systemTopicClient = new MQTTEventSystemTopicClient(pulsarService.getClient(), SYSTEM_EVENT_TOPIC);
         } catch (PulsarServerException e) {
             throw new IllegalStateException(e);
         }
@@ -119,13 +118,13 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                     ? writer.deleteAsync(event) : writer.writeAsync(event);
             writeFuture.whenComplete((__, ex) -> {
                 if (ex != null) {
-                    log.error("[{}] send event error.", topicName, ex);
+                    log.error("[{}] send event error.", SYSTEM_EVENT_TOPIC, ex);
                 }
                 writer.closeAsync();
             });
             return writeFuture.thenAccept(__ -> {});
         }).exceptionally(ex -> {
-            log.error("[{}] send event error.", topicName, ex);
+            log.error("[{}] send event error.", SYSTEM_EVENT_TOPIC, ex);
             return null;
         });
     }

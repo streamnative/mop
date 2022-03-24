@@ -13,16 +13,13 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.event;
 
-import java.util.Objects;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
 
 @Data
 @Builder
-@ToString
 @NoArgsConstructor
 @AllArgsConstructor
 public class ConnectEvent extends SourceEvent {
@@ -30,21 +27,4 @@ public class ConnectEvent extends SourceEvent {
     private String clientId;
 
     private String ip;
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ConnectEvent that = (ConnectEvent) o;
-        return Objects.equals(clientId, that.clientId) && Objects.equals(ip, that.ip);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(clientId, ip);
-    }
 }
