@@ -29,7 +29,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.common.util.JsonUtil;
 import org.apache.pulsar.broker.PulsarServerException;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.namespace.NamespaceService;
 import org.apache.pulsar.broker.systopic.SystemTopicClient;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.MessageId;
@@ -59,8 +58,6 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
 
     public SystemTopicBasedSystemEventService(PulsarService pulsarService) {
         this.pulsarService = pulsarService;
-        NamespaceName heartbeatNamespace = NamespaceService.getHeartbeatNamespaceV2(
-                pulsarService.getAdvertisedAddress(), pulsarService.getConfig());
         this.topicName = TopicName.get("pulsar/system/__mqtt_event");
         try {
             this.systemTopicClient = new MQTTEventSystemTopicClient(pulsarService.getClient(), topicName);
