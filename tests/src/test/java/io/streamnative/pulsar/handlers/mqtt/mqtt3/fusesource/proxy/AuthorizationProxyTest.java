@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.proxy;
 
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.AuthorizationConfig;
 import java.util.HashSet;
 import java.util.Set;
