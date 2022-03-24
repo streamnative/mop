@@ -21,7 +21,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.psk.PSKClient;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -65,8 +65,8 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     private final int numMessages = 1000;
 
     @Override
-    protected MQTTServerConfiguration initConfig() throws Exception {
-        MQTTServerConfiguration mqtt = super.initConfig();
+    protected MQTTCommonConfiguration initConfig() throws Exception {
+        MQTTCommonConfiguration mqtt = super.initConfig();
 
         mqtt.setTlsPskEnabled(true);
         mqtt.setTlsPskIdentityHint("alpha");

@@ -14,7 +14,7 @@
 
 package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.base;
 
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.io.File;
 import java.io.FileInputStream;
@@ -36,8 +36,8 @@ import org.testng.annotations.Test;
 public class TLSTest extends MQTTTestBase {
 
     @Override
-    protected MQTTServerConfiguration initConfig() throws Exception{
-        MQTTServerConfiguration mqtt = super.initConfig();
+    protected MQTTCommonConfiguration initConfig() throws Exception{
+        MQTTCommonConfiguration mqtt = super.initConfig();
 
         mqtt.setTlsEnabled(true);
         mqtt.setTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);

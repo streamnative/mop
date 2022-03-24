@@ -35,7 +35,6 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
     )
     private String brokerServiceURL;
 
-
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
             doc = "Maximum number of lookup requests allowed on "
@@ -49,5 +48,11 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
                     + "Setting a maximum prevents overloading a broker."
     )
     private int concurrentLookupRequest = 5000;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "Enable system event service."
+    )
+    private boolean systemEventEnabled = false;
 
 }
