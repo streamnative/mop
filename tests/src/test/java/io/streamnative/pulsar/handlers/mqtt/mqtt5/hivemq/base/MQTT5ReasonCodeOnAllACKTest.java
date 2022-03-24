@@ -198,28 +198,4 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
         Assert.assertEquals(reasonCode, Mqtt5ConnAckReasonCode.SUCCESS);
         client.disconnect();
     }
-
-    @Test(timeOut = TIMEOUT)
-    public void testSameClientIdConnectFail() {
-        final String clientId = "1";
-        Mqtt5BlockingClient client1 = Mqtt5Client.builder()
-                .identifier(clientId)
-                .serverHost("127.0.0.1")
-                .serverPort(getMqttBrokerPortList().get(0))
-                .buildBlocking();
-        Mqtt5BlockingClient client2 = Mqtt5Client.builder()
-                .identifier(clientId)
-                .serverHost("127.0.0.1")
-                .serverPort(getMqttBrokerPortList().get(0))
-                .buildBlocking();
-        client1.connect();
-        try {
-            client2.connect();
-            Assert.fail("Unexpected reach out");
-        } catch (Mqtt5ConnAckException ex) {
-            Mqtt5ConnAck mqttMessage = ex.getMqttMessage();
-            Assert.assertEquals(mqttMessage.getReasonCode(), Mqtt5ConnAckReasonCode.CLIENT_IDENTIFIER_NOT_VALID);
-        }
-        client1.disconnect();
-    }
 }

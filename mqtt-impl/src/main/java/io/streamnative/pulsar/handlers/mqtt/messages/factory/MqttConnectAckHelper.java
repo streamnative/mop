@@ -21,7 +21,6 @@ import io.netty.handler.codec.mqtt.MqttProperties;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
-import lombok.AllArgsConstructor;
 
 /**
  * Enhance mqtt connect ack message builder.
@@ -40,21 +39,10 @@ public class MqttConnectAckHelper {
         return new MqttConnectErrorAckBuilder();
     }
 
-    public static MqttConnectErrorAckBuilder errorBuilder(int protocolVersion) {
-        return new MqttConnectErrorAckBuilder(protocolVersion);
-    }
-
     public static class MqttConnectErrorAckBuilder {
         private int protocolVersion;
         private ErrorReason errorReason;
         private String reasonString;
-
-        public MqttConnectErrorAckBuilder() {
-        }
-
-        public MqttConnectErrorAckBuilder(int protocolVersion) {
-            this.protocolVersion = protocolVersion;
-        }
 
         public MqttConnectErrorAckBuilder serverUnavailable(int protocolVersion) {
             this.protocolVersion = protocolVersion;
@@ -64,11 +52,6 @@ public class MqttConnectAckHelper {
 
         public MqttConnectErrorAckBuilder reasonString(String reasonStr) {
             this.reasonString = reasonStr;
-            return this;
-        }
-
-        public MqttConnectErrorAckBuilder errorReason(ErrorReason errorReason) {
-            this.errorReason = errorReason;
             return this;
         }
 
@@ -118,8 +101,7 @@ public class MqttConnectAckHelper {
     }
 
 
-    @AllArgsConstructor
-    public enum ErrorReason {
+    enum ErrorReason {
         IDENTIFIER_INVALID(Mqtt3ConnReasonCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED,
                 Mqtt5ConnReasonCode.CLIENT_IDENTIFIER_NOT_VALID),
         AUTH_FAILED(Mqtt3ConnReasonCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD,
@@ -136,6 +118,11 @@ public class MqttConnectAckHelper {
 
         private final Mqtt3ConnReasonCode v3ReasonCode;
         private final Mqtt5ConnReasonCode v5ReasonCode;
+
+        ErrorReason(Mqtt3ConnReasonCode v3ReasonCode, Mqtt5ConnReasonCode v5ReasonCode) {
+            this.v3ReasonCode = v3ReasonCode;
+            this.v5ReasonCode = v5ReasonCode;
+        }
 
         public MqttConnectReturnCode getReasonCode(int protocolVersion) {
             if (MqttUtils.isMqtt5(protocolVersion)) {
