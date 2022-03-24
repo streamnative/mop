@@ -33,7 +33,6 @@ import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHe
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
-import io.streamnative.pulsar.handlers.mqtt.support.event.SystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -70,7 +69,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     // Map sequence Id -> topic count
     private final ConcurrentHashMap<Integer, AtomicInteger> subscribeTopicsCount;
     private final MQTTConnectionManager connectionManager;
-    private final SystemEventService eventService;
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
         super(proxyService.getAuthenticationService(),
@@ -79,7 +77,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.lookupHandler = proxyService.getLookupHandler();
         this.proxyConfig = proxyService.getProxyConfig();
         this.connectionManager = proxyService.getConnectionManager();
-        this.eventService = proxyService.getEventService();
         this.topicBrokers = new ConcurrentHashMap<>();
         this.brokerPool = new ConcurrentHashMap<>();
         this.subscribeTopicsCount = new ConcurrentHashMap<>();

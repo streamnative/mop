@@ -62,7 +62,7 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
         try {
             this.systemTopicClient = new MQTTEventSystemTopicClient(pulsarService.getClient(), topicName);
         } catch (PulsarServerException e) {
-            throw new RuntimeException(e);
+            throw new IllegalStateException(e);
         }
         this.eventCache = new ConcurrentHashMap<>();
         this.clusterClientIds = new ConcurrentHashMap<>(2048);
@@ -77,10 +77,7 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     public boolean containsConnection(Connection connection) {
         checkReader();
         String ip = clusterClientIds.get(connection.getClientId());
-        if (ip != null && !ip.equals(NettyUtils.getIp(connection.getChannel()))) {
-            return true;
-        }
-        return false;
+        return ip != null && !ip.equals(NettyUtils.getIp(connection.getChannel()));
     }
 
     @Override
@@ -246,8 +243,10 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                             log.warn("Nothing to do with event : {}", msg.getValue());
                             break;
                     }
-                value.setSourceEvent(connectEvent);
-                break;
+                    value.setSourceEvent(connectEvent);
+                    break;
+                default:
+                    break;
             }
             listeners.forEach(listener -> listener.onChange(value));
         } catch (Exception ex) {
@@ -270,6 +269,7 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                     break;
                 default:
                     log.warn("do nothing with connect event : {} type : {}", connectEvent, actionType);
+                    break;
             }
             log.info("clusterClientIds : {}", clusterClientIds);
         }
