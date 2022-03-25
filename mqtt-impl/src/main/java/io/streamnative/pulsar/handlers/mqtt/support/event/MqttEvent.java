@@ -11,16 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.messages.ack;
+package io.streamnative.pulsar.handlers.mqtt.support.event;
 
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
 
-@Getter
+@Data
 @Builder
-public class ConnectAck {
-    private final boolean success;
-    private final MqttConnectAckHelper.ErrorReason errorReason;
-    private final String reasonStr;
+@ToString
+@NoArgsConstructor
+@AllArgsConstructor
+public class MqttEvent {
+
+    private String key;
+
+    private EventType eventType;
+
+    private ActionType actionType;
+
+    private Object sourceEvent;
 }
