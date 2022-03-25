@@ -650,4 +650,22 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         consumer.disconnect();
         producer.disconnect();
     }
+
+
+    @Test
+    public void testNonPersistentTopic() throws Exception {
+        String topicName = "non-persistent://public/default/a/b";
+        MQTT mqtt = createMQTTClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
+    }
 }
