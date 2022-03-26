@@ -67,6 +67,8 @@ public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEven
                         case Deleted:
                             listener.onNodeDeleted(path);
                             break;
+                        default:
+                            break;
                     }
                 })));
     }
