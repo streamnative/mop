@@ -211,10 +211,14 @@ public class PulsarTopicUtils {
                 ).orElseGet(()-> CompletableFuture.completedFuture(Collections.emptyList()));
     }
 
+    public static boolean isRegexFilter(String topicFilter) {
+        return topicFilter.contains(TopicFilter.SINGLE_LEVEL)
+                || topicFilter.contains(TopicFilter.MULTI_LEVEL);
+    }
+
     public static CompletableFuture<List<String>> asyncGetTopicListFromTopicSubscription(String topicFilter,
          String defaultTenant, String defaultNamespace, PulsarService pulsarService, String defaultTopicDomain) {
-        if (topicFilter.contains(TopicFilter.SINGLE_LEVEL)
-                || topicFilter.contains(TopicFilter.MULTI_LEVEL)) {
+        if (isRegexFilter(topicFilter)) {
             TopicFilter filter = PulsarTopicUtils.getTopicFilter(topicFilter);
             Pair<TopicDomain, NamespaceName> domainNamespacePair =
                     PulsarTopicUtils
