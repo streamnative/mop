@@ -13,6 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import io.streamnative.pulsar.handlers.mqtt.event.DisableEventCenter;
+import io.streamnative.pulsar.handlers.mqtt.event.PulsarEventCenter;
+import io.streamnative.pulsar.handlers.mqtt.event.PulsarEventCenterImpl;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
 import lombok.Getter;
@@ -57,6 +60,9 @@ public class MQTTService {
     @Getter
     private final MQTTNamespaceBundleOwnershipListener bundleOwnershipListener;
 
+    @Getter
+    private final PulsarEventCenter eventCenter;
+
     public MQTTService(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
         this.brokerService = brokerService;
         this.pulsarService = brokerService.pulsar();
@@ -71,5 +77,10 @@ public class MQTTService {
                 serverConfiguration.getMqttAuthenticationMethods()) : null;
         this.connectionManager = new MQTTConnectionManager();
         this.subscriptionManager = new MQTTSubscriptionManager();
+        if (getServerConfiguration().isMqttProxyEnabled()) {
+            this.eventCenter = new DisableEventCenter();
+        } else {
+            this.eventCenter = new PulsarEventCenterImpl(brokerService, serverConfiguration);
+        }
     }
 }

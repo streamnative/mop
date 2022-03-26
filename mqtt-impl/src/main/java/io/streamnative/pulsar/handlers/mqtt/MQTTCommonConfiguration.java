@@ -304,4 +304,10 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "Max length for per message."
     )
     private int mqttMessageMaxLength = 8092;
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            doc = "Event center callback pool size."
+    )
+    private int eventCenterCallbackPoolTreadNum = 10;
 }
