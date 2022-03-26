@@ -16,15 +16,15 @@ package io.streamnative.pulsar.handlers.mqtt.base;
 import io.streamnative.pulsar.handlers.mqtt.MQTTProtocolHandler;
 import io.streamnative.pulsar.handlers.mqtt.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.event.PulsarTopicChangeListener;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.common.naming.TopicName;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 public class EventCenterTest extends MQTTTestBase {
 
