@@ -20,7 +20,6 @@ import static io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMe
 import io.netty.channel.ChannelFuture;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.messages.ack.ConnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
@@ -49,34 +48,26 @@ public abstract class AbstractAckHandler implements AckHandler {
     abstract MqttMessage getDisconnectAckMessage(Connection connection, DisconnectAck disconnectAck);
 
     @Override
-    public ChannelFuture sendConnAck(Connection connection, ConnectAck connectAck) {
+    public ChannelFuture sendConnAck(Connection connection) {
         String clientId = connection.getClientId();
-        if (connectAck.isSuccess()) {
-            if (!connection.assignState(DISCONNECTED, CONNECT_ACK)) {
-                log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
-                        DISCONNECTED, CONNECT_ACK, clientId);
-                return connection.sendThenClose(MqttConnectAckHelper.errorBuilder()
-                        .serverUnavailable(connection.getProtocolVersion())
-                        .reasonString(String.format("Unable to assign the server state from : %s to : %s",
-                                DISCONNECTED, CONNECT_ACK))
-                        .build());
-            }
-            return connection.send(getConnAckMessage(connection)).addListener(future -> {
-                if (future.isSuccess()) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("The CONNECT message has been processed. CId={}", clientId);
-                    }
-                    connection.assignState(CONNECT_ACK, ESTABLISHED);
-                    log.info("current connection state : {}", connection.getState());
-                }
-            });
-        } else {
-            MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder(connection.getProtocolVersion())
-                    .errorReason(connectAck.getErrorReason())
-                    .reasonString(connectAck.getReasonStr())
-                    .build();
-            return connection.sendThenClose(mqttMessage);
+        if (!connection.assignState(DISCONNECTED, CONNECT_ACK)) {
+            log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
+                    DISCONNECTED, CONNECT_ACK, clientId);
+            return connection.sendThenClose(MqttConnectAckHelper.errorBuilder()
+                    .serverUnavailable(connection.getProtocolVersion())
+                    .reasonString(String.format("Unable to assign the server state from : %s to : %s",
+                            DISCONNECTED, CONNECT_ACK))
+                    .build());
         }
+        return connection.send(getConnAckMessage(connection)).addListener(future -> {
+            if (future.isSuccess()) {
+                if (log.isDebugEnabled()) {
+                    log.debug("The CONNECT message has been processed. CId={}", clientId);
+                }
+                connection.assignState(CONNECT_ACK, ESTABLISHED);
+                log.info("current connection state : {}", connection.getState());
+            }
+        });
     }
 
     @Override

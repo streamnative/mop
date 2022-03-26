@@ -21,9 +21,8 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.psk.PSKClient;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.io.BufferedReader;
@@ -50,7 +49,6 @@ import org.apache.pulsar.common.policies.data.BundlesData;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
-import org.fusesource.mqtt.client.MQTTException;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
@@ -67,8 +65,8 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     private final int numMessages = 1000;
 
     @Override
-    protected MQTTServerConfiguration initConfig() throws Exception {
-        MQTTServerConfiguration mqtt = super.initConfig();
+    protected MQTTCommonConfiguration initConfig() throws Exception {
+        MQTTCommonConfiguration mqtt = super.initConfig();
 
         mqtt.setTlsPskEnabled(true);
         mqtt.setTlsPskIdentityHint("alpha");
@@ -512,13 +510,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         mqttProducer2.setConnectAttemptsMax(0);
         mqttProducer2.setReconnectAttemptsMax(0);
         BlockingConnection producer2 = mqttProducer2.blockingConnection();
-        try {
-            producer2.connect();
-            Assert.fail("Unexpected operation");
-        } catch (MQTTException ex) {
-            Assert.assertTrue(ex.getMessage()
-                    .contains(Mqtt3ConnReasonCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED.name()));
-        }
+        producer2.connect();
         //
         HttpClient httpClient = HttpClientBuilder.create().build();
         final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop-stats";
@@ -536,7 +528,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
         Awaitility.await().untilAsserted(() -> {
             Assert.assertEquals(clients.get("active"), 1.0);
-            Assert.assertEquals(clients.get("total"), 1.0);
+            Assert.assertEquals(clients.get("total"), 2.0);
         });
     }
 
@@ -657,5 +649,23 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertEquals(new String(receive2.getPayload()), msg2);
         consumer.disconnect();
         producer.disconnect();
+    }
+
+
+    @Test
+    public void testNonPersistentTopic() throws Exception {
+        String topicName = "non-persistent://public/default/a/b";
+        MQTT mqtt = createMQTTClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
     }
 }

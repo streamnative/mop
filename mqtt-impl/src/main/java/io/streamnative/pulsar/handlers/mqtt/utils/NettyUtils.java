@@ -47,6 +47,11 @@ public final class NettyUtils {
         return (String) channel.attr(NettyUtils.ATTR_KEY_CLIENT_ADDR).get();
     }
 
+    public static String getIp(Channel channel) {
+        InetSocketAddress address = (InetSocketAddress) channel.remoteAddress();
+        return address.getAddress().getHostAddress();
+    }
+
     private NettyUtils() {
     }
 }

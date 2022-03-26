@@ -19,7 +19,7 @@ import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5PubAckException;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5SubAckException;
 import com.hivemq.client.mqtt.mqtt5.message.publish.puback.Mqtt5PubAckReasonCode;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.suback.Mqtt5SubAckReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.common.policies.data.AutoTopicCreationOverride;
@@ -31,8 +31,8 @@ import org.testng.annotations.Test;
 public class MQTT5TestTopicAutoCreation extends MQTTTestBase {
 
     @Override
-    protected MQTTServerConfiguration initConfig() throws Exception {
-        MQTTServerConfiguration mqttServerConfiguration = super.initConfig();
+    protected MQTTCommonConfiguration initConfig() throws Exception {
+        MQTTCommonConfiguration mqttServerConfiguration = super.initConfig();
         mqttServerConfiguration.setAllowAutoTopicCreation(false);
         return mqttServerConfiguration;
     }

@@ -23,7 +23,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.psk.PSKClient;
@@ -67,13 +67,14 @@ import org.testng.annotations.Test;
 public class ProxyTest extends MQTTTestBase {
 
     @Override
-    protected MQTTServerConfiguration initConfig() throws Exception {
-        MQTTServerConfiguration mqtt = super.initConfig();
+    protected MQTTCommonConfiguration initConfig() throws Exception {
+        MQTTCommonConfiguration mqtt = super.initConfig();
 
         mqtt.setMqttProxyEnabled(true);
         mqtt.setMqttProxyTlsPskEnabled(true);
         mqtt.setTlsPskIdentityHint("alpha");
         mqtt.setTlsPskIdentity("mqtt:mqtt123");
+        mqtt.getProperties().setProperty("systemEventEnabled", "true");
         return mqtt;
     }
 

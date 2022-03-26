@@ -22,6 +22,9 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
+import io.streamnative.pulsar.handlers.mqtt.support.event.DisabledSystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.support.event.SystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.support.event.SystemTopicBasedSystemEventService;
 import java.io.Closeable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +46,8 @@ public class MQTTProxyService implements Closeable {
     @Getter
     private final MQTTConnectionManager connectionManager;
     @Getter
+    private final SystemEventService eventService;
+    @Getter
     private LookupHandler lookupHandler;
 
     private Channel listenChannel;
@@ -59,6 +64,10 @@ public class MQTTProxyService implements Closeable {
         this.pulsarService = mqttService.getPulsarService();
         this.proxyConfig = proxyConfig;
         this.authenticationService = mqttService.getAuthenticationService();
+        this.eventService = proxyConfig.isSystemEventEnabled()
+                ? new SystemTopicBasedSystemEventService(mqttService.getPulsarService()) :
+                new DisabledSystemEventService();
+
         this.connectionManager = new MQTTConnectionManager();
         this.acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
                 false, acceptorThreadFactory);
@@ -110,6 +119,7 @@ public class MQTTProxyService implements Closeable {
         }
 
         this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, proxyConfig);
+        this.eventService.start();
     }
 
     @Override
@@ -123,6 +133,7 @@ public class MQTTProxyService implements Closeable {
         if (listenChannelTlsPsk != null) {
             listenChannelTlsPsk.close();
         }
+        this.eventService.close();
         lookupHandler.close();
         acceptorGroup.shutdownGracefully();
         workerGroup.shutdownGracefully();

@@ -61,12 +61,12 @@ public class TopicSubscriptionManager {
             log.error("[ Subscription ] Subscription {} Remove consumer fail.", subscriberName, e);
             FutureUtil.failedFuture(e);
         }
-        return topic.unsubscribe(subscriberName)
-                .thenAccept(__ -> {
-                    if (cleanSubscription) {
-                        subscriptionConsumerPair.getLeft().delete();
-                    }
-                }).thenAccept(__ -> topicSubscriptions.remove(topic));
+
+        if (cleanSubscription) {
+            return subscriptionConsumerPair.getLeft().delete().thenAccept(__ -> topicSubscriptions.remove(topic));
+        } else {
+            return topic.unsubscribe(subscriberName).thenAccept(__ -> topicSubscriptions.remove(topic));
+        }
     }
 
     public CompletableFuture<Void> removeSubscriptions() {
