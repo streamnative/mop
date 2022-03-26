@@ -14,10 +14,10 @@
 package io.streamnative.pulsar.handlers.mqtt.event;
 
 import io.streamnative.pulsar.handlers.mqtt.utils.EventParserUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.pulsar.broker.resources.TopicResources;
-import org.apache.pulsar.common.naming.TopicName;
 import java.util.regex.Pattern;
+import org.apache.commons.lang.StringUtils;
+import org.apache.pulsar.common.naming.TopicName;
+
 
 public interface PulsarTopicChangeListener extends PulsarEventListener {
     String MANAGED_LEDGER_PATH = "/managed-ledgers";

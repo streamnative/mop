@@ -14,8 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.event;
 
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
-import org.apache.pulsar.broker.service.BrokerService;
-import org.apache.pulsar.metadata.api.Notification;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,6 +21,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.pulsar.broker.service.BrokerService;
+import org.apache.pulsar.metadata.api.Notification;
 
 public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEventCenter {
     private final List<PulsarEventListener> listeners;
