@@ -26,9 +26,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-@Test
 public class EventCenterTest extends MQTTTestBase {
 
+    @Test
     public void testReceiveNotification() throws PulsarAdminException, InterruptedException, ExecutionException {
         String topicName = "persistent://public/default/testEventCenter";
         List<PulsarService> pulsarServiceList = getPulsarServiceList();

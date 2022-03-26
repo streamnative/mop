@@ -23,7 +23,6 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 import java.util.List;
 
-@Test
 public class EventCenterWithProxyTest extends MQTTTestBase {
 
     @Override
@@ -33,6 +32,7 @@ public class EventCenterWithProxyTest extends MQTTTestBase {
         return conf;
     }
 
+    @Test
     public void testDisableBrokerEventCenter() {
         List<PulsarService> pulsarServiceList = getPulsarServiceList();
         PulsarService pulsarService = pulsarServiceList.get(0);
