@@ -17,8 +17,11 @@ import org.apache.pulsar.common.naming.TopicName;
 
 public class EventParserUtils {
     public static TopicName parseFromManagedLedgerEvent(String path) {
-        // managed-ledgers/public/default/persistent/topicName
+        // /managed-ledgers/public/default/persistent/topicName
         String[] pathArr = path.split("/");
+        if (pathArr.length < 5) {
+            throw new IllegalArgumentException("Illegal argument path " + path);
+        }
         String tenant = pathArr[2];
         String namespace = pathArr[3];
         String topicDomain = pathArr[4];

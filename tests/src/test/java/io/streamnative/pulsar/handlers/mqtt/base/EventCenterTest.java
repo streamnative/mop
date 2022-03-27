@@ -56,6 +56,4 @@ public class EventCenterTest extends MQTTTestBase {
         admin.topics().delete(topicName);
         Assert.assertEquals(unLoadEvent.get(), topicName);
     }
-
-
 }

@@ -309,5 +309,5 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             category = CATEGORY_MQTT,
             doc = "Event center callback pool size."
     )
-    private int eventCenterCallbackPoolTreadNum = 10;
+    private int eventCenterCallbackPoolThreadNum = 1;
 }
