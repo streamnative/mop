@@ -32,7 +32,7 @@ public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEven
     public PulsarEventCenterImpl(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
         this.listeners = Collections.synchronizedList(new ArrayList<>());
         this.callbackExecutor =
-                Executors.newFixedThreadPool(serverConfiguration.getEventCenterCallbackPoolTreadNum());
+                Executors.newFixedThreadPool(serverConfiguration.getEventCenterCallbackPoolThreadNum());
         brokerService.getPulsar()
                 .getConfigurationMetadataStore().registerListener(this);
     }
