@@ -145,9 +145,7 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
     public MQTT createMQTTClient() throws URISyntaxException {
         List<Integer> mqttBrokerPortList = getMqttBrokerPortList();
-        MQTT mqtt = new MQTT();
-        mqtt.setHost("127.0.0.1", mqttBrokerPortList.get(random.nextInt(mqttBrokerPortList.size())));
-        return mqtt;
+        return createMQTT(mqttBrokerPortList.get(random.nextInt(mqttBrokerPortList.size())));
     }
 
     public MQTT createMQTTTlsClient() throws URISyntaxException {
@@ -160,8 +158,12 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
     public MQTT createMQTTProxyClient() throws URISyntaxException {
         List<Integer> mqttProxyPortList = getMqttProxyPortList();
-        MQTT mqtt = createMQTTClient();
-        mqtt.setHost("127.0.0.1", mqttProxyPortList.get(random.nextInt(mqttProxyPortList.size())));
+        return createMQTT(mqttProxyPortList.get(random.nextInt(mqttProxyPortList.size())));
+    }
+
+    public MQTT createMQTT(int port) throws URISyntaxException {
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", port);
         return mqtt;
     }
 

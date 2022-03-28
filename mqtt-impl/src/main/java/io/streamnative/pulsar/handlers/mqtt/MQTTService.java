@@ -75,7 +75,7 @@ public class MQTTService {
         this.authenticationService = serverConfiguration.isMqttAuthenticationEnabled()
             ? new MQTTAuthenticationService(brokerService.getAuthenticationService(),
                 serverConfiguration.getMqttAuthenticationMethods()) : null;
-        this.connectionManager = new MQTTConnectionManager();
+        this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
         this.subscriptionManager = new MQTTSubscriptionManager();
         if (getServerConfiguration().isMqttProxyEnabled()) {
             this.eventCenter = new DisableEventCenter();

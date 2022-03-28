@@ -26,5 +26,5 @@ public class ConnectEvent extends SourceEvent {
 
     private String clientId;
 
-    private String ip;
+    private String address;
 }
