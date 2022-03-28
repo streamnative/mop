@@ -414,7 +414,6 @@ Please refer [here](docs/mop-configuration.md)
 ## Declarations
 
 Currently, MoP has the following implementations that do not meet the MQTT Spec:
-- The MQTT spec calls for terminating existing clients with the same ClientID on `CONNECT`. But MoP only implements on proxy or broker side, not across cluster. 
 - `Last Will` implements not across cluster.
 
 ## Project maintainers
