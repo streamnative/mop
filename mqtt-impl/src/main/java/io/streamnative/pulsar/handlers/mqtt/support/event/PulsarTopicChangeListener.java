@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.event;
+package io.streamnative.pulsar.handlers.mqtt.support.event;
 
 import io.streamnative.pulsar.handlers.mqtt.utils.EventParserUtils;
 import java.util.regex.Pattern;
 import org.apache.commons.lang.StringUtils;
 import org.apache.pulsar.common.naming.TopicName;
-
 
 public interface PulsarTopicChangeListener extends PulsarEventListener {
     String MANAGED_LEDGER_PATH = "/managed-ledgers";

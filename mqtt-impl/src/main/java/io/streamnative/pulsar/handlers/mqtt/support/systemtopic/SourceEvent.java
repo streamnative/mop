@@ -11,20 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.support.event;
+package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
-import io.streamnative.pulsar.handlers.mqtt.Connection;
-import java.util.concurrent.CompletableFuture;
-
-public interface SystemEventService {
-
-    void start();
-
-    void close();
-
-    CompletableFuture<Void> sendConnectEvent(Connection connection);
-
-    CompletableFuture<Void> sendDisconnectEvent(Connection connection);
-
-    CompletableFuture<Void> sendEvent(MqttEvent event);
+public abstract class SourceEvent {
 }

@@ -11,21 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.event;
+package io.streamnative.pulsar.handlers.mqtt.support.event;
 
-public class DisableEventCenter implements PulsarEventCenter {
-    @Override
-    public void register(PulsarEventListener listener) {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
+public interface PulsarEventListener {
 
-    @Override
-    public void unRegister(PulsarEventListener listener) {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
+    boolean matchPath(String path);
 
-    @Override
-    public void shutdown() {
-        throw new UnsupportedOperationException("Unsupported operation.");
-    }
+    void onNodeCreated(String path);
+
+    void onNodeDeleted(String path);
 }

@@ -11,9 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.support.event;
+package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
-public interface EventListener {
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-    void onChange(MqttEvent event);
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ConnectEvent extends SourceEvent {
+
+    private String clientId;
+
+    private String ip;
 }

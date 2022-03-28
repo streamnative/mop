@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.streamnative.pulsar.handlers.mqtt.support.event;
+package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;

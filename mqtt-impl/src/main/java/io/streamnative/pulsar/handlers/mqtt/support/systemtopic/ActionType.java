@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.event;
 
-public interface PulsarEventListener {
+package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
-    boolean matchPath(String path);
-
-    void onNodeCreated(String path);
-
-    void onNodeDeleted(String path);
+public enum ActionType {
+    INSERT,
+    DELETE,
+    UPDATE,
+    NONE
 }
