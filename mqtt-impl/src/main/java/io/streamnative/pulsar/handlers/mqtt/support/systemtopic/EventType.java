@@ -11,12 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
-package io.streamnative.pulsar.handlers.mqtt.support.event;
-
-public enum ActionType {
-    INSERT,
-    DELETE,
-    UPDATE,
-    NONE
+public enum EventType {
+    CONNECT;
 }

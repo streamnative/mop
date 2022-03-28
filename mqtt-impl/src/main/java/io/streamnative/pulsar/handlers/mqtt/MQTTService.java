@@ -13,9 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import io.streamnative.pulsar.handlers.mqtt.event.DisableEventCenter;
-import io.streamnative.pulsar.handlers.mqtt.event.PulsarEventCenter;
-import io.streamnative.pulsar.handlers.mqtt.event.PulsarEventCenterImpl;
+import io.streamnative.pulsar.handlers.mqtt.support.event.DisableEventCenter;
+import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
+import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
 import lombok.Getter;

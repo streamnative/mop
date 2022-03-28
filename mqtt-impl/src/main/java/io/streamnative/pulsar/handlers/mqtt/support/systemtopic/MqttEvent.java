@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.support.event;
+package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
