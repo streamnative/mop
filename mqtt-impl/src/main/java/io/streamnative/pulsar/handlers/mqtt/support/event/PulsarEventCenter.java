@@ -13,18 +13,11 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.event;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+public interface PulsarEventCenter {
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class ConnectEvent extends SourceEvent {
+    void register(PulsarEventListener listener);
 
-    private String clientId;
+    void unRegister(PulsarEventListener listener);
 
-    private String ip;
+    void shutdown();
 }

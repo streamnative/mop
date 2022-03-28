@@ -11,13 +11,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.event;
-
-public interface PulsarEventCenter {
-
-    void register(PulsarEventListener listener);
-
-    void unRegister(PulsarEventListener listener);
-
-    void shutdown();
-}
+package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
