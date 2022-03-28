@@ -13,11 +13,11 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
+import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
 import io.streamnative.pulsar.handlers.mqtt.support.event.DisableEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
-import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
-import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
