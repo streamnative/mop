@@ -54,9 +54,7 @@ public class MQTTConnectionManager {
     public void addConnection(Connection connection) {
         Connection existing = connections.put(connection.getClientId(), connection);
         if (existing != null) {
-            if (log.isDebugEnabled()) {
-                log.debug("The clientId is existed. Close existing connection. CId={}", existing.getClientId());
-            }
+            log.warn("The clientId is existed. Close existing connection. CId={}", existing.getClientId());
             existing.close(true)
                     .exceptionally(ex -> {
                         log.error("close existing connection : {} error", existing, ex);
@@ -104,9 +102,7 @@ public class MQTTConnectionManager {
                 if (!connectEvent.getAddress().equals(advertisedAddress)) {
                     Connection connection = getConnection(connectEvent.getClientId());
                     if (connection != null) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("[ConnectEvent] close existing connection : {}", connection);
-                        }
+                        log.warn("[ConnectEvent] close existing connection : {}", connection);
                         connection.close(true)
                                 .thenRun(() -> removeConnection(connection))
                                 .exceptionally(ex -> {
