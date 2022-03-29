@@ -15,10 +15,8 @@ package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
 import com.google.common.annotations.Beta;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -37,6 +35,7 @@ import org.apache.pulsar.client.impl.Backoff;
 import org.apache.pulsar.client.util.RetryUtil;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.util.FutureUtil;
 
 /**
  * System topic based event service.
@@ -48,7 +47,6 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     public static final TopicName SYSTEM_EVENT_TOPIC = TopicName.get("pulsar/system/__mqtt_event");
     private final PulsarService pulsarService;
     private final SystemTopicClient<MqttEvent> systemTopicClient;
-    private final Map<String, SourceEvent> eventCache;
     private final ConcurrentMap<String, String> clusterClientIds;
     private final List<EventListener> listeners;
 
@@ -63,49 +61,26 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
         } catch (PulsarServerException e) {
             throw new IllegalStateException(e);
         }
-        this.eventCache = new ConcurrentHashMap<>();
         this.clusterClientIds = new ConcurrentHashMap<>(2048);
         this.listeners = new ArrayList<>();
-        this.addListener(new ConnectEventListener());
     }
 
+    @Override
     public void addListener(EventListener listener) {
         this.listeners.add(listener);
     }
 
-    public boolean containsConnection(Connection connection) {
-        checkReader();
-        String ip = clusterClientIds.get(connection.getClientId());
-        return ip != null && !ip.equals(NettyUtils.getIp(connection.getChannel()));
-    }
-
     @Override
     public CompletableFuture<Void> sendConnectEvent(Connection connection) {
+        checkReader();
         ConnectEvent connectEvent = ConnectEvent.builder()
                 .clientId(connection.getClientId())
-                .ip(NettyUtils.getIp(connection.getChannel()))
+                .address(pulsarService.getAdvertisedAddress())
                 .build();
         return sendEvent(getMqttEvent(connectEvent, ActionType.INSERT))
                 .thenRun(() -> {
                     if (log.isDebugEnabled()) {
                         log.debug("send connect event : {}", connectEvent);
-                    }
-                });
-    }
-
-    @Override
-    public CompletableFuture<Void> sendDisconnectEvent(Connection connection) {
-        if (!connection.getChannel().isActive()) {
-            return CompletableFuture.completedFuture(null);
-        }
-        ConnectEvent disconnectEvent = ConnectEvent.builder()
-                .clientId(connection.getClientId())
-                .ip(NettyUtils.getIp(connection.getChannel()))
-                .build();
-        return sendEvent(getMqttEvent(disconnectEvent, ActionType.DELETE))
-                .thenRun(() -> {
-                    if (log.isDebugEnabled()) {
-                        log.debug("send disconnect event : {}", disconnectEvent);
                     }
                 });
     }
@@ -175,7 +150,6 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     @Override
     public void close() {
         closeReader();
-        eventCache.clear();
     }
 
     private void startReader() {
@@ -209,7 +183,8 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                 refreshCache(msg);
                 readEvent();
             } else {
-                if (ex instanceof PulsarClientException.AlreadyClosedException) {
+                Throwable cause = FutureUtil.unwrapCompletionException(ex);
+                if (cause instanceof PulsarClientException.AlreadyClosedException) {
                     log.error("Read more topic policies exception, close the read now!", ex);
                     closeReader();
                 } else {
@@ -222,26 +197,13 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
 
     private void refreshCache(Message<MqttEvent> msg) {
         if (log.isDebugEnabled()) {
-            log.info("refresh cache for event : {}", msg.getValue());
+            log.debug("refresh cache for event : {}", msg.getValue());
         }
         MqttEvent value = msg.getValue();
         try {
             switch (value.getEventType()) {
                 case CONNECT:
                     ConnectEvent connectEvent = JsonUtil.fromJson((String) value.getSourceEvent(), ConnectEvent.class);
-                    switch (value.getActionType()) {
-                        case INSERT:
-                            eventCache.putIfAbsent(msg.getKey(), connectEvent);
-                            break;
-                        case DELETE:
-                            eventCache.remove(msg.getKey());
-                            break;
-                        case UPDATE:
-                        case NONE:
-                        default:
-                            log.warn("Nothing to do with event : {}", msg.getValue());
-                            break;
-                    }
                     value.setSourceEvent(connectEvent);
                     break;
                 default:
@@ -250,27 +212,6 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
             listeners.forEach(listener -> listener.onChange(value));
         } catch (Exception ex) {
             log.error("refresh cache error", ex);
-        }
-    }
-
-    class ConnectEventListener implements EventListener {
-
-        @Override
-        public void onChange(MqttEvent event) {
-            ConnectEvent connectEvent = (ConnectEvent) event.getSourceEvent();
-            ActionType actionType = event.getActionType();
-            switch (actionType) {
-                case INSERT:
-                    clusterClientIds.put(connectEvent.getClientId(), connectEvent.getIp());
-                    break;
-                case DELETE:
-                    clusterClientIds.remove(connectEvent.getClientId());
-                    break;
-                default:
-                    log.warn("do nothing with connect event : {} type : {}", connectEvent, actionType);
-                    break;
-            }
-            log.info("clusterClientIds : {}", clusterClientIds);
         }
     }
 }

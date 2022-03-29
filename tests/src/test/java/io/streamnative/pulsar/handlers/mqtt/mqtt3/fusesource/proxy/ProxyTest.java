@@ -33,7 +33,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -69,7 +72,7 @@ public class ProxyTest extends MQTTTestBase {
     @Override
     protected MQTTCommonConfiguration initConfig() throws Exception {
         MQTTCommonConfiguration mqtt = super.initConfig();
-
+        mqtt.setDefaultNumberOfNamespaceBundles(4);
         mqtt.setMqttProxyEnabled(true);
         mqtt.setMqttProxyTlsPskEnabled(true);
         mqtt.setTlsPskIdentityHint("alpha");
@@ -293,5 +296,39 @@ public class ProxyTest extends MQTTTestBase {
         Assert.assertEquals(new String(receive2.getPayload()), msg1);
         Assert.assertEquals(receive2.getTopic(), topicName1);
         consumer.disconnect();
+    }
+
+    @Test
+    public void testClusterId() throws Exception {
+        String topicName = "topic-cluster-id";
+        int numPartitions = 40;
+        admin.topics().createPartitionedTopic(topicName, numPartitions);
+        Set<String> ownerBroker = new HashSet<>();
+        for (int i = 0; i < numPartitions; i++) {
+            String partitionedTopic = topicName + "-partition-" + i;
+            String broker = admin.lookups().lookupTopic(partitionedTopic);
+            ownerBroker.add(broker);
+        }
+        Assert.assertTrue(ownerBroker.size() >= 2);
+        List<String> brokers = new ArrayList<>(ownerBroker);
+        String broker1 = brokers.get(0);
+        MQTT mqtt1 = createMQTT(Integer.parseInt(broker1.substring(broker1.lastIndexOf(":") + 1)) + 5);
+        mqtt1.setClientId("ab-ab-ab-ab-ab");
+        mqtt1.setReconnectAttemptsMax(0);
+        BlockingConnection consumer1 = mqtt1.blockingConnection();
+        consumer1.connect();
+
+        Thread.sleep(5000);
+
+        String broker2 = brokers.get(1);
+        MQTT mqtt2 = createMQTT(Integer.parseInt(broker2.substring(broker2.lastIndexOf(":") + 1)) + 5);
+        mqtt2.setClientId("ab-ab-ab-ab-ab");
+        mqtt2.setReconnectAttemptsMax(0);
+        BlockingConnection consumer2 = mqtt2.blockingConnection();
+        // Due to ip restrict, comment this.
+//        Awaitility.await().untilAsserted(() -> Assert.assertFalse(consumer1.isConnected()));
+        consumer2.connect();
+        consumer1.disconnect();
+        consumer2.disconnect();
     }
 }

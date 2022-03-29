@@ -29,12 +29,12 @@ public class DisabledSystemEventService implements SystemEventService{
     }
 
     @Override
-    public CompletableFuture<Void> sendConnectEvent(Connection connection) {
-        return CompletableFuture.completedFuture(null);
+    public void addListener(EventListener listener) {
+        // NOP
     }
 
     @Override
-    public CompletableFuture<Void> sendDisconnectEvent(Connection connection) {
+    public CompletableFuture<Void> sendConnectEvent(Connection connection) {
         return CompletableFuture.completedFuture(null);
     }
 

@@ -165,6 +165,12 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
         return mqtt;
     }
 
+    public MQTT createMQTT(int port) throws URISyntaxException {
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", port);
+        return mqtt;
+    }
+
     public MQTT createMQTTProxyTlsClient() throws URISyntaxException {
         List<Integer> mqttProxyPortTlsList = getMqttProxyPortTlsList();
         MQTT mqtt = createMQTTClient();

@@ -22,9 +22,9 @@ public interface SystemEventService {
 
     void close();
 
-    CompletableFuture<Void> sendConnectEvent(Connection connection);
+    void addListener(EventListener listener);
 
-    CompletableFuture<Void> sendDisconnectEvent(Connection connection);
+    CompletableFuture<Void> sendConnectEvent(Connection connection);
 
     CompletableFuture<Void> sendEvent(MqttEvent event);
 }
