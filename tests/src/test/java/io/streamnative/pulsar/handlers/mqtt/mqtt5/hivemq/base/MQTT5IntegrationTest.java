@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.common.policies.data.SubscriptionStats;
 import org.apache.pulsar.common.policies.data.TopicStats;
+import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import java.nio.charset.StandardCharsets;
@@ -115,6 +116,15 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
                     stats.getSubscriptions().get(client.getConfig().getClientIdentifier().get().toString());
             Assert.assertNotNull(subscriptionStats);
         }
+        client.disconnect();
+        // after disconnect all consumer will delete
+        Awaitility.await().untilAsserted(()-> {
+            for (String topic : topics) {
+                TopicStats stats = admin.topics().getStats(topic);
+                Assert.assertEquals(stats.getSubscriptions().size(), 0);
+            }
+        });
+        client2.disconnect();
     }
 
 }
