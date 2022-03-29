@@ -449,8 +449,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                         true, TopicDomain.getEnum(configuration.getDefaultTopicDomain()));
                 TopicName pulsarTopicName = TopicName.get(pulsarTopicNameStr);
                 // Support user use namespace level regex
-                if (!Objects.equals(pulsarTopicName.getNamespace(), configuration.getDefaultNamespace()) &&
-                        !Objects.equals(changedTopicName.getNamespace(), pulsarTopicName.getNamespace())) {
+                if (!Objects.equals(pulsarTopicName.getNamespace(), configuration.getDefaultNamespace())
+                        && !Objects.equals(changedTopicName.getNamespace(), pulsarTopicName.getNamespace())) {
                     return;
                 }
                 TopicFilter topicFilter = PulsarTopicUtils.getTopicFilter(subTopic.topicName());
@@ -473,8 +473,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                         .thenRun(() -> log.info("[{}] Subscribe new topic [{}] success", connection.getClientId(),
                                 Codec.decode(changedTopicName.toString())))
                         .exceptionally(ex -> {
-                            log.error("[{}][Subscribe] Fail to subscribe new topic [{}] " +
-                                            "for topic filter [{}]", connection.getClientId(), changedTopicName,
+                            log.error("[{}][Subscribe] Fail to subscribe new topic [{}] "
+                                            + "for topic filter [{}]", connection.getClientId(), changedTopicName,
                                     subTopic.topicName());
                             return null;
                         });
@@ -487,7 +487,9 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         });
     }
 
-    private CompletableFuture<Void> createAndSubConsumer(Subscription sub, MqttTopicSubscription subTopic, String changedTopicName) {
+    private CompletableFuture<Void> createAndSubConsumer(Subscription sub,
+                                                         MqttTopicSubscription subTopic,
+                                                         String changedTopicName) {
         MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(),
                 changedTopicName, connection.getClientId(), serverCnx,
                 subTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer,
