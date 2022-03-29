@@ -21,12 +21,14 @@ import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.common.policies.data.SubscriptionStats;
 import org.apache.pulsar.common.policies.data.TopicStats;
+import org.apache.pulsar.common.util.Codec;
 import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -108,8 +110,7 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
         Assert.assertTrue(messages.contains(new String(msg1.getPayloadAsBytes())));
         Mqtt5Publish msg2 = publishes.receive();
         Assert.assertTrue(messages.contains(new String(msg2.getPayloadAsBytes())));
-        List<String> topics = admin.topics().getList("public/default");
-        Assert.assertEquals(topics.size(), 2);
+        List<String> topics = Lists.newArrayList(Codec.encode(topic1), Codec.encode(topic2));
         for (String topic : topics) {
             TopicStats stats = admin.topics().getStats(topic);
             Assert.assertEquals(stats.getSubscriptions().size(), 1);
