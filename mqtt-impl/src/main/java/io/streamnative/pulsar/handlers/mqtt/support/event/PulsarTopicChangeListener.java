@@ -39,15 +39,23 @@ public interface PulsarTopicChangeListener extends PulsarEventListener {
 
     @Override
     default void onNodeCreated(String path) {
-        TopicName topicName = EventParserUtils.parseFromManagedLedgerEvent(path);
-        onTopicLoad(topicName);
+        try {
+            TopicName topicName = EventParserUtils.parseTopicNameFromManagedLedgerEvent(path);
+            onTopicLoad(topicName);
+        } catch (IllegalArgumentException ex) {
+            // NO-OP don't notify
+        }
     }
 
     @Override
     default void onNodeDeleted(String path) {
-        TopicName topicName = EventParserUtils.parseFromManagedLedgerEvent(path);
-        onTopicUnload(topicName);
-    };
+        try {
+            TopicName topicName = EventParserUtils.parseTopicNameFromManagedLedgerEvent(path);
+            onTopicUnload(topicName);
+        } catch (IllegalArgumentException ex) {
+            // NO-OP don't notify
+        }
+    }
 
     void onTopicLoad(TopicName topicName);
 

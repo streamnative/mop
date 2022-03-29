@@ -14,18 +14,22 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.util.Codec;
 
 public class EventParserUtils {
-    public static TopicName parseFromManagedLedgerEvent(String path) {
+    public static TopicName parseTopicNameFromManagedLedgerEvent(String path) {
         // /managed-ledgers/public/default/persistent/topicName
         String[] pathArr = path.split("/");
-        if (pathArr.length < 5) {
+        if (pathArr.length != 6) {
+            // Avoid the existence of child nodes after the path to cause an exception
+            // e.g: cursor path: /managed-ledgers/public/default/persistent/topicName/cusorname
             throw new IllegalArgumentException("Illegal argument path " + path);
         }
         String tenant = pathArr[2];
         String namespace = pathArr[3];
         String topicDomain = pathArr[4];
         String topicName = pathArr[5];
-        return TopicName.get(topicDomain, tenant, namespace, topicName);
+        String decodedTopicName = Codec.decode(topicName);
+        return TopicName.get(topicDomain, tenant, namespace, decodedTopicName);
     }
 }
