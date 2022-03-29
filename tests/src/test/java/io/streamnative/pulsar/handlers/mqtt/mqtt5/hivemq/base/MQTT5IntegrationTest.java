@@ -27,9 +27,9 @@ import org.apache.pulsar.common.policies.data.TopicStats;
 import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 public class MQTT5IntegrationTest extends MQTTTestBase {
