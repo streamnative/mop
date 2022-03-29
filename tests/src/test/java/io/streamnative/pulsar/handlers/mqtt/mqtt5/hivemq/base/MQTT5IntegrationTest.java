@@ -21,15 +21,16 @@ import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import lombok.extern.slf4j.Slf4j;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.common.policies.data.SubscriptionStats;
 import org.apache.pulsar.common.policies.data.TopicStats;
 import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-import java.util.Collections;
-import java.util.List;
-import java.nio.charset.StandardCharsets;
+
 
 @Slf4j
 public class MQTT5IntegrationTest extends MQTTTestBase {
