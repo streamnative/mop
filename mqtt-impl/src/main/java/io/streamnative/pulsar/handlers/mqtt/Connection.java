@@ -26,6 +26,7 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
@@ -144,14 +145,16 @@ public class Connection {
     }
 
     public CompletableFuture<Void> close(boolean force) {
-        log.info("Closing connection. clientId = {}.", clientId);
-        if (!force) {
-            assignState(ESTABLISHED, DISCONNECTED);
+        log.info("Closing connection clientId = {} force : {}", clientId, force);
+        assignState(ESTABLISHED, DISCONNECTED);
+        DisconnectAck.DisconnectAckBuilder builder = DisconnectAck.builder();
+        builder.success(true);
+        if (force) {
+            builder.reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER);
+        } else {
+            builder.reasonCode(Mqtt5DisConnReasonCode.NORMAL);
         }
-        DisconnectAck disconnectAck = DisconnectAck
-                .builder()
-                .success(true)
-                .build();
+        final DisconnectAck disconnectAck = builder.build();
         ackHandler.sendDisconnectAck(this, disconnectAck);
         if (clientRestrictions.isCleanSession()) {
             return topicSubscriptionManager.removeSubscriptions();
