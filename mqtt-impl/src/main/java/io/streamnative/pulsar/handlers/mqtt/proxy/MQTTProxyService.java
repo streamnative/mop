@@ -64,11 +64,13 @@ public class MQTTProxyService implements Closeable {
         this.pulsarService = mqttService.getPulsarService();
         this.proxyConfig = proxyConfig;
         this.authenticationService = mqttService.getAuthenticationService();
+        this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
         this.eventService = proxyConfig.isSystemEventEnabled()
                 ? new SystemTopicBasedSystemEventService(mqttService.getPulsarService()) :
                 new DisabledSystemEventService();
-
-        this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
+        this.eventService.addListener(connectionManager.getEventListener());
+        this.eventService.addListener(mqttService.getWillMessageHandler().getEventListener());
+        mqttService.setEventService(eventService);
         this.acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
                 false, acceptorThreadFactory);
         this.workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),
@@ -119,7 +121,6 @@ public class MQTTProxyService implements Closeable {
         }
 
         this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, proxyConfig);
-        this.eventService.addListener(connectionManager.getEventListener());
         this.eventService.start();
     }
 

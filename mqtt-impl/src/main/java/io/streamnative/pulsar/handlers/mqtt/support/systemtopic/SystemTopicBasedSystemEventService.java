@@ -14,12 +14,9 @@
 package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
 import com.google.common.annotations.Beta;
-import io.streamnative.pulsar.handlers.mqtt.Connection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,7 +44,6 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     public static final TopicName SYSTEM_EVENT_TOPIC = TopicName.get("pulsar/system/__mqtt_event");
     private final PulsarService pulsarService;
     private final SystemTopicClient<MqttEvent> systemTopicClient;
-    private final ConcurrentMap<String, String> clusterClientIds;
     private final List<EventListener> listeners;
 
     private volatile SystemTopicClient.Reader<MqttEvent> reader;
@@ -61,7 +57,6 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
         } catch (PulsarServerException e) {
             throw new IllegalStateException(e);
         }
-        this.clusterClientIds = new ConcurrentHashMap<>(2048);
         this.listeners = new ArrayList<>();
     }
 
@@ -71,16 +66,23 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     }
 
     @Override
-    public CompletableFuture<Void> sendConnectEvent(Connection connection) {
+    public CompletableFuture<Void> sendConnectEvent(ConnectEvent event) {
         checkReader();
-        ConnectEvent connectEvent = ConnectEvent.builder()
-                .clientId(connection.getClientId())
-                .address(pulsarService.getAdvertisedAddress())
-                .build();
-        return sendEvent(getMqttEvent(connectEvent, ActionType.INSERT))
+        return sendEvent(getMqttEvent(event, ActionType.INSERT))
                 .thenRun(() -> {
                     if (log.isDebugEnabled()) {
-                        log.debug("send connect event : {}", connectEvent);
+                        log.debug("send connect event : {}", event);
+                    }
+                });
+    }
+
+    @Override
+    public CompletableFuture<Void> sendLWTEvent(LastWillMessageEvent event) {
+        checkReader();
+        return sendEvent(getMqttEvent(event, ActionType.INSERT))
+                .thenRun(() -> {
+                    if (log.isDebugEnabled()) {
+                        log.debug("send LWT event : {}", event);
                     }
                 });
     }
@@ -104,14 +106,28 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
         });
     }
 
-    private MqttEvent getMqttEvent(ConnectEvent connectEvent, ActionType actionType) {
+    private MqttEvent getMqttEvent(LastWillMessageEvent event, ActionType actionType) {
         MqttEvent.MqttEventBuilder builder = MqttEvent.builder();
         try {
             return builder
-                    .key(connectEvent.getClientId())
+                    .key(event.getClientId() + "-LWT")
+                    .eventType(EventType.LAST_WILL_MESSAGE)
+                    .actionType(actionType)
+                    .sourceEvent(JsonUtil.toJson(event))
+                    .build();
+        } catch (JsonUtil.ParseJsonException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    private MqttEvent getMqttEvent(ConnectEvent event, ActionType actionType) {
+        MqttEvent.MqttEventBuilder builder = MqttEvent.builder();
+        try {
+            return builder
+                    .key(event.getClientId())
                     .eventType(EventType.CONNECT)
                     .actionType(actionType)
-                    .sourceEvent(JsonUtil.toJson(connectEvent))
+                    .sourceEvent(JsonUtil.toJson(event))
                     .build();
         } catch (JsonUtil.ParseJsonException e) {
             throw new IllegalArgumentException(e);
@@ -205,6 +221,11 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                 case CONNECT:
                     ConnectEvent connectEvent = JsonUtil.fromJson((String) value.getSourceEvent(), ConnectEvent.class);
                     value.setSourceEvent(connectEvent);
+                    break;
+                case LAST_WILL_MESSAGE:
+                    LastWillMessageEvent lwtEvent = JsonUtil.fromJson((String) value.getSourceEvent(),
+                            LastWillMessageEvent.class);
+                    value.setSourceEvent(lwtEvent);
                     break;
                 default:
                     break;
