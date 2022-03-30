@@ -13,24 +13,28 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Will Message.
  */
 @Getter
+@Setter
 public class WillMessage {
 
-    final String topic;
-    final ByteBuf payload;
-    final MqttQoS qos;
-    final boolean retained;
+    String topic;
+    byte[] willMessage;
+    MqttQoS qos;
+    boolean retained;
 
-    public WillMessage(final String topic, final ByteBuf payload, final MqttQoS qos, final boolean retained) {
+    public WillMessage() {
+    }
+
+    public WillMessage(final String topic, final byte[] willMessage, final MqttQoS qos, final boolean retained) {
         this.topic = topic;
-        this.payload = payload;
+        this.willMessage = willMessage;
         this.qos = qos;
         this.retained = retained;
     }

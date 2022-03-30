@@ -15,10 +15,13 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
+import io.streamnative.pulsar.handlers.mqtt.support.WillMessageHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.event.DisableEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
@@ -63,6 +66,13 @@ public class MQTTService {
     @Getter
     private final PulsarEventCenter eventCenter;
 
+    @Getter
+    private final WillMessageHandler willMessageHandler;
+
+    @Getter
+    @Setter
+    private SystemEventService eventService;
+
     public MQTTService(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
         this.brokerService = brokerService;
         this.pulsarService = brokerService.pulsar();
@@ -82,5 +92,10 @@ public class MQTTService {
         } else {
             this.eventCenter = new PulsarEventCenterImpl(brokerService, serverConfiguration);
         }
+        this.willMessageHandler = new WillMessageHandler(this);
+    }
+
+    public boolean isSystemTopicEnabled() {
+        return eventService != null;
     }
 }

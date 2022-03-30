@@ -34,6 +34,7 @@ import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.ConnectEvent;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -103,7 +104,11 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .build();
         connection.sendConnAck().addListener(listener -> {
             if (listener.isSuccess()) {
-                eventService.sendConnectEvent(connection);
+                ConnectEvent connectEvent = ConnectEvent.builder()
+                        .clientId(connection.getClientId())
+                        .address(pulsarService.getAdvertisedAddress())
+                        .build();
+                eventService.sendConnectEvent(connectEvent);
             }
         });
     }
@@ -173,7 +178,13 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             log.debug("[Proxy Disconnect] [{}] ", clientId);
         }
         brokerPool.forEach((k, v) -> {
-            v.writeAndFlush(msg);
+            v.writeAndFlush(msg).addListener(listener -> {
+                if (!listener.isSuccess()) {
+                    log.error("send disconnect to : {}", k, listener.cause());
+                } else {
+                    log.warn("send disconnect to : {}", k);
+                }
+            });
             v.close();
         });
         brokerPool.clear();

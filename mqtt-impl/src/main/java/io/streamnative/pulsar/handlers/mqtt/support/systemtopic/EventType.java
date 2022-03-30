@@ -14,5 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
 public enum EventType {
-    CONNECT;
+    CONNECT,
+    LAST_WILL_MESSAGE;
 }

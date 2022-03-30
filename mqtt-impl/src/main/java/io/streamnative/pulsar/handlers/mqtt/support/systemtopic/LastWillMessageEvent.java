@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
+import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,7 +23,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ConnectEvent extends SourceEvent {
+public class LastWillMessageEvent extends SourceEvent {
+
+    private WillMessage willMessage;
 
     private String clientId;
 
