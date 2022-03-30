@@ -23,6 +23,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
@@ -156,19 +157,27 @@ public class Connection {
     public CompletableFuture<Void> close(boolean force) {
         log.info("Closing connection clientId = {} force : {}", clientId, force);
         assignState(ESTABLISHED, DISCONNECTED);
-        DisconnectAck.DisconnectAckBuilder builder = DisconnectAck.builder();
-        builder.success(true);
         if (force) {
-            builder.reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER);
+            if (MqttUtils.isMqtt5(protocolVersion)) {
+                MqttMessage mqttMessage = MqttMessageBuilders
+                        .disconnect()
+                        .reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER.byteValue())
+                        .build();
+                sendThenClose(mqttMessage);
+            } else {
+                channel.close();
+            }
         } else {
-            builder.reasonCode(Mqtt5DisConnReasonCode.NORMAL);
+            DisconnectAck disconnectAck = DisconnectAck.builder()
+                    .success(true)
+                    .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
+                    .build();
+            ackHandler.sendDisconnectAck(this, disconnectAck);
         }
         // unregister all listener
         for (PulsarEventListener listener : listeners) {
             eventCenter.unRegister(listener);
         }
-        final DisconnectAck disconnectAck = builder.build();
-        ackHandler.sendDisconnectAck(this, disconnectAck);
         if (clientRestrictions.isCleanSession()) {
             return topicSubscriptionManager.removeSubscriptions();
         }
