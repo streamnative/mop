@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import io.netty.handler.codec.mqtt.MqttQoS;
+import java.util.Arrays;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -37,5 +38,9 @@ public class WillMessage {
         this.willMessage = willMessage;
         this.qos = qos;
         this.retained = retained;
+    }
+
+    public byte[] getWillMessage() {
+        return Arrays.copyOf(willMessage, willMessage.length);
     }
 }
