@@ -109,13 +109,11 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     private MqttEvent getMqttEvent(LastWillMessageEvent event, ActionType actionType) {
         MqttEvent.MqttEventBuilder builder = MqttEvent.builder();
         try {
-            String json = JsonUtil.toJson(event);
-            log.info("LastWillMessageEven-json : {}", json);
             return builder
                     .key(event.getClientId() + "-LWT")
                     .eventType(EventType.LAST_WILL_MESSAGE)
                     .actionType(actionType)
-                    .sourceEvent(json)
+                    .sourceEvent(JsonUtil.toJson(event))
                     .build();
         } catch (JsonUtil.ParseJsonException e) {
             throw new IllegalArgumentException(e);

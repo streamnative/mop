@@ -178,13 +178,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             log.debug("[Proxy Disconnect] [{}] ", clientId);
         }
         brokerPool.forEach((k, v) -> {
-            v.writeAndFlush(msg).addListener(listener -> {
-                if (!listener.isSuccess()) {
-                    log.error("send disconnect to : {}", k, listener.cause());
-                } else {
-                    log.warn("send disconnect to : {}", k);
-                }
-            });
+            v.writeAndFlush(msg);
             v.close();
         });
         brokerPool.clear();

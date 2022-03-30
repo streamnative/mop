@@ -1,5 +1,7 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
+import static io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventType.LAST_WILL_MESSAGE;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttWillMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
@@ -9,14 +11,12 @@ import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventListener;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.LastWillMessageEvent;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.MqttEvent;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
+import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
-import java.util.List;
-import static io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventType.LAST_WILL_MESSAGE;
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttWillMessage;
 
 @Slf4j
 public class WillMessageHandler {
@@ -66,7 +66,7 @@ public class WillMessageHandler {
         public void onChange(MqttEvent event) {
             if (event.getEventType() == LAST_WILL_MESSAGE) {
                 LastWillMessageEvent lwtEvent = (LastWillMessageEvent) event.getSourceEvent();
-                if (lwtEvent.getAddress().equals(advertisedAddress)) {
+                if (!lwtEvent.getAddress().equals(advertisedAddress)) {
                     fireWillMessage("", lwtEvent.getWillMessage());
                 }
             }
