@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
-import io.streamnative.pulsar.handlers.mqtt.Connection;
 import java.util.concurrent.CompletableFuture;
 
 public interface SystemEventService {
@@ -24,7 +23,9 @@ public interface SystemEventService {
 
     void addListener(EventListener listener);
 
-    CompletableFuture<Void> sendConnectEvent(Connection connection);
+    CompletableFuture<Void> sendConnectEvent(ConnectEvent event);
+
+    CompletableFuture<Void> sendLWTEvent(LastWillMessageEvent event);
 
     CompletableFuture<Void> sendEvent(MqttEvent event);
 }

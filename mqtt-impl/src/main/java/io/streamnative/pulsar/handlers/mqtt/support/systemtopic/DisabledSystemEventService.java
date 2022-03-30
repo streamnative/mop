@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
-import io.streamnative.pulsar.handlers.mqtt.Connection;
 import java.util.concurrent.CompletableFuture;
 
 public class DisabledSystemEventService implements SystemEventService{
@@ -34,7 +33,12 @@ public class DisabledSystemEventService implements SystemEventService{
     }
 
     @Override
-    public CompletableFuture<Void> sendConnectEvent(Connection connection) {
+    public CompletableFuture<Void> sendConnectEvent(ConnectEvent event) {
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> sendLWTEvent(LastWillMessageEvent event) {
         return CompletableFuture.completedFuture(null);
     }
 

@@ -13,7 +13,21 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
-public enum EventType {
-    CONNECT,
-    LAST_WILL_MESSAGE;
+import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class LastWillMessageEvent extends SourceEvent {
+
+    private WillMessage willMessage;
+
+    private String clientId;
+
+    private String address;
 }
