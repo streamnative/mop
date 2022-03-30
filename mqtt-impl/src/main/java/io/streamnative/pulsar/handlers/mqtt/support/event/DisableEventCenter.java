@@ -16,16 +16,16 @@ package io.streamnative.pulsar.handlers.mqtt.support.event;
 public class DisableEventCenter implements PulsarEventCenter {
     @Override
     public void register(PulsarEventListener listener) {
-        throw new UnsupportedOperationException("Unsupported operation.");
+        // NO-OP
     }
 
     @Override
     public void unRegister(PulsarEventListener listener) {
-        throw new UnsupportedOperationException("Unsupported operation.");
+        // NO-OP
     }
 
     @Override
     public void shutdown() {
-        throw new UnsupportedOperationException("Unsupported operation.");
+        // NO-OP
     }
 }

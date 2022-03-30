@@ -88,8 +88,10 @@ public class PulsarTopicUtils {
     }
 
     public static CompletableFuture<Subscription> getOrCreateSubscription(PulsarService pulsarService,
-              String topicName, String subscriptionName, String defaultTenant, String defaultNamespace,
-                                                                          String defaultTopicDomain) {
+                                                                          String topicName, String subscriptionName,
+                                                                          String defaultTenant, String defaultNamespace,
+                                                                          String defaultTopicDomain,
+                                                                          CommandSubscribe.InitialPosition position) {
         CompletableFuture<Subscription> promise = new CompletableFuture<>();
         getTopicReference(pulsarService, topicName, defaultTenant, defaultNamespace, false,
                 defaultTopicDomain).thenAccept(topicOp -> {
@@ -99,8 +101,7 @@ public class PulsarTopicUtils {
                 Topic topic = topicOp.get();
                 Subscription subscription = topic.getSubscription(subscriptionName);
                 if (subscription == null) {
-                    topic.createSubscription(subscriptionName,
-                        CommandSubscribe.InitialPosition.Latest, false)
+                    topic.createSubscription(subscriptionName, position, false)
                             .thenAccept(sub -> {
                                 if (topic instanceof NonPersistentTopic) {
                                     ((NonPersistentTopic) topic).getSubscriptions().put(subscriptionName,
