@@ -411,13 +411,8 @@ curl http://pulsar-broker-webservice-address:port/mop-stats/
 
 Please refer [here](docs/mop-configuration.md)
 
-## Declarations
-
-Currently, MoP has the following implementations that do not meet the MQTT Spec:
-- `Last Will` implements not across cluster.
-
 ## Project maintainers
 
 - [@Technoboy-](https://github.com/Technoboy-)
-- [@codelipenghui](https://github.com/codelipenghui)
 - [@mattisonchao](https://github.com/mattisonchao)
+- [@codelipenghui](https://github.com/codelipenghui)
