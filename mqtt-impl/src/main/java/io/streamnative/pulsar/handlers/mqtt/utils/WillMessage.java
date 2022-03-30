@@ -35,12 +35,8 @@ public class WillMessage {
 
     public WillMessage(final String topic, final byte[] willMessage, final MqttQoS qos, final boolean retained) {
         this.topic = topic;
-        this.willMessage = willMessage;
+        this.willMessage = Arrays.copyOf(willMessage, willMessage.length);
         this.qos = qos;
         this.retained = retained;
-    }
-
-    public byte[] getWillMessage() {
-        return Arrays.copyOf(willMessage, willMessage.length);
     }
 }
