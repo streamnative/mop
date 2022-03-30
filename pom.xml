@@ -63,6 +63,7 @@
         <redirectTestOutputToFile>true</redirectTestOutputToFile>
         <license-maven-plugin.version>3.0.rc1</license-maven-plugin.version>
         <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
+        <spotbugs-maven-plugin.version>3.1.8</spotbugs-maven-plugin.version>
         <maven-jacoco-plugin.version>0.8.7</maven-jacoco-plugin.version>
     </properties>
 
@@ -155,14 +156,14 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <plugin>
-                <groupId>com.github.spotbugs</groupId>
-                <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>${spotbugs-maven-plugin.version}</version>
-                <configuration>
-                    <excludeFilterFile>resources/findbugsExclude.xml</excludeFilterFile>
-                </configuration>
-            </plugin>
+<!--            <plugin>-->
+<!--                <groupId>com.github.spotbugs</groupId>-->
+<!--                <artifactId>spotbugs-maven-plugin</artifactId>-->
+<!--                <version>${spotbugs-maven-plugin.version}</version>-->
+<!--                <configuration>-->
+<!--                    <excludeFilterFile>resources/findbugsExclude.xml</excludeFilterFile>-->
+<!--                </configuration>-->
+<!--            </plugin>-->
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>
