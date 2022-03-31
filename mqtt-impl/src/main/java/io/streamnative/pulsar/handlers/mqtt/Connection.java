@@ -167,12 +167,6 @@ public class Connection {
             } else {
                 channel.close();
             }
-        } else {
-            DisconnectAck disconnectAck = DisconnectAck.builder()
-                    .success(true)
-                    .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
-                    .build();
-            ackHandler.sendDisconnectAck(this, disconnectAck);
         }
         // unregister all listener
         for (PulsarEventListener listener : listeners) {
