@@ -141,7 +141,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             }
 
             return builder.build();
-        } catch (Exception e){
+        } catch (Exception e) {
             log.error("MQTTProtocolHandler newChannelInitializers failed with", e);
             return null;
         }
