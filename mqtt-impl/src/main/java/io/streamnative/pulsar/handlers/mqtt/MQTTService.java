@@ -98,4 +98,8 @@ public class MQTTService {
     public boolean isSystemTopicEnabled() {
         return eventService != null;
     }
+
+    public void close() {
+        this.connectionManager.close();
+    }
 }

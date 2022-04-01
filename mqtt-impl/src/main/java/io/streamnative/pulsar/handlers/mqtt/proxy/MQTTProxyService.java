@@ -135,9 +135,10 @@ public class MQTTProxyService implements Closeable {
         if (listenChannelTlsPsk != null) {
             listenChannelTlsPsk.close();
         }
+        this.acceptorGroup.shutdownGracefully();
+        this.workerGroup.shutdownGracefully();
         this.eventService.close();
-        lookupHandler.close();
-        acceptorGroup.shutdownGracefully();
-        workerGroup.shutdownGracefully();
+        this.lookupHandler.close();
+        this.connectionManager.close();
     }
 }

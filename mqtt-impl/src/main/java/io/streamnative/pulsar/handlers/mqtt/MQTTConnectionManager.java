@@ -92,6 +92,9 @@ public class MQTTConnectionManager {
         return connections.get(clientId);
     }
 
+    public void close() {
+        connections.values().forEach(connection -> connection.close());
+    }
 
     class ConnectEventListener implements EventListener {
 
