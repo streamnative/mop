@@ -101,5 +101,9 @@ public class MQTTService {
 
     public void close() {
         this.connectionManager.close();
+        this.eventCenter.shutdown();
+        if (eventService != null) {
+            eventService.close();
+        }
     }
 }
