@@ -48,6 +48,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnRea
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.properties.PulsarProperties;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
@@ -60,6 +61,7 @@ import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -357,6 +359,12 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
 
     private CompletableFuture<Void> doSubscribe(MqttSubscribeMessage msg) {
         final int messageID = msg.variableHeader().messageId();
+        Map<String, String> userProperties = MqttPropertyUtils
+                .getUserProperties(msg.idAndPropertiesVariableHeader().properties());
+        CommandSubscribe.InitialPosition initPosition =
+                Optional.ofNullable(userProperties.get(PulsarProperties.InitialPosition.name()))
+                .map(v -> CommandSubscribe.InitialPosition.valueOf(Integer.parseInt(v)))
+                .orElse(CommandSubscribe.InitialPosition.Latest);
         AckHandler ackHandler = connection.getAckHandler();
         final List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
         boolean duplicated = mqttSubscriptionManager.addSubscriptions(connection.getClientId(), subTopics);
@@ -386,7 +394,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                     CompletableFuture<Subscription> subFuture = PulsarTopicUtils
                             .getOrCreateSubscription(pulsarService, topic, connection.getClientId(),
                                     configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
-                                    configuration.getDefaultTopicDomain(), CommandSubscribe.InitialPosition.Latest);
+                                    configuration.getDefaultTopicDomain(), initPosition);
                     CompletableFuture<Void> result = subFuture.thenCompose(sub ->
                             createAndSubConsumer(sub, subTopic, topic));
                     futures.add(result);
@@ -449,8 +457,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                         true, TopicDomain.getEnum(configuration.getDefaultTopicDomain()));
                 TopicName pulsarTopicName = TopicName.get(pulsarTopicNameStr);
                 // Support user use namespace level regex
-                if (!Objects.equals(pulsarTopicName.getNamespace(), configuration.getDefaultNamespace())
-                        && !Objects.equals(changedTopicName.getNamespace(), pulsarTopicName.getNamespace())) {
+                if (!Objects.equals(changedTopicName.getNamespace(), pulsarTopicName.getNamespace())) {
                     return;
                 }
                 TopicFilter topicFilter = PulsarTopicUtils.getTopicFilter(subTopic.topicName());

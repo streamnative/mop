@@ -20,7 +20,10 @@ import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidReceiveMaximumException;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -99,5 +102,13 @@ public class MqttPropertyUtils {
         } else {
             return Optional.empty();
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Map<String, String> getUserProperties(MqttProperties properties) {
+        List<MqttProperties.UserProperty> userProperties = (List<MqttProperties.UserProperty>) properties
+                .getProperties(MqttProperties.MqttPropertyType.USER_PROPERTY.value());
+        return userProperties.stream()
+                .collect(Collectors.toMap(v -> v.value().key, v -> v.value().key));
     }
 }
