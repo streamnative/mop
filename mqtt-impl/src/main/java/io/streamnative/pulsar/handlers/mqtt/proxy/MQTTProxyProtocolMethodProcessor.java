@@ -41,6 +41,7 @@ import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethod
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarTopicChangeListener;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.ConnectEvent;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -116,7 +117,11 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .build();
         connection.sendConnAck().addListener(listener -> {
             if (listener.isSuccess()) {
-                eventService.sendConnectEvent(connection);
+                ConnectEvent connectEvent = ConnectEvent.builder()
+                        .clientId(connection.getClientId())
+                        .address(pulsarService.getAdvertisedAddress())
+                        .build();
+                eventService.sendConnectEvent(connectEvent);
             }
         });
     }

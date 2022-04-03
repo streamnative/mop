@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttWillMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createWillMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
@@ -69,7 +68,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
@@ -98,6 +96,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     private final MQTTMetricsCollector metricsCollector;
     private final MQTTConnectionManager connectionManager;
     private final MQTTSubscriptionManager mqttSubscriptionManager;
+    private final WillMessageHandler willMessageHandler;
     private Connection connection;
     private final PulsarEventCenter eventCenter;
 
@@ -113,6 +112,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         this.metricsCollector = mqttService.getMetricsCollector();
         this.connectionManager = mqttService.getConnectionManager();
         this.mqttSubscriptionManager = mqttService.getSubscriptionManager();
+        this.willMessageHandler = mqttService.getWillMessageHandler();
         this.serverCnx = new MQTTServerCnx(pulsarService, ctx);
         this.eventCenter = mqttService.getEventCenter();
     }
@@ -287,7 +287,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         metricsCollector.removeClient(NettyUtils.getAddress(channel));
         WillMessage willMessage = connection.getWillMessage();
         if (willMessage != null) {
-            fireWillMessage(willMessage);
+            willMessageHandler.fireWillMessage(clientId, willMessage);
         }
         connection.close()
                 .thenAccept(__ -> {
@@ -299,19 +299,6 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     @Override
     public void processPingReq() {
         channel.writeAndFlush(pingResp());
-    }
-
-    private void fireWillMessage(WillMessage willMessage) {
-        List<Pair<String, String>> subscriptions = mqttSubscriptionManager.findMatchTopic(willMessage.getTopic());
-        MqttPublishMessage msg = createMqttWillMessage(willMessage);
-        for (Pair<String, String> entry : subscriptions) {
-            Connection connection = connectionManager.getConnection(entry.getLeft());
-            if (connection != null) {
-                connection.send(msg);
-            } else {
-                log.warn("Not find connection for empty : {}", entry.getLeft());
-            }
-        }
     }
 
     @Override

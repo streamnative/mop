@@ -331,4 +331,49 @@ public class ProxyTest extends MQTTTestBase {
         consumer1.disconnect();
         consumer2.disconnect();
     }
+
+    @Test
+    public void testLastWillMessageInCluster() throws Exception {
+        String topicName = "topic-last-will-message";
+        int numPartitions = 40;
+        admin.topics().createPartitionedTopic(topicName, numPartitions);
+        Set<String> ownerBroker = new HashSet<>();
+        for (int i = 0; i < numPartitions; i++) {
+            String partitionedTopic = topicName + "-partition-" + i;
+            String broker = admin.lookups().lookupTopic(partitionedTopic);
+            ownerBroker.add(broker);
+        }
+        Assert.assertTrue(ownerBroker.size() >= 2);
+        List<String> brokers = new ArrayList<>(ownerBroker);
+        String broker1 = brokers.get(0);
+        //
+        String willTopic = "will-message-topic";
+        String willMessage = "offline";
+        MQTT mqtt1 = createMQTT(Integer.parseInt(broker1.substring(broker1.lastIndexOf(":") + 1)) + 5);
+        mqtt1.setWillMessage("offline");
+        mqtt1.setWillTopic(willTopic);
+        mqtt1.setWillRetain(false);
+        mqtt1.setWillQos(QoS.AT_LEAST_ONCE);
+        mqtt1.setClientId("ab-ab-ab");
+        BlockingConnection producer = mqtt1.blockingConnection();
+        producer.connect();
+        String msg1 = "any-msg";
+        producer.publish("any-topic", msg1.getBytes(StandardCharsets.UTF_8), QoS.AT_LEAST_ONCE, false);
+        //
+        String broker2 = brokers.get(1);
+        MQTT mqtt2 = createMQTT(Integer.parseInt(broker2.substring(broker2.lastIndexOf(":") + 1)) + 5);
+        mqtt2.setClientId("cd-cd-cd");
+        BlockingConnection consumer2 = mqtt2.blockingConnection();
+        consumer2.connect();
+        Topic[] topic = { new Topic(willTopic, QoS.AT_LEAST_ONCE)};
+        admin.topics().createNonPartitionedTopic(willTopic);
+        consumer2.subscribe(topic);
+        producer.disconnect();
+        // Due to ip restrict, comment this.
+//        Message rev2 = consumer2.receive(30, TimeUnit.SECONDS);
+//        Assert.assertNotNull(rev2);
+//        Assert.assertEquals(new String(rev2.getPayload()), willMessage);
+//        Assert.assertEquals(rev2.getTopic(), willTopic);
+        consumer2.disconnect();
+    }
 }
