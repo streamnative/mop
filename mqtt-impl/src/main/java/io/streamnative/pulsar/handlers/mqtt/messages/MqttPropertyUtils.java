@@ -109,6 +109,6 @@ public class MqttPropertyUtils {
         List<MqttProperties.UserProperty> userProperties = (List<MqttProperties.UserProperty>) properties
                 .getProperties(MqttProperties.MqttPropertyType.USER_PROPERTY.value());
         return userProperties.stream()
-                .collect(Collectors.toMap(v -> v.value().key, v -> v.value().key));
+                .collect(Collectors.toMap(v -> v.value().key, v -> v.value().value));
     }
 }
