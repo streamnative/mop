@@ -323,7 +323,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                                 }
                                 return future;
                             }).collect(Collectors.toList());
-                    return FutureUtil.waitForAll(Collections.unmodifiableList(subscribeFutures));
+                    return FutureUtil.waitForAll(subscribeFutures);
                 });
     }
 
