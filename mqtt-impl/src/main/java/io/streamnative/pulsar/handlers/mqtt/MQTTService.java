@@ -90,7 +90,8 @@ public class MQTTService {
         if (getServerConfiguration().isMqttProxyEnabled()) {
             this.eventCenter = new DisableEventCenter();
         } else {
-            this.eventCenter = new PulsarEventCenterImpl(brokerService, serverConfiguration);
+            this.eventCenter = new PulsarEventCenterImpl(brokerService,
+                    serverConfiguration.getEventCenterCallbackPoolThreadNum());
         }
         this.willMessageHandler = new WillMessageHandler(this);
     }
