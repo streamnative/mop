@@ -22,6 +22,8 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
+import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
+import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.DisabledSystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemTopicBasedSystemEventService;
@@ -49,6 +51,8 @@ public class MQTTProxyService implements Closeable {
     private final SystemEventService eventService;
     @Getter
     private LookupHandler lookupHandler;
+    @Getter
+    private final PulsarEventCenter eventCenter;
 
     private Channel listenChannel;
     private Channel listenChannelTls;
@@ -75,6 +79,8 @@ public class MQTTProxyService implements Closeable {
                 false, acceptorThreadFactory);
         this.workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),
                 false, workerThreadFactory);
+        this.eventCenter = new PulsarEventCenterImpl(mqttService.getBrokerService(),
+                proxyConfig.getEventCenterCallbackPoolThreadNum());
     }
 
     private void configValid(MQTTProxyConfiguration proxyConfig) {

@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.event;
 
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,10 +28,10 @@ public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEven
     private final ExecutorService callbackExecutor;
 
     @SuppressWarnings("UnstableApiUsage")
-    public PulsarEventCenterImpl(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
+    public PulsarEventCenterImpl(BrokerService brokerService, int poolThreadNum) {
         this.listeners = Collections.synchronizedList(new ArrayList<>());
         this.callbackExecutor =
-                Executors.newFixedThreadPool(serverConfiguration.getEventCenterCallbackPoolThreadNum());
+                Executors.newFixedThreadPool(poolThreadNum);
         brokerService.getPulsar()
                 .getConfigurationMetadataStore().registerListener(this);
     }
