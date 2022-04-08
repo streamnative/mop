@@ -46,6 +46,7 @@ import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.policies.data.BundlesData;
+import org.apache.pulsar.common.policies.data.TopicStats;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
@@ -293,6 +294,10 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection2.subscribe(topics);
         Assert.assertTrue(connection2.isConnected());
         connection2.disconnect();
+        Awaitility.await().untilAsserted(()-> {
+            TopicStats stats = admin.topics().getStats(topicName);
+            Assert.assertEquals(stats.getSubscriptions().size(), 0);
+        });
         connection1.disconnect();
     }
 

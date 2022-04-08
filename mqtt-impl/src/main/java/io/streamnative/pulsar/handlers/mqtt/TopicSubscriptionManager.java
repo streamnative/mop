@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Consumer;
@@ -61,15 +60,9 @@ public class TopicSubscriptionManager {
             log.error("[ Subscription ] Subscription {} Remove consumer fail.", subscriberName, e);
             FutureUtil.failedFuture(e);
         }
-        if (CollectionUtils.isEmpty(subscriptionConsumerPair.getLeft().getConsumers())) {
-            return topic.unsubscribe(subscriberName)
-                    .thenCompose(__ -> {
-                        if (cleanSubscription) {
-                            return subscriptionConsumerPair.getLeft().deleteForcefully()
-                                    .thenAccept(unused -> topicSubscriptions.remove(topic));
-                        }
-                        return CompletableFuture.completedFuture(null);
-                    });
+        if (cleanSubscription) {
+            return subscriptionConsumerPair.getLeft().deleteForcefully()
+                    .thenAccept(unused -> topicSubscriptions.remove(topic));
         } else {
             return CompletableFuture.completedFuture(null);
         }
