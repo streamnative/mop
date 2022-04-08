@@ -55,11 +55,7 @@ public class MQTTConnectionManager {
         Connection existing = connections.put(connection.getClientId(), connection);
         if (existing != null) {
             log.warn("The clientId is existed. Close existing connection. CId={}", existing.getClientId());
-            existing.close(true)
-                    .exceptionally(ex -> {
-                        log.error("close existing connection : {} error", existing, ex);
-                        return null;
-                    });
+            existing.disconnect();
         }
     }
 
@@ -93,7 +89,7 @@ public class MQTTConnectionManager {
     }
 
     public void close() {
-        connections.values().forEach(connection -> connection.close());
+        connections.values().forEach(connection -> connection.getChannel().close());
     }
 
     class ConnectEventListener implements EventListener {
@@ -106,12 +102,7 @@ public class MQTTConnectionManager {
                     Connection connection = getConnection(connectEvent.getClientId());
                     if (connection != null) {
                         log.warn("[ConnectEvent] close existing connection : {}", connection);
-                        connection.close(true)
-                                .thenRun(() -> removeConnection(connection))
-                                .exceptionally(ex -> {
-                                    log.error("[ConnectEvent] close existing connection : {} error", connection, ex);
-                                    return null;
-                                });
+                        connection.disconnect();
                     }
                 }
             }

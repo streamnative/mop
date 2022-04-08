@@ -270,11 +270,13 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test(timeOut = TIMEOUT)
+    @Test(timeOut = TIMEOUT, invocationCount = 1000)
     public void testSubscribeRejectionWithSameClientId() throws Exception {
         final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
         MQTT mqtt = createMQTTClient();
         mqtt.setClientId("client-id-0");
+        mqtt.setReconnectDelay(Integer.MAX_VALUE);
+        mqtt.setReconnectAttemptsMax(0);
         BlockingConnection connection1 = mqtt.blockingConnection();
         connection1.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -283,12 +285,13 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
         BlockingConnection connection2;
         MQTT mqtt2 = createMQTTClient();
-        mqtt.setClientId("client-id-0");
+        mqtt2.setClientId("client-id-0");
         connection2 = mqtt2.blockingConnection();
         connection2.connect();
         Assert.assertTrue(connection2.isConnected());
-        Awaitility.await().untilAsserted(() -> Assert.assertTrue(connection1.isConnected()));
+        Awaitility.await().untilAsserted(() -> Assert.assertFalse(connection1.isConnected()));
         connection2.subscribe(topics);
+        Assert.assertTrue(connection2.isConnected());
         connection2.disconnect();
         connection1.disconnect();
     }

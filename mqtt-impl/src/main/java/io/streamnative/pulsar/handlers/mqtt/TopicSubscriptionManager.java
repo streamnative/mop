@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import java.util.List;
@@ -21,6 +20,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Consumer;
@@ -61,11 +61,17 @@ public class TopicSubscriptionManager {
             log.error("[ Subscription ] Subscription {} Remove consumer fail.", subscriberName, e);
             FutureUtil.failedFuture(e);
         }
-
-        if (cleanSubscription) {
-            return subscriptionConsumerPair.getLeft().delete().thenAccept(__ -> topicSubscriptions.remove(topic));
+        if (CollectionUtils.isEmpty(subscriptionConsumerPair.getLeft().getConsumers())) {
+            return topic.unsubscribe(subscriberName)
+                    .thenCompose(__ -> {
+                        if (cleanSubscription) {
+                            return subscriptionConsumerPair.getLeft().deleteForcefully()
+                                    .thenAccept(unused -> topicSubscriptions.remove(topic));
+                        }
+                        return CompletableFuture.completedFuture(null);
+                    });
         } else {
-            return topic.unsubscribe(subscriberName).thenAccept(__ -> topicSubscriptions.remove(topic));
+            return CompletableFuture.completedFuture(null);
         }
     }
 
@@ -75,11 +81,6 @@ public class TopicSubscriptionManager {
                 .map(topic -> unsubscribe(topic, true))
                 .collect(Collectors.toList());
         return FutureUtil.waitForAll(futures);
-    }
-
-    @VisibleForTesting
-    public Map<Topic, Pair<Subscription, Consumer>> getTopicSubscriptions() {
-        return topicSubscriptions;
     }
 
     private void removeConsumerIfExist(Subscription subscription, Consumer consumer) throws BrokerServiceException {
