@@ -97,7 +97,6 @@ public class Connection {
         this.userRole = builder.userRole;
         this.channel = builder.channel;
         this.manager = builder.connectionManager;
-        this.manager.addConnection(this);
         this.connectMessage = builder.connectMessage;
         this.ackHandler = AckHandlerFactory.of(protocolVersion).getAckHandler();
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
@@ -105,6 +104,7 @@ public class Connection {
         this.addIdleStateHandler();
         this.eventCenter = builder.eventCenter;
         this.listeners = Collections.synchronizedList(new ArrayList<>());
+        this.manager.addConnection(this);
     }
 
     private void addIdleStateHandler() {
@@ -155,8 +155,8 @@ public class Connection {
 
     public CompletableFuture<Void> close(boolean force) {
         log.info("Closing connection clientId = {} force : {}", clientId, force);
-        assignState(ESTABLISHED, DISCONNECTED);
         if (force) {
+            assignState(ESTABLISHED, DISCONNECTED);
             if (MqttUtils.isMqtt5(protocolVersion)) {
                 MqttMessage mqttMessage = MqttMessageBuilders
                         .disconnect()
