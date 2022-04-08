@@ -376,4 +376,43 @@ public class ProxyTest extends MQTTTestBase {
 //        Assert.assertEquals(rev2.getTopic(), willTopic);
         consumer2.disconnect();
     }
+
+    @Test
+    public void testRetainedMessageInCluster() throws Exception {
+        String topicName = "topic-retained-message";
+        int numPartitions = 40;
+        admin.topics().createPartitionedTopic(topicName, numPartitions);
+        Set<String> ownerBroker = new HashSet<>();
+        for (int i = 0; i < numPartitions; i++) {
+            String partitionedTopic = topicName + "-partition-" + i;
+            String broker = admin.lookups().lookupTopic(partitionedTopic);
+            ownerBroker.add(broker);
+        }
+        Assert.assertTrue(ownerBroker.size() >= 2);
+        List<String> brokers = new ArrayList<>(ownerBroker);
+        String broker1 = brokers.get(0);
+        //
+        String retainedTopic = "retained-message-topic";
+        String retainedMessage = "retained message";
+        MQTT mqtt1 = createMQTT(Integer.parseInt(broker1.substring(broker1.lastIndexOf(":") + 1)) + 5);
+        mqtt1.setClientId("ab-ab-ab");
+        BlockingConnection producer = mqtt1.blockingConnection();
+        producer.connect();
+        producer.publish(retainedTopic, retainedMessage.getBytes(StandardCharsets.UTF_8), QoS.AT_LEAST_ONCE, true);
+        producer.disconnect();
+        // Wait for the retained message to be sent out and reader received.
+        Thread.sleep(5000);
+        //
+        String broker2 = brokers.get(1);
+        MQTT mqtt2 = createMQTT(Integer.parseInt(broker2.substring(broker2.lastIndexOf(":") + 1)) + 5);
+        mqtt2.setClientId("cd-cd-cd");
+        BlockingConnection consumer2 = mqtt2.blockingConnection();
+        consumer2.connect();
+        Topic[] topic = { new Topic(retainedTopic, QoS.AT_LEAST_ONCE)};
+        consumer2.subscribe(topic);
+        Message rev2 = consumer2.receive(10, TimeUnit.SECONDS);
+        Assert.assertNotNull(rev2);
+        Assert.assertEquals(new String(rev2.getPayload()), retainedMessage);
+        consumer2.disconnect();
+    }
 }

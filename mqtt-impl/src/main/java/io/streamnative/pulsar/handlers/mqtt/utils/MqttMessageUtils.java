@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -96,6 +97,28 @@ public class MqttMessageUtils {
         final boolean retained = msg.variableHeader().isWillRetain();
         final MqttQoS qos = MqttQoS.valueOf(msg.variableHeader().willQos());
         return new WillMessage(willTopic, willMessage, qos, retained);
+    }
+
+    public static RetainedMessage createRetainedMessage(MqttPublishMessage msg) {
+        checkArgument(msg.fixedHeader().isRetain(), "Must be retained msg");
+        final byte[] payload = new byte[msg.payload().readableBytes()];
+        msg.payload().markReaderIndex();
+        msg.payload().readBytes(payload);
+        msg.payload().resetReaderIndex();
+        final String topicName = msg.variableHeader().topicName();
+        final MqttQoS qos = msg.fixedHeader().qosLevel();
+        return new RetainedMessage(topicName, payload, qos);
+    }
+
+    public static MqttPublishMessage createRetainedMessage(RetainedMessage msg) {
+        checkArgument(msg != null, "Msg should not be null");
+        return MessageBuilder.publish()
+                .messageId(-1)
+                .payload(Unpooled.copiedBuffer(msg.getPayload()))
+                .topicName(msg.getTopic())
+                .qos(msg.getQos())
+                .retained(true)
+                .build();
     }
 
     public static MqttPublishMessage createMqttWillMessage(WillMessage willMessage) {

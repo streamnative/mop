@@ -53,6 +53,7 @@ import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarTopicChangeListener;
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -97,6 +98,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     private final MQTTConnectionManager connectionManager;
     private final MQTTSubscriptionManager mqttSubscriptionManager;
     private final WillMessageHandler willMessageHandler;
+    private final RetainedMessageHandler retainedMessageHandler;
     private Connection connection;
     private final PulsarEventCenter eventCenter;
 
@@ -105,7 +107,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 mqttService.getServerConfiguration().isMqttAuthenticationEnabled(), ctx);
         this.pulsarService = mqttService.getPulsarService();
         this.configuration = mqttService.getServerConfiguration();
-        this.qosPublishHandlers = new QosPublishHandlersImpl(pulsarService, configuration, ctx.channel());
+        this.qosPublishHandlers = new QosPublishHandlersImpl(mqttService, configuration, ctx.channel());
         this.packetIdGenerator = PacketIdGenerator.newNonZeroGenerator();
         this.outstandingPacketContainer = new OutstandingPacketContainerImpl();
         this.authorizationService = mqttService.getAuthorizationService();
@@ -113,6 +115,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         this.connectionManager = mqttService.getConnectionManager();
         this.mqttSubscriptionManager = mqttService.getSubscriptionManager();
         this.willMessageHandler = mqttService.getWillMessageHandler();
+        this.retainedMessageHandler = mqttService.getRetainedMessageHandler();
         this.serverCnx = new MQTTServerCnx(pulsarService, ctx);
         this.eventCenter = mqttService.getEventCenter();
     }
@@ -367,9 +370,13 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             return CompletableFuture.completedFuture(null);
         }
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
+        Optional<String> retainedTopic = Optional.empty();
         for (MqttTopicSubscription subTopic : subTopics) {
-            if (PulsarTopicUtils.isRegexFilter(subTopic.topicName())) {
+            if (MqttUtils.isRegexFilter(subTopic.topicName())) {
                 registerRegexTopicFilterListener(subTopic);
+            }
+            if (!retainedTopic.isPresent()) {
+                retainedTopic = retainedMessageHandler.getRetainedTopic(subTopic.topicName());
             }
             metricsCollector.addSub(subTopic.topicName());
             CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
@@ -390,6 +397,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             });
             futureList.add(completableFuture);
         }
+        final Optional<String> finalRetainedTopic = retainedTopic;
         return FutureUtil.waitForAll(futureList).thenAccept(v -> {
             SubscribeAck subscribeAck = SubscribeAck
                     .builder()
@@ -399,7 +407,11 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                             .map(MqttTopicSubscription::qualityOfService)
                             .collect(Collectors.toList()))
                     .build();
-            ackHandler.sendSubscribeAck(connection, subscribeAck);
+            ackHandler.sendSubscribeAck(connection, subscribeAck).addListener(listener -> {
+                finalRetainedTopic.map(topic ->
+                    channel.writeAndFlush(MqttMessageUtils
+                            .createRetainedMessage(retainedMessageHandler.getRetainedMessage(topic))));
+            });
         }).exceptionally(ex -> {
             Throwable realCause = FutureUtil.unwrapCompletionException(ex);
             if (realCause instanceof BrokerServiceException.TopicNotFoundException) {

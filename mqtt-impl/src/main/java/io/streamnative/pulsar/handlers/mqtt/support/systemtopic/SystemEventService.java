@@ -27,5 +27,7 @@ public interface SystemEventService {
 
     CompletableFuture<Void> sendLWTEvent(LastWillMessageEvent event);
 
+    CompletableFuture<Void> sendRetainedEvent(RetainedMessageEvent event);
+
     CompletableFuture<Void> sendEvent(MqttEvent event);
 }

@@ -17,21 +17,25 @@ import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTService;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.pulsar.broker.PulsarService;
 /**
  * Publish handler implementation for Qos 0.
  */
 @Slf4j
 public class Qos0PublishHandler extends AbstractQosPublishHandler {
 
-    public Qos0PublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration, Channel channel) {
-        super(pulsarService, configuration, channel);
+    public Qos0PublishHandler(MQTTService mqttService, MQTTServerConfiguration configuration, Channel channel) {
+        super(mqttService, configuration, channel);
     }
 
     @Override
     public CompletableFuture<Void> publish(MqttPublishMessage msg) {
+        if (MqttUtils.isRetainedMessage(msg)) {
+            return retainedMessageHandler.addRetainedMessage(msg);
+        }
         return writeToPulsarTopic(msg).thenAccept(__ -> {});
     }
 }
