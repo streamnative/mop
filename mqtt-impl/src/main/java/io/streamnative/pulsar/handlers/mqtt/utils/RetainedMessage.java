@@ -11,10 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
+package io.streamnative.pulsar.handlers.mqtt.utils;
 
-public enum EventType {
-    CONNECT,
-    LAST_WILL_MESSAGE,
-    RETAINED_MESSAGE;
+import io.netty.handler.codec.mqtt.MqttQoS;
+import lombok.Getter;
+import lombok.Setter;
+
+/**
+ * Retained Message.
+ */
+@Getter
+@Setter
+public class RetainedMessage {
+
+    String topic;
+    byte[] payload;
+    MqttQoS qos;
+
+    public RetainedMessage() {
+    }
+
+    public RetainedMessage(final String topic, final byte[] payload, final MqttQoS qos) {
+        this.topic = topic;
+        this.payload = payload;
+        this.qos = qos;
+    }
 }

@@ -668,4 +668,28 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         received.ack();
         connection.disconnect();
     }
+
+    @Test
+    public void testRetainedMessage() throws Exception {
+        String topicName = "persistent://public/default/a";
+        MQTT mqtt = createMQTTClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        String message1 = "Retained Message";
+        String message2 = "Hello Message";
+        admin.topics().createNonPartitionedTopic(topicName);
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection.publish(topicName, message1.getBytes(), QoS.AT_LEAST_ONCE, true);
+        connection.subscribe(topics);
+        connection.publish(topicName, message2.getBytes(), QoS.AT_LEAST_ONCE, false);
+        Message received1 = connection.receive(5, TimeUnit.SECONDS);
+        Assert.assertNotNull(received1);
+        received1.ack();
+        Assert.assertEquals(new String(received1.getPayload()), message1);
+        Message received2 = connection.receive(5, TimeUnit.SECONDS);
+        Assert.assertNotNull(received2);
+        received2.ack();
+        Assert.assertEquals(new String(received2.getPayload()), message2);
+        connection.disconnect();
+    }
 }

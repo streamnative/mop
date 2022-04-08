@@ -17,6 +17,7 @@ import static io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter.
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
+import io.streamnative.pulsar.handlers.mqtt.support.RetainedMessageHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.MessagePublishContext;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.Optional;
@@ -34,12 +35,14 @@ import org.apache.pulsar.common.util.FutureUtil;
 public abstract class AbstractQosPublishHandler implements QosPublishHandler {
 
     protected final PulsarService pulsarService;
+    protected final RetainedMessageHandler retainedMessageHandler;
     protected final MQTTServerConfiguration configuration;
     protected final Channel channel;
 
-    protected AbstractQosPublishHandler(PulsarService pulsarService, MQTTServerConfiguration configuration,
+    protected AbstractQosPublishHandler(MQTTService mqttService, MQTTServerConfiguration configuration,
                                         Channel channel) {
-        this.pulsarService = pulsarService;
+        this.pulsarService = mqttService.getPulsarService();
+        this.retainedMessageHandler = mqttService.getRetainedMessageHandler();
         this.configuration = configuration;
         this.channel = channel;
     }

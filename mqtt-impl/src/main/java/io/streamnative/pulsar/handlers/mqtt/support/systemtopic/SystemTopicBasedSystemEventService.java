@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
+import static io.streamnative.pulsar.handlers.mqtt.support.systemtopic.MqttEventUtils.getMqttEvent;
 import com.google.common.annotations.Beta;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,6 +89,17 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     }
 
     @Override
+    public CompletableFuture<Void> sendRetainedEvent(RetainedMessageEvent event) {
+        checkReader();
+        return sendEvent(getMqttEvent(event, ActionType.INSERT))
+                .thenRun(() -> {
+                    if (log.isDebugEnabled()) {
+                        log.debug("send retained event : {}", event);
+                    }
+                });
+    }
+
+    @Override
     public CompletableFuture<Void> sendEvent(MqttEvent event) {
         CompletableFuture<SystemTopicClient.Writer<MqttEvent>> writerFuture = systemTopicClient.newWriterAsync();
         return writerFuture.thenCompose(writer -> {
@@ -104,34 +116,6 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
             log.error("[{}] send event error.", SYSTEM_EVENT_TOPIC, ex);
             return null;
         });
-    }
-
-    private MqttEvent getMqttEvent(LastWillMessageEvent event, ActionType actionType) {
-        MqttEvent.MqttEventBuilder builder = MqttEvent.builder();
-        try {
-            return builder
-                    .key(event.getClientId() + "-LWT")
-                    .eventType(EventType.LAST_WILL_MESSAGE)
-                    .actionType(actionType)
-                    .sourceEvent(JsonUtil.toJson(event))
-                    .build();
-        } catch (JsonUtil.ParseJsonException e) {
-            throw new IllegalArgumentException(e);
-        }
-    }
-
-    private MqttEvent getMqttEvent(ConnectEvent event, ActionType actionType) {
-        MqttEvent.MqttEventBuilder builder = MqttEvent.builder();
-        try {
-            return builder
-                    .key(event.getClientId())
-                    .eventType(EventType.CONNECT)
-                    .actionType(actionType)
-                    .sourceEvent(JsonUtil.toJson(event))
-                    .build();
-        } catch (JsonUtil.ParseJsonException e) {
-            throw new IllegalArgumentException(e);
-        }
     }
 
     protected CompletableFuture<SystemTopicClient.Reader<MqttEvent>> createReader() {
@@ -226,6 +210,11 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                     LastWillMessageEvent lwtEvent = JsonUtil.fromJson((String) value.getSourceEvent(),
                             LastWillMessageEvent.class);
                     value.setSourceEvent(lwtEvent);
+                    break;
+                case RETAINED_MESSAGE:
+                    RetainedMessageEvent retainedEvent = JsonUtil.fromJson((String) value.getSourceEvent(),
+                            RetainedMessageEvent.class);
+                    value.setSourceEvent(retainedEvent);
                     break;
                 default:
                     break;
