@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils.isRegexFilter;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
@@ -40,6 +41,7 @@ import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.policies.data.AutoTopicCreationOverride;
 import org.apache.pulsar.common.util.FutureUtil;
+
 
 /**
  * Pulsar topic utils.
@@ -210,11 +212,6 @@ public class PulsarTopicUtils {
                         return topics;
                     })
                 ).orElseGet(()-> CompletableFuture.completedFuture(Collections.emptyList()));
-    }
-
-    public static boolean isRegexFilter(String topicFilter) {
-        return topicFilter.contains(TopicFilter.SINGLE_LEVEL)
-                || topicFilter.contains(TopicFilter.MULTI_LEVEL);
     }
 
     public static CompletableFuture<List<String>> asyncGetTopicListFromTopicSubscription(String topicFilter,

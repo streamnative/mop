@@ -80,6 +80,9 @@ public class WillMessageHandler {
             if (event.getEventType() == LAST_WILL_MESSAGE) {
                 LastWillMessageEvent lwtEvent = (LastWillMessageEvent) event.getSourceEvent();
                 if (!lwtEvent.getAddress().equals(advertisedAddress)) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("fire will message : {}", lwtEvent.getWillMessage());
+                    }
                     fireWillMessage("", lwtEvent.getWillMessage());
                 }
             }

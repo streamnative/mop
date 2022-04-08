@@ -43,6 +43,7 @@ import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarTopicChangeListe
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.ConnectEvent;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.net.InetSocketAddress;
@@ -249,7 +250,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private void registerTopicListener(MqttSubscribeMessage msg) {
         for (MqttTopicSubscription subscription : msg.payload().topicSubscriptions()) {
             String topicFilter = subscription.topicName();
-            if (PulsarTopicUtils.isRegexFilter(topicFilter)) {
+            if (MqttUtils.isRegexFilter(topicFilter)) {
                 connection.addTopicChangeListener(new PulsarTopicChangeListener() {
                     @Override
                     public void onTopicLoad(TopicName changedTopicName) {

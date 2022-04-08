@@ -74,6 +74,7 @@ public class MQTTProxyService implements Closeable {
                 new DisabledSystemEventService();
         this.eventService.addListener(connectionManager.getEventListener());
         this.eventService.addListener(mqttService.getWillMessageHandler().getEventListener());
+        this.eventService.addListener(mqttService.getRetainedMessageHandler().getEventListener());
         mqttService.setEventService(eventService);
         this.acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
                 false, acceptorThreadFactory);

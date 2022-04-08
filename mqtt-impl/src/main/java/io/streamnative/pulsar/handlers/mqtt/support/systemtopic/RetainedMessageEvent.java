@@ -13,8 +13,17 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
-public enum EventType {
-    CONNECT,
-    LAST_WILL_MESSAGE,
-    RETAINED_MESSAGE;
+import io.streamnative.pulsar.handlers.mqtt.utils.RetainedMessage;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class RetainedMessageEvent extends SourceEvent {
+
+    private RetainedMessage retainedMessage;
 }

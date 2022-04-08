@@ -15,9 +15,9 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.Channel;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
-import org.apache.pulsar.broker.PulsarService;
 
 /**
  * Default implementation of QosPublishHandlers.
@@ -28,10 +28,10 @@ public class QosPublishHandlersImpl implements QosPublishHandlers {
     private final QosPublishHandler qos1Handler;
     private final QosPublishHandler qos2Handler;
 
-    public QosPublishHandlersImpl(PulsarService pulsarService, MQTTServerConfiguration configuration, Channel channel) {
-        this.qos0Handler = new Qos0PublishHandler(pulsarService, configuration, channel);
-        this.qos1Handler = new Qos1PublishHandler(pulsarService, configuration, channel);
-        this.qos2Handler = new Qos2PublishHandler(pulsarService, configuration, channel);
+    public QosPublishHandlersImpl(MQTTService mqttService, MQTTServerConfiguration configuration, Channel channel) {
+        this.qos0Handler = new Qos0PublishHandler(mqttService, configuration, channel);
+        this.qos1Handler = new Qos1PublishHandler(mqttService, configuration, channel);
+        this.qos2Handler = new Qos2PublishHandler(mqttService, configuration, channel);
     }
 
     @Override
