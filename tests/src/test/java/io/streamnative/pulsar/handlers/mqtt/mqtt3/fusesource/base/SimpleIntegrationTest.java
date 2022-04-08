@@ -270,7 +270,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test(timeOut = TIMEOUT, invocationCount = 1000)
+    @Test(timeOut = TIMEOUT)
     public void testSubscribeRejectionWithSameClientId() throws Exception {
         final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
         MQTT mqtt = createMQTTClient();
