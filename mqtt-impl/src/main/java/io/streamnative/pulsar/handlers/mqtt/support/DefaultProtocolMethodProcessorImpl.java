@@ -268,6 +268,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             DisconnectAck disconnectAck = DisconnectAck
                     .builder()
                     .success(true)
+                    .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
                     .build();
             connection.getAckHandler()
                     .sendDisconnectAck(connection, disconnectAck);
