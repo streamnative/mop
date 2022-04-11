@@ -129,7 +129,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
                             new MQTTChannelInitializer(mqttService, true));
 
-                } else if (listener.startsWith(SSL_PSK_PREFIX) && mqttConfig.isTlsPskEnabled()) {
+                } else if (listener.startsWith(SSL_PSK_PREFIX) && mqttConfig.isMqttTlsPskEnabled()) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
                             new MQTTChannelInitializer(mqttService, false, true));
