@@ -56,40 +56,40 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
         this.proxyConfig = proxyConfig;
         this.enableTls = enableTls;
         this.enableTlsPsk = enableTlsPsk;
-        this.tlsEnabledWithKeyStore = proxyConfig.isTlsEnabledWithKeyStore();
+        this.tlsEnabledWithKeyStore = proxyConfig.isMqttTlsEnabledWithKeyStore();
         if (this.enableTls) {
             if (tlsEnabledWithKeyStore) {
                 serverSSLContextAutoRefreshBuilder = new NettySSLContextAutoRefreshBuilder(
-                        proxyConfig.getTlsProvider(),
-                        proxyConfig.getTlsKeyStoreType(),
-                        proxyConfig.getTlsKeyStore(),
-                        proxyConfig.getTlsKeyStorePassword(),
-                        proxyConfig.isTlsAllowInsecureConnection(),
-                        proxyConfig.getTlsTrustStoreType(),
-                        proxyConfig.getTlsTrustStore(),
-                        proxyConfig.getTlsTrustStorePassword(),
-                        proxyConfig.isTlsRequireTrustedClientCertOnConnect(),
-                        proxyConfig.getTlsCiphers(),
-                        proxyConfig.getTlsProtocols(),
-                        proxyConfig.getTlsCertRefreshCheckDurationSec());
+                        proxyConfig.getMqttTlsProvider(),
+                        proxyConfig.getMqttTlsKeyStoreType(),
+                        proxyConfig.getMqttTlsKeyStore(),
+                        proxyConfig.getMqttTlsKeyStorePassword(),
+                        proxyConfig.isMqttTlsAllowInsecureConnection(),
+                        proxyConfig.getMqttTlsTrustStoreType(),
+                        proxyConfig.getMqttTlsTrustStore(),
+                        proxyConfig.getMqttTlsTrustStorePassword(),
+                        proxyConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
+                        proxyConfig.getMqttTlsCiphers(),
+                        proxyConfig.getMqttTlsProtocols(),
+                        proxyConfig.getMqttTlsCertRefreshCheckDurationSec());
             } else {
                 serverSslCtxRefresher = new NettyServerSslContextBuilder(
-                        proxyConfig.isTlsAllowInsecureConnection(),
-                        proxyConfig.getTlsTrustCertsFilePath(),
-                        proxyConfig.getTlsCertificateFilePath(),
-                        proxyConfig.getTlsKeyFilePath(),
-                        proxyConfig.getTlsCiphers(),
-                        proxyConfig.getTlsProtocols(),
-                        proxyConfig.isTlsRequireTrustedClientCertOnConnect(),
-                        proxyConfig.getTlsCertRefreshCheckDurationSec());
+                        proxyConfig.isMqttTlsAllowInsecureConnection(),
+                        proxyConfig.getMqttTlsTrustCertsFilePath(),
+                        proxyConfig.getMqttTlsCertificateFilePath(),
+                        proxyConfig.getMqttTlsKeyFilePath(),
+                        proxyConfig.getMqttTlsCiphers(),
+                        proxyConfig.getMqttTlsProtocols(),
+                        proxyConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
+                        proxyConfig.getMqttTlsCertRefreshCheckDurationSec());
             }
         } else if (this.enableTlsPsk) {
             pskConfiguration = new PSKConfiguration();
-            pskConfiguration.setIdentityHint(proxyConfig.getTlsPskIdentityHint());
-            pskConfiguration.setIdentity(proxyConfig.getTlsPskIdentity());
-            pskConfiguration.setIdentityFile(proxyConfig.getTlsPskIdentityFile());
-            pskConfiguration.setProtocols(proxyConfig.getTlsProtocols());
-            pskConfiguration.setCiphers(proxyConfig.getTlsCiphers());
+            pskConfiguration.setIdentityHint(proxyConfig.getMqttTlsPskIdentityHint());
+            pskConfiguration.setIdentity(proxyConfig.getMqttTlsPskIdentity());
+            pskConfiguration.setIdentityFile(proxyConfig.getMqttTlsPskIdentityFile());
+            pskConfiguration.setProtocols(proxyConfig.getMqttTlsProtocols());
+            pskConfiguration.setCiphers(proxyConfig.getMqttTlsCiphers());
         } else {
             this.serverSslCtxRefresher = null;
         }

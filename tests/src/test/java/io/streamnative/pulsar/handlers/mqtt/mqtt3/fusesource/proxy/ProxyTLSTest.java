@@ -56,11 +56,11 @@ public class ProxyTLSTest extends MQTTTestBase {
 
         mqtt.setMqttProxyEnabled(true);
         mqtt.setMqttProxyTlsEnabled(true);
-        mqtt.setTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
-        mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
+        mqtt.setMqttTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
+        mqtt.setMqttTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
         mqtt.setMqttProxyTlsPskEnabled(true);
-        mqtt.setTlsPskIdentityHint("alpha");
-        mqtt.setTlsPskIdentity("mqtt:mqtt123");
+        mqtt.setMqttTlsPskIdentityHint("alpha");
+        mqtt.setMqttTlsPskIdentity("mqtt:mqtt123");
 
         return mqtt;
     }

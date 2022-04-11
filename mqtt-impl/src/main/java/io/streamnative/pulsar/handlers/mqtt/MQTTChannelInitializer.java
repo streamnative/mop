@@ -52,40 +52,40 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         this.mqttConfig = mqttService.getServerConfiguration();
         this.enableTls = enableTls;
         this.enableTlsPsk = enableTlsPsk;
-        this.tlsEnabledWithKeyStore = mqttConfig.isTlsEnabledWithKeyStore();
+        this.tlsEnabledWithKeyStore = mqttConfig.isMqttTlsEnabledWithKeyStore();
         if (this.enableTls) {
             if (tlsEnabledWithKeyStore) {
                 nettySSLContextAutoRefreshBuilder = new NettySSLContextAutoRefreshBuilder(
-                        mqttConfig.getTlsProvider(),
-                        mqttConfig.getTlsKeyStoreType(),
-                        mqttConfig.getTlsKeyStore(),
-                        mqttConfig.getTlsKeyStorePassword(),
-                        mqttConfig.isTlsAllowInsecureConnection(),
-                        mqttConfig.getTlsTrustStoreType(),
-                        mqttConfig.getTlsTrustStore(),
-                        mqttConfig.getTlsTrustStorePassword(),
-                        mqttConfig.isTlsRequireTrustedClientCertOnConnect(),
-                        mqttConfig.getTlsCiphers(),
-                        mqttConfig.getTlsProtocols(),
-                        mqttConfig.getTlsCertRefreshCheckDurationSec());
+                        mqttConfig.getMqttTlsProvider(),
+                        mqttConfig.getMqttTlsKeyStoreType(),
+                        mqttConfig.getMqttTlsKeyStore(),
+                        mqttConfig.getMqttTlsKeyStorePassword(),
+                        mqttConfig.isMqttTlsAllowInsecureConnection(),
+                        mqttConfig.getMqttTlsTrustStoreType(),
+                        mqttConfig.getMqttTlsTrustStore(),
+                        mqttConfig.getMqttTlsTrustStorePassword(),
+                        mqttConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
+                        mqttConfig.getMqttTlsCiphers(),
+                        mqttConfig.getMqttTlsProtocols(),
+                        mqttConfig.getMqttTlsCertRefreshCheckDurationSec());
             } else {
                 sslCtxRefresher = new NettyServerSslContextBuilder(
-                        mqttConfig.isTlsAllowInsecureConnection(),
-                        mqttConfig.getTlsTrustCertsFilePath(),
-                        mqttConfig.getTlsCertificateFilePath(),
-                        mqttConfig.getTlsKeyFilePath(),
-                        mqttConfig.getTlsCiphers(),
-                        mqttConfig.getTlsProtocols(),
-                        mqttConfig.isTlsRequireTrustedClientCertOnConnect(),
-                        mqttConfig.getTlsCertRefreshCheckDurationSec());
+                        mqttConfig.isMqttTlsAllowInsecureConnection(),
+                        mqttConfig.getMqttTlsTrustCertsFilePath(),
+                        mqttConfig.getMqttTlsCertificateFilePath(),
+                        mqttConfig.getMqttTlsKeyFilePath(),
+                        mqttConfig.getMqttTlsCiphers(),
+                        mqttConfig.getMqttTlsProtocols(),
+                        mqttConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
+                        mqttConfig.getMqttTlsCertRefreshCheckDurationSec());
             }
         } else if (this.enableTlsPsk) {
             pskConfiguration = new PSKConfiguration();
-            pskConfiguration.setIdentityHint(mqttConfig.getTlsPskIdentityHint());
-            pskConfiguration.setIdentity(mqttConfig.getTlsPskIdentity());
-            pskConfiguration.setIdentityFile(mqttConfig.getTlsPskIdentityFile());
-            pskConfiguration.setProtocols(mqttConfig.getTlsProtocols());
-            pskConfiguration.setCiphers(mqttConfig.getTlsCiphers());
+            pskConfiguration.setIdentityHint(mqttConfig.getMqttTlsPskIdentityHint());
+            pskConfiguration.setIdentity(mqttConfig.getMqttTlsPskIdentity());
+            pskConfiguration.setIdentityFile(mqttConfig.getMqttTlsPskIdentityFile());
+            pskConfiguration.setProtocols(mqttConfig.getMqttTlsProtocols());
+            pskConfiguration.setCiphers(mqttConfig.getMqttTlsCiphers());
         } else {
             this.sslCtxRefresher = null;
         }

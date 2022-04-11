@@ -209,8 +209,8 @@ openssl req -new -x509 -nodes -sha256 -days 365 -key server.key -out server.crt
 ...
 tlsEnabled=true
 mqttListeners=mqtt+ssl://127.0.0.1:8883
-tlsCertificateFilePath=/xxx/server.crt
-tlsKeyFilePath=/xxx/server.key
+mqttTlsCertificateFilePath=/xxx/server.crt
+mqttTlsKeyFilePath=/xxx/server.key
 ...
 ```
 
@@ -242,8 +242,8 @@ connection.connect();
 ...
 mqttProxyEnable=true
 mqttProxyTlsEnabled=true
-tlsCertificateFilePath=/xxx/server.crt
-tlsKeyFilePath=/xxx/server.key
+mqttTlsCertificateFilePath=/xxx/server.crt
+mqttTlsKeyFilePath=/xxx/server.key
 ...
 ```
 
@@ -274,21 +274,21 @@ Please reference [here](https://en.wikipedia.org/wiki/TLS-PSK) to learn more abo
 1. Config mqtt broker to load tls psk config.
 ```conf
 ...
-tlsPskEnabled=true
+mqttTlsPskEnabled=true
 mqttListeners=mqtt+ssl+psk://127.0.0.1:8884
 // any string can be specified
-tlsPskIdentityHint=alpha
+mqttTlsPskIdentityHint=alpha
 // identity is semicolon list of string with identity:secret format
-tlsPskIdentity=mqtt:mqtt123
+mqttTlsPskIdentity=mqtt:mqtt123
 ...
 ```
 Optional configs
 
-|  Config key   | Comment  |
-|  :---------:  | -------- |
-|  tlsPskIdentityFile | When you want identities in a single file with many pairs, you can config this. Identities will load from both `tlsPskIdentity` and `tlsPskIdentityFile`  |
-|  tlsProtocols  | TLS PSK protocols, default are [ TLSv1, TLSv1.1, TLSv1.2 ]  |
-|  tlsCiphers | TLS PSK ciphers, default are [ TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256, TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA, TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA, TLS_PSK_WITH_AES_128_CBC_SHA, TLS_PSK_WITH_AES_256_CBC_SHA ] |
+|       Config key       | Comment  |
+|:----------------------:| -------- |
+| mqttTlsPskIdentityFile | When you want identities in a single file with many pairs, you can config this. Identities will load from both `tlsPskIdentity` and `tlsPskIdentityFile`  |
+|    mqttTlsProtocols    | TLS PSK protocols, default are [ TLSv1, TLSv1.1, TLSv1.2 ]  |
+|     mqttTlsCiphers     | TLS PSK ciphers, default are [ TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256, TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA, TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA, TLS_PSK_WITH_AES_128_CBC_SHA, TLS_PSK_WITH_AES_256_CBC_SHA ] |
 
 2. As current known mqtt Java client does not support TLS-PSK, it's better to verify this by `mosquitto cli`
 ```cli
@@ -314,9 +314,9 @@ mqttProxyTlsPskEnabled=true
 // default tls psk port
 mqttProxyTlsPskPort=5684
 // any string can be specified
-tlsPskIdentityHint=alpha
+mqttTlsPskIdentityHint=alpha
 // identity is semicolon list of string with identity:secret format
-tlsPskIdentity=mqtt:mqtt123
+mqttTlsPskIdentity=mqtt:mqtt123
 ...
 ```
 

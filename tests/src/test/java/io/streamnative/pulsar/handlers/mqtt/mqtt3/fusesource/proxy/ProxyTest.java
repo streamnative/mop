@@ -75,8 +75,8 @@ public class ProxyTest extends MQTTTestBase {
         mqtt.setDefaultNumberOfNamespaceBundles(4);
         mqtt.setMqttProxyEnabled(true);
         mqtt.setMqttProxyTlsPskEnabled(true);
-        mqtt.setTlsPskIdentityHint("alpha");
-        mqtt.setTlsPskIdentity("mqtt:mqtt123");
+        mqtt.setMqttTlsPskIdentityHint("alpha");
+        mqtt.setMqttTlsPskIdentity("mqtt:mqtt123");
         mqtt.getProperties().setProperty("systemEventEnabled", "true");
         return mqtt;
     }
