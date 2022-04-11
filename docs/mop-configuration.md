@@ -29,35 +29,35 @@
 
 ## TLS
 
-| Property | Default value | Comment
-|----------| --------------| --------
-|tlsEnabled | false | Enabled tls |
-|tlsCertRefreshCheckDurationSec | 300 | Tls cert refresh duration in seconds (set 0 to check on every new connection) |
-|tlsCertificateFilePath  | | The path of TLS certificate path |
-|tlsKeyFilePath | null | The path of TLS key file |
-|tlsTrustCertsFilePath | | Path for the trusted TLS certificate file | 
-|tlsProtocols | | TLS protocols, available values [TLSv1.3, TLSv1.2, TlSv1.1, TLSv1] |
-|tlsCiphers | | Specify the tls cipher the proxy will use to negotiate during TLS Handshake (a comma-separated list of ciphers). Examples:- [TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256] |
-|tlsAllowInsecureConnection | false | Accept untrusted TLS certificate from client. If true, a client with a cert which cannot be verified with the `tlsTrustCertsFilePath`" cert will be allowed to connect to the server, though the cert will not be used for client authentication |
-|tlsRequireTrustedClientCertOnConnect | false | Whether client certificates are required for TLS. Connections are rejected if the client certificate isn't trusted |
-|tlsEnabledWithKeyStore | false | Enable TLS with KeyStore type configuration for proxy |
-|tlsProvider | | TLS Provider |
-|tlsKeyStoreType | JKS | TLS KeyStore type configuration for proxy: JKS, PKCS12 |
-|tlsKeyStore | | TLS KeyStore path for proxy |
-|tlsKeyStorePassword | | TLS KeyStore password for proxy |
-|tlsTrustStoreType | JKS | TLS TrustStore type configuration for proxy: JKS, PKCS12 |
-|tlsTrustStore | | TLS TrustStore path for proxy | 
-|tlsTrustStorePassword| | TLS TrustStore password for proxy |
+| Property                                 | Default value | Comment
+|------------------------------------------| --------------| --------
+| tlsEnabled                               | false | Enabled tls |
+| mqttTlsCertRefreshCheckDurationSec       | 300 | Tls cert refresh duration in seconds (set 0 to check on every new connection) |
+| mqttTlsCertificateFilePath               | | The path of TLS certificate path |
+| mqttTlsKeyFilePath                       | null | The path of TLS key file |
+| mqttTlsTrustCertsFilePath                | | Path for the trusted TLS certificate file | 
+| mqttTlsProtocols                         | | TLS protocols, available values [TLSv1.3, TLSv1.2, TlSv1.1, TLSv1] |
+| mqttTlsCiphers                           | | Specify the tls cipher the proxy will use to negotiate during TLS Handshake (a comma-separated list of ciphers). Examples:- [TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256] |
+| mqttTlsAllowInsecureConnection           | false | Accept untrusted TLS certificate from client. If true, a client with a cert which cannot be verified with the `tlsTrustCertsFilePath`" cert will be allowed to connect to the server, though the cert will not be used for client authentication |
+| mqttTlsRequireTrustedClientCertOnConnect | false | Whether client certificates are required for TLS. Connections are rejected if the client certificate isn't trusted |
+| mqttTlsEnabledWithKeyStore               | false | Enable TLS with KeyStore type configuration for proxy |
+| mqttTlsProvider                          | | TLS Provider |
+| mqttTlsKeyStoreType                      | JKS | TLS KeyStore type configuration for proxy: JKS, PKCS12 |
+| mqttTlsKeyStore                          | | TLS KeyStore path for proxy |
+| mqttTlsKeyStorePassword                  | | TLS KeyStore password for proxy |
+| mqttTlsTrustStoreType                    | JKS | TLS TrustStore type configuration for proxy: JKS, PKCS12 |
+| mqttTlsTrustStore                        | | TLS TrustStore path for proxy | 
+| mqttTlsTrustStorePassword                | | TLS TrustStore password for proxy |
 
 
 ## TLS-PSK
 
-| Property | Default value | Comment
-|----------| --------------| --------
-|tlsPskIdentityFile | | When you want identities in a single file with many pairs, you can config this. Identities will load from both `tlsPskIdentity` and `tlsPskIdentityFile` |
-|tlsPskEnabled | false | Enable tls psk |
-|tlsPskIdentityHint |  | Any string can be specified |
-|tlsPskIdentity |  | Identity is semicolon list of string with identity:secret format |
+| Property               | Default value | Comment
+|------------------------| --------------| --------
+| mqttTlsPskIdentityFile | | When you want identities in a single file with many pairs, you can config this. Identities will load from both `tlsPskIdentity` and `tlsPskIdentityFile` |
+| mqttTlsPskEnabled      | false | Enable tls psk |
+| mqttTlsPskIdentityHint |  | Any string can be specified |
+| mqttTlsPskIdentity     |  | Identity is semicolon list of string with identity:secret format |
 
 
 ## Socket
