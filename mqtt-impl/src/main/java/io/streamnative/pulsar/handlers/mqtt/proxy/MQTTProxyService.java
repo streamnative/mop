@@ -24,6 +24,7 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
+import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.DisabledSystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemTopicBasedSystemEventService;
@@ -53,6 +54,8 @@ public class MQTTProxyService implements Closeable {
     private LookupHandler lookupHandler;
     @Getter
     private final PulsarEventCenter eventCenter;
+    @Getter
+    private PSKConfiguration pskConfiguration = new PSKConfiguration();
 
     private Channel listenChannel;
     private Channel listenChannelTls;
@@ -117,6 +120,14 @@ public class MQTTProxyService implements Closeable {
         }
 
         if (proxyConfig.isMqttProxyTlsPskEnabled()) {
+            // init psk config
+            pskConfiguration.setIdentityHint(proxyConfig.getTlsPskIdentityHint());
+            pskConfiguration.setIdentity(proxyConfig.getTlsPskIdentity());
+            pskConfiguration.setIdentityFile(proxyConfig.getTlsPskIdentityFile());
+            pskConfiguration.setProtocols(proxyConfig.getTlsProtocols());
+            pskConfiguration.setCiphers(proxyConfig.getTlsCiphers());
+            this.eventService.addListener(pskConfiguration.getEventListener());
+            // Add channel initializer
             ServerBootstrap tlsPskBootstrap = serverBootstrap.clone();
             tlsPskBootstrap.childHandler(new MQTTProxyChannelInitializer(this, proxyConfig, false, true));
             try {
@@ -145,7 +156,9 @@ public class MQTTProxyService implements Closeable {
         this.acceptorGroup.shutdownGracefully();
         this.workerGroup.shutdownGracefully();
         this.eventService.close();
-        this.lookupHandler.close();
+        if (lookupHandler != null) {
+            this.lookupHandler.close();
+        }
         this.connectionManager.close();
     }
 }

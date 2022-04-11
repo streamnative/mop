@@ -48,6 +48,11 @@ public class DisabledSystemEventService implements SystemEventService{
     }
 
     @Override
+    public CompletableFuture<Void> sendPSKEvent(PSKEvent event) {
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
     public CompletableFuture<Void> sendEvent(MqttEvent event) {
         return CompletableFuture.completedFuture(null);
     }

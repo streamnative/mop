@@ -13,23 +13,16 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
-import java.util.concurrent.CompletableFuture;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public interface SystemEventService {
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class PSKEvent extends SourceEvent {
 
-    void start();
-
-    void close();
-
-    void addListener(EventListener listener);
-
-    CompletableFuture<Void> sendConnectEvent(ConnectEvent event);
-
-    CompletableFuture<Void> sendLWTEvent(LastWillMessageEvent event);
-
-    CompletableFuture<Void> sendRetainedEvent(RetainedMessageEvent event);
-
-    CompletableFuture<Void> sendPSKEvent(PSKEvent event);
-
-    CompletableFuture<Void> sendEvent(MqttEvent event);
+    String identity;
 }
