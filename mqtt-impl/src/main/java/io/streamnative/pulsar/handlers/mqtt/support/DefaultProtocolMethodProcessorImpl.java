@@ -211,7 +211,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 return this.qosPublishHandlers.qos2().publish(msg);
             default:
                 log.error("[Publish] Unknown QoS-Type:{}", qos);
-                return connection.close();
+                connection.getChannel().close();
+                return FutureUtil.failedFuture(new IllegalArgumentException("Unknown Qos-Type: " + qos));
         }
     }
 
@@ -267,13 +268,10 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
             DisconnectAck disconnectAck = DisconnectAck
                     .builder()
                     .success(true)
+                    .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
                     .build();
             connection.getAckHandler()
-                    .sendDisconnectAck(connection, disconnectAck)
-                    .addListener(__ -> {
-                        metricsCollector.removeClient(NettyUtils.getAddress(channel));
-                        connectionManager.removeConnection(connection);
-                    });
+                    .sendDisconnectAck(connection, disconnectAck);
         }
     }
 
@@ -292,11 +290,9 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         if (willMessage != null) {
             willMessageHandler.fireWillMessage(clientId, willMessage);
         }
-        connection.close()
-                .thenAccept(__ -> {
-                    connectionManager.removeConnection(connection);
-                    mqttSubscriptionManager.removeSubscription(clientId);
-                });
+        connectionManager.removeConnection(connection);
+        mqttSubscriptionManager.removeSubscription(clientId);
+        connection.close();
     }
 
     @Override

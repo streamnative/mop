@@ -145,28 +145,21 @@ public class Connection {
         return channel.close();
     }
 
-    public CompletableFuture<Void> close() {
-        return close(false)
-                .exceptionally(ex -> {
-                    log.error("close connection : {} error", this, ex);
-                    return null;
-                });
+    public void disconnect() {
+        if (MqttUtils.isMqtt5(protocolVersion)) {
+            MqttMessage mqttMessage = MqttMessageBuilders
+                    .disconnect()
+                    .reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER.byteValue())
+                    .build();
+            sendThenClose(mqttMessage);
+        } else {
+            channel.close();
+        }
     }
 
-    public CompletableFuture<Void> close(boolean force) {
-        log.info("Closing connection clientId = {} force : {}", clientId, force);
-        if (force) {
-            assignState(ESTABLISHED, DISCONNECTED);
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                MqttMessage mqttMessage = MqttMessageBuilders
-                        .disconnect()
-                        .reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER.byteValue())
-                        .build();
-                sendThenClose(mqttMessage);
-            } else {
-                channel.close();
-            }
-        }
+    public CompletableFuture<Void> close() {
+        log.info("Closing connection clientId = {}", clientId);
+        assignState(ESTABLISHED, DISCONNECTED);
         // unregister all listener
         for (PulsarEventListener listener : listeners) {
             eventCenter.unRegister(listener);

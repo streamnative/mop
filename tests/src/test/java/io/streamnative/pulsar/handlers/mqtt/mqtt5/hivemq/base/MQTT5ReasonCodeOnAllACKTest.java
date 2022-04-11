@@ -107,13 +107,14 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
         }
         client.unsubscribeWith().topicFilter(topic).send();
         client.disconnect();
-        client.connect();
-        Mqtt5SubAck secondConsumerACK = client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_MOST_ONCE).send();
+        Mqtt5BlockingClient client2 = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        client2.connect();
+        Mqtt5SubAck secondConsumerACK = client2.subscribeWith().topicFilter(topic).qos(MqttQos.AT_MOST_ONCE).send();
         for (Mqtt5SubAckReasonCode reasonCode : secondConsumerACK.getReasonCodes()) {
             Assert.assertEquals(reasonCode.getCode(), Mqtt5SubAckReasonCode.GRANTED_QOS_0.getCode());
         }
-        client.unsubscribeWith().topicFilter(topic).send();
-        client.disconnect();
+        client2.unsubscribeWith().topicFilter(topic).send();
+        client2.disconnect();
     }
 
     @Test(dataProvider = "mqttPersistentTopicNames", timeOut = TIMEOUT)
