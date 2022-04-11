@@ -205,125 +205,121 @@ openssl req -new -x509 -nodes -sha256 -days 365 -key server.key -out server.crt
 #### TLS with broker
 
 1. Config mqtt broker to load tls config.
-```conf
-...
-tlsEnabled=true
-mqttListeners=mqtt+ssl://127.0.0.1:8883
-mqttTlsCertificateFilePath=/xxx/server.crt
-mqttTlsKeyFilePath=/xxx/server.key
-...
-```
+   ```conf
+   tlsEnabled=true
+   mqttListeners=mqtt+ssl://127.0.0.1:8883
+   mqttTlsCertificateFilePath=/xxx/server.crt
+   mqttTlsKeyFilePath=/xxx/server.key
+   ```
 
 2. Config client to load tls config.
-```java
-MQTT mqtt = new MQTT();
-// default tls port
-mqtt.setHost(URI.create("ssl://127.0.0.1:8883")); 
-File crtFile = new File("server.crt");
-Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
-KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-keyStore.load(null, null);
-keyStore.setCertificateEntry("server", certificate);
-TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-trustManagerFactory.init(keyStore);
-SSLContext sslContext = SSLContext.getInstance("TLS");
-sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
-mqtt.setSslContext(sslContext);
-BlockingConnection connection = mqtt.blockingConnection();
-connection.connect();
-...
-```
+   ```java
+   MQTT mqtt = new MQTT();
+   // default tls port
+   mqtt.setHost(URI.create("ssl://127.0.0.1:8883")); 
+   File crtFile = new File("server.crt");
+   Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
+   KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+   keyStore.load(null, null);
+   keyStore.setCertificateEntry("server", certificate);
+   TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+   trustManagerFactory.init(keyStore);
+   SSLContext sslContext = SSLContext.getInstance("TLS");
+   sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+   mqtt.setSslContext(sslContext);
+   BlockingConnection connection = mqtt.blockingConnection();
+   connection.connect();
+   ```
 
 
 #### TLS with proxy
 
 1. Config mqtt broker to load tls config.
-```conf
-...
-mqttProxyEnable=true
-mqttProxyTlsEnabled=true
-mqttTlsCertificateFilePath=/xxx/server.crt
-mqttTlsKeyFilePath=/xxx/server.key
-...
-```
+   ```conf
+   mqttProxyEnable=true
+   mqttProxyTlsEnabled=true
+   mqttTlsCertificateFilePath=/xxx/server.crt
+   mqttTlsKeyFilePath=/xxx/server.key
+   ```
 
 2. Config client to load tls config.
-```java
-MQTT mqtt = new MQTT();
-// default proxy tls port
-mqtt.setHost(URI.create("ssl://127.0.0.1:5683")); 
-File crtFile = new File("server.crt");
-Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
-KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-keyStore.load(null, null);
-keyStore.setCertificateEntry("server", certificate);
-TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-trustManagerFactory.init(keyStore);
-SSLContext sslContext = SSLContext.getInstance("TLS");
-sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
-mqtt.setSslContext(sslContext);
-BlockingConnection connection = mqtt.blockingConnection();
-connection.connect();
-...
-```
+   ```java
+   MQTT mqtt = new MQTT();
+   // default proxy tls port
+   mqtt.setHost(URI.create("ssl://127.0.0.1:5683")); 
+   File crtFile = new File("server.crt");
+   Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
+   KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+   keyStore.load(null, null);
+   keyStore.setCertificateEntry("server", certificate);
+   TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+   trustManagerFactory.init(keyStore);
+   SSLContext sslContext = SSLContext.getInstance("TLS");
+   sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+   mqtt.setSslContext(sslContext);
+   BlockingConnection connection = mqtt.blockingConnection();
+   connection.connect();
+   ```
 
 #### TLS PSK with broker
 
 Please reference [here](https://en.wikipedia.org/wiki/TLS-PSK) to learn more about TLS-PSK.
 
 1. Config mqtt broker to load tls psk config.
-```conf
-...
-mqttTlsPskEnabled=true
-mqttListeners=mqtt+ssl+psk://127.0.0.1:8884
-// any string can be specified
-mqttTlsPskIdentityHint=alpha
-// identity is semicolon list of string with identity:secret format
-mqttTlsPskIdentity=mqtt:mqtt123
-...
-```
-Optional configs
-
-|       Config key       | Comment  |
-|:----------------------:| -------- |
-| mqttTlsPskIdentityFile | When you want identities in a single file with many pairs, you can config this. Identities will load from both `tlsPskIdentity` and `tlsPskIdentityFile`  |
-|    mqttTlsProtocols    | TLS PSK protocols, default are [ TLSv1, TLSv1.1, TLSv1.2 ]  |
-|     mqttTlsCiphers     | TLS PSK ciphers, default are [ TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256, TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA, TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA, TLS_PSK_WITH_AES_128_CBC_SHA, TLS_PSK_WITH_AES_256_CBC_SHA ] |
+   ```conf
+   mqttTlsPskEnabled=true
+   mqttListeners=mqtt+ssl+psk://127.0.0.1:8884
+   // any string can be specified
+   mqttTlsPskIdentityHint=alpha
+   // identity is semicolon list of string with identity:secret format
+   mqttTlsPskIdentity=mqtt:mqtt123
+   ```
+   Optional configs
+   
+   |       Config key       | Comment  |
+   |:----------------------:| -------- |
+   | mqttTlsPskIdentityFile | When you want identities in a single file with many pairs, you can config this. Identities will load from both `tlsPskIdentity` and `tlsPskIdentityFile`  |
+   |    mqttTlsProtocols    | TLS PSK protocols, default are [ TLSv1, TLSv1.1, TLSv1.2 ]  |
+   |     mqttTlsCiphers     | TLS PSK ciphers, default are [ TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256, TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA, TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA, TLS_PSK_WITH_AES_128_CBC_SHA, TLS_PSK_WITH_AES_256_CBC_SHA ] |
 
 2. As current known mqtt Java client does not support TLS-PSK, it's better to verify this by `mosquitto cli`
-```cli
-# Default with tlsv1.2
-mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "hello mqtt"
-
-# Test with tlsv1.1
-mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "hello mqtt" --tls-version tlsv1.1
-
-# Test with tlsv1
-mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "hello mqtt" --tls-version tlsv1
-```
+   ```cli
+   # Default with tlsv1.2
+   mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "hello mqtt"
+   
+   # Test with tlsv1.1
+   mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "hello mqtt" --tls-version tlsv1.1
+   
+   # Test with tlsv1
+   mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 8884 -t "/a/b/c" -m "hello mqtt" --tls-version tlsv1
+   ```
 - Download [mosquitto](https://mosquitto.org/download/) with Mac version.
 - The secret `mqtt123` is converted to `6d717474313233` using [Hex Code Converter](https://www.rapidtables.com/convert/number/ascii-to-hex.html)
 
 #### TLS PSK with proxy
 
 1. Config mqtt proxy to load tls psk config.
-```conf
-...
-mqttProxyEnable=true
-mqttProxyTlsPskEnabled=true
-// default tls psk port
-mqttProxyTlsPskPort=5684
-// any string can be specified
-mqttTlsPskIdentityHint=alpha
-// identity is semicolon list of string with identity:secret format
-mqttTlsPskIdentity=mqtt:mqtt123
-...
-```
+   ```conf
+   mqttProxyEnable=true
+   mqttProxyTlsPskEnabled=true
+   // default tls psk port
+   mqttProxyTlsPskPort=5684
+   // any string can be specified
+   mqttTlsPskIdentityHint=alpha
+   // identity is semicolon list of string with identity:secret format
+   mqttTlsPskIdentity=mqtt:mqtt123
+   ```
 
 2. Test with `mosquitto cli`
-```
-mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt"
-```
+   ```
+   mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt"
+   ```
+
+3. Add PSK identities dynamically.  
+   You can add psk identities dynamically by REST API in proxy mode.
+   ```
+   curl -X POST http://pulsar-broker-webservice-address:port/mop/add_psk_identity -d "identity=mqtt2:mqtt222;mqtt3:mqtt333"
+   ```
 
 ## Topic Names & Filters
 
@@ -401,9 +397,9 @@ MoP can also expose metrics through the http interface. Add below configs first 
 additionalServlets=mqtt-servlet
 additionalServletDirectory=[protocolHandlerDir]
 ```
-Then you can obtain mop information in json format through `/mop-stats`:
+Then you can obtain mop information in json format through `/mop/stats`:
 ```
-curl http://pulsar-broker-webservice-address:port/mop-stats/
+curl http://pulsar-broker-webservice-address:port/mop/stats
 {"cluster":"test","subscriptions":{"subs":["/a/b/c"],"count":1},"clients":{"total":1,"maximum":1,"active":0,"active_clients":[]},"namespace":"default","messages":{"received_bytes":57351,"received_count":10,"send_count":20,"send_bytes":60235},"version":"2.9.0-SNAPSHOT","tenant":"public","uptime":"46 seconds"}
 ```
 
