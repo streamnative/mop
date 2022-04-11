@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import java.util.List;
@@ -61,11 +60,11 @@ public class TopicSubscriptionManager {
             log.error("[ Subscription ] Subscription {} Remove consumer fail.", subscriberName, e);
             FutureUtil.failedFuture(e);
         }
-
         if (cleanSubscription) {
-            return subscriptionConsumerPair.getLeft().delete().thenAccept(__ -> topicSubscriptions.remove(topic));
+            return subscriptionConsumerPair.getLeft().deleteForcefully()
+                    .thenAccept(unused -> topicSubscriptions.remove(topic));
         } else {
-            return topic.unsubscribe(subscriberName).thenAccept(__ -> topicSubscriptions.remove(topic));
+            return CompletableFuture.completedFuture(null);
         }
     }
 
@@ -75,11 +74,6 @@ public class TopicSubscriptionManager {
                 .map(topic -> unsubscribe(topic, true))
                 .collect(Collectors.toList());
         return FutureUtil.waitForAll(futures);
-    }
-
-    @VisibleForTesting
-    public Map<Topic, Pair<Subscription, Consumer>> getTopicSubscriptions() {
-        return topicSubscriptions;
     }
 
     private void removeConsumerIfExist(Subscription subscription, Consumer consumer) throws BrokerServiceException {
