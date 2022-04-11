@@ -69,9 +69,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     protected MQTTCommonConfiguration initConfig() throws Exception {
         MQTTCommonConfiguration mqtt = super.initConfig();
 
-        mqtt.setTlsPskEnabled(true);
-        mqtt.setTlsPskIdentityHint("alpha");
-        mqtt.setTlsPskIdentity("mqtt:mqtt123");
+        mqtt.setMqttTlsPskEnabled(true);
+        mqtt.setMqttTlsPskIdentityHint("alpha");
+        mqtt.setMqttTlsPskIdentity("mqtt:mqtt123");
         return mqtt;
     }
 

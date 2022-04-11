@@ -340,7 +340,7 @@ public abstract class MQTTProtocolHandlerTestBase {
             mqttBrokerPortTlsList.add(mqttBrokerTlsPort);
         }
         int mqttBrokerTlsPskPort = -1;
-        if (conf.isTlsPskEnabled()) {
+        if (conf.isMqttTlsPskEnabled()) {
             mqttBrokerTlsPskPort = PortManager.nextFreePort();
             mqttBrokerPortTlsPskList.add(mqttBrokerTlsPskPort);
         }
@@ -374,7 +374,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         if (conf.isTlsEnabled()) {
             tlsListener = "mqtt+ssl://127.0.0.1:" + mqttBrokerTlsPort;
         }
-        if (conf.isTlsPskEnabled()) {
+        if (conf.isMqttTlsPskEnabled()) {
             tlsPskListener = "mqtt+ssl+psk://127.0.0.1:" + mqttBrokerTlsPskPort;
         }
         conf.getProperties().setProperty("mqttListeners",

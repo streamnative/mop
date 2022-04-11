@@ -40,8 +40,8 @@ public class TLSTest extends MQTTTestBase {
         MQTTCommonConfiguration mqtt = super.initConfig();
 
         mqtt.setTlsEnabled(true);
-        mqtt.setTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
-        mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
+        mqtt.setMqttTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
+        mqtt.setMqttTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
 
         return mqtt;
     }
