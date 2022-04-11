@@ -63,10 +63,10 @@ public class ConfigurationCompatibilityTest {
         assertTrue(conf.isMqttTlsRequireTrustedClientCertOnConnect());
         conf.setTlsAllowInsecureConnection(true);
         assertTrue(conf.isMqttTlsAllowInsecureConnection());
-        final Set<String> cipher = Sets.newHashSet("cipher") ;
+        final Set<String> cipher = Sets.newHashSet("cipher");
         conf.setTlsCiphers(cipher);
         assertEquals(conf.getMqttTlsCiphers(), cipher);
-        final Set<String> protocols = Sets.newHashSet("123") ;
+        final Set<String> protocols = Sets.newHashSet("123");
         conf.setTlsProtocols(protocols);
         assertEquals(conf.getMqttTlsProtocols(), protocols);
         final String path = "path";
