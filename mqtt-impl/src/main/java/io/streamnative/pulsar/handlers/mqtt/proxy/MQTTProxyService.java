@@ -55,7 +55,7 @@ public class MQTTProxyService implements Closeable {
     @Getter
     private final PulsarEventCenter eventCenter;
     @Getter
-    private PSKConfiguration pskConfiguration = new PSKConfiguration();
+    private final PSKConfiguration pskConfiguration;
 
     private Channel listenChannel;
     private Channel listenChannelTls;
@@ -70,6 +70,7 @@ public class MQTTProxyService implements Closeable {
         configValid(proxyConfig);
         this.pulsarService = mqttService.getPulsarService();
         this.proxyConfig = proxyConfig;
+        this.pskConfiguration = new PSKConfiguration(proxyConfig);
         this.authenticationService = mqttService.getAuthenticationService();
         this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
         this.eventService = proxyConfig.isSystemEventEnabled()

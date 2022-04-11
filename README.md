@@ -315,7 +315,7 @@ Please reference [here](https://en.wikipedia.org/wiki/TLS-PSK) to learn more abo
    mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt"
    ```
 
-3. Add PSK identities dynamically.  
+3. Add PSK identities dynamically.   
    You can add psk identities dynamically by REST API in proxy mode.
    ```
    curl -X POST http://pulsar-broker-webservice-address:port/mop/add_psk_identity -d "identity=mqtt2:mqtt222;mqtt3:mqtt333"

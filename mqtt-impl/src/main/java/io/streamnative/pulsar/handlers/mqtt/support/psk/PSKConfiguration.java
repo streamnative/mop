@@ -17,6 +17,8 @@ package io.streamnative.pulsar.handlers.mqtt.support.psk;
 import static io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventType.ADD_PSK_IDENTITY;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventListener;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.MqttEvent;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.PSKEvent;
@@ -90,6 +92,26 @@ public class PSKConfiguration {
 
     @Getter
     private final PSKEventListener eventListener = new PSKEventListener();
+
+    public PSKConfiguration() {
+
+    }
+
+    public PSKConfiguration(MQTTProxyConfiguration config) {
+        setIdentityHint(config.getMqttTlsPskIdentityHint());
+        setIdentity(config.getMqttTlsPskIdentity());
+        setIdentityFile(config.getMqttTlsPskIdentityFile());
+        setProtocols(config.getMqttTlsProtocols());
+        setCiphers(config.getMqttTlsCiphers());
+    }
+
+    public PSKConfiguration(MQTTServerConfiguration config) {
+        setIdentityHint(config.getMqttTlsPskIdentityHint());
+        setIdentity(config.getMqttTlsPskIdentity());
+        setIdentityFile(config.getMqttTlsPskIdentityFile());
+        setProtocols(config.getMqttTlsProtocols());
+        setCiphers(config.getMqttTlsCiphers());
+    }
 
     public void setIdentityFile(String identityFile) {
         if (StringUtils.isNotEmpty(identityFile)) {
