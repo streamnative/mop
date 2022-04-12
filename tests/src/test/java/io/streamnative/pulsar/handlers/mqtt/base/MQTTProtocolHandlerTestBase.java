@@ -128,6 +128,7 @@ public abstract class MQTTProtocolHandlerTestBase {
     protected NonClosableMockBookKeeper mockBookKeeper;
     protected boolean isTcpLookup = false;
     protected final String configClusterName = "test";
+    protected boolean enableTls = false;
 
     private SameThreadOrderedSafeExecutor sameThreadOrderedSafeExecutor;
     private OrderedExecutor bkExecutor;
@@ -335,7 +336,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqttBrokerPortList.add(mqttBrokerPort);
 
         int mqttBrokerTlsPort = -1;
-        if (conf.isTlsEnabled()) {
+        if (enableTls) {
             mqttBrokerTlsPort = PortManager.nextFreePort();
             mqttBrokerPortTlsList.add(mqttBrokerTlsPort);
         }
@@ -371,7 +372,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         String listener = "mqtt://127.0.0.1:" + mqttBrokerPort;
         String tlsListener = null;
         String tlsPskListener = null;
-        if (conf.isTlsEnabled()) {
+        if (enableTls) {
             tlsListener = "mqtt+ssl://127.0.0.1:" + mqttBrokerTlsPort;
         }
         if (conf.isTlsPskEnabled()) {
