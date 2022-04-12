@@ -207,7 +207,6 @@ openssl req -new -x509 -nodes -sha256 -days 365 -key server.key -out server.crt
 1. Config mqtt broker to load tls config.
 ```conf
 ...
-tlsEnabled=true
 mqttListeners=mqtt+ssl://127.0.0.1:8883
 tlsCertificateFilePath=/xxx/server.crt
 tlsKeyFilePath=/xxx/server.key
