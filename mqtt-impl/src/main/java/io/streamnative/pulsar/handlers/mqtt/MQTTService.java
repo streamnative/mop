@@ -20,6 +20,7 @@ import io.streamnative.pulsar.handlers.mqtt.support.WillMessageHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.event.DisableEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
+import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
 import lombok.Getter;
 import lombok.Setter;
@@ -39,6 +40,9 @@ public class MQTTService {
 
     @Getter
     private final MQTTServerConfiguration serverConfiguration;
+
+    @Getter
+    private final PSKConfiguration pskConfiguration;
 
     @Getter
     private final PulsarService pulsarService;
@@ -81,6 +85,7 @@ public class MQTTService {
         this.brokerService = brokerService;
         this.pulsarService = brokerService.pulsar();
         this.serverConfiguration = serverConfiguration;
+        this.pskConfiguration = new PSKConfiguration(serverConfiguration);
         this.authorizationService = brokerService.getAuthorizationService();
         this.bundleOwnershipListener = new MQTTNamespaceBundleOwnershipListener(pulsarService.getNamespaceService());
         this.metricsCollector = new MQTTMetricsCollector(serverConfiguration);
@@ -99,6 +104,7 @@ public class MQTTService {
         }
         this.willMessageHandler = new WillMessageHandler(this);
         this.retainedMessageHandler = new RetainedMessageHandler(this);
+
     }
 
     public boolean isSystemTopicEnabled() {

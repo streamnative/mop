@@ -46,6 +46,7 @@ import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.policies.data.BundlesData;
+import org.apache.pulsar.common.policies.data.TopicStats;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
@@ -68,9 +69,9 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     protected MQTTCommonConfiguration initConfig() throws Exception {
         MQTTCommonConfiguration mqtt = super.initConfig();
 
-        mqtt.setTlsPskEnabled(true);
-        mqtt.setTlsPskIdentityHint("alpha");
-        mqtt.setTlsPskIdentity("mqtt:mqtt123");
+        mqtt.setMqttTlsPskEnabled(true);
+        mqtt.setMqttTlsPskIdentityHint("alpha");
+        mqtt.setMqttTlsPskIdentity("mqtt:mqtt123");
         return mqtt;
     }
 
@@ -275,6 +276,8 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
         MQTT mqtt = createMQTTClient();
         mqtt.setClientId("client-id-0");
+        mqtt.setReconnectDelay(Integer.MAX_VALUE);
+        mqtt.setReconnectAttemptsMax(0);
         BlockingConnection connection1 = mqtt.blockingConnection();
         connection1.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -283,13 +286,18 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
         BlockingConnection connection2;
         MQTT mqtt2 = createMQTTClient();
-        mqtt.setClientId("client-id-0");
+        mqtt2.setClientId("client-id-0");
         connection2 = mqtt2.blockingConnection();
         connection2.connect();
         Assert.assertTrue(connection2.isConnected());
-        Awaitility.await().untilAsserted(() -> Assert.assertTrue(connection1.isConnected()));
+        Awaitility.await().untilAsserted(() -> Assert.assertFalse(connection1.isConnected()));
         connection2.subscribe(topics);
+        Assert.assertTrue(connection2.isConnected());
         connection2.disconnect();
+        Awaitility.await().untilAsserted(()-> {
+            TopicStats stats = admin.topics().getStats(topicName);
+            Assert.assertEquals(stats.getSubscriptions().size(), 0);
+        });
         connection1.disconnect();
     }
 
@@ -398,7 +406,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @SneakyThrows
     public void testServlet() {
         HttpClient httpClient = HttpClientBuilder.create().build();
-        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop-stats";
+        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop/stats";
         HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
         InputStream inputStream = response.getEntity().getContent();
         InputStreamReader isReader = new InputStreamReader(inputStream);
