@@ -100,6 +100,17 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     }
 
     @Override
+    public CompletableFuture<Void> sendPSKEvent(PSKEvent event) {
+        checkReader();
+        return sendEvent(getMqttEvent(event, ActionType.INSERT))
+                .thenRun(() -> {
+                    if (log.isDebugEnabled()) {
+                        log.debug("send psk event : {}", event);
+                    }
+                });
+    }
+
+    @Override
     public CompletableFuture<Void> sendEvent(MqttEvent event) {
         CompletableFuture<SystemTopicClient.Writer<MqttEvent>> writerFuture = systemTopicClient.newWriterAsync();
         return writerFuture.thenCompose(writer -> {
@@ -215,6 +226,11 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                     RetainedMessageEvent retainedEvent = JsonUtil.fromJson((String) value.getSourceEvent(),
                             RetainedMessageEvent.class);
                     value.setSourceEvent(retainedEvent);
+                    break;
+                case ADD_PSK_IDENTITY:
+                    PSKEvent pskEvent = JsonUtil.fromJson((String) value.getSourceEvent(),
+                            PSKEvent.class);
+                    value.setSourceEvent(pskEvent);
                     break;
                 default:
                     break;

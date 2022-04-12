@@ -61,4 +61,18 @@ public class MqttEventUtils {
             throw new IllegalArgumentException(e);
         }
     }
+
+    public static MqttEvent getMqttEvent(PSKEvent event, ActionType actionType) {
+        MqttEvent.MqttEventBuilder builder = MqttEvent.builder();
+        try {
+            return builder
+                    .key("add_psk_identity")
+                    .eventType(EventType.ADD_PSK_IDENTITY)
+                    .actionType(actionType)
+                    .sourceEvent(JsonUtil.toJson(event))
+                    .build();
+        } catch (JsonUtil.ParseJsonException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
 }

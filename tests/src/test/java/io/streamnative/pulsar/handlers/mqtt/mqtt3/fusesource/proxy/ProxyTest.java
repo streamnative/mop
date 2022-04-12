@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.AtomicDouble;
 import com.google.gson.Gson;
 import com.google.gson.internal.LinkedTreeMap;
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -32,6 +33,7 @@ import java.io.EOFException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -46,9 +48,14 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.protocol.HTTP;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
 import org.apache.pulsar.common.naming.NamespaceName;
@@ -414,5 +421,43 @@ public class ProxyTest extends MQTTTestBase {
         Assert.assertNotNull(rev2);
         Assert.assertEquals(new String(rev2.getPayload()), retainedMessage);
         consumer2.disconnect();
+    }
+
+    @Test
+    @SneakyThrows
+    public void testAddPskIdentity() {
+        HttpClient httpClient = HttpClientBuilder.create().build();
+        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop/add_psk_identity";
+        HttpPost request = new HttpPost();
+        request.setURI(new URI(mopEndPoint));
+        List<NameValuePair> nvps = new ArrayList<>();
+        nvps.add(new BasicNameValuePair("identity", "mqtt2:mqtt222;mqtt3:mqtt333"));
+        request.setEntity(new UrlEncodedFormEntity(nvps, HTTP.UTF_8));
+        HttpResponse response = httpClient.execute(request);
+        InputStream inputStream = response.getEntity().getContent();
+        InputStreamReader isReader = new InputStreamReader(inputStream);
+        BufferedReader reader = new BufferedReader(isReader);
+        StringBuffer buffer = new StringBuffer();
+        String str;
+        while ((str = reader.readLine()) != null){
+            buffer.append(str);
+        }
+        Assert.assertTrue(buffer.toString().equals("OK"));
+        Thread.sleep(3000);
+        Bootstrap client = new Bootstrap();
+        EventLoopGroup group = new NioEventLoopGroup();
+        client.group(group);
+        client.channel(NioSocketChannel.class);
+        client.handler(new PSKClient("alpha", "mqtt2", "mqtt222"));
+        AtomicBoolean connected = new AtomicBoolean(false);
+        CountDownLatch latch = new CountDownLatch(1);
+        ChannelFuture cf = client.connect("localhost", mqttProxyPortTlsPskList.get(0))
+                .addListener((ChannelFutureListener) future -> {
+                    connected.set(future.isSuccess());
+                    latch.countDown();
+        });
+        latch.await();
+        Assert.assertTrue(connected.get());
+        cf.channel().close();
     }
 }

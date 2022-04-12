@@ -13,15 +13,20 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import com.google.common.base.Splitter;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.PSKEvent;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
@@ -39,6 +44,8 @@ public class MQTTServiceServlet extends HttpServlet {
 
     private static volatile Pair<Object, Method> metricsCollectorRef;
 
+    private volatile Object mqttService;
+
     private static final Object LOCK = new Object();
 
     public MQTTServiceServlet(PulsarService pulsar) {
@@ -48,9 +55,69 @@ public class MQTTServiceServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        response.setStatus(HttpStatus.OK_200);
         response.setContentType("text/plain");
-        response.getOutputStream().write(getJsonStats());
+        if ("/stats".equals(getRequestPath(request))) {
+            response.setStatus(HttpStatus.OK_200);
+            response.getOutputStream().write(getJsonStats());
+        } else {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        if ("/add_psk_identity".equals(getRequestPath(request))) {
+            response.setStatus(HttpStatus.OK_200);
+            response.setContentType("text/plain");
+            String data = readData(request);
+            String paramName = "identity";
+            String identity = Splitter.on("&")
+                                    .splitToList(data)
+                                    .stream()
+                                    .filter(param -> param.startsWith(paramName))
+                                    .findFirst().map(v -> v.substring(paramName.length() + 1)).orElse("");
+            String result = "OK";
+            if (StringUtils.isNotBlank(identity)) {
+                result = invokeEventService(identity);
+            }
+            response.getOutputStream().write(result.getBytes(StandardCharsets.UTF_8));
+        } else {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        }
+    }
+
+    private String getRequestPath(HttpServletRequest request) {
+        return request.getRequestURI().substring(request.getContextPath().length());
+    }
+
+    private String readData(HttpServletRequest request) throws IOException {
+        StringBuilder data = new StringBuilder();
+        String line;
+        try (BufferedReader reader = request.getReader()) {
+            while (null != (line = reader.readLine())) {
+                data.append(line);
+            }
+        }
+        return URLDecoder.decode(data.toString(), "UTF-8");
+    }
+
+    private String invokeEventService(String identity) {
+        try {
+            Method eventServiceMethod = getMethod(getMqttService().getClass(), "getEventService");
+            Object eventService = eventServiceMethod.invoke(getMqttService());
+            if (eventService != null) {
+                Method sendPSKEvent = getMethod(eventService.getClass(), "sendPSKEvent", PSKEvent.class);
+                PSKEvent event = new PSKEvent();
+                event.setIdentity(identity);
+                sendPSKEvent.invoke(eventService, event);
+                return "OK";
+            } else {
+                return "Not supported in standalone mode, please enable proxy";
+            }
+        } catch (Throwable ex) {
+            return ex.getMessage();
+        }
     }
 
     private byte[] getJsonStats() {
@@ -62,16 +129,27 @@ public class MQTTServiceServlet extends HttpServlet {
         }
     }
 
+    private Object getMqttService() throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+        if (mqttService == null) {
+            synchronized (LOCK) {
+                if (mqttService == null) {
+                    ProtocolHandler protocolHandler = pulsar.getProtocolHandlers().protocol("mqtt");
+                    Method mqttServiceMethod = getMethod(protocolHandler.getClass(), "getMqttService");
+                    mqttService = mqttServiceMethod.invoke(protocolHandler);
+                }
+            }
+        }
+        return mqttService;
+    }
+
     private Pair<Object, Method> getMetricsCollector() throws IllegalAccessException, InvocationTargetException,
             NoSuchMethodException {
         if (metricsCollectorRef == null) {
             synchronized (LOCK) {
                 if (metricsCollectorRef == null) {
-                    ProtocolHandler protocolHandler = pulsar.getProtocolHandlers().protocol("mqtt");
-                    Method mqttServiceMethod = getMethod(protocolHandler.getClass(), "getMqttService");
-                    Object mqttService = mqttServiceMethod.invoke(protocolHandler);
-                    Method metricsCollectorMethod = getMethod(mqttService.getClass(), "getMetricsCollector");
-                    Object metricsCollector = metricsCollectorMethod.invoke(mqttService);
+                    Method metricsCollectorMethod = getMethod(getMqttService().getClass(), "getMetricsCollector");
+                    Object metricsCollector = metricsCollectorMethod.invoke(getMqttService());
                     Method jsonStatsMethod = getMethod(metricsCollector.getClass(), "getJsonStats");
                     metricsCollectorRef = Pair.of(metricsCollector, jsonStatsMethod);
                 }
@@ -80,8 +158,9 @@ public class MQTTServiceServlet extends HttpServlet {
         return metricsCollectorRef;
     }
 
-    private Method getMethod(Class<?> clazz, String methodName) throws NoSuchMethodException {
-        Method method = clazz.getMethod(methodName);
+    private Method getMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes)
+            throws NoSuchMethodException {
+        Method method = clazz.getMethod(methodName, parameterTypes);
         method.setAccessible(true);
         return method;
     }

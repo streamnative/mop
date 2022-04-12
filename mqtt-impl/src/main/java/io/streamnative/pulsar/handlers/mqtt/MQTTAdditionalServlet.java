@@ -32,7 +32,7 @@ public class MQTTAdditionalServlet implements AdditionalServletWithPulsarService
 
     @Override
     public String getBasePath() {
-        return "/mop-stats";
+        return "/mop";
     }
 
     @Override

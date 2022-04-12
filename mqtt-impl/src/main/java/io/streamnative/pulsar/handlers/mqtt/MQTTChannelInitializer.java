@@ -22,7 +22,6 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
 import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
 import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
@@ -41,7 +40,6 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private SslContextAutoRefreshBuilder<SslContext> sslCtxRefresher;
     private NettySSLContextAutoRefreshBuilder nettySSLContextAutoRefreshBuilder;
-    private PSKConfiguration pskConfiguration;
 
     public MQTTChannelInitializer(MQTTService mqttService, boolean enableTls) {
         this(mqttService, enableTls, false);
@@ -84,15 +82,6 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
                         mqttConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
                         mqttConfig.getMqttTlsCertRefreshCheckDurationSec());
             }
-        } else if (this.enableTlsPsk) {
-            pskConfiguration = new PSKConfiguration();
-            pskConfiguration.setIdentityHint(mqttConfig.getMqttTlsPskIdentityHint());
-            pskConfiguration.setIdentity(mqttConfig.getMqttTlsPskIdentity());
-            pskConfiguration.setIdentityFile(mqttConfig.getMqttTlsPskIdentityFile());
-            pskConfiguration.setProtocols(mqttConfig.getMqttTlsProtocols());
-            pskConfiguration.setCiphers(mqttConfig.getMqttTlsCiphers());
-        } else {
-            this.sslCtxRefresher = null;
         }
     }
 
@@ -107,7 +96,8 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
                 ch.pipeline().addLast(TLS_HANDLER, sslCtxRefresher.get().newHandler(ch.alloc()));
             }
         } else if (this.enableTlsPsk) {
-            ch.pipeline().addLast(TLS_HANDLER, new SslHandler(PSKUtils.createServerEngine(ch, pskConfiguration)));
+            ch.pipeline().addLast(TLS_HANDLER,
+                    new SslHandler(PSKUtils.createServerEngine(ch, mqttService.getPskConfiguration())));
         }
         ch.pipeline().addLast("decoder", new MqttDecoder(mqttConfig.getMqttMessageMaxLength()));
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
