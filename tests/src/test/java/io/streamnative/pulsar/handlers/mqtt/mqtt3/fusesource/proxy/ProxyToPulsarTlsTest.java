@@ -16,7 +16,11 @@ package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.proxy;
 
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import org.fusesource.mqtt.client.*;
+import org.fusesource.mqtt.client.BlockingConnection;
+import org.fusesource.mqtt.client.MQTT;
+import org.fusesource.mqtt.client.Message;
+import org.fusesource.mqtt.client.QoS;
+import org.fusesource.mqtt.client.Topic;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
