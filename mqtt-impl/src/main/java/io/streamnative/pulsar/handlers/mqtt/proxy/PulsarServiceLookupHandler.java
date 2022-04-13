@@ -156,7 +156,7 @@ public class PulsarServiceLookupHandler implements LookupHandler {
             return new PulsarClientImpl(conf);
         } catch (PulsarClientException e) {
             log.error("Failed to create PulsarClient", e);
-            throw new IllegalStateException(e);
+            throw new IllegalArgumentException(e);
         }
     }
 }
