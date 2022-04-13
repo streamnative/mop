@@ -44,6 +44,8 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     @Category
     public static final String CATEGORY_KEYSTORE_TLS = "KeyStoreTLS";
 
+    private boolean  isMqttProtocolAdapterEnabled = false;
+
     @FieldContext(
             category = CATEGORY_MQTT,
             required = false,

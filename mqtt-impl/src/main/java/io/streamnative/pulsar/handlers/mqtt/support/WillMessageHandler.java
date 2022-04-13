@@ -20,6 +20,7 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTSubscriptionManager;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventListener;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.LastWillMessageEvent;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.MqttEvent;
@@ -66,7 +67,9 @@ public class WillMessageHandler {
         for (Pair<String, String> entry : subscriptions) {
             Connection connection = connectionManager.getConnection(entry.getLeft());
             if (connection != null) {
-                connection.send(msg);
+                MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), msg);
+                adapterMsg.setAdapter(connection.isAdapter());
+                connection.send(adapterMsg);
             } else {
                 log.warn("Not find connection for empty : {}", entry.getLeft());
             }

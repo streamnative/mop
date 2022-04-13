@@ -24,7 +24,9 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
+import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
@@ -74,9 +76,11 @@ public class Connection {
     private final ClientRestrictions clientRestrictions;
     @Getter
     private final ServerRestrictions serverRestrictions;
-    volatile ConnectionState connectionState = DISCONNECTED;
     @Getter
     private volatile int serverCurrentReceiveCounter = 0;
+    @Getter
+    private final ProtocolMethodProcessor processor;
+    private volatile ConnectionState connectionState = DISCONNECTED;
     private final PulsarEventCenter eventCenter;
     private final List<PulsarEventListener> listeners;
 
@@ -103,6 +107,7 @@ public class Connection {
         this.topicSubscriptionManager = new TopicSubscriptionManager();
         this.addIdleStateHandler();
         this.eventCenter = builder.eventCenter;
+        this.processor = builder.processor;
         this.listeners = Collections.synchronizedList(new ArrayList<>());
         this.manager.addConnection(this);
     }
@@ -120,41 +125,87 @@ public class Connection {
         return ackHandler.sendConnAck(this);
     }
 
-    public ChannelFuture send(MqttMessage mqttMessage) {
+    public ChannelFuture send(MqttAdapterMessage adapterMessage) {
         if (!channel.isActive()) {
-            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
+            log.error("send mqttMessage : {} failed due to channel is inactive.", adapterMessage);
             return channel.newFailedFuture(channelInactiveException);
         }
-        return channel.writeAndFlush(mqttMessage).addListener(future -> {
+        Object msg = adapterMessage;
+        if (!adapterMessage.isAdapter()) {
+            msg = adapterMessage.getMqttMessage();
+        }
+        final Object finalMsg = msg;
+        return channel.writeAndFlush(finalMsg).addListener(future -> {
             if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+                log.error("send mqttMessage : {} failed", finalMsg, future.cause());
             }
         });
     }
 
-    public ChannelFuture sendThenClose(MqttMessage mqttMessage) {
+    public ChannelFuture sendThenClose(MqttAdapterMessage adapterMessage) {
         if (!channel.isActive()) {
-            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
+            log.error("send mqttMessage : {} failed due to channel is inactive.", adapterMessage);
             return channel.newFailedFuture(channelInactiveException);
         }
-        channel.writeAndFlush(mqttMessage).addListener(future -> {
+        Object msg = adapterMessage;
+        if (!adapterMessage.isAdapter()) {
+            msg = adapterMessage.getMqttMessage();
+        }
+        final Object finalMsg = msg;
+        channel.writeAndFlush(finalMsg).addListener(future -> {
             if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+                log.error("send mqttMessage : {} failed", finalMsg, future.cause());
             }
         });
         return channel.close();
     }
 
+//    public ChannelFuture send(MqttMessage mqttMessage) {
+//        if (!channel.isActive()) {
+//            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
+//            return channel.newFailedFuture(channelInactiveException);
+//        }
+//        return channel.writeAndFlush(mqttMessage).addListener(future -> {
+//            if (!future.isSuccess()) {
+//                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+//            }
+//        });
+//    }
+
+//    public ChannelFuture sendThenClose(MqttMessage mqttMessage) {
+//        if (!channel.isActive()) {
+//            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
+//            return channel.newFailedFuture(channelInactiveException);
+//        }
+//        channel.writeAndFlush(mqttMessage).addListener(future -> {
+//            if (!future.isSuccess()) {
+//                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+//            }
+//        });
+//        return channel.close();
+//    }
+
     public void disconnect() {
-        if (MqttUtils.isMqtt5(protocolVersion)) {
+        if (MqttUtils.isMqtt5(protocolVersion) || isAdapter()) {
+            MqttProperties properties = new MqttProperties();
+            MqttProperties.UserProperties userProperties = new MqttProperties.UserProperties();
+            userProperties.add("clientId", clientId);
+            properties.add(userProperties);
             MqttMessage mqttMessage = MqttMessageBuilders
                     .disconnect()
+                    .properties(properties)
                     .reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER.byteValue())
                     .build();
-            sendThenClose(mqttMessage);
+            MqttAdapterMessage adapterMsg = new MqttAdapterMessage(this.clientId, mqttMessage);
+            adapterMsg.setAdapter(isAdapter());
+            sendThenClose(adapterMsg);
         } else {
             channel.close();
         }
+    }
+
+    public boolean isAdapter() {
+        return channel.pipeline().get("adapter-decoder") != null;
     }
 
     public CompletableFuture<Void> close() {
@@ -279,6 +330,7 @@ public class Connection {
         private ClientRestrictions clientRestrictions;
         private ServerRestrictions serverRestrictions;
         private PulsarEventCenter eventCenter;
+        private ProtocolMethodProcessor processor;
 
         public ConnectionBuilder protocolVersion(int protocolVersion) {
             this.protocolVersion = protocolVersion;
@@ -317,6 +369,11 @@ public class Connection {
 
         public ConnectionBuilder connectionManager(MQTTConnectionManager connectionManager) {
             this.connectionManager = connectionManager;
+            return this;
+        }
+
+        public ConnectionBuilder processor(ProtocolMethodProcessor processor) {
+            this.processor = processor;
             return this;
         }
 

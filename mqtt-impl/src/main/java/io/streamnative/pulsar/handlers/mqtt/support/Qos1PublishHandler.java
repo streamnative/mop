@@ -19,6 +19,7 @@ import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
@@ -41,7 +42,8 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
     }
 
     @Override
-    public CompletableFuture<Void> publish(MqttPublishMessage msg) {
+    public CompletableFuture<Void> publish(MqttAdapterMessage adapter) {
+        final MqttPublishMessage msg = (MqttPublishMessage) adapter.getMqttMessage();
         final Connection connection = NettyUtils.getConnection(channel);
         final int protocolVersion = connection.getProtocolVersion();
         final boolean isMqtt5 = MqttUtils.isMqtt5(protocolVersion);

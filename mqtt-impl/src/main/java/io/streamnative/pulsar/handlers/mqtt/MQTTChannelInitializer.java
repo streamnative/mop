@@ -21,6 +21,8 @@ import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterDecoder;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterEncoder;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
 import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
 import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
@@ -94,8 +96,10 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
             ch.pipeline().addLast(TLS_HANDLER,
                     new SslHandler(PSKUtils.createServerEngine(ch, mqttService.getPskConfiguration())));
         }
+        ch.pipeline().addLast("adapter-decoder", new MqttAdapterDecoder(mqttConfig.getMqttMessageMaxLength()));
         ch.pipeline().addLast("decoder", new MqttDecoder(mqttConfig.getMqttMessageMaxLength()));
         ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
+        ch.pipeline().addLast("adapter-encoder", MqttAdapterEncoder.INSTANCE);
         ch.pipeline().addLast("handler", new MQTTInboundHandler(mqttService));
     }
 }

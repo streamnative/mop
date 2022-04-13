@@ -11,15 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
-
-import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
-import java.util.concurrent.CompletableFuture;
 
 /**
- * Interface for Qos publish handler.
+ * Package info.
  */
-public interface QosPublishHandler {
-
-    CompletableFuture<Void> publish(MqttAdapterMessage msg);
-}
+package io.streamnative.pulsar.handlers.mqtt.adapter;
