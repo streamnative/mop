@@ -36,7 +36,6 @@ import org.apache.commons.lang3.StringUtils;
 @Slf4j
 public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolMethodProcessor {
 
-
     protected final ChannelHandlerContext ctx;
     protected final Channel channel;
 
