@@ -92,7 +92,6 @@ public class MQTTProxyService implements Closeable {
         checkNotNull(proxyConfig);
         checkArgument(proxyConfig.getMqttProxyPort() > 0);
         checkNotNull(proxyConfig.getDefaultTenant());
-        checkNotNull(proxyConfig.getBrokerServiceURL());
     }
 
     public void start() throws MQTTProxyException {
