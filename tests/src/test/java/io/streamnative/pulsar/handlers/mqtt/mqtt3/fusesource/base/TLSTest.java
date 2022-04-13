@@ -37,12 +37,10 @@ public class TLSTest extends MQTTTestBase {
 
     @Override
     protected MQTTCommonConfiguration initConfig() throws Exception{
+        enableTls = true;
         MQTTCommonConfiguration mqtt = super.initConfig();
-
-        mqtt.setTlsEnabled(true);
-        mqtt.setMqttTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
-        mqtt.setMqttTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
-
+        mqtt.setTlsCertificateFilePath(TLS_SERVER_CERT_FILE_PATH);
+        mqtt.setTlsKeyFilePath(TLS_SERVER_KEY_FILE_PATH);
         return mqtt;
     }
 
