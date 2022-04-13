@@ -160,31 +160,6 @@ public class Connection {
         return channel.close();
     }
 
-//    public ChannelFuture send(MqttMessage mqttMessage) {
-//        if (!channel.isActive()) {
-//            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
-//            return channel.newFailedFuture(channelInactiveException);
-//        }
-//        return channel.writeAndFlush(mqttMessage).addListener(future -> {
-//            if (!future.isSuccess()) {
-//                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
-//            }
-//        });
-//    }
-
-//    public ChannelFuture sendThenClose(MqttMessage mqttMessage) {
-//        if (!channel.isActive()) {
-//            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
-//            return channel.newFailedFuture(channelInactiveException);
-//        }
-//        channel.writeAndFlush(mqttMessage).addListener(future -> {
-//            if (!future.isSuccess()) {
-//                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
-//            }
-//        });
-//        return channel.close();
-//    }
-
     public void disconnect() {
         if (MqttUtils.isMqtt5(protocolVersion) || isAdapter()) {
             MqttProperties properties = new MqttProperties();
