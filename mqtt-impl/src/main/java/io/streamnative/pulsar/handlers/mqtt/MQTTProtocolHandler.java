@@ -87,10 +87,6 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             try {
                 MQTTProxyConfiguration proxyConfig =
                         ConfigurationUtils.create(mqttConfig.getProperties(), MQTTProxyConfiguration.class);
-                proxyConfig.setBrokerServiceURL("pulsar://"
-                        + ServiceConfigurationUtils.getAppliedAdvertisedAddress(mqttConfig, true)
-                        + ":" + mqttConfig.getBrokerServicePort().get());
-                log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
                 proxyService = new MQTTProxyService(mqttService, proxyConfig);
                 proxyService.start();
                 log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());
