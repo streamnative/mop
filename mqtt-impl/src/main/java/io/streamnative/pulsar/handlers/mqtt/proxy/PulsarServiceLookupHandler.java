@@ -13,11 +13,15 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
@@ -42,68 +46,73 @@ public class PulsarServiceLookupHandler implements LookupHandler {
 
     private final PulsarClientImpl pulsarClient;
     private final MetadataCache<LocalBrokerData> localBrokerDataCache;
+    private final PulsarService pulsarService;
 
-    public PulsarServiceLookupHandler(PulsarService pulsarService, MQTTProxyConfiguration proxyConfig)
-            throws MQTTProxyException {
-        this.localBrokerDataCache = pulsarService.getLocalMetadataStore().getMetadataCache(LocalBrokerData.class);
-        try {
-            this.pulsarClient = new PulsarClientImpl(createClientConfiguration(proxyConfig));
-        } catch (PulsarClientException e) {
-            throw new MQTTProxyException(e);
-        }
+    public PulsarServiceLookupHandler(PulsarService pulsarService, MQTTProxyConfiguration proxyConfig) {
+        this.pulsarService = pulsarService;
+        this.localBrokerDataCache = pulsarService
+                .getLocalMetadataStore().getMetadataCache(LocalBrokerData.class);
+        this.pulsarClient = getClient(proxyConfig);
     }
 
     @Override
     public CompletableFuture<InetSocketAddress> findBroker(TopicName topicName) {
-        CompletableFuture<InetSocketAddress> lookupResult = new CompletableFuture<>();
-        CompletableFuture<Pair<InetSocketAddress, InetSocketAddress>> lookup =
-                pulsarClient.getLookup().getBroker(topicName);
-
-        lookup.whenComplete((pair, throwable) -> {
-            if (null != throwable) {
-                log.error("Failed to perform lookup request for topic {}", topicName, throwable);
-                lookupResult.completeExceptionally(throwable);
-            } else {
-                localBrokerDataCache.getChildren(LoadManager.LOADBALANCE_BROKERS_ROOT).thenAccept(list -> {
-                    List<CompletableFuture<Optional<LocalBrokerData>>> futures = new ArrayList<>(list.size());
-                    for (String webServiceUrl : list) {
-                        final String path = String.format("%s/%s", LoadManager.LOADBALANCE_BROKERS_ROOT, webServiceUrl);
-                        futures.add(localBrokerDataCache.get(path));
-                    }
-                    FutureUtil.waitForAll(futures).thenAccept(__ -> {
-                        boolean foundOwner = false;
-                        for (CompletableFuture<Optional<LocalBrokerData>> future : futures) {
-                            try {
-                                Optional<LocalBrokerData> op = future.get();
-                                if (op.isPresent()
-                                    && op.get().getPulsarServiceUrl().equals("pulsar://" + pair.getLeft().toString())
-                                    && op.get().getProtocol(protocolHandlerName).isPresent()) {
-                                    String mqttBrokerUrl = op.get().getProtocol(protocolHandlerName).get();
-                                    String[] splits = mqttBrokerUrl.split(":");
-                                    String port = splits[splits.length - 1];
-                                    int mqttBrokerPort = Integer.parseInt(port);
-                                    lookupResult.complete(InetSocketAddress.createUnresolved(
-                                            pair.getLeft().getHostName(), mqttBrokerPort));
-                                    foundOwner = true;
-                                    break;
-                                }
-                            } catch (Exception e) {
-                                lookupResult.completeExceptionally(e);
-                            }
-                        }
-                        if (!foundOwner) {
-                            lookupResult.completeExceptionally(
-                                    new BrokerServiceException(
+        CompletableFuture<InetSocketAddress> lookupResult =  pulsarClient.getLookup().getBroker(topicName)
+                .thenCompose(lookupPair ->
+                    localBrokerDataCache.getChildren(LoadManager.LOADBALANCE_BROKERS_ROOT).thenCompose(brokers -> {
+                        // Get all broker data by metadata
+                        List<CompletableFuture<Optional<LocalBrokerData>>> brokerDataFutures =
+                                Collections.unmodifiableList(brokers.stream()
+                                        .map(brokerPath -> String.format("%s/%s",
+                                                        LoadManager.LOADBALANCE_BROKERS_ROOT, brokerPath))
+                                        .map(localBrokerDataCache::get)
+                                        .collect(Collectors.toList()));
+                    return FutureUtil.waitForAll(brokerDataFutures)
+                            .thenCompose(__ -> {
+                                // Find specific broker same to lookup
+                                Optional<LocalBrokerData> specificBrokerData =
+                                    brokerDataFutures.stream().map(CompletableFuture::join)
+                                        .filter(brokerData -> brokerData.isPresent()
+                                                && isLookupMQTTBroker(lookupPair, brokerData.get()))
+                                        .map(Optional::get)
+                                        .findAny();
+                                if (!specificBrokerData.isPresent()) {
+                                    return FutureUtil.failedFuture(new BrokerServiceException(
                                             "The broker does not enabled the mqtt protocol handler."));
-                        }
-                    }).exceptionally(e -> {
-                        lookupResult.completeExceptionally(e);
-                        return null;
-                    });
-                });
-            }
+                                }
+                                // Get MQTT protocol listeners
+                                Optional<String> protocol = specificBrokerData.get().getProtocol(protocolHandlerName);
+                                assert protocol.isPresent();
+                                String mqttBrokerUrls = protocol.get();
+                                String[] brokerUrls = mqttBrokerUrls.split(ConfigurationUtils.LISTENER_DEL);
+                                // Get url random
+                                Optional<String> brokerUrl = Arrays.stream(brokerUrls)
+                                        .filter(url -> url.startsWith(ConfigurationUtils.PLAINTEXT_PREFIX))
+                                        .findAny();
+                                if (!brokerUrl.isPresent()) {
+                                    return FutureUtil.failedFuture(new BrokerServiceException(
+                                            "The broker does not enabled the mqtt protocol handler."));
+                                }
+                                String[] splits = brokerUrl.get().split(ConfigurationUtils.COLON);
+                                String port = splits[splits.length - 1];
+                                int mqttBrokerPort = Integer.parseInt(port);
+                                return CompletableFuture.completedFuture(InetSocketAddress.createUnresolved(
+                                        lookupPair.getLeft().getHostName(), mqttBrokerPort));
+                                });
+                        })
+                );
+        lookupResult.exceptionally(ex -> {
+            log.error("Failed to perform lookup request for topic {}", topicName, ex);
+            return null;
         });
         return lookupResult;
+    }
+
+    private boolean isLookupMQTTBroker(Pair<InetSocketAddress, InetSocketAddress> pair,
+                                       LocalBrokerData localBrokerData) {
+        return (localBrokerData.getPulsarServiceUrl().equals("pulsar://" + pair.getLeft().toString())
+                    || localBrokerData.getPulsarServiceUrlTls().equals("pulsar+ssl://" + pair.getLeft().toString()))
+                && localBrokerData.getProtocol(protocolHandlerName).isPresent();
     }
 
     @Override
@@ -114,18 +123,40 @@ public class PulsarServiceLookupHandler implements LookupHandler {
         }
     }
 
-    private ClientConfigurationData createClientConfiguration(MQTTProxyConfiguration proxyConfig)
-            throws PulsarClientException.UnsupportedAuthenticationException {
-        ClientConfigurationData clientConf = new ClientConfigurationData();
-        clientConf.setServiceUrl(proxyConfig.getBrokerServiceURL());
-        if (proxyConfig.getBrokerClientAuthenticationPlugin() != null) {
-            clientConf.setAuthentication(AuthenticationFactory.create(
-                    proxyConfig.getBrokerClientAuthenticationPlugin(),
-                    proxyConfig.getBrokerClientAuthenticationParameters())
-            );
+    private PulsarClientImpl getClient(MQTTProxyConfiguration proxyConfig) {
+        ClientConfigurationData conf = new ClientConfigurationData();
+        conf.setServiceUrl(proxyConfig.isTlsEnabled()
+                ? pulsarService.getBrokerServiceUrlTls() : pulsarService.getBrokerServiceUrl());
+        conf.setTlsAllowInsecureConnection(proxyConfig.isTlsAllowInsecureConnection());
+        conf.setTlsTrustCertsFilePath(proxyConfig.getTlsCertificateFilePath());
+
+        if (proxyConfig.isBrokerClientTlsEnabled()) {
+            if (proxyConfig.isBrokerClientTlsEnabledWithKeyStore()) {
+                conf.setUseKeyStoreTls(true);
+                conf.setTlsTrustStoreType(proxyConfig.getBrokerClientTlsTrustStoreType());
+                conf.setTlsTrustStorePath(proxyConfig.getBrokerClientTlsTrustStore());
+                conf.setTlsTrustStorePassword(proxyConfig.getBrokerClientTlsTrustStorePassword());
+            } else {
+                conf.setTlsTrustCertsFilePath(
+                        isNotBlank(proxyConfig.getBrokerClientTrustCertsFilePath())
+                                ? proxyConfig.getBrokerClientTrustCertsFilePath()
+                                : proxyConfig.getTlsCertificateFilePath());
+            }
         }
-        clientConf.setMaxLookupRequest(proxyConfig.getMaxLookupRequest());
-        clientConf.setConcurrentLookupRequest(proxyConfig.getConcurrentLookupRequest());
-        return clientConf;
+
+        try {
+            if (isNotBlank(proxyConfig.getBrokerClientAuthenticationPlugin())) {
+                conf.setAuthPluginClassName(proxyConfig.getBrokerClientAuthenticationPlugin());
+                conf.setAuthParams(proxyConfig.getBrokerClientAuthenticationParameters());
+                conf.setAuthParamMap(null);
+                conf.setAuthentication(AuthenticationFactory.create(
+                        proxyConfig.getBrokerClientAuthenticationPlugin(),
+                        proxyConfig.getBrokerClientAuthenticationParameters()));
+            }
+            return new PulsarClientImpl(conf);
+        } catch (PulsarClientException e) {
+            log.error("Failed to create PulsarClient", e);
+            throw new IllegalStateException(e);
+        }
     }
 }

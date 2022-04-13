@@ -46,6 +46,7 @@ public final class ConfigurationUtils {
     public static final String SSL_PREFIX = "mqtt+ssl://";
     public static final String SSL_PSK_PREFIX = "mqtt+ssl+psk://";
     public static final String LISTENER_DEL = ",";
+    public static final String COLON = ":";
     public static final String LISTENER_PATTERN = "^(mqtt)(\\+ssl)?(\\+psk)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
 
     /**
