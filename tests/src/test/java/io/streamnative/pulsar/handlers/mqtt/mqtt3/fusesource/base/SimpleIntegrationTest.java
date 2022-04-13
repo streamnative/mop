@@ -521,7 +521,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         producer2.connect();
         //
         HttpClient httpClient = HttpClientBuilder.create().build();
-        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop-stats";
+        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop/stats";
         HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
         InputStream inputStream = response.getEntity().getContent();
         InputStreamReader isReader = new InputStreamReader(inputStream);
