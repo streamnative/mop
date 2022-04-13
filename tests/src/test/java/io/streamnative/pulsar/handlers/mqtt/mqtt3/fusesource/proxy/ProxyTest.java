@@ -227,7 +227,7 @@ public class ProxyTest extends MQTTTestBase {
         broker.thenAccept(pair -> {
             try {
                 HttpClient httpClient = HttpClientBuilder.create().build();
-                final String mopEndPoint = "http://localhost:" + (pair.getLeft().getPort() + 2) + "/mop-stats";
+                final String mopEndPoint = "http://localhost:" + (pair.getLeft().getPort() + 2) + "/mop/stats";
                 HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
                 InputStream inputStream = response.getEntity().getContent();
                 InputStreamReader isReader = new InputStreamReader(inputStream);
