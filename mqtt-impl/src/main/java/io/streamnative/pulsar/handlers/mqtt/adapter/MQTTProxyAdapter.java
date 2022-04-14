@@ -153,6 +153,7 @@ public class MQTTProxyAdapter {
                 }
                 switch (messageType) {
                     case DISCONNECT:
+                    case PUBACK:
                         if (MqttUtils.isMqtt5(connection.getProtocolVersion())) {
                             connection.getChannel().writeAndFlush(msg);
                         }

@@ -134,7 +134,8 @@ public abstract class AbstractAckHandler implements AckHandler {
             if (MqttUtils.isMqtt5(connection.getProtocolVersion()) || connection.isAdapter()) {
                 MqttMessage pubErrorAck = MqttPubAckMessageHelper
                         .errorBuilder(connection.getProtocolVersion())
-                        .packetId(publishAck.getPacketId())
+                        // If adapter channel, it should send back to adapter, so packetId should be 1~65535
+                        .packetId(publishAck.getPacketId() == -1 ? 1 : publishAck.getPacketId())
                         .reasonCode(publishAck.getReasonCode())
                         .reasonString(publishAck.getReasonString())
                         .build();
