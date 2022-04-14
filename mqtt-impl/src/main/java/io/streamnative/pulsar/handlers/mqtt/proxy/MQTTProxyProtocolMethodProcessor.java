@@ -86,7 +86,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final SystemEventService eventService;
     private final PulsarEventCenter pulsarEventCenter;
     private final MQTTProxyAdapter proxyAdapter;
-    private volatile boolean sendConnectMessage = false;
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
         super(proxyService.getAuthenticationService(),
@@ -202,15 +201,15 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 channel.writeAndFlush(clientId, msg.getMqttMessage());
             });
         });
-        topicBrokers.clear();
-        // When login, checkState(msg) failed, connection is null.
-        Connection connection = NettyUtils.getConnection(channel);
-        if (connection == null) {
-            log.warn("connection is null. close CId={}", clientId);
-            channel.close();
-        } else {
-            connectionManager.removeConnection(connection);
-            connection.close();
+        if (!MqttUtils.isMqtt5(connection.getProtocolVersion())) {
+            topicBrokers.clear();
+            if (connection == null) {
+                log.warn("connection is null. close CId={}", clientId);
+                channel.close();
+            } else {
+                connectionManager.removeConnection(connection);
+                channel.close();
+            }
         }
     }
 
@@ -323,14 +322,21 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     List<CompletableFuture<Void>> subscribeFutures = topics.stream()
                             .map(topic -> {
                                 CompletableFuture<Void> future = writeToBroker(topic, message);
+
                                 if (incrementCounter) {
                                     future.thenAccept(__ ->
                                             increaseSubscribeTopicsCount(packetId, 1));
                                 }
+                                future.thenAccept(__ -> registerAdapterChannelInactiveListener(topic));
                                 return future;
                             }).collect(Collectors.toList());
                     return FutureUtil.waitForAll(subscribeFutures);
                 });
+    }
+
+    private void registerAdapterChannelInactiveListener(String topic) {
+        CompletableFuture<AdapterChannel> adapterChannel = topicBrokers.get(topic);
+        adapterChannel.thenAccept(channel -> channel.registerAdapterChannelInactiveListener(connection));
     }
 
     @Override
@@ -368,10 +374,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 }
             });
         } else {
-            log.error("The broker channel({}) is not writable!", exchanger.getChannel());
+            String error = String.format("The broker channel : %s is not writable", exchanger.getBroker());
+            log.error(error);
             channel.close();
-            result.completeExceptionally(new ChannelException("Broker channel : {} is not writable"
-                    + exchanger.getChannel()));
+            result.completeExceptionally(new ChannelException(error));
         }
         return result;
     }
@@ -379,14 +385,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private CompletableFuture<AdapterChannel> connectToBroker(String topic) {
         return topicBrokers.computeIfAbsent(topic,
                 key -> lookupHandler.findBroker(TopicName.get(topic)).thenApply(mqttBroker -> {
-                    return proxyAdapter.getAdapterChannel(mqttBroker);
-                })).thenApply(adapterChannel -> {
-                    if (!sendConnectMessage) {
-                        sendConnectMessage = true;
-                        adapterChannel.writeAndFlush(connection.getClientId(), connection.getConnectMessage());
-                    }
+                    AdapterChannel adapterChannel = proxyAdapter.getAdapterChannel(mqttBroker);
+                    adapterChannel.writeAndFlush(connection.getClientId(), connection.getConnectMessage());
                     return adapterChannel;
-                });
+                }));
     }
 
     public Channel getChannel() {

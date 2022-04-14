@@ -16,21 +16,41 @@ package io.streamnative.pulsar.handlers.mqtt.adapter;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
+import java.net.InetSocketAddress;
 import lombok.Getter;
 
 public class AdapterChannel {
 
+    private final MQTTProxyAdapter adapter;
     @Getter
-    private final Channel channel;
+    private final InetSocketAddress broker;
+    private volatile Channel channel;
 
-    public AdapterChannel(Channel channel) {
+    public AdapterChannel(MQTTProxyAdapter adapter, InetSocketAddress broker, Channel channel) {
+        this.adapter = adapter;
+        this.broker = broker;
         this.channel = channel;
     }
 
     public ChannelFuture writeAndFlush(String clientId, MqttMessage msg) {
         MqttAdapterMessage adapterMessage = new MqttAdapterMessage(clientId, msg);
         adapterMessage.setAdapter(true);
+        if (!channel.isActive()) {
+            channel = adapter.getChannel(broker);
+        }
         return channel.writeAndFlush(adapterMessage);
+    }
+
+    /**
+     * When client subscribes, the adapter channel maybe close in exception, so register listener to close the
+     * related client channel and trigger reconnection.
+     * @param connection
+     */
+    public void registerAdapterChannelInactiveListener(Connection connection) {
+        MQTTProxyAdapter.AdapterHandler channelHandler = (MQTTProxyAdapter.AdapterHandler)
+                channel.pipeline().get("adapter-handler");
+        channelHandler.registerAdapterChannelInactiveListener(connection);
     }
 
     public boolean isWritable() {

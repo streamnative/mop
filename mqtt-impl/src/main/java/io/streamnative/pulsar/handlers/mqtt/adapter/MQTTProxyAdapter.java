@@ -33,6 +33,8 @@ import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyProtocolMethodProcess
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.net.InetSocketAddress;
+import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import lombok.extern.slf4j.Slf4j;
@@ -69,14 +71,14 @@ public class MQTTProxyAdapter {
                 });
     }
 
-    public AdapterChannel getAdapterChannel(InetSocketAddress host) {
-        return new AdapterChannel(getChannel(host));
+    public AdapterChannel getAdapterChannel(InetSocketAddress broker) {
+        return new AdapterChannel(this, broker, getChannel(broker));
     }
 
-    private Channel getChannel(InetSocketAddress host) {
-        Channel channel = channels.get(host);
+    public Channel getChannel(InetSocketAddress broker) {
+        Channel channel = channels.get(broker);
         if (channel == null || !channel.isActive()) {
-            return createNewChannel(host);
+            return createNewChannel(broker);
         }
         return channel;
     }
@@ -117,7 +119,18 @@ public class MQTTProxyAdapter {
         this.channels.clear();
     }
 
-    private class AdapterHandler extends ChannelInboundHandlerAdapter{
+    public class AdapterHandler extends ChannelInboundHandlerAdapter{
+
+        private final Set<Connection> callbackConnections = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+        public void registerAdapterChannelInactiveListener(Connection connection) {
+            callbackConnections.add(connection);
+        }
+
+        @Override
+        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+            callbackConnections.forEach(connection -> connection.getChannel().close());
+        }
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
@@ -142,9 +155,8 @@ public class MQTTProxyAdapter {
                     case DISCONNECT:
                         if (MqttUtils.isMqtt5(connection.getProtocolVersion())) {
                             connection.getChannel().writeAndFlush(msg);
-                        } else {
-                            connection.getChannel().close();
                         }
+                        connection.getChannel().close();
                         break;
                     case PUBLISH:
                         MqttPublishMessage pubMessage = (MqttPublishMessage) msg;

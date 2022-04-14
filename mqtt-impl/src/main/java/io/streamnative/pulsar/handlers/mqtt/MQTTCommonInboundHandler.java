@@ -51,6 +51,7 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
         MqttAdapterMessage adapterMessage = null;
         if (isAdapterMessage(message)) {
             adapterMessage = (MqttAdapterMessage) message;
+            //TODO
             processor = PROCESSORS.computeIfAbsent(adapterMessage.getClientId(), key -> {
                 return new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
             });
