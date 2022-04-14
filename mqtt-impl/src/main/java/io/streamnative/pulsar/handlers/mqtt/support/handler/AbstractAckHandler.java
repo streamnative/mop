@@ -125,7 +125,7 @@ public abstract class AbstractAckHandler implements AckHandler {
 
     @Override
     public ChannelFuture sendPublishAck(Connection connection, PublishAck publishAck) {
-        if (publishAck.isSuccess()){
+        if (publishAck.isSuccess()) {
             MqttMessage publishAckMessage = getPublishAckMessage(connection, publishAck);
             MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), publishAckMessage);
             adapterMsg.setAdapter(connection.isAdapter());

@@ -186,6 +186,7 @@ public class Connection {
             adapterMsg.setAdapter(isAdapter());
             if (isAdapter()) {
                 send(adapterMsg);
+                close();
             } else {
                 sendThenClose(adapterMsg);
             }

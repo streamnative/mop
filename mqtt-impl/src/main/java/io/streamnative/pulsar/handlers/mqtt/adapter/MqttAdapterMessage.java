@@ -39,4 +39,14 @@ public class MqttAdapterMessage {
         this.clientId = clientId;
         this.mqttMessage = mqttMessage;
     }
+
+    @Override
+    public String toString() {
+        return "MqttAdapterMessage{" +
+                "version=" + version +
+                ", clientId='" + clientId + '\'' +
+                ", mqttMessage=" + mqttMessage +
+                ", isAdapter=" + isAdapter +
+                '}';
+    }
 }

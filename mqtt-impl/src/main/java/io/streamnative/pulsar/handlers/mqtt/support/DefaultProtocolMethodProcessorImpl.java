@@ -254,7 +254,9 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
         // When login, checkState(msg) failed, connection is null.
         final MqttMessage msg = adapter.getMqttMessage();
         if (connection == null) {
-            channel.close();
+            if (!NettyUtils.isAdapter(channel)) {
+                channel.close();
+            }
             return;
         }
         final String clientId = connection.getClientId();

@@ -52,6 +52,10 @@ public final class NettyUtils {
         return address.getAddress().getHostAddress();
     }
 
+    public static boolean isAdapter(Channel channel) {
+        return channel.pipeline().get("adapter-decoder") != null;
+    }
+
     private NettyUtils() {
     }
 }

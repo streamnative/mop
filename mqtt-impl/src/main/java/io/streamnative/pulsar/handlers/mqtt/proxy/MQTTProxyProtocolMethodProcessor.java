@@ -48,6 +48,7 @@ import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventServi
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -78,6 +79,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final MQTTProxyConfiguration proxyConfig;
     private final PulsarService pulsarService;
     private final Map<String, CompletableFuture<AdapterChannel>> topicBrokers;
+    private final Map<InetSocketAddress, AdapterChannel> adapterChannels;
     @Getter
     private final Map<Integer, String> packetIdTopic;
     // Map sequence Id -> topic count
@@ -96,6 +98,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.connectionManager = proxyService.getConnectionManager();
         this.eventService = proxyService.getEventService();
         this.topicBrokers = new ConcurrentHashMap<>();
+        this.adapterChannels = new ConcurrentHashMap<>();
         this.subscribeTopicsCount = new ConcurrentHashMap<>();
         this.packetIdTopic = new ConcurrentHashMap<>();
         this.pulsarEventCenter = proxyService.getEventCenter();
@@ -385,9 +388,11 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private CompletableFuture<AdapterChannel> connectToBroker(String topic) {
         return topicBrokers.computeIfAbsent(topic,
                 key -> lookupHandler.findBroker(TopicName.get(topic)).thenApply(mqttBroker -> {
-                    AdapterChannel adapterChannel = proxyAdapter.getAdapterChannel(mqttBroker);
-                    adapterChannel.writeAndFlush(connection.getClientId(), connection.getConnectMessage());
-                    return adapterChannel;
+                    return adapterChannels.computeIfAbsent(mqttBroker, key1 -> {
+                        AdapterChannel adapterChannel = proxyAdapter.getAdapterChannel(mqttBroker);
+                        adapterChannel.writeAndFlush(connection.getClientId(), connection.getConnectMessage());
+                        return adapterChannel;
+                    });
                 }));
     }
 

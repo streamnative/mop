@@ -141,7 +141,7 @@ public class MQTTProxyAdapter {
             MqttMessage msg = adapterMsg.getMqttMessage();
             Connection connection = proxyService.getConnectionManager().getConnection(clientId);
             if (connection == null) {
-                log.warn("Not find matched connection : {}, message : {}", clientId, adapterMsg);
+                log.warn("Not find matched connection : {}, adapterMsg : {}", clientId, adapterMsg);
                 return;
             }
             MQTTProxyProtocolMethodProcessor processor =
@@ -153,7 +153,6 @@ public class MQTTProxyAdapter {
                 }
                 switch (messageType) {
                     case DISCONNECT:
-                    case PUBACK:
                         if (MqttUtils.isMqtt5(connection.getProtocolVersion())) {
                             connection.getChannel().writeAndFlush(msg);
                         }
