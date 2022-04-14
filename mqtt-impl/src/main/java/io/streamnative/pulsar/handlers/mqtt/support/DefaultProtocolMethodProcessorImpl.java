@@ -104,7 +104,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     private Connection connection;
     private final PulsarEventCenter eventCenter;
     @Getter
-    private final CompletableFuture<Void> disconnectionFuture = new CompletableFuture<>();
+    private final CompletableFuture<Void> inactiveFuture = new CompletableFuture<>();
 
     public DefaultProtocolMethodProcessorImpl(MQTTService mqttService, ChannelHandlerContext ctx) {
         super(mqttService.getAuthenticationService(),
@@ -251,65 +251,65 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
 
     @Override
     public void processDisconnect(MqttAdapterMessage adapter) {
-        try {
-            // When login, checkState(msg) failed, connection is null.
-            final MqttMessage msg = adapter.getMqttMessage();
-            if (connection == null) {
-                channel.close();
-                return;
-            }
-            final String clientId = connection.getClientId();
-            if (log.isDebugEnabled()) {
-                log.debug("[Disconnect] [{}] ", clientId);
-            }
-            // If client update session timeout interval property.
-            Optional<Integer> newSessionExpireInterval;
-            if ((newSessionExpireInterval = MqttPropertyUtils
-                    .getUpdateSessionExpireIntervalIfExist(connection.getProtocolVersion(), msg)).isPresent()) {
-                try {
-                    connection.updateSessionExpireInterval(newSessionExpireInterval.get());
-                } catch (InvalidSessionExpireIntervalException e) {
-                    DisconnectAck disconnectAck = DisconnectAck
-                            .builder()
-                            .success(false)
-                            .reasonCode(Mqtt5DisConnReasonCode.PROTOCOL_ERROR)
-                            .reasonString(String.format("Disconnect with wrong session expire interval value."
-                                    + " the value is %s", newSessionExpireInterval))
-                            .build();
-                    connection.getAckHandler().sendDisconnectAck(connection, disconnectAck);
-                }
-            } else {
+        // When login, checkState(msg) failed, connection is null.
+        final MqttMessage msg = adapter.getMqttMessage();
+        if (connection == null) {
+            channel.close();
+            return;
+        }
+        final String clientId = connection.getClientId();
+        if (log.isDebugEnabled()) {
+            log.debug("[Disconnect] [{}] ", clientId);
+        }
+        // If client update session timeout interval property.
+        Optional<Integer> newSessionExpireInterval;
+        if ((newSessionExpireInterval = MqttPropertyUtils
+                .getUpdateSessionExpireIntervalIfExist(connection.getProtocolVersion(), msg)).isPresent()) {
+            try {
+                connection.updateSessionExpireInterval(newSessionExpireInterval.get());
+            } catch (InvalidSessionExpireIntervalException e) {
                 DisconnectAck disconnectAck = DisconnectAck
                         .builder()
-                        .success(true)
-                        .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
+                        .success(false)
+                        .reasonCode(Mqtt5DisConnReasonCode.PROTOCOL_ERROR)
+                        .reasonString(String.format("Disconnect with wrong session expire interval value."
+                                + " the value is %s", newSessionExpireInterval))
                         .build();
-                connection.getAckHandler()
-                        .sendDisconnectAck(connection, disconnectAck);
+                connection.getAckHandler().sendDisconnectAck(connection, disconnectAck);
             }
-        } finally {
-            disconnectionFuture.complete(null);
+        } else {
+            DisconnectAck disconnectAck = DisconnectAck
+                    .builder()
+                    .success(true)
+                    .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
+                    .build();
+            connection.getAckHandler()
+                    .sendDisconnectAck(connection, disconnectAck);
         }
     }
 
     @Override
     public void processConnectionLost() {
-        if (connection == null) {
-            channel.close();
-            return;
+        try {
+            if (connection == null) {
+                channel.close();
+                return;
+            }
+            String clientId = connection.getClientId();
+            if (log.isDebugEnabled()) {
+                log.debug("[Connection Lost] [{}] ", clientId);
+            }
+            metricsCollector.removeClient(NettyUtils.getAddress(channel));
+            WillMessage willMessage = connection.getWillMessage();
+            if (willMessage != null) {
+                willMessageHandler.fireWillMessage(clientId, willMessage);
+            }
+            connectionManager.removeConnection(connection);
+            mqttSubscriptionManager.removeSubscription(clientId);
+            connection.close();
+        } finally {
+            inactiveFuture.complete(null);
         }
-        String clientId = connection.getClientId();
-        if (log.isDebugEnabled()) {
-            log.debug("[Connection Lost] [{}] ", clientId);
-        }
-        metricsCollector.removeClient(NettyUtils.getAddress(channel));
-        WillMessage willMessage = connection.getWillMessage();
-        if (willMessage != null) {
-            willMessageHandler.fireWillMessage(clientId, willMessage);
-        }
-        connectionManager.removeConnection(connection);
-        mqttSubscriptionManager.removeSubscription(clientId);
-        connection.close();
     }
 
     @Override

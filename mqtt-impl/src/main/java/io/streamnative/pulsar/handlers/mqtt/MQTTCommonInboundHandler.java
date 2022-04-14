@@ -61,8 +61,8 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
         }
         processor = processors.computeIfAbsent(clientId, key -> {
             DefaultProtocolMethodProcessorImpl p = new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
-            CompletableFuture<Void> disconnectionFuture = p.getDisconnectionFuture();
-            disconnectionFuture.whenComplete((id, ex) -> {
+            CompletableFuture<Void> inactiveFuture = p.getInactiveFuture();
+            inactiveFuture.whenComplete((id, ex) -> {
                 processors.remove(clientId);
             });
             return p;
