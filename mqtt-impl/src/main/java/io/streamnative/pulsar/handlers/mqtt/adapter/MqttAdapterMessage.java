@@ -42,11 +42,11 @@ public class MqttAdapterMessage {
 
     @Override
     public String toString() {
-        return "MqttAdapterMessage{" +
-                "version=" + version +
-                ", clientId='" + clientId + '\'' +
-                ", mqttMessage=" + mqttMessage +
-                ", isAdapter=" + isAdapter +
-                '}';
+        return "MqttAdapterMessage{"
+                + "version=" + version
+                + ", clientId='" + clientId
+                + ", mqttMessage=" + mqttMessage
+                + ", isAdapter=" + isAdapter
+                + '}';
     }
 }
