@@ -80,6 +80,8 @@ public class Connection {
     private volatile int serverCurrentReceiveCounter = 0;
     @Getter
     private final ProtocolMethodProcessor processor;
+    @Getter
+    private final boolean adapter;
     private volatile ConnectionState connectionState = DISCONNECTED;
     private final PulsarEventCenter eventCenter;
     private final List<PulsarEventListener> listeners;
@@ -108,6 +110,7 @@ public class Connection {
         this.addIdleStateHandler();
         this.eventCenter = builder.eventCenter;
         this.processor = builder.processor;
+        this.adapter = builder.adapter;
         this.listeners = Collections.synchronizedList(new ArrayList<>());
         this.manager.addConnection(this);
     }
@@ -152,14 +155,22 @@ public class Connection {
             msg = adapterMessage.getMqttMessage();
         }
         final Object finalMsg = msg;
-        channel.writeAndFlush(finalMsg).addListener(future -> {
+        ChannelFuture channelFuture = channel.writeAndFlush(finalMsg).addListener(future -> {
             if (!future.isSuccess()) {
                 log.error("send mqttMessage : {} failed", finalMsg, future.cause());
             }
         });
-        return channel.close();
+        if (isAdapter()) {
+            disconnect();
+        } else {
+            channel.close();
+        }
+        return channelFuture;
     }
 
+    /**
+     * Broker send disconnect.
+     */
     public void disconnect() {
         if (MqttUtils.isMqtt5(protocolVersion) || isAdapter()) {
             MqttProperties properties = new MqttProperties();
@@ -173,14 +184,14 @@ public class Connection {
                     .build();
             MqttAdapterMessage adapterMsg = new MqttAdapterMessage(this.clientId, mqttMessage);
             adapterMsg.setAdapter(isAdapter());
-            sendThenClose(adapterMsg);
+            if (isAdapter()) {
+                send(adapterMsg);
+            } else {
+                sendThenClose(adapterMsg);
+            }
         } else {
             channel.close();
         }
-    }
-
-    public boolean isAdapter() {
-        return channel.pipeline().get("adapter-decoder") != null;
     }
 
     public CompletableFuture<Void> close() {
@@ -306,6 +317,7 @@ public class Connection {
         private ServerRestrictions serverRestrictions;
         private PulsarEventCenter eventCenter;
         private ProtocolMethodProcessor processor;
+        private boolean adapter;
 
         public ConnectionBuilder protocolVersion(int protocolVersion) {
             this.protocolVersion = protocolVersion;
@@ -359,6 +371,11 @@ public class Connection {
 
         public ConnectionBuilder eventCenter(PulsarEventCenter eventCenter) {
             this.eventCenter = eventCenter;
+            return this;
+        }
+
+        public ConnectionBuilder adapter(boolean isAdapter) {
+            this.adapter = isAdapter;
             return this;
         }
 

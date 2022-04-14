@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
@@ -27,6 +26,7 @@ import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -38,30 +38,35 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
 
-    protected ProtocolMethodProcessor processor;
-
     @Setter
     protected MQTTService mqttService;
 
-    protected static final ConcurrentHashMap<String, ProtocolMethodProcessor> PROCESSORS = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<String, ProtocolMethodProcessor> processors = new ConcurrentHashMap<>();
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object message) {
         MqttMessage mqttMessage;
         MqttAdapterMessage adapterMessage = null;
+        ProtocolMethodProcessor processor;
+        final String clientId;
         if (isAdapterMessage(message)) {
             adapterMessage = (MqttAdapterMessage) message;
-            //TODO
-            processor = PROCESSORS.computeIfAbsent(adapterMessage.getClientId(), key -> {
-                return new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
-            });
             adapterMessage.setAdapter(true);
             mqttMessage = adapterMessage.getMqttMessage();
+            clientId = adapterMessage.getClientId();
         } else {
-            checkNotNull(processor);
             checkArgument(message instanceof MqttMessage);
             mqttMessage = (MqttMessage) message;
+            clientId = "MQTTCommonInboundHandler";
         }
+        processor = processors.computeIfAbsent(clientId, key -> {
+            DefaultProtocolMethodProcessorImpl p = new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
+            CompletableFuture<Void> disconnectionFuture = p.getDisconnectionFuture();
+            disconnectionFuture.whenComplete((id, ex) -> {
+                processors.remove(clientId);
+            });
+            return p;
+        });
         try {
             checkState(mqttMessage);
             MqttMessageType messageType = mqttMessage.fixedHeader().messageType();
@@ -122,7 +127,7 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        processor.processConnectionLost();
+        processors.values().forEach(ProtocolMethodProcessor::processConnectionLost);
     }
 
     @Override

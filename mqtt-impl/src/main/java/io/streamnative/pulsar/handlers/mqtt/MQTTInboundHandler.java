@@ -15,7 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
-import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 /**
@@ -36,6 +35,5 @@ public class MQTTInboundHandler extends MQTTCommonInboundHandler {
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
         setMqttService(mqttService);
-        processor = new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
     }
 }

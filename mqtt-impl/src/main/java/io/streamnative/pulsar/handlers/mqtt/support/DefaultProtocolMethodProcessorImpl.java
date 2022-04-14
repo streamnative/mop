@@ -68,6 +68,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
@@ -102,6 +103,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     private final RetainedMessageHandler retainedMessageHandler;
     private Connection connection;
     private final PulsarEventCenter eventCenter;
+    @Getter
+    private final CompletableFuture<Void> disconnectionFuture = new CompletableFuture<>();
 
     public DefaultProtocolMethodProcessorImpl(MQTTService mqttService, ChannelHandlerContext ctx) {
         super(mqttService.getAuthenticationService(),
@@ -137,6 +140,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .eventCenter(eventCenter)
+                .adapter(adapter.isAdapter())
+                .processor(this)
                 .build();
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
         connection.sendConnAck();
@@ -246,20 +251,21 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
 
     @Override
     public void processDisconnect(MqttAdapterMessage adapter) {
-        // When login, checkState(msg) failed, connection is null.
-        final MqttMessage msg = adapter.getMqttMessage();
-        if (connection == null) {
-            channel.close();
-            return;
-        }
-        final String clientId = connection.getClientId();
-        if (log.isDebugEnabled()) {
-            log.debug("[Disconnect] [{}] ", clientId);
-        }
-        // If client update session timeout interval property.
-        Optional<Integer> newSessionExpireInterval;
-        if ((newSessionExpireInterval = MqttPropertyUtils
-                .getUpdateSessionExpireIntervalIfExist(connection.getProtocolVersion(), msg)).isPresent()) {
+        try {
+            // When login, checkState(msg) failed, connection is null.
+            final MqttMessage msg = adapter.getMqttMessage();
+            if (connection == null) {
+                channel.close();
+                return;
+            }
+            final String clientId = connection.getClientId();
+            if (log.isDebugEnabled()) {
+                log.debug("[Disconnect] [{}] ", clientId);
+            }
+            // If client update session timeout interval property.
+            Optional<Integer> newSessionExpireInterval;
+            if ((newSessionExpireInterval = MqttPropertyUtils
+                    .getUpdateSessionExpireIntervalIfExist(connection.getProtocolVersion(), msg)).isPresent()) {
                 try {
                     connection.updateSessionExpireInterval(newSessionExpireInterval.get());
                 } catch (InvalidSessionExpireIntervalException e) {
@@ -272,14 +278,17 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                             .build();
                     connection.getAckHandler().sendDisconnectAck(connection, disconnectAck);
                 }
-        } else {
-            DisconnectAck disconnectAck = DisconnectAck
-                    .builder()
-                    .success(true)
-                    .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
-                    .build();
-            connection.getAckHandler()
-                    .sendDisconnectAck(connection, disconnectAck);
+            } else {
+                DisconnectAck disconnectAck = DisconnectAck
+                        .builder()
+                        .success(true)
+                        .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
+                        .build();
+                connection.getAckHandler()
+                        .sendDisconnectAck(connection, disconnectAck);
+            }
+        } finally {
+            disconnectionFuture.complete(null);
         }
     }
 
