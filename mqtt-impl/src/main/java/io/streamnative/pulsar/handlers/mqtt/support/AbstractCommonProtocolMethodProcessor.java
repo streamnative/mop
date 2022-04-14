@@ -113,7 +113,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
             clientRestrictionsBuilder
                     .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
                     .cleanSession(msg.variableHeader().isCleanSession());
-            doProcessConnect(new MqttAdapterMessage(clientId, connectMessage), userRole,
+            doProcessConnect(adapter.isAdapter() ? adapter : new MqttAdapterMessage(clientId, connectMessage), userRole,
                     clientRestrictionsBuilder.build());
         } catch (InvalidReceiveMaximumException invalidReceiveMaximumException) {
             channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().protocolError(protocolVersion));

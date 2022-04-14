@@ -15,7 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 /**
  * MQTT in bound handler.
@@ -24,16 +23,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MQTTInboundHandler extends MQTTCommonInboundHandler {
 
-    @Getter
-    private final MQTTService mqttService;
-
     public MQTTInboundHandler(MQTTService mqttService) {
-        this.mqttService = mqttService;
+        super.mqttService = mqttService;
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-        setMqttService(mqttService);
     }
 }
