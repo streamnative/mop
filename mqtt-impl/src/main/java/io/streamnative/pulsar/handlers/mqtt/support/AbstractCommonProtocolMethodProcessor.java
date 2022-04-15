@@ -17,6 +17,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
+import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
@@ -68,19 +69,22 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         // Check MQTT protocol version.
         if (!MqttUtils.isSupportedVersion(protocolVersion)) {
             log.error("[CONNECT] MQTT protocol version is not valid. CId={}", clientId);
-            channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().unsupportedVersion());
+            MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().unsupportedVersion();
+            channel.writeAndFlush(new MqttAdapterMessage(mqttMessage));
             channel.close();
             return;
         }
         if (!MqttUtils.isQosSupported(msg)) {
-            channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().willQosNotSupport(protocolVersion));
+            MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().willQosNotSupport(protocolVersion);
+            channel.writeAndFlush(new MqttAdapterMessage(mqttMessage));
             channel.close();
             return;
         }
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
-                channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().identifierInvalid(protocolVersion));
+                MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().identifierInvalid(protocolVersion);
+                channel.writeAndFlush(new MqttAdapterMessage(mqttMessage)) ;
                 channel.close();
                 log.error("[CONNECT] The MQTT client ID cannot be empty. Username={}", username);
                 return;
@@ -100,7 +104,8 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().authFail(protocolVersion));
+                MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().authFail(protocolVersion);
+                channel.writeAndFlush(new MqttAdapterMessage(mqttMessage));
                 channel.close();
                 log.error("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
                 return;
@@ -116,7 +121,8 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
             doProcessConnect(adapter.isAdapter() ? adapter : new MqttAdapterMessage(clientId, connectMessage), userRole,
                     clientRestrictionsBuilder.build());
         } catch (InvalidReceiveMaximumException invalidReceiveMaximumException) {
-            channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().protocolError(protocolVersion));
+            MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().protocolError(protocolVersion);
+            channel.writeAndFlush(new MqttAdapterMessage(mqttMessage));
             channel.close();
             log.error("[CONNECT] Fail to parse receive maximum because of zero value, CId={}", clientId);
         }
