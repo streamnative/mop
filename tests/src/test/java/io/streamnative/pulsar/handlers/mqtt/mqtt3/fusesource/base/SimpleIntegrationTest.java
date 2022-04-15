@@ -685,7 +685,6 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.connect();
         String message1 = "Retained Message";
         String message2 = "Hello Message";
-        admin.topics().createNonPartitionedTopic(topicName);
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
         connection.publish(topicName, message1.getBytes(), QoS.AT_LEAST_ONCE, true);
         connection.subscribe(topics);

@@ -316,7 +316,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
 
     @Override
     public void processPingReq() {
-        channel.writeAndFlush(pingResp());
+        connection.send(new MqttAdapterMessage(pingResp()));
     }
 
     @Override
@@ -425,8 +425,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                     .build();
             ackHandler.sendSubscribeAck(connection, subscribeAck).addListener(listener -> {
                 finalRetainedTopic.map(topic ->
-                    channel.writeAndFlush(MqttMessageUtils
-                            .createRetainedMessage(retainedMessageHandler.getRetainedMessage(topic))));
+                    connection.send(new MqttAdapterMessage(MqttMessageUtils
+                            .createRetainedMessage(retainedMessageHandler.getRetainedMessage(topic)))));
             });
         }).exceptionally(ex -> {
             Throwable realCause = FutureUtil.unwrapCompletionException(ex);
