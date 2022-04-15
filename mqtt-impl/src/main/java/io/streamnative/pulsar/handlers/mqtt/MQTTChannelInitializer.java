@@ -95,9 +95,9 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
             ch.pipeline().addLast(TLS_HANDLER,
                     new SslHandler(PSKUtils.createServerEngine(ch, mqttService.getPskConfiguration())));
         }
-        ch.pipeline().addLast("adapter-decoder", new MqttAdapterDecoder(mqttConfig.getMqttMessageMaxLength()));
+        ch.pipeline().addLast(MqttAdapterDecoder.NAME, new MqttAdapterDecoder(mqttConfig.getMqttMessageMaxLength()));
         ch.pipeline().addLast("decoder", new MqttDecoder(mqttConfig.getMqttMessageMaxLength()));
-        ch.pipeline().addLast("adapter-encoder", MqttAdapterEncoder.INSTANCE);
-        ch.pipeline().addLast("handler", new MQTTInboundHandler(mqttService));
+        ch.pipeline().addLast(MqttAdapterEncoder.NAME, MqttAdapterEncoder.INSTANCE);
+        ch.pipeline().addLast(MQTTInboundHandler.NAME, new MQTTInboundHandler(mqttService));
     }
 }

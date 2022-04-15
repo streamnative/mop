@@ -23,6 +23,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MQTTInboundHandler extends MQTTCommonInboundHandler {
 
+    public static final String NAME = "handler";
+
     public MQTTInboundHandler(MQTTService mqttService) {
         super.mqttService = mqttService;
     }

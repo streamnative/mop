@@ -64,9 +64,9 @@ public class MQTTProxyAdapter {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
                         int maxBytesInMessage = proxyService.getProxyConfig().getMqttMessageMaxLength();
-                        ch.pipeline().addLast("adapter-decoder", new MqttAdapterDecoder(maxBytesInMessage));
-                        ch.pipeline().addLast("adapter-encoder", MqttAdapterEncoder.INSTANCE);
-                        ch.pipeline().addLast("adapter-handler", new AdapterHandler());
+                        ch.pipeline().addLast(MqttAdapterDecoder.NAME, new MqttAdapterDecoder(maxBytesInMessage));
+                        ch.pipeline().addLast(MqttAdapterEncoder.NAME, MqttAdapterEncoder.INSTANCE);
+                        ch.pipeline().addLast(AdapterHandler.NAME, new AdapterHandler());
                     }
                 });
     }
@@ -119,7 +119,9 @@ public class MQTTProxyAdapter {
         this.channels.clear();
     }
 
-    public class AdapterHandler extends ChannelInboundHandlerAdapter{
+    public class AdapterHandler extends ChannelInboundHandlerAdapter {
+
+        public static final String NAME = "adapter-handler";
 
         private final Set<Connection> callbackConnections = Collections.newSetFromMap(new ConcurrentHashMap<>());
 

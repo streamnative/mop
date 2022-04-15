@@ -27,6 +27,8 @@ import java.util.List;
 @ChannelHandler.Sharable
 public class MqttAdapterEncoder extends MessageToMessageEncoder<MqttAdapterMessage> {
 
+    public static final String NAME = "adapter-encoder";
+
     private static final MqttEncoder ENCODER = MqttEncoder.INSTANCE;
 
     public static final MqttAdapterEncoder INSTANCE = new MqttAdapterEncoder();

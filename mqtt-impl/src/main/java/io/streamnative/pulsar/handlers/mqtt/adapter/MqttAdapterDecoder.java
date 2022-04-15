@@ -29,6 +29,8 @@ import lombok.Setter;
 
 public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.State> {
 
+    public static final String NAME = "adapter-decoder";
+
     private final MqttDecoder mqttDecoder;
     private final Method decode;
     private final Header header = new Header();
@@ -53,7 +55,7 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
                 if (!isAdapter(in.readByte())) {
                     in.resetReaderIndex();
                     decode.invoke(mqttDecoder, ctx, in, out);
-                    ChannelHandler decoder = ctx.pipeline().get("adapter-decoder");
+                    ChannelHandler decoder = ctx.pipeline().get(NAME);
                     if (decoder != null) {
                         ctx.pipeline().remove(decoder);
                     }
