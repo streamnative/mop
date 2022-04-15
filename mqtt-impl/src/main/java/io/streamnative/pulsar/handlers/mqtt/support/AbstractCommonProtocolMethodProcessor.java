@@ -84,7 +84,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
                 MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().identifierInvalid(protocolVersion);
-                channel.writeAndFlush(new MqttAdapterMessage(mqttMessage)) ;
+                channel.writeAndFlush(new MqttAdapterMessage(mqttMessage));
                 channel.close();
                 log.error("[CONNECT] The MQTT client ID cannot be empty. Username={}", username);
                 return;
