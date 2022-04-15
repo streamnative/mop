@@ -32,6 +32,6 @@ public class MQTTProxyInboundHandler extends MQTTCommonInboundHandler {
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-        processors.put("MQTTCommonInboundHandler", new MQTTProxyProtocolMethodProcessor(proxyService, ctx));
+        processors.put(NAME, new MQTTProxyProtocolMethodProcessor(proxyService, ctx));
     }
 }

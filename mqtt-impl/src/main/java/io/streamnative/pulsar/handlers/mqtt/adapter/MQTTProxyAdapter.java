@@ -139,6 +139,7 @@ public class MQTTProxyAdapter {
             checkArgument(message instanceof MqttAdapterMessage);
             MqttAdapterMessage adapterMsg = (MqttAdapterMessage) message;
             MqttMessageType messageType = adapterMsg.getMqttMessage().fixedHeader().messageType();
+            adapterMsg.setAdapter(false);
             String clientId = adapterMsg.getClientId();
             MqttMessage msg = adapterMsg.getMqttMessage();
             Connection connection = proxyService.getConnectionManager().getConnection(clientId);
@@ -156,7 +157,7 @@ public class MQTTProxyAdapter {
                 switch (messageType) {
                     case DISCONNECT:
                         if (MqttUtils.isMqtt5(connection.getProtocolVersion())) {
-                            connection.getChannel().writeAndFlush(msg);
+                            connection.getChannel().writeAndFlush(adapterMsg);
                         }
                         connection.getChannel().close();
                         break;
@@ -165,18 +166,18 @@ public class MQTTProxyAdapter {
                         int packetId = pubMessage.variableHeader().packetId();
                         String topicName = pubMessage.variableHeader().topicName();
                         processor.getPacketIdTopic().put(packetId, topicName);
-                        processor.getChannel().writeAndFlush(msg);
+                        processor.getChannel().writeAndFlush(adapterMsg);
                         break;
                     case CONNACK:
                         break;
                     case SUBACK:
                         MqttSubAckMessage subAckMessage = (MqttSubAckMessage) msg;
                         if (processor.checkIfSendSubAck(subAckMessage.variableHeader().messageId())) {
-                            processor.getChannel().writeAndFlush(msg);
+                            processor.getChannel().writeAndFlush(adapterMsg);
                         }
                         break;
                     default:
-                        processor.getChannel().writeAndFlush(msg);
+                        processor.getChannel().writeAndFlush(adapterMsg);
                         break;
                 }
             } catch (Throwable ex) {

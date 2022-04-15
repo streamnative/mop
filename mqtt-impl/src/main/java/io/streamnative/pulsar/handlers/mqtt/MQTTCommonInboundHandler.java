@@ -38,6 +38,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
 
+    public static final String NAME = "InboundHandler";
+
     @Setter
     protected MQTTService mqttService;
 
@@ -45,25 +47,14 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object message) {
-        MqttMessage mqttMessage;
-        MqttAdapterMessage adapterMessage = null;
-        ProtocolMethodProcessor processor;
-        final String clientId;
-        if (isAdapterMessage(message)) {
-            adapterMessage = (MqttAdapterMessage) message;
-            adapterMessage.setAdapter(true);
-            mqttMessage = adapterMessage.getMqttMessage();
-            clientId = adapterMessage.getClientId();
-        } else {
-            checkArgument(message instanceof MqttMessage);
-            mqttMessage = (MqttMessage) message;
-            clientId = "MQTTCommonInboundHandler";
-        }
-        processor = processors.computeIfAbsent(clientId, key -> {
+        checkArgument(message instanceof MqttAdapterMessage);
+        MqttAdapterMessage adapterMessage = (MqttAdapterMessage) message;
+        MqttMessage mqttMessage = adapterMessage.getMqttMessage();
+        ProtocolMethodProcessor processor = processors.computeIfAbsent(adapterMessage.getClientId(), key -> {
             DefaultProtocolMethodProcessorImpl p = new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
             CompletableFuture<Void> inactiveFuture = p.getInactiveFuture();
             inactiveFuture.whenComplete((id, ex) -> {
-                processors.remove(clientId);
+                processors.remove(adapterMessage.getClientId());
             });
             return p;
         });
@@ -114,10 +105,6 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
             log.error("Exception was caught while processing MQTT message, ", ex);
             ctx.close();
         }
-    }
-
-    private boolean isAdapterMessage(Object message) {
-        return message instanceof MqttAdapterMessage;
     }
 
     @Override

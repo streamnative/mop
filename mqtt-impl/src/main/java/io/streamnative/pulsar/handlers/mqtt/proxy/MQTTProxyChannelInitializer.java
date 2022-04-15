@@ -16,11 +16,11 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 import static org.apache.pulsar.client.impl.PulsarChannelInitializer.TLS_HANDLER;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.mqtt.MqttDecoder;
-import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterDecoder;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterEncoder;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
 import lombok.Getter;
 import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
@@ -101,8 +101,8 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
             ch.pipeline().addLast(TLS_HANDLER,
                     new SslHandler(PSKUtils.createServerEngine(ch, proxyService.getPskConfiguration())));
         }
-        ch.pipeline().addLast("decoder", new MqttDecoder(proxyConfig.getMqttMessageMaxLength()));
-        ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
+        ch.pipeline().addLast(MqttAdapterDecoder.NAME, new MqttAdapterDecoder(proxyConfig.getMqttMessageMaxLength()));
+        ch.pipeline().addLast(MqttAdapterEncoder.NAME, MqttAdapterEncoder.INSTANCE);
         ch.pipeline().addLast("handler", new MQTTProxyInboundHandler(proxyService));
     }
 

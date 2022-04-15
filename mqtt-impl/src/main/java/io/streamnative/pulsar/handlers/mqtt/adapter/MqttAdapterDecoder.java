@@ -15,18 +15,23 @@ package io.streamnative.pulsar.handlers.mqtt.adapter;
 
 import static io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage.MAGIC;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.util.Signal;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonInboundHandler;
+
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.State> {
 
     public static final String NAME = "adapter-decoder";
@@ -47,6 +52,8 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
         }
     }
 
+    static final Signal REPLAY = Signal.valueOf(ReplayingDecoder.class, "REPLAY");
+
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         in.markReaderIndex();
@@ -54,17 +61,23 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
             case MAGIC:
                 if (!isAdapter(in.readByte())) {
                     in.resetReaderIndex();
-                    decode.invoke(mqttDecoder, ctx, in, out);
-                    ChannelHandler decoder = ctx.pipeline().get(NAME);
-                    if (decoder != null) {
-                        ctx.pipeline().remove(decoder);
+                    List<MqttMessage> mqttMessages = new ArrayList<>();
+                    try {
+                        decode.invoke(mqttDecoder, ctx, in, mqttMessages);
+                    } catch (InvocationTargetException ex) {
+                        if (ex.getTargetException() instanceof Signal) {
+                            ((Signal) ex.getTargetException()).expect(REPLAY);
+                            throw (Signal) ex.getTargetException();
+                        }
                     }
-                    break;
+                    for (MqttMessage mqttMessage : mqttMessages) {
+                        MqttAdapterMessage adapterMessage = new MqttAdapterMessage(MQTTCommonInboundHandler.NAME,
+                                mqttMessage);
+                        out.add(adapterMessage);
+                    }
+                    checkpoint(State.MAGIC);
+                    return;
                 } else {
-                    ChannelHandler decoder = ctx.pipeline().get("decoder");
-                    if (decoder != null) {
-                        ctx.pipeline().remove(decoder);
-                    }
                     checkpoint(State.VERSION);
                 }
             case VERSION:
@@ -83,6 +96,7 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
                 decode.invoke(mqttDecoder, ctx, in, mqttMessages);
                 MqttMessage mqttMessage = (MqttMessage) mqttMessages.get(0);
                 MqttAdapterMessage adapterMessage = new MqttAdapterMessage(header.getClientId(), mqttMessage);
+                adapterMessage.setAdapter(true);
                 out.add(adapterMessage);
                 checkpoint(State.MAGIC);
         }

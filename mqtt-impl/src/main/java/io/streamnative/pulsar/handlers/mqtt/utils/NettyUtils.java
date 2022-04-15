@@ -18,7 +18,6 @@ import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECTION;
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterDecoder;
 import java.net.InetSocketAddress;
 
 /**
@@ -51,10 +50,6 @@ public final class NettyUtils {
     public static String getIp(Channel channel) {
         InetSocketAddress address = (InetSocketAddress) channel.remoteAddress();
         return address.getAddress().getHostAddress();
-    }
-
-    public static boolean isAdapter(Channel channel) {
-        return channel.pipeline().get(MqttAdapterDecoder.NAME) != null;
     }
 
     private NettyUtils() {
