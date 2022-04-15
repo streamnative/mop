@@ -24,7 +24,6 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
-import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
@@ -163,13 +162,8 @@ public class Connection {
      */
     public void disconnect() {
         if (MqttUtils.isMqtt5(protocolVersion) || isAdapter()) {
-            MqttProperties properties = new MqttProperties();
-            MqttProperties.UserProperties userProperties = new MqttProperties.UserProperties();
-            userProperties.add("clientId", clientId);
-            properties.add(userProperties);
             MqttMessage mqttMessage = MqttMessageBuilders
                     .disconnect()
-                    .properties(properties)
                     .reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER.byteValue())
                     .build();
             MqttAdapterMessage adapterMsg = new MqttAdapterMessage(this.clientId, mqttMessage);
