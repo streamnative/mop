@@ -80,7 +80,7 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
         client.disconnect();
     }
 
-//    @Test
+    @Test
     public void testDynamicUpdateSubscribe() throws InterruptedException, PulsarAdminException {
         final String topicFilter = "/a/#";
         final String topic1 = "/a/b/c";

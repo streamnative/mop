@@ -56,16 +56,8 @@ public class MqttAdapterEncoder extends MessageToMessageEncoder<MqttAdapterMessa
             buffer.writeBytes(clientId);
             buffer.writeBytes(mqtt);
             ReferenceCountUtil.safeRelease(mqtt);
-            ChannelHandler encoder = ctx.pipeline().get("encoder");
-            if (encoder != null) {
-                ctx.pipeline().remove(encoder);
-            }
         } else {
             buffer = (ByteBuf) doEncode.invoke(ENCODER, ctx, msg.getMqttMessage());
-            ChannelHandler encoder = ctx.pipeline().get("adapter-encoder");
-            if (encoder != null) {
-                ctx.pipeline().remove(encoder);
-            }
         }
         out.add(buffer);
     }

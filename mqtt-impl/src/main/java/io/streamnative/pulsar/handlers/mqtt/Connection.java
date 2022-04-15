@@ -133,14 +133,9 @@ public class Connection {
             log.error("send mqttMessage : {} failed due to channel is inactive.", adapterMessage);
             return channel.newFailedFuture(channelInactiveException);
         }
-        Object msg = adapterMessage;
-        if (!adapterMessage.isAdapter()) {
-            msg = adapterMessage.getMqttMessage();
-        }
-        final Object finalMsg = msg;
-        return channel.writeAndFlush(finalMsg).addListener(future -> {
+        return channel.writeAndFlush(adapterMessage).addListener(future -> {
             if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", finalMsg, future.cause());
+                log.error("send mqttMessage : {} failed", adapterMessage, future.cause());
             }
         });
     }
@@ -150,14 +145,9 @@ public class Connection {
             log.error("send mqttMessage : {} failed due to channel is inactive.", adapterMessage);
             return channel.newFailedFuture(channelInactiveException);
         }
-        Object msg = adapterMessage;
-        if (!adapterMessage.isAdapter()) {
-            msg = adapterMessage.getMqttMessage();
-        }
-        final Object finalMsg = msg;
-        ChannelFuture channelFuture = channel.writeAndFlush(finalMsg).addListener(future -> {
+        ChannelFuture channelFuture = channel.writeAndFlush(adapterMessage).addListener(future -> {
             if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", finalMsg, future.cause());
+                log.error("send mqttMessage : {} failed", adapterMessage, future.cause());
             }
         });
         if (isAdapter()) {
