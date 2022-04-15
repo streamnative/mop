@@ -74,7 +74,7 @@ public class MQTT5SessionExpireIntervalTest extends MQTTTestBase {
                 });
     }
 
-//    @Test(timeOut = TIMEOUT)
+    @Test(timeOut = TIMEOUT)
     public void testStopExpireIntervalWhenClientReconnect() throws Exception {
         final String topic = "test-expire-interval-2";
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(

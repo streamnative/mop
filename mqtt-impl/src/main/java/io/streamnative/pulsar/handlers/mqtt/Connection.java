@@ -186,7 +186,7 @@ public class Connection {
             adapterMsg.setAdapter(isAdapter());
             if (isAdapter()) {
                 send(adapterMsg);
-                close();
+                processor.processConnectionLost();
             } else {
                 sendThenClose(adapterMsg);
             }

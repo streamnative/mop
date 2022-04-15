@@ -279,22 +279,22 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                         .build();
                 connection.getAckHandler().sendDisconnectAck(connection, disconnectAck);
             }
-        } else {
-            DisconnectAck disconnectAck = DisconnectAck
-                    .builder()
-                    .success(true)
-                    .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
-                    .build();
-            connection.getAckHandler()
-                    .sendDisconnectAck(connection, disconnectAck);
         }
+        DisconnectAck disconnectAck = DisconnectAck
+                .builder()
+                .success(true)
+                .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
+                .build();
+        connection.getAckHandler().sendDisconnectAck(connection, disconnectAck);
     }
 
     @Override
     public void processConnectionLost() {
         try {
             if (connection == null) {
-                channel.close();
+                if (!NettyUtils.isAdapter(channel)) {
+                    channel.close();
+                }
                 return;
             }
             String clientId = connection.getClientId();
