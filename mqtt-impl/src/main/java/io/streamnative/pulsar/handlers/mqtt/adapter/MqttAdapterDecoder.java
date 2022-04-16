@@ -17,15 +17,7 @@ import static io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage.MA
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ReplayingDecoder;
-import io.netty.handler.codec.mqtt.MqttDecoder;
-import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.util.Signal;
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonInboundHandler;
-
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -36,23 +28,11 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
 
     public static final String NAME = "adapter-decoder";
 
-    private final MqttDecoder mqttDecoder;
-    private final Method decode;
     private final Header header = new Header();
 
-    public MqttAdapterDecoder(int maxBytesInMessage) {
+    public MqttAdapterDecoder() {
         super(State.MAGIC);
-        this.mqttDecoder = new MqttDecoder(maxBytesInMessage);
-        try {
-            decode = mqttDecoder.getClass().getDeclaredMethod("decode",
-                    ChannelHandlerContext.class, ByteBuf.class, List.class);
-            decode.setAccessible(true);
-        } catch (NoSuchMethodException ex) {
-            throw new IllegalArgumentException(ex);
-        }
     }
-
-    static final Signal REPLAY = Signal.valueOf(ReplayingDecoder.class, "REPLAY");
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
@@ -61,22 +41,13 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
             case MAGIC:
                 if (!isAdapter(in.readByte())) {
                     in.resetReaderIndex();
-                    List<MqttMessage> mqttMessages = new ArrayList<>();
-                    try {
-                        decode.invoke(mqttDecoder, ctx, in, mqttMessages);
-                    } catch (InvocationTargetException ex) {
-                        if (ex.getTargetException() instanceof Signal) {
-                            ((Signal) ex.getTargetException()).expect(REPLAY);
-                            throw (Signal) ex.getTargetException();
-                        }
+                    ctx.pipeline().addAfter("mqtt-decoder", CombineHandler.NAME, new CombineHandler());
+                    if (in.isReadable()) {
+                        out.add(in.readBytes(super.actualReadableBytes()));
                     }
-                    for (MqttMessage mqttMessage : mqttMessages) {
-                        MqttAdapterMessage adapterMessage = new MqttAdapterMessage(MQTTCommonInboundHandler.NAME,
-                                mqttMessage);
-                        out.add(adapterMessage);
-                    }
-                    checkpoint(State.MAGIC);
-                    return;
+                    ctx.pipeline().remove(CombineAdapterHandler.NAME);
+                    ctx.pipeline().remove(this);
+                    break;
                 } else {
                     checkpoint(State.VERSION);
                 }
@@ -90,14 +61,16 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
                 byte[] clientId = new byte[header.getClientIdLength()];
                 in.readBytes(clientId);
                 header.setClientId(new String(clientId, StandardCharsets.UTF_8));
+                checkpoint(State.BODY_LENGTH);
+            case BODY_LENGTH:
+                header.setBodyLength(in.readInt());
                 checkpoint(State.BODY);
             case BODY:
-                List<Object> mqttMessages = new ArrayList<>();
-                decode.invoke(mqttDecoder, ctx, in, mqttMessages);
-                MqttMessage mqttMessage = (MqttMessage) mqttMessages.get(0);
-                MqttAdapterMessage adapterMessage = new MqttAdapterMessage(header.getClientId(), mqttMessage);
-                adapterMessage.setAdapter(true);
-                out.add(adapterMessage);
+                ByteBuf mqttBuf = in.readBytes(header.getBodyLength());
+                MqttAdapterMessage adapterMsg = new MqttAdapterMessage(header.version, header.clientId);
+                adapterMsg.setAdapter(true);
+                out.add(adapterMsg);
+                out.add(mqttBuf);
                 checkpoint(State.MAGIC);
         }
     }
@@ -111,14 +84,16 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
         VERSION,
         CLIENT_ID_LENGTH,
         CLIENT_ID,
+        BODY_LENGTH,
         BODY;
     }
 
     @Getter
     @Setter
     class Header {
+        byte version;
         int clientIdLength;
         String clientId;
-        byte version;
+        int bodyLength;
     }
 }

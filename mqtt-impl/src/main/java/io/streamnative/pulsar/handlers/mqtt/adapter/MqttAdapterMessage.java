@@ -20,22 +20,34 @@ import lombok.Setter;
 public class MqttAdapterMessage {
 
     public static final byte MAGIC = (byte) 0xbabe;
+
+    public static final byte DEFAULT_VERSION = 0x00;
+
     @Getter
-    private final byte version = 0x00;
+    private final byte version;
     @Getter
     private final String clientId;
     @Getter
-    private final MqttMessage mqttMessage;
+    @Setter
+    private MqttMessage mqttMessage;
     @Getter
     @Setter
     private boolean isAdapter;
 
     public MqttAdapterMessage(MqttMessage mqttMessage) {
-        this.clientId = "";
-        this.mqttMessage = mqttMessage;
+        this(DEFAULT_VERSION, "", mqttMessage);
     }
 
     public MqttAdapterMessage(String clientId, MqttMessage mqttMessage) {
+        this(DEFAULT_VERSION, clientId, mqttMessage);
+    }
+
+    public MqttAdapterMessage(byte version, String clientId) {
+        this(version, clientId, null);
+    }
+
+    public MqttAdapterMessage(byte version, String clientId, MqttMessage mqttMessage) {
+        this.version = version;
         this.clientId = clientId;
         this.mqttMessage = mqttMessage;
     }

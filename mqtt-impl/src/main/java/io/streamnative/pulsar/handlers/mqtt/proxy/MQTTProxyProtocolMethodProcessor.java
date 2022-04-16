@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingReq;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelException;
 import io.netty.channel.ChannelHandlerContext;
@@ -189,8 +189,13 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     }
 
     @Override
-    public void processPingReq() {
-        channel.writeAndFlush(pingResp());
+    public void processPingReq(final MqttAdapterMessage msg) {
+        String clientId = connection.getClientId();
+        topicBrokers.values().forEach(adapterChannel -> {
+            adapterChannel.thenAccept(channel -> {
+                channel.writeAndFlush(clientId, pingReq());
+            });
+        });
     }
 
     @Override

@@ -95,7 +95,7 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
                     processor.processPubAck(finalMessage);
                     break;
                 case PINGREQ:
-                    processor.processPingReq();
+                    processor.processPingReq(finalMessage);
                     break;
                 default:
                     throw new UnsupportedOperationException("Unknown MessageType: " + messageType);

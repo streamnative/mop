@@ -23,6 +23,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
@@ -64,8 +65,12 @@ public class MQTTProxyAdapter {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
                         int maxBytesInMessage = proxyService.getProxyConfig().getMqttMessageMaxLength();
-                        ch.pipeline().addLast(MqttAdapterDecoder.NAME, new MqttAdapterDecoder(maxBytesInMessage));
+                        ch.pipeline().addLast(MqttAdapterDecoder.NAME, new MqttAdapterDecoder());
+                        ch.pipeline().addLast("mqtt-decoder", new MqttDecoder(maxBytesInMessage));
+                        //
                         ch.pipeline().addLast(MqttAdapterEncoder.NAME, MqttAdapterEncoder.INSTANCE);
+                        //
+                        ch.pipeline().addLast(CombineAdapterHandler.NAME, new CombineAdapterHandler());
                         ch.pipeline().addLast(AdapterHandler.NAME, new AdapterHandler());
                     }
                 });

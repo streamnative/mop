@@ -23,8 +23,10 @@ import io.netty.util.ReferenceCountUtil;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 @ChannelHandler.Sharable
+@Slf4j
 public class MqttAdapterEncoder extends MessageToMessageEncoder<MqttAdapterMessage> {
 
     public static final String NAME = "adapter-encoder";
@@ -51,11 +53,12 @@ public class MqttAdapterEncoder extends MessageToMessageEncoder<MqttAdapterMessa
         if (msg.isAdapter()) {
             ByteBuf mqtt = (ByteBuf) doEncode.invoke(ENCODER, ctx, msg.getMqttMessage());
             byte[] clientId = msg.getClientId().getBytes(StandardCharsets.UTF_8);
-            buffer = ctx.alloc().buffer(1 + 1 + 4 + clientId.length + mqtt.readableBytes());
+            buffer = ctx.alloc().buffer(1 + 1 + 4 + clientId.length + 4 + mqtt.readableBytes());
             buffer.writeByte(MqttAdapterMessage.MAGIC);
             buffer.writeByte(msg.getVersion());
             buffer.writeInt(clientId.length);
             buffer.writeBytes(clientId);
+            buffer.writeInt(mqtt.readableBytes());
             buffer.writeBytes(mqtt);
             ReferenceCountUtil.safeRelease(mqtt);
         } else {

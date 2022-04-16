@@ -39,6 +39,5 @@ public interface ProtocolMethodProcessor {
     void processSubscribe(MqttAdapterMessage msg);
 
     void processUnSubscribe(MqttAdapterMessage msg);
-    //TODO
-    void processPingReq();
+    void processPingReq(MqttAdapterMessage msg);
 }

@@ -19,7 +19,9 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import java.net.InetSocketAddress;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class AdapterChannel {
 
     private final MQTTProxyAdapter adapter;
@@ -34,6 +36,7 @@ public class AdapterChannel {
     }
 
     public ChannelFuture writeAndFlush(String clientId, MqttMessage msg) {
+        log.info("AdapterChannel-writeAndFlush : {}", msg);
         MqttAdapterMessage adapterMessage = new MqttAdapterMessage(clientId, msg);
         adapterMessage.setAdapter(true);
         if (!channel.isActive()) {

@@ -313,8 +313,8 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     }
 
     @Override
-    public void processPingReq() {
-        connection.send(new MqttAdapterMessage(pingResp()));
+    public void processPingReq(MqttAdapterMessage adapter) {
+        connection.send(new MqttAdapterMessage(adapter.getClientId(), pingResp()));
     }
 
     @Override
