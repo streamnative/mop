@@ -88,6 +88,36 @@ public class ProxyTest extends MQTTTestBase {
         return mqtt;
     }
 
+    @Test(timeOut = TIMEOUT)
+    public void testBacklogShouldBeZeroWithQos0() throws Exception {
+        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0";
+        MQTT mqtt = createMQTTProxyClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        int numMessages = 1000;
+        for (int i = 0; i < numMessages; i++) {
+            connection.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
+        }
+
+        int count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received = connection.receive(300, TimeUnit.MILLISECONDS);
+            if (received != null) {
+                count++;
+            }
+        }
+        // TODO
+        Assert.assertTrue(count <= numMessages);
+
+        Assert.assertEquals(admin.topics().getStats(topicName).getSubscriptions().size(), 1);
+        Assert.assertEquals(admin.topics().getStats(topicName)
+                .getSubscriptions().entrySet().iterator().next().getValue().getMsgBacklog(), 0);
+        connection.disconnect();
+    }
+
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT, priority = 4)
     public void testSendAndConsume(String topicName) throws Exception {
         MQTT mqtt = createMQTTProxyClient();
