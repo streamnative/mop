@@ -62,7 +62,7 @@ public class WillMessageHandler {
                     .build();
             mqttService.getEventService().sendLWTEvent(lwt);
         }
-        List<Pair<String, String>> subscriptions = mqttSubscriptionManager.findMatchTopic(willMessage.getTopic());
+        List<Pair<String, String>> subscriptions = mqttSubscriptionManager.findMatchedTopic(willMessage.getTopic());
         MqttPublishMessage msg = createMqttWillMessage(willMessage);
         for (Pair<String, String> entry : subscriptions) {
             Connection connection = connectionManager.getConnection(entry.getLeft());

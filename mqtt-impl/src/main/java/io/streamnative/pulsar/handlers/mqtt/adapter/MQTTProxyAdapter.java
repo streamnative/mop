@@ -30,15 +30,19 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonInboundHandler;
+import io.streamnative.pulsar.handlers.mqtt.MQTTSubscriptionManager;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.net.InetSocketAddress;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
 
 /**
@@ -53,9 +57,11 @@ public class MQTTProxyAdapter {
     private final EventLoopGroup eventLoopGroup;
     private final ConcurrentMap<InetSocketAddress, Channel> channels;
     private final int workerThread = Runtime.getRuntime().availableProcessors();
+    private final MQTTSubscriptionManager mqttSubscriptionManager;
 
     public MQTTProxyAdapter(MQTTProxyService proxyService) {
         this.proxyService = proxyService;
+        this.mqttSubscriptionManager = proxyService.getSubscriptionManager();
         this.channels = new ConcurrentHashMap<>();
         this.bootstrap = new Bootstrap();
         this.eventLoopGroup = EventLoopUtil.newEventLoopGroup(workerThread, false, threadFactory);
@@ -143,12 +149,15 @@ public class MQTTProxyAdapter {
         public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
             checkArgument(message instanceof MqttAdapterMessage);
             MqttAdapterMessage adapterMsg = (MqttAdapterMessage) message;
-            MqttMessageType messageType = adapterMsg.getMqttMessage().fixedHeader().messageType();
             adapterMsg.setAdapter(false);
             String clientId = adapterMsg.getClientId();
             MqttMessage msg = adapterMsg.getMqttMessage();
             Connection connection = proxyService.getConnectionManager().getConnection(clientId);
             if (connection == null) {
+                if (MQTTCommonInboundHandler.NAME.equalsIgnoreCase(clientId) && MqttUtils.isRetainedMessage(msg)) {
+                    processRetainedMessage(adapterMsg);
+                    return;
+                }
                 log.warn("Not find matched connection : {}, adapterMsg : {}", clientId, adapterMsg);
                 return;
             }
@@ -156,6 +165,7 @@ public class MQTTProxyAdapter {
                     ((MQTTProxyProtocolMethodProcessor) connection.getProcessor());
             try {
                 checkState(msg);
+                MqttMessageType messageType = adapterMsg.getMqttMessage().fixedHeader().messageType();
                 if (log.isDebugEnabled()) {
                     log.debug("channelRead messageType {}", messageType);
                 }
@@ -196,6 +206,21 @@ public class MQTTProxyAdapter {
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             log.error("exception caught when connect with MoP broker.", cause);
             ctx.close();
+        }
+
+        public void processRetainedMessage(MqttAdapterMessage adapter) {
+            final MqttPublishMessage retainedMessage = (MqttPublishMessage) adapter.getMqttMessage();
+            List<Pair<String, String>> matchedTopic =
+                    mqttSubscriptionManager.findMatchedTopic(retainedMessage.variableHeader().topicName());
+            matchedTopic.forEach(p -> {
+                String clientId = p.getLeft();
+                Connection connection = proxyService.getConnectionManager().getConnection(clientId);
+                if (connection != null) {
+                    ((MQTTProxyProtocolMethodProcessor) connection.getProcessor()).getChannel().writeAndFlush(adapter);
+                } else {
+                    log.warn("Not found matched connection : {} to process retained message", clientId);
+                }
+            });
         }
     }
 }
