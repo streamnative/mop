@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.adapter;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.DEFAULT_CLIENT_ID;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -30,7 +31,6 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonInboundHandler;
 import io.streamnative.pulsar.handlers.mqtt.MQTTSubscriptionManager;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
@@ -154,7 +154,7 @@ public class MQTTProxyAdapter {
             MqttMessage msg = adapterMsg.getMqttMessage();
             Connection connection = proxyService.getConnectionManager().getConnection(clientId);
             if (connection == null) {
-                if (MQTTCommonInboundHandler.NAME.equalsIgnoreCase(clientId) && MqttUtils.isRetainedMessage(msg)) {
+                if (DEFAULT_CLIENT_ID.equalsIgnoreCase(clientId) && MqttUtils.isRetainedMessage(msg)) {
                     processRetainedMessage(adapterMsg);
                     return;
                 }
@@ -167,7 +167,7 @@ public class MQTTProxyAdapter {
                 checkState(msg);
                 MqttMessageType messageType = adapterMsg.getMqttMessage().fixedHeader().messageType();
                 if (log.isDebugEnabled()) {
-                    log.debug("channelRead messageType {}", messageType);
+                    log.debug("AdapterHandler read messageType : {}", messageType);
                 }
                 switch (messageType) {
                     case DISCONNECT:

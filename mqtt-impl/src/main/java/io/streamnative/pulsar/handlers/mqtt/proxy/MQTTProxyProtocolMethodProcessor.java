@@ -47,6 +47,7 @@ import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarTopicChangeListe
 import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.ConnectEvent;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -58,6 +59,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.Getter;
@@ -91,6 +93,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final PulsarEventCenter pulsarEventCenter;
     private final MQTTProxyAdapter proxyAdapter;
     private final MQTTSubscriptionManager subscriptionManager;
+    private final AtomicBoolean isDisconnected = new AtomicBoolean(false);
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
         super(proxyService.getAuthenticationService(),
@@ -204,22 +207,28 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
     @Override
     public void processDisconnect(final MqttAdapterMessage msg) {
-        String clientId = connection.getClientId();
-        if (log.isDebugEnabled()) {
-            log.debug("[Proxy Disconnect] [{}] ", clientId);
-        }
-        topicBrokers.values().forEach(adapterChannel -> {
-            adapterChannel.thenAccept(channel -> {
-                channel.writeAndFlush(clientId, msg.getMqttMessage());
+        if (isDisconnected.compareAndSet(false, true)) {
+            String clientId = connection.getClientId();
+            if (log.isDebugEnabled()) {
+                log.debug("[Proxy Disconnect] [{}] ", clientId);
+            }
+            topicBrokers.values().forEach(adapterChannel -> {
+                adapterChannel.thenAccept(channel -> {
+                    channel.writeAndFlush(clientId, msg.getMqttMessage());
+                });
             });
-        });
-        if (!MqttUtils.isMqtt5(connection.getProtocolVersion())) {
-            channel.close();
+        } else {
+            if (log.isDebugEnabled()) {
+                log.debug("Disconnect is already triggered, ignore");
+            }
         }
     }
 
     @Override
     public void processConnectionLost() {
+        // If client close the channel without calling disconnect, then we should call disconnect to notify broker
+        // to clean up the resource.
+        processDisconnect(new MqttAdapterMessage(MqttMessageUtils.createMqttDisconnectMessage()));
         if (connection != null) {
             if (log.isDebugEnabled()) {
                 log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());

@@ -24,7 +24,7 @@ import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
-import io.streamnative.pulsar.handlers.mqtt.support.DefaultProtocolMethodProcessorImpl;
+import io.streamnative.pulsar.handlers.mqtt.support.MQTTBrokerProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,13 +48,13 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object message) {
         checkArgument(message instanceof MqttAdapterMessage);
-        MqttAdapterMessage adapterMessage = (MqttAdapterMessage) message;
-        MqttMessage mqttMessage = adapterMessage.getMqttMessage();
-        ProtocolMethodProcessor processor = processors.computeIfAbsent(adapterMessage.getClientId(), key -> {
-            DefaultProtocolMethodProcessorImpl p = new DefaultProtocolMethodProcessorImpl(mqttService, ctx);
+        MqttAdapterMessage adapterMsg = (MqttAdapterMessage) message;
+        MqttMessage mqttMessage = adapterMsg.getMqttMessage();
+        ProtocolMethodProcessor processor = processors.computeIfAbsent(adapterMsg.getClientId(), key -> {
+            MQTTBrokerProtocolMethodProcessor p = new MQTTBrokerProtocolMethodProcessor(mqttService, ctx);
             CompletableFuture<Void> inactiveFuture = p.getInactiveFuture();
             inactiveFuture.whenComplete((id, ex) -> {
-                processors.remove(adapterMessage.getClientId());
+                processors.remove(adapterMsg.getClientId());
             });
             return p;
         });
@@ -62,40 +62,39 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
             checkState(mqttMessage);
             MqttMessageType messageType = mqttMessage.fixedHeader().messageType();
             if (log.isDebugEnabled()) {
-                log.debug("Processing MQTT Inbound handler message, type={}", messageType);
+                log.debug("Inbound handler read message : type={}, clientId : {} adapter : {}", messageType,
+                        adapterMsg.getClientId(), adapterMsg.isAdapter());
             }
-            MqttAdapterMessage finalMessage = adapterMessage != null
-                    ? adapterMessage : new MqttAdapterMessage(mqttMessage);
             switch (messageType) {
                 case CONNECT:
-                    processor.processConnect(finalMessage);
+                    processor.processConnect(adapterMsg);
                     break;
                 case SUBSCRIBE:
-                    processor.processSubscribe(finalMessage);
+                    processor.processSubscribe(adapterMsg);
                     break;
                 case UNSUBSCRIBE:
-                    processor.processUnSubscribe(finalMessage);
+                    processor.processUnSubscribe(adapterMsg);
                     break;
                 case PUBLISH:
-                    processor.processPublish(finalMessage);
+                    processor.processPublish(adapterMsg);
                     break;
                 case PUBREC:
-                    processor.processPubRec(finalMessage);
+                    processor.processPubRec(adapterMsg);
                     break;
                 case PUBCOMP:
-                    processor.processPubComp(finalMessage);
+                    processor.processPubComp(adapterMsg);
                     break;
                 case PUBREL:
-                    processor.processPubRel(finalMessage);
+                    processor.processPubRel(adapterMsg);
                     break;
                 case DISCONNECT:
-                    processor.processDisconnect(finalMessage);
+                    processor.processDisconnect(adapterMsg);
                     break;
                 case PUBACK:
-                    processor.processPubAck(finalMessage);
+                    processor.processPubAck(adapterMsg);
                     break;
                 case PINGREQ:
-                    processor.processPingReq(finalMessage);
+                    processor.processPingReq(adapterMsg);
                     break;
                 default:
                     throw new UnsupportedOperationException("Unknown MessageType: " + messageType);

@@ -130,4 +130,8 @@ public class MqttMessageUtils {
                 .messageId(-1)
                 .build();
     }
+
+    public static MqttMessage createMqttDisconnectMessage() {
+        return MessageBuilder.disconnect().build();
+    }
 }

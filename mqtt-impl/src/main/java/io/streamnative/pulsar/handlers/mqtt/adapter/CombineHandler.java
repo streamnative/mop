@@ -14,10 +14,10 @@
 package io.streamnative.pulsar.handlers.mqtt.adapter;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.DEFAULT_CLIENT_ID;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonInboundHandler;
 
 public class CombineHandler extends ChannelInboundHandlerAdapter {
 
@@ -26,7 +26,7 @@ public class CombineHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object message) {
         checkArgument(message instanceof MqttMessage);
-        MqttAdapterMessage adapterMsg = new MqttAdapterMessage(MQTTCommonInboundHandler.NAME, (MqttMessage) message);
+        MqttAdapterMessage adapterMsg = new MqttAdapterMessage(DEFAULT_CLIENT_ID, (MqttMessage) message);
         ctx.fireChannelRead(adapterMsg);
     }
 }

@@ -88,7 +88,7 @@ import org.apache.pulsar.common.util.FutureUtil;
  * Default implementation of protocol method processor.
  */
 @Slf4j
-public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMethodProcessor {
+public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMethodProcessor {
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
@@ -106,7 +106,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
     @Getter
     private final CompletableFuture<Void> inactiveFuture = new CompletableFuture<>();
 
-    public DefaultProtocolMethodProcessorImpl(MQTTService mqttService, ChannelHandlerContext ctx) {
+    public MQTTBrokerProtocolMethodProcessor(MQTTService mqttService, ChannelHandlerContext ctx) {
         super(mqttService.getAuthenticationService(),
                 mqttService.getServerConfiguration().isMqttAuthenticationEnabled(), ctx);
         this.pulsarService = mqttService.getPulsarService();
@@ -278,6 +278,7 @@ public class DefaultProtocolMethodProcessorImpl extends AbstractCommonProtocolMe
                                 + " the value is %s", newSessionExpireInterval))
                         .build();
                 connection.getAckHandler().sendDisconnectAck(connection, disconnectAck);
+                return;
             }
         }
         DisconnectAck disconnectAck = DisconnectAck

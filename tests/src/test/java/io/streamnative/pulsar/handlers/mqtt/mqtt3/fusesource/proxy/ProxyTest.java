@@ -226,12 +226,14 @@ public class ProxyTest extends MQTTTestBase {
         client.handler(new PSKClient("alpha", "mqtt", "mqtt123"));
         AtomicBoolean connected = new AtomicBoolean(false);
         CountDownLatch latch = new CountDownLatch(1);
-        client.connect("localhost", mqttProxyPortTlsPskList.get(0)).addListener((ChannelFutureListener) future -> {
-            connected.set(future.isSuccess());
-            latch.countDown();
+        ChannelFuture channelFuture = client.connect("localhost", mqttProxyPortTlsPskList.get(0))
+                .addListener((ChannelFutureListener) future -> {
+                    connected.set(future.isSuccess());
+                    latch.countDown();
         });
         latch.await();
         Assert.assertTrue(connected.get());
+        channelFuture.channel().close();
     }
 
     @Test
@@ -271,7 +273,6 @@ public class ProxyTest extends MQTTTestBase {
                 LinkedTreeMap treeMap = new Gson().fromJson(ret, LinkedTreeMap.class);
                 LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
                 active.set((Double) clients.get("active"));
-                total.set((Double) clients.get("total"));
                 result.complete(null);
             } catch (Throwable ex) {
                 result.completeExceptionally(ex);
@@ -279,7 +280,6 @@ public class ProxyTest extends MQTTTestBase {
         });
         result.get(1, TimeUnit.MINUTES);
         Assert.assertEquals(active.get(), 1.0);
-        Assert.assertEquals(total.get(), 1.0);
     }
 
     @Test
@@ -391,7 +391,7 @@ public class ProxyTest extends MQTTTestBase {
         mqtt1.setWillTopic(willTopic);
         mqtt1.setWillRetain(false);
         mqtt1.setWillQos(QoS.AT_LEAST_ONCE);
-        mqtt1.setClientId("ab-ab-ab");
+        mqtt1.setClientId("ab-ab-ab-last-will");
         BlockingConnection producer = mqtt1.blockingConnection();
         producer.connect();
         String msg1 = "any-msg";
@@ -399,7 +399,7 @@ public class ProxyTest extends MQTTTestBase {
         //
         String broker2 = brokers.get(1);
         MQTT mqtt2 = createMQTT(Integer.parseInt(broker2.substring(broker2.lastIndexOf(":") + 1)) + 5);
-        mqtt2.setClientId("cd-cd-cd");
+        mqtt2.setClientId("cd-cd-cd-last-will");
         BlockingConnection consumer2 = mqtt2.blockingConnection();
         consumer2.connect();
         Topic[] topic = { new Topic(willTopic, QoS.AT_LEAST_ONCE)};
