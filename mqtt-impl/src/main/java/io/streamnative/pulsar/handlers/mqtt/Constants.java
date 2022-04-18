@@ -18,6 +18,7 @@ package io.streamnative.pulsar.handlers.mqtt;
  */
 public final class Constants {
 
+    public static final String DEFAULT_CLIENT_ID = "__MoPInternalClientId";
     public static final String ATTR_CONNECTION = "Connection";
     public static final String ATTR_CLIENT_ADDR = "ClientAddr";
     public static final String AUTH_BASIC = "basic";

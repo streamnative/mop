@@ -56,7 +56,12 @@ public class MQTTSubscriptionManager {
         return duplicated;
     }
 
-    public List<Pair<String, String>> findMatchTopic(String topic) {
+    /**
+     *  Find the matched topic from the subscriptions.
+     * @param topic
+     * @return Pair with clientId, topicName.
+     */
+    public List<Pair<String, String>> findMatchedTopic(String topic) {
         List<Pair<String, String>> result = new ArrayList<>();
         Set<Map.Entry<String, List<MqttTopicSubscription>>> entries = subscriptions.entrySet();
         for (Map.Entry<String, List<MqttTopicSubscription>> entry : entries) {

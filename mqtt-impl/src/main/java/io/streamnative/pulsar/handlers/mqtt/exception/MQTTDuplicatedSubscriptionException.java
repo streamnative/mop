@@ -11,26 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt;
+package io.streamnative.pulsar.handlers.mqtt.exception;
 
-import io.netty.channel.ChannelHandler.Sharable;
-import io.netty.channel.ChannelHandlerContext;
-import lombok.extern.slf4j.Slf4j;
 /**
- * MQTT in bound handler.
+ * Mqtt duplicate subscription exception.
  */
-@Sharable
-@Slf4j
-public class MQTTInboundHandler extends MQTTCommonInboundHandler {
-
-    public static final String NAME = "handler";
-
-    public MQTTInboundHandler(MQTTService mqttService) {
-        super.mqttService = mqttService;
+public class MQTTDuplicatedSubscriptionException extends RuntimeException{
+    public MQTTDuplicatedSubscriptionException() {
     }
 
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        super.channelActive(ctx);
+    public MQTTDuplicatedSubscriptionException(String message) {
+        super(message);
     }
 }

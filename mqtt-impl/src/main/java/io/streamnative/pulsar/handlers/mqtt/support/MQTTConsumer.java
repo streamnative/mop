@@ -17,9 +17,11 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -60,14 +62,14 @@ public class MQTTConsumer extends Consumer {
             AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "addPermits");
     private volatile int addPermits = 0;
     private final ClientRestrictions clientRestrictions;
+    private final boolean isAdapter;
 
-    public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, String consumerName,
+    public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, Connection connection,
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
-                        OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector,
-                        ClientRestrictions clientRestrictions) {
-        super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, true, cnx,
-                "", null, false, CommandSubscribe.InitialPosition.Latest, null,
-                MessageId.latest, Commands.DEFAULT_CONSUMER_EPOCH);
+                        OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector) {
+        super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0,
+                connection.getClientId(), true, cnx, "", null, false,
+                CommandSubscribe.InitialPosition.Latest, null, MessageId.latest, Commands.DEFAULT_CONSUMER_EPOCH);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
         this.cnx = cnx;
@@ -75,7 +77,8 @@ public class MQTTConsumer extends Consumer {
         this.packetIdGenerator = packetIdGenerator;
         this.outstandingPacketContainer = outstandingPacketContainer;
         this.metricsCollector = metricsCollector;
-        this.clientRestrictions = clientRestrictions;
+        this.clientRestrictions = connection.getClientRestrictions();
+        this.isAdapter = connection.isAdapter();
     }
 
     @Override
@@ -100,7 +103,9 @@ public class MQTTConsumer extends Consumer {
                             mqttTopicName, super.getSubscription().getName(), msg);
                 }
                 metricsCollector.addReceived(msg.payload().readableBytes());
-                cnx.ctx().channel().write(msg);
+                MqttAdapterMessage adapterMessage = new MqttAdapterMessage(consumerName(), msg);
+                adapterMessage.setAdapter(isAdapter);
+                cnx.ctx().channel().write(adapterMessage);
             }
         }
         if (MqttQoS.AT_MOST_ONCE == qos) {

@@ -25,6 +25,7 @@ import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
@@ -74,9 +75,13 @@ public class Connection {
     private final ClientRestrictions clientRestrictions;
     @Getter
     private final ServerRestrictions serverRestrictions;
-    volatile ConnectionState connectionState = DISCONNECTED;
     @Getter
     private volatile int serverCurrentReceiveCounter = 0;
+    @Getter
+    private final ProtocolMethodProcessor processor;
+    @Getter
+    private final boolean adapter;
+    private volatile ConnectionState connectionState = DISCONNECTED;
     private final PulsarEventCenter eventCenter;
     private final List<PulsarEventListener> listeners;
 
@@ -98,11 +103,13 @@ public class Connection {
         this.channel = builder.channel;
         this.manager = builder.connectionManager;
         this.connectMessage = builder.connectMessage;
-        this.ackHandler = AckHandlerFactory.of(protocolVersion).getAckHandler();
+        this.ackHandler = AckHandlerFactory.newAckHandler(this);
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
         this.topicSubscriptionManager = new TopicSubscriptionManager();
         this.addIdleStateHandler();
         this.eventCenter = builder.eventCenter;
+        this.processor = builder.processor;
+        this.adapter = builder.adapter;
         this.listeners = Collections.synchronizedList(new ArrayList<>());
         this.manager.addConnection(this);
     }
@@ -117,41 +124,57 @@ public class Connection {
     }
 
     public ChannelFuture sendConnAck() {
-        return ackHandler.sendConnAck(this);
+        return ackHandler.sendConnAck();
     }
 
-    public ChannelFuture send(MqttMessage mqttMessage) {
+    public ChannelFuture send(MqttAdapterMessage adapterMessage) {
+        adapterMessage.setAdapter(isAdapter());
         if (!channel.isActive()) {
-            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
+            log.error("send mqttMessage : {} failed due to channel is inactive.", adapterMessage);
             return channel.newFailedFuture(channelInactiveException);
         }
-        return channel.writeAndFlush(mqttMessage).addListener(future -> {
+        return channel.writeAndFlush(adapterMessage).addListener(future -> {
             if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+                log.error("send mqttMessage : {} failed", adapterMessage, future.cause());
             }
         });
     }
 
-    public ChannelFuture sendThenClose(MqttMessage mqttMessage) {
+    public ChannelFuture sendThenClose(MqttAdapterMessage adapterMessage) {
+        adapterMessage.setAdapter(isAdapter());
         if (!channel.isActive()) {
-            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
+            log.error("send mqttMessage : {} failed due to channel is inactive.", adapterMessage);
             return channel.newFailedFuture(channelInactiveException);
         }
-        channel.writeAndFlush(mqttMessage).addListener(future -> {
+        ChannelFuture channelFuture = channel.writeAndFlush(adapterMessage).addListener(future -> {
             if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
+                log.error("send mqttMessage : {} failed", adapterMessage, future.cause());
             }
         });
-        return channel.close();
+        if (isAdapter()) {
+            disconnect();
+        } else {
+            channel.close();
+        }
+        return channelFuture;
     }
 
+    /**
+     * Broker send disconnect.
+     */
     public void disconnect() {
-        if (MqttUtils.isMqtt5(protocolVersion)) {
+        if (MqttUtils.isMqtt5(protocolVersion) || isAdapter()) {
             MqttMessage mqttMessage = MqttMessageBuilders
                     .disconnect()
                     .reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER.byteValue())
                     .build();
-            sendThenClose(mqttMessage);
+            MqttAdapterMessage adapterMsg = new MqttAdapterMessage(this.clientId, mqttMessage);
+            if (isAdapter()) {
+                send(adapterMsg);
+                processor.processConnectionLost();
+            } else {
+                sendThenClose(adapterMsg);
+            }
         } else {
             channel.close();
         }
@@ -279,6 +302,8 @@ public class Connection {
         private ClientRestrictions clientRestrictions;
         private ServerRestrictions serverRestrictions;
         private PulsarEventCenter eventCenter;
+        private ProtocolMethodProcessor processor;
+        private boolean adapter;
 
         public ConnectionBuilder protocolVersion(int protocolVersion) {
             this.protocolVersion = protocolVersion;
@@ -320,6 +345,11 @@ public class Connection {
             return this;
         }
 
+        public ConnectionBuilder processor(ProtocolMethodProcessor processor) {
+            this.processor = processor;
+            return this;
+        }
+
         public ConnectionBuilder connectMessage(MqttConnectMessage connectMessage) {
             this.connectMessage = connectMessage;
             return this;
@@ -327,6 +357,11 @@ public class Connection {
 
         public ConnectionBuilder eventCenter(PulsarEventCenter eventCenter) {
             this.eventCenter = eventCenter;
+            return this;
+        }
+
+        public ConnectionBuilder adapter(boolean isAdapter) {
+            this.adapter = isAdapter;
             return this;
         }
 

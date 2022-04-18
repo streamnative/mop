@@ -11,28 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.proxy;
+package io.streamnative.pulsar.handlers.mqtt.adapter;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.DEFAULT_CLIENT_ID;
 import io.netty.channel.ChannelHandlerContext;
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonInboundHandler;
-import lombok.extern.slf4j.Slf4j;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.codec.mqtt.MqttMessage;
 
-/**
- * Proxy handler.
- */
-@Slf4j
-public class MQTTProxyInboundHandler extends MQTTCommonInboundHandler {
+public class CombineHandler extends ChannelInboundHandlerAdapter {
 
-    private final MQTTProxyService proxyService;
-
-    public MQTTProxyInboundHandler(MQTTProxyService proxyService) {
-        this.proxyService = proxyService;
-    }
+    public static final String NAME = "combine-handler";
 
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        super.channelActive(ctx);
-        processors.put(DEFAULT_CLIENT_ID, new MQTTProxyProtocolMethodProcessor(proxyService, ctx));
+    public void channelRead(ChannelHandlerContext ctx, Object message) {
+        checkArgument(message instanceof MqttMessage);
+        MqttAdapterMessage adapterMsg = new MqttAdapterMessage(DEFAULT_CLIENT_ID, (MqttMessage) message);
+        ctx.fireChannelRead(adapterMsg);
     }
 }
