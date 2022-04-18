@@ -38,18 +38,24 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class AbstractAckHandler implements AckHandler {
 
-    abstract MqttMessage getConnAckMessage(Connection connection);
+    protected Connection connection;
 
-    abstract MqttMessage getSubscribeAckMessage(Connection connection, SubscribeAck subscribeAck);
+    public AbstractAckHandler(Connection connection) {
+        this.connection = connection;
+    }
 
-    abstract MqttMessage getUnsubscribeAckMessage(Connection connection, UnsubscribeAck unsubscribeAck);
+    abstract MqttMessage getConnAckMessage();
 
-    abstract MqttMessage getPublishAckMessage(Connection connection, PublishAck publishAck);
+    abstract MqttMessage getSubscribeAckMessage(SubscribeAck subscribeAck);
 
-    abstract MqttMessage getDisconnectAckMessage(Connection connection, DisconnectAck disconnectAck);
+    abstract MqttMessage getUnsubscribeAckMessage(UnsubscribeAck unsubscribeAck);
+
+    abstract MqttMessage getPublishAckMessage(PublishAck publishAck);
+
+    abstract MqttMessage getDisconnectAckMessage(DisconnectAck disconnectAck);
 
     @Override
-    public ChannelFuture sendConnAck(Connection connection) {
+    public ChannelFuture sendConnAck() {
         String clientId = connection.getClientId();
         if (!connection.assignState(DISCONNECTED, CONNECT_ACK)) {
             log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
@@ -62,7 +68,7 @@ public abstract class AbstractAckHandler implements AckHandler {
                         .build());
             return connection.sendThenClose(adapterMsg);
         }
-        MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), getConnAckMessage(connection));
+        MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), getConnAckMessage());
         return connection.send(adapterMsg)
                 .addListener(future -> {
                     if (future.isSuccess()) {
@@ -76,10 +82,10 @@ public abstract class AbstractAckHandler implements AckHandler {
     }
 
     @Override
-    public ChannelFuture sendSubscribeAck(Connection connection, SubscribeAck subscribeAck) {
+    public ChannelFuture sendSubscribeAck(SubscribeAck subscribeAck) {
         if (subscribeAck.isSuccess()){
             String clientId = connection.getClientId();
-            MqttMessage subAckMessage = getSubscribeAckMessage(connection, subscribeAck);
+            MqttMessage subAckMessage = getSubscribeAckMessage(subscribeAck);
             if (log.isDebugEnabled()) {
                 log.debug("Sending SUB-ACK message {} to {}", subAckMessage, clientId);
             }
@@ -97,10 +103,10 @@ public abstract class AbstractAckHandler implements AckHandler {
     }
 
     @Override
-    public ChannelFuture sendDisconnectAck(Connection connection, DisconnectAck disconnectAck) {
+    public ChannelFuture sendDisconnectAck(DisconnectAck disconnectAck) {
         if (MqttUtils.isMqtt5(connection.getProtocolVersion()) || connection.isAdapter()) {
             if (disconnectAck.isSuccess()) {
-                MqttMessage discAckMessage = getDisconnectAckMessage(connection, disconnectAck);
+                MqttMessage discAckMessage = getDisconnectAckMessage(disconnectAck);
                 MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), discAckMessage);
                 return connection.sendThenClose(adapterMsg);
             } else {
@@ -118,9 +124,9 @@ public abstract class AbstractAckHandler implements AckHandler {
     }
 
     @Override
-    public ChannelFuture sendPublishAck(Connection connection, PublishAck publishAck) {
+    public ChannelFuture sendPublishAck(PublishAck publishAck) {
         if (publishAck.isSuccess()) {
-            MqttMessage publishAckMessage = getPublishAckMessage(connection, publishAck);
+            MqttMessage publishAckMessage = getPublishAckMessage(publishAck);
             MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), publishAckMessage);
             return connection.send(adapterMsg);
         } else {
@@ -142,9 +148,9 @@ public abstract class AbstractAckHandler implements AckHandler {
     }
 
     @Override
-    public ChannelFuture sendUnsubscribeAck(Connection connection, UnsubscribeAck unsubscribeAck) {
+    public ChannelFuture sendUnsubscribeAck(UnsubscribeAck unsubscribeAck) {
         if (unsubscribeAck.isSuccess()) {
-            MqttMessage unsubscribeAckMessage = getUnsubscribeAckMessage(connection, unsubscribeAck);
+            MqttMessage unsubscribeAckMessage = getUnsubscribeAckMessage(unsubscribeAck);
             if (log.isDebugEnabled()) {
                 log.debug("Sending UNSUBACK message {} to {}", unsubscribeAck, connection.getClientId());
             }

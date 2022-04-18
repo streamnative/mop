@@ -35,8 +35,12 @@ import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessage
  */
 public class MqttV5AckHandler extends AbstractAckHandler {
 
+    public MqttV5AckHandler(Connection connection) {
+        super(connection);
+    }
+
     @Override
-    MqttMessage getConnAckMessage(Connection connection) {
+    MqttMessage getConnAckMessage() {
         MqttProperties properties = new MqttProperties();
         MqttProperties.IntegerProperty property =
                 new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
@@ -50,7 +54,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getSubscribeAckMessage(Connection connection, SubscribeAck subscribeAck) {
+    MqttMessage getSubscribeAckMessage(SubscribeAck subscribeAck) {
         // Now this section same to V3, but Mqtt V5 has another different feature that will be supported in the future.
         return MqttSubAckMessageHelper.builder()
                 .packetId(subscribeAck.getPacketId())
@@ -59,7 +63,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getUnsubscribeAckMessage(Connection connection, UnsubscribeAck unsubscribeAck) {
+    MqttMessage getUnsubscribeAckMessage(UnsubscribeAck unsubscribeAck) {
         return MqttUnsubAckMessageHelper.builder()
                 .packetId(unsubscribeAck.getPacketId())
                 // Because of MQTT protocol version 5 has non-error reason code - NO_SUBSCRIPTION_EXISTED
@@ -69,7 +73,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getDisconnectAckMessage(Connection connection, DisconnectAck disconnectAck) {
+    MqttMessage getDisconnectAckMessage(DisconnectAck disconnectAck) {
         // Now this section same to V3, but Mqtt V5 has another different feature that will be supported in the future.
         return MqttDisconnectAckMessageHelper.builder()
                 .reasonCode(disconnectAck.getReasonCode().byteValue())
@@ -77,7 +81,7 @@ public class MqttV5AckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getPublishAckMessage(Connection connection, PublishAck publishAck) {
+    MqttMessage getPublishAckMessage(PublishAck publishAck) {
         return MqttPubAckMessageHelper.builder()
                 .packetId(publishAck.getPacketId())
                 // Because of MQTT protocol version 5 has non-error reason code - NoMatchingSubscription

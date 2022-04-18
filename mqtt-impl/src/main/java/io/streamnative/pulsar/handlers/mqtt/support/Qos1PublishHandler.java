@@ -63,7 +63,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                             .packetId(packetId)
                             .build();
                     CompletableFuture<Void> publishAckFuture = new CompletableFuture<>();
-                    connection.getAckHandler().sendPublishAck(connection, publishAck)
+                    connection.getAckHandler().sendPublishAck(publishAck)
                             .addListener(result -> {
                                 if (result.isSuccess()) {
                                     // decrement server receive publish message counter
@@ -90,7 +90,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                                 .packetId(packetId)
                                 .reasonCode(Mqtt5PubReasonCode.NO_MATCHING_SUBSCRIBERS)
                                 .build();
-                        ackHandler.sendPublishAck(connection, noMatchingSubscribersAck)
+                        ackHandler.sendPublishAck(noMatchingSubscribersAck)
                                 .addListener(__ -> connection.decrementServerReceivePubMessage());
                     } else if (realCause instanceof BrokerServiceException.TopicNotFoundException) {
                         log.warn("Topic [{}] Not found, the configuration [isAllowAutoTopicCreation={}]",
@@ -101,7 +101,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                                 .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
                                 .reasonString("Topic not found")
                                 .build();
-                        ackHandler.sendPublishAck(connection, topicNotFoundAck);
+                        ackHandler.sendPublishAck(topicNotFoundAck);
                     } else {
                         log.error("[{}] Publish msg {} fail.", topic, msg, ex);
                         PublishAck unKnowErrorAck = PublishAck.builder()
@@ -110,7 +110,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                                 .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
                                 .reasonString(realCause.getMessage())
                                 .build();
-                        ackHandler.sendPublishAck(connection, unKnowErrorAck);
+                        ackHandler.sendPublishAck(unKnowErrorAck);
                     }
                     return null;
                 });

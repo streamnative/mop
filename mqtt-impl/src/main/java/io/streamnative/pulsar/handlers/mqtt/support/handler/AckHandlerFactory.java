@@ -13,35 +13,33 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.handler;
 
-import java.util.Arrays;
-import lombok.Getter;
+import com.google.common.collect.Sets;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Abstract ack handler.
  */
 @Slf4j
-public enum AckHandlerFactory {
+public class AckHandlerFactory {
 
-    ACK_HANDLER_V3_1(3, new MqttV3xAckHandler()),
+    private static final Set<Integer> PROTOCOLS = Sets.newHashSet(3, 4, 5);
 
-    ACK_HANDLER_V3_1_1(4, new MqttV3xAckHandler()),
-
-    ACK_HANDLER_V5(5, new MqttV5AckHandler());
-
-    @Getter
-    private int protocol;
-
-    @Getter
-    private AckHandler ackHandler;
-
-    AckHandlerFactory(int protocol, AckHandler ackHandler) {
-        this.protocol = protocol;
-        this.ackHandler = ackHandler;
-    }
-
-    public static AckHandlerFactory of(int protocol) {
-        return Arrays.stream(values()).filter(e -> e.protocol == protocol).findFirst()
-                .orElseThrow(() -> new UnsupportedOperationException("invalid protocol :" + protocol));
+    public static AckHandler newAckHandler(Connection connection) {
+        int protocol = connection.getProtocolVersion();
+        if (PROTOCOLS.contains(protocol)) {
+            switch (protocol) {
+                case 3:
+                case 4:
+                    return new MqttV3xAckHandler(connection);
+                case 5:
+                    return new MqttV5AckHandler(connection);
+                default:
+                    throw new UnsupportedOperationException("invalid protocol :" + protocol);
+            }
+        } else {
+            throw new UnsupportedOperationException("invalid protocol :" + protocol);
+        }
     }
 }

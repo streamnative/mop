@@ -161,7 +161,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             .reasonString(String.format("Failed to publish for topic, because of look up error %s",
                                     cause.getMessage()))
                             .build();
-                    connection.getAckHandler().sendPublishAck(connection, unspecifiedErrorAck)
+                    connection.getAckHandler().sendPublishAck(unspecifiedErrorAck)
                             .addListener(__ -> connection.decrementServerReceivePubMessage());
                     return null;
                 });
@@ -255,7 +255,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
                             .reasonStr("[ MOP ERROR ]" + realCause.getMessage())
                             .build();
-                    ackHandler.sendSubscribeAck(connection, subscribeAck)
+                    ackHandler.sendSubscribeAck(subscribeAck)
                             .addListener(__ -> subscribeTopicsCount.remove(packetId));
                     return null;
                 });
@@ -326,7 +326,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                                         .map(MqttTopicSubscription::qualityOfService)
                                         .collect(Collectors.toSet())))
                                 .build();
-                        connection.getAckHandler().sendSubscribeAck(connection, subscribeAck);
+                        connection.getAckHandler().sendSubscribeAck(subscribeAck);
                         return CompletableFuture.completedFuture(null);
                     }
                     List<CompletableFuture<Void>> subscribeFutures = topics.stream()

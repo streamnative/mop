@@ -103,7 +103,7 @@ public class Connection {
         this.channel = builder.channel;
         this.manager = builder.connectionManager;
         this.connectMessage = builder.connectMessage;
-        this.ackHandler = AckHandlerFactory.of(protocolVersion).getAckHandler();
+        this.ackHandler = AckHandlerFactory.newAckHandler(this);
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
         this.topicSubscriptionManager = new TopicSubscriptionManager();
         this.addIdleStateHandler();
@@ -124,7 +124,7 @@ public class Connection {
     }
 
     public ChannelFuture sendConnAck() {
-        return ackHandler.sendConnAck(this);
+        return ackHandler.sendConnAck();
     }
 
     public ChannelFuture send(MqttAdapterMessage adapterMessage) {
