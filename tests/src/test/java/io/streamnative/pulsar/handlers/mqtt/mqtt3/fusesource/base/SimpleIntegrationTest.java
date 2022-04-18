@@ -171,7 +171,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         }
 
         for (int i = 0; i < numMessages; i++) {
-            Message received = connection.receive(300, TimeUnit.MILLISECONDS);
+            Message received = connection.receive();
             if (received != null) {
                 Assert.assertEquals(new String(received.getPayload()), (message + i));
             }
@@ -211,7 +211,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
     @Test(timeOut = TIMEOUT)
     public void testBacklogShouldBeZeroWithQos0AndSendByPulsar() throws Exception {
-        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0AndSendByPulsar-";
+        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0AndSendByPulsar";
         MQTT mqtt = createMQTTClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
@@ -274,7 +274,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
     @Test(timeOut = TIMEOUT)
     public void testSubscribeRejectionWithSameClientId() throws Exception {
-        final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
+        final String topicName = "persistent://public/default/testSubscribeRejectionWithSameClientId";
         MQTT mqtt = createMQTTClient();
         mqtt.setClientId("client-id-0");
         mqtt.setReconnectDelay(Integer.MAX_VALUE);
