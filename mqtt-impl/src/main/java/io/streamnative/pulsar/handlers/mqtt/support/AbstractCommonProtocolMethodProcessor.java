@@ -126,8 +126,8 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
             clientRestrictionsBuilder
                     .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
                     .cleanSession(msg.variableHeader().isCleanSession());
-            doProcessConnect(adapter.isAdapter() ? adapter : new MqttAdapterMessage(clientId, connectMessage), userRole,
-                    clientRestrictionsBuilder.build());
+            adapter.setMqttMessage(connectMessage);
+            doProcessConnect(adapter, userRole, clientRestrictionsBuilder.build());
         } catch (InvalidReceiveMaximumException invalidReceiveMaximumException) {
             log.error("[CONNECT] Fail to parse receive maximum because of zero value, CId={}", clientId);
             MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().protocolError(protocolVersion);

@@ -128,6 +128,7 @@ public class Connection {
     }
 
     public ChannelFuture send(MqttAdapterMessage adapterMessage) {
+        adapterMessage.setAdapter(isAdapter());
         if (!channel.isActive()) {
             log.error("send mqttMessage : {} failed due to channel is inactive.", adapterMessage);
             return channel.newFailedFuture(channelInactiveException);
@@ -140,6 +141,7 @@ public class Connection {
     }
 
     public ChannelFuture sendThenClose(MqttAdapterMessage adapterMessage) {
+        adapterMessage.setAdapter(isAdapter());
         if (!channel.isActive()) {
             log.error("send mqttMessage : {} failed due to channel is inactive.", adapterMessage);
             return channel.newFailedFuture(channelInactiveException);
@@ -167,7 +169,6 @@ public class Connection {
                     .reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER.byteValue())
                     .build();
             MqttAdapterMessage adapterMsg = new MqttAdapterMessage(this.clientId, mqttMessage);
-            adapterMsg.setAdapter(isAdapter());
             if (isAdapter()) {
                 send(adapterMsg);
                 processor.processConnectionLost();

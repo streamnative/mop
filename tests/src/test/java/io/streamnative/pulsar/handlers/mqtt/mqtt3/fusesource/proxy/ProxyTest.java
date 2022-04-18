@@ -104,13 +104,13 @@ public class ProxyTest extends MQTTTestBase {
 
         int count = 0;
         for (int i = 0; i < numMessages; i++) {
-            Message received = connection.receive(300, TimeUnit.MILLISECONDS);
+            Message received = connection.receive();
             if (received != null) {
+                Assert.assertEquals(message + i, new String(received.getPayload()));
                 count++;
             }
         }
-        // TODO
-        Assert.assertTrue(count <= numMessages);
+        Assert.assertEquals(count, numMessages);
 
         Assert.assertEquals(admin.topics().getStats(topicName).getSubscriptions().size(), 1);
         Assert.assertEquals(admin.topics().getStats(topicName)
@@ -447,7 +447,7 @@ public class ProxyTest extends MQTTTestBase {
         consumer2.connect();
         Topic[] topic = { new Topic(retainedTopic, QoS.AT_LEAST_ONCE)};
         consumer2.subscribe(topic);
-        Message rev2 = consumer2.receive(10, TimeUnit.SECONDS);
+        Message rev2 = consumer2.receive();
         Assert.assertNotNull(rev2);
         Assert.assertEquals(new String(rev2.getPayload()), retainedMessage);
         consumer2.disconnect();

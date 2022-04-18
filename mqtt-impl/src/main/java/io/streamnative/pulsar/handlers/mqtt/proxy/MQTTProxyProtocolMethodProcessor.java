@@ -28,12 +28,10 @@ import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
-import io.streamnative.pulsar.handlers.mqtt.MQTTSubscriptionManager;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.AdapterChannel;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
-import io.streamnative.pulsar.handlers.mqtt.exception.MQTTDuplicatedSubscriptionException;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
@@ -92,7 +90,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final SystemEventService eventService;
     private final PulsarEventCenter pulsarEventCenter;
     private final MQTTProxyAdapter proxyAdapter;
-    private final MQTTSubscriptionManager subscriptionManager;
     private final AtomicBoolean isDisconnected = new AtomicBoolean(false);
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
@@ -109,7 +106,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.packetIdTopic = new ConcurrentHashMap<>();
         this.pulsarEventCenter = proxyService.getEventCenter();
         this.proxyAdapter = proxyService.getProxyAdapter();
-        this.subscriptionManager = proxyService.getSubscriptionManager();
     }
 
     @Override
@@ -234,7 +230,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
             }
             connectionManager.removeConnection(connection);
-            subscriptionManager.removeSubscription(connection.getClientId());
         }
         topicBrokers.clear();
     }
@@ -248,8 +243,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
-        checkDuplicateSubscribe(msg)
-                .thenCompose(__ -> doSubscribe(msg, true))
+        doSubscribe(msg, true)
                 .thenAccept(__ -> registerTopicListener(msg))
                 .exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
@@ -265,16 +259,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             .addListener(__ -> subscribeTopicsCount.remove(packetId));
                     return null;
                 });
-    }
-
-    private CompletableFuture<Void> checkDuplicateSubscribe(MqttSubscribeMessage msg) {
-        List<MqttTopicSubscription> mqttTopicSubscriptions = msg.payload().topicSubscriptions();
-        boolean duplicate = this.subscriptionManager.addSubscriptions(connection.getClientId(), mqttTopicSubscriptions);
-        if (duplicate) {
-            return FutureUtil.failedFuture(new MQTTDuplicatedSubscriptionException("Duplicated subscribe"));
-        } else {
-            return CompletableFuture.completedFuture(null);
-        }
     }
 
     private void registerTopicListener(MqttSubscribeMessage msg) {

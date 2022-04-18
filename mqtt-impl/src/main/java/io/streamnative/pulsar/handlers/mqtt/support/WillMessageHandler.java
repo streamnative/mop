@@ -68,7 +68,6 @@ public class WillMessageHandler {
             Connection connection = connectionManager.getConnection(entry.getLeft());
             if (connection != null) {
                 MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), msg);
-                adapterMsg.setAdapter(connection.isAdapter());
                 connection.send(adapterMsg);
             } else {
                 log.warn("Not find connection for empty : {}", entry.getLeft());

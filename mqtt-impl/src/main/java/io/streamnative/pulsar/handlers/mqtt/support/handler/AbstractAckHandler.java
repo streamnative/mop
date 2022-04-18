@@ -60,11 +60,9 @@ public abstract class AbstractAckHandler implements AckHandler {
                         .reasonString(String.format("Unable to assign the server state from : %s to : %s",
                             DISCONNECTED, CONNECT_ACK))
                         .build());
-            adapterMsg.setAdapter(connection.isAdapter());
             return connection.sendThenClose(adapterMsg);
         }
         MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), getConnAckMessage(connection));
-        adapterMsg.setAdapter(connection.isAdapter());
         return connection.send(adapterMsg)
                 .addListener(future -> {
                     if (future.isSuccess()) {
@@ -86,7 +84,6 @@ public abstract class AbstractAckHandler implements AckHandler {
                 log.debug("Sending SUB-ACK message {} to {}", subAckMessage, clientId);
             }
             MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), subAckMessage);
-            adapterMsg.setAdapter(connection.isAdapter());
             return connection.send(adapterMsg);
         } else {
             MqttMessage subErrorAck = errorBuilder(connection.getProtocolVersion())
@@ -95,7 +92,6 @@ public abstract class AbstractAckHandler implements AckHandler {
                     .reasonString(subscribeAck.getReasonStr())
                     .build();
             MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), subErrorAck);
-            adapterMsg.setAdapter(connection.isAdapter());
             return connection.sendThenClose(adapterMsg);
         }
     }
@@ -106,7 +102,6 @@ public abstract class AbstractAckHandler implements AckHandler {
             if (disconnectAck.isSuccess()) {
                 MqttMessage discAckMessage = getDisconnectAckMessage(connection, disconnectAck);
                 MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), discAckMessage);
-                adapterMsg.setAdapter(connection.isAdapter());
                 return connection.sendThenClose(adapterMsg);
             } else {
                 MqttMessage disErrorAck =
@@ -115,7 +110,6 @@ public abstract class AbstractAckHandler implements AckHandler {
                                 .reasonString(disconnectAck.getReasonString())
                                 .build();
                 MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), disErrorAck);
-                adapterMsg.setAdapter(connection.isAdapter());
                 return connection.sendThenClose(adapterMsg);
             }
         } else {
@@ -128,7 +122,6 @@ public abstract class AbstractAckHandler implements AckHandler {
         if (publishAck.isSuccess()) {
             MqttMessage publishAckMessage = getPublishAckMessage(connection, publishAck);
             MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), publishAckMessage);
-            adapterMsg.setAdapter(connection.isAdapter());
             return connection.send(adapterMsg);
         } else {
             if (MqttUtils.isMqtt5(connection.getProtocolVersion()) || connection.isAdapter()) {
@@ -140,7 +133,6 @@ public abstract class AbstractAckHandler implements AckHandler {
                         .reasonString(publishAck.getReasonString())
                         .build();
                 MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), pubErrorAck);
-                adapterMsg.setAdapter(connection.isAdapter());
                 return connection.sendThenClose(adapterMsg);
             } else {
                 // mqtt 3.x do not have any ack.
@@ -157,7 +149,6 @@ public abstract class AbstractAckHandler implements AckHandler {
                 log.debug("Sending UNSUBACK message {} to {}", unsubscribeAck, connection.getClientId());
             }
             MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), unsubscribeAckMessage);
-            adapterMsg.setAdapter(connection.isAdapter());
             return connection.send(adapterMsg);
         } else {
             if (MqttUtils.isMqtt5(connection.getProtocolVersion()) || connection.isAdapter()) {
@@ -168,7 +159,6 @@ public abstract class AbstractAckHandler implements AckHandler {
                         .reasonString(unsubscribeAck.getReasonString())
                         .build();
                 MqttAdapterMessage adapterMsg = new MqttAdapterMessage(connection.getClientId(), unsubscribeErrorAck);
-                adapterMsg.setAdapter(connection.isAdapter());
                 return connection.sendThenClose(adapterMsg);
             } else {
                 // mqtt 3.x do not have unsubscribe ack.

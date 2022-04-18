@@ -315,7 +315,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
 
     @Override
     public void processPingReq(MqttAdapterMessage adapter) {
-        connection.send(new MqttAdapterMessage(adapter.getClientId(), pingResp()));
+        connection.send(new MqttAdapterMessage(connection.getClientId(), pingResp()));
     }
 
     @Override
@@ -423,9 +423,9 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                             .collect(Collectors.toList()))
                     .build();
             ackHandler.sendSubscribeAck(connection, subscribeAck).addListener(listener -> {
-                finalRetainedTopic.map(topic ->
-                    connection.send(new MqttAdapterMessage(MqttMessageUtils
-                            .createRetainedMessage(retainedMessageHandler.getRetainedMessage(topic)))));
+                finalRetainedTopic.map(topic -> connection.send(
+                        new MqttAdapterMessage(connection.getClientId(), MqttMessageUtils
+                                            .createRetainedMessage(retainedMessageHandler.getRetainedMessage(topic)))));
             });
         }).exceptionally(ex -> {
             Throwable realCause = FutureUtil.unwrapCompletionException(ex);

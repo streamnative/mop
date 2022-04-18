@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.adapter;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import lombok.Getter;
 import lombok.Setter;
@@ -33,6 +34,10 @@ public class MqttAdapterMessage {
     @Getter
     @Setter
     private boolean isAdapter;
+
+    @Getter
+    @Setter
+    private ByteBuf byteBuf;
 
     public MqttAdapterMessage(MqttMessage mqttMessage) {
         this(DEFAULT_VERSION, "", mqttMessage);

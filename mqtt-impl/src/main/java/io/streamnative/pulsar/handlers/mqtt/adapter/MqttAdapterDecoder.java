@@ -36,9 +36,9 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-        in.markReaderIndex();
         switch (state()) {
             case MAGIC:
+                in.markReaderIndex();
                 if (!isAdapter(in.readByte())) {
                     in.resetReaderIndex();
                     ctx.pipeline().addAfter("mqtt-decoder", CombineHandler.NAME, new CombineHandler());
@@ -69,6 +69,7 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
                 ByteBuf mqttBuf = in.readBytes(header.getBodyLength());
                 MqttAdapterMessage adapterMsg = new MqttAdapterMessage(header.version, header.clientId);
                 adapterMsg.setAdapter(true);
+                adapterMsg.setByteBuf(mqttBuf);
                 out.add(adapterMsg);
                 out.add(mqttBuf);
                 checkpoint(State.MAGIC);
