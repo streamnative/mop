@@ -33,8 +33,12 @@ import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttUnsubAckMessage
  */
 public class MqttV3xAckHandler extends AbstractAckHandler {
 
+    public MqttV3xAckHandler(Connection connection) {
+        super(connection);
+    }
+
     @Override
-    MqttMessage getConnAckMessage(Connection connection) {
+    MqttMessage getConnAckMessage() {
         return MqttConnectAckHelper.builder()
                 .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.convertToNettyKlass())
                 .sessionPresent(!connection.getClientRestrictions().isCleanSession())
@@ -42,7 +46,7 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getSubscribeAckMessage(Connection connection, SubscribeAck subscribeAck) {
+    MqttMessage getSubscribeAckMessage(SubscribeAck subscribeAck) {
         return MqttSubAckMessageHelper.builder()
                 .packetId(subscribeAck.getPacketId())
                 .addGrantedQoses(subscribeAck.getGrantedQoses().toArray(new MqttQoS[]{}))
@@ -50,14 +54,14 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getUnsubscribeAckMessage(Connection connection, UnsubscribeAck unsubscribeAck) {
+    MqttMessage getUnsubscribeAckMessage(UnsubscribeAck unsubscribeAck) {
         return MqttUnsubAckMessageHelper.builder()
                 .packetId(unsubscribeAck.getPacketId())
                 .build();
     }
 
     @Override
-    MqttMessage getDisconnectAckMessage(Connection connection, DisconnectAck disconnectAck) {
+    MqttMessage getDisconnectAckMessage(DisconnectAck disconnectAck) {
         return MqttDisconnectAckMessageHelper
                 .builder()
                 .reasonCode(MqttConnectReturnCode.CONNECTION_ACCEPTED.byteValue())
@@ -65,7 +69,7 @@ public class MqttV3xAckHandler extends AbstractAckHandler {
     }
 
     @Override
-    MqttMessage getPublishAckMessage(Connection connection, PublishAck publishAck) {
+    MqttMessage getPublishAckMessage(PublishAck publishAck) {
         return MqttPubAckMessageHelper.builder()
                 .packetId(publishAck.getPacketId())
                 .reasonCode(MqttConnectReturnCode.CONNECTION_ACCEPTED.byteValue())

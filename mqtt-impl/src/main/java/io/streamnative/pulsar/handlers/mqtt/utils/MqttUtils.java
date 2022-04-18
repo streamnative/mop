@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttVersion;
@@ -54,6 +55,10 @@ public class MqttUtils {
 
     public static boolean isRetainedMessage(MqttPublishMessage msg) {
         return msg.fixedHeader().isRetain();
+    }
+
+    public static boolean isRetainedMessage(MqttMessage msg) {
+        return msg != null && msg instanceof MqttPublishMessage && msg.fixedHeader().isRetain();
     }
 
     public static boolean isRegexFilter(String topicFilter) {

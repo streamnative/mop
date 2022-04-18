@@ -341,7 +341,7 @@ page at http://checkstyle.sourceforge.net/config.html -->
             -->
             <property name="reliefPattern"
                       value="fall through|Fall through|fallthru|Fallthru|falls through|Falls through|fallthrough|Fallthrough|No break|NO break|no break|continue on"/>
-            <property name="severity" value="error"/>
+            <property name="severity" value="warning"/>
         </module>
 
         <!-- Checks for over-complicated boolean expressions. -->

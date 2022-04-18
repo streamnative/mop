@@ -88,6 +88,36 @@ public class ProxyTest extends MQTTTestBase {
         return mqtt;
     }
 
+    @Test(timeOut = TIMEOUT)
+    public void testBacklogShouldBeZeroWithQos0() throws Exception {
+        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0";
+        MQTT mqtt = createMQTTProxyClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        int numMessages = 10000;
+        for (int i = 0; i < numMessages; i++) {
+            connection.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
+        }
+
+        int count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received = connection.receive();
+            if (received != null) {
+                Assert.assertEquals(message + i, new String(received.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
+
+        Assert.assertEquals(admin.topics().getStats(topicName).getSubscriptions().size(), 1);
+        Assert.assertEquals(admin.topics().getStats(topicName)
+                .getSubscriptions().entrySet().iterator().next().getValue().getMsgBacklog(), 0);
+        connection.disconnect();
+    }
+
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT, priority = 4)
     public void testSendAndConsume(String topicName) throws Exception {
         MQTT mqtt = createMQTTProxyClient();
@@ -196,12 +226,14 @@ public class ProxyTest extends MQTTTestBase {
         client.handler(new PSKClient("alpha", "mqtt", "mqtt123"));
         AtomicBoolean connected = new AtomicBoolean(false);
         CountDownLatch latch = new CountDownLatch(1);
-        client.connect("localhost", mqttProxyPortTlsPskList.get(0)).addListener((ChannelFutureListener) future -> {
-            connected.set(future.isSuccess());
-            latch.countDown();
+        ChannelFuture channelFuture = client.connect("localhost", mqttProxyPortTlsPskList.get(0))
+                .addListener((ChannelFutureListener) future -> {
+                    connected.set(future.isSuccess());
+                    latch.countDown();
         });
         latch.await();
         Assert.assertTrue(connected.get());
+        channelFuture.channel().close();
     }
 
     @Test
@@ -241,7 +273,6 @@ public class ProxyTest extends MQTTTestBase {
                 LinkedTreeMap treeMap = new Gson().fromJson(ret, LinkedTreeMap.class);
                 LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
                 active.set((Double) clients.get("active"));
-                total.set((Double) clients.get("total"));
                 result.complete(null);
             } catch (Throwable ex) {
                 result.completeExceptionally(ex);
@@ -249,7 +280,6 @@ public class ProxyTest extends MQTTTestBase {
         });
         result.get(1, TimeUnit.MINUTES);
         Assert.assertEquals(active.get(), 1.0);
-        Assert.assertEquals(total.get(), 1.0);
     }
 
     @Test
@@ -361,7 +391,7 @@ public class ProxyTest extends MQTTTestBase {
         mqtt1.setWillTopic(willTopic);
         mqtt1.setWillRetain(false);
         mqtt1.setWillQos(QoS.AT_LEAST_ONCE);
-        mqtt1.setClientId("ab-ab-ab");
+        mqtt1.setClientId("ab-ab-ab-last-will");
         BlockingConnection producer = mqtt1.blockingConnection();
         producer.connect();
         String msg1 = "any-msg";
@@ -369,7 +399,7 @@ public class ProxyTest extends MQTTTestBase {
         //
         String broker2 = brokers.get(1);
         MQTT mqtt2 = createMQTT(Integer.parseInt(broker2.substring(broker2.lastIndexOf(":") + 1)) + 5);
-        mqtt2.setClientId("cd-cd-cd");
+        mqtt2.setClientId("cd-cd-cd-last-will");
         BlockingConnection consumer2 = mqtt2.blockingConnection();
         consumer2.connect();
         Topic[] topic = { new Topic(willTopic, QoS.AT_LEAST_ONCE)};
@@ -417,7 +447,7 @@ public class ProxyTest extends MQTTTestBase {
         consumer2.connect();
         Topic[] topic = { new Topic(retainedTopic, QoS.AT_LEAST_ONCE)};
         consumer2.subscribe(topic);
-        Message rev2 = consumer2.receive(10, TimeUnit.SECONDS);
+        Message rev2 = consumer2.receive();
         Assert.assertNotNull(rev2);
         Assert.assertEquals(new String(rev2.getPayload()), retainedMessage);
         consumer2.disconnect();
@@ -459,5 +489,63 @@ public class ProxyTest extends MQTTTestBase {
         latch.await();
         Assert.assertTrue(connected.get());
         cf.channel().close();
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testSendConsumeFromDifferentProxy() throws Exception {
+        final String topicName = "persistent://public/default/testSendConsumeFromDifferentProxy";
+        MQTT mqtt1 = new MQTT();
+        mqtt1.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection1 = mqtt1.blockingConnection();
+        connection1.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection1.subscribe(topics);
+
+        MQTT mqtt2 = new MQTT();
+        mqtt2.setHost("127.0.0.1", mqttProxyPortList.get(1));
+        BlockingConnection connection2 = mqtt2.blockingConnection();
+        connection2.connect();
+        connection2.subscribe(topics);
+
+        MQTT mqtt3 = new MQTT();
+        mqtt3.setHost("127.0.0.1", mqttProxyPortList.get(2));
+        BlockingConnection connection3 = mqtt3.blockingConnection();
+        connection3.connect();
+        connection3.subscribe(topics);
+
+        String message = "Hello MQTT";
+        int numMessages = 10000;
+
+        for (int i = 0; i < numMessages; i++) {
+            connection1.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
+        }
+
+        int count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received1 = connection1.receive();
+            if (received1 != null) {
+                Assert.assertEquals(message + i, new String(received1.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
+        count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received2 = connection2.receive();
+            if (received2 != null) {
+                Assert.assertEquals(message + i, new String(received2.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
+        count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received3 = connection3.receive();
+            if (received3 != null) {
+                Assert.assertEquals(message + i, new String(received3.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
     }
 }

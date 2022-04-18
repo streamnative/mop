@@ -14,22 +14,21 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
-import io.netty.handler.codec.mqtt.MqttPubAckMessage;
-import io.netty.handler.codec.mqtt.MqttPublishMessage;
-import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
-import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.support.MQTTBrokerProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -39,60 +38,69 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
 
-    protected ProtocolMethodProcessor processor;
+    public static final String NAME = "InboundHandler";
+
+    @Setter
+    protected MQTTService mqttService;
+
+    protected final ConcurrentHashMap<String, ProtocolMethodProcessor> processors = new ConcurrentHashMap<>();
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object message) {
-        checkArgument(message instanceof MqttMessage);
-        checkNotNull(processor);
-        MqttMessage msg = (MqttMessage) message;
+        checkArgument(message instanceof MqttAdapterMessage);
+        MqttAdapterMessage adapterMsg = (MqttAdapterMessage) message;
+        MqttMessage mqttMessage = adapterMsg.getMqttMessage();
+        ProtocolMethodProcessor processor = processors.computeIfAbsent(adapterMsg.getClientId(), key -> {
+            MQTTBrokerProtocolMethodProcessor p = new MQTTBrokerProtocolMethodProcessor(mqttService, ctx);
+            CompletableFuture<Void> inactiveFuture = p.getInactiveFuture();
+            inactiveFuture.whenComplete((id, ex) -> {
+                processors.remove(adapterMsg.getClientId());
+            });
+            return p;
+        });
         try {
-            checkState(msg);
-            MqttMessageType messageType = msg.fixedHeader().messageType();
+            checkState(mqttMessage);
+            MqttMessageType messageType = mqttMessage.fixedHeader().messageType();
             if (log.isDebugEnabled()) {
-                log.debug("Processing MQTT Inbound handler message, type={}", messageType);
+                log.debug("Inbound handler read message : type={}, clientId : {} adapter : {}", messageType,
+                        adapterMsg.getClientId(), adapterMsg.isAdapter());
             }
             switch (messageType) {
                 case CONNECT:
-                    checkArgument(msg instanceof MqttConnectMessage);
-                    processor.processConnect((MqttConnectMessage) msg);
+                    processor.processConnect(adapterMsg);
                     break;
                 case SUBSCRIBE:
-                    checkArgument(msg instanceof MqttSubscribeMessage);
-                    processor.processSubscribe((MqttSubscribeMessage) msg);
+                    processor.processSubscribe(adapterMsg);
                     break;
                 case UNSUBSCRIBE:
-                    checkArgument(msg instanceof MqttUnsubscribeMessage);
-                    processor.processUnSubscribe((MqttUnsubscribeMessage) msg);
+                    processor.processUnSubscribe(adapterMsg);
                     break;
                 case PUBLISH:
-                    checkArgument(msg instanceof MqttPublishMessage);
-                    processor.processPublish((MqttPublishMessage) msg);
+                    processor.processPublish(adapterMsg);
                     break;
                 case PUBREC:
-                    processor.processPubRec(msg);
+                    processor.processPubRec(adapterMsg);
                     break;
                 case PUBCOMP:
-                    processor.processPubComp(msg);
+                    processor.processPubComp(adapterMsg);
                     break;
                 case PUBREL:
-                    processor.processPubRel(msg);
+                    processor.processPubRel(adapterMsg);
                     break;
                 case DISCONNECT:
-                    processor.processDisconnect(msg);
+                    processor.processDisconnect(adapterMsg);
                     break;
                 case PUBACK:
-                    checkArgument(msg instanceof MqttPubAckMessage);
-                    processor.processPubAck((MqttPubAckMessage) msg);
+                    processor.processPubAck(adapterMsg);
                     break;
                 case PINGREQ:
-                    processor.processPingReq();
+                    processor.processPingReq(adapterMsg);
                     break;
                 default:
                     throw new UnsupportedOperationException("Unknown MessageType: " + messageType);
             }
         } catch (Throwable ex) {
-            ReferenceCountUtil.safeRelease(msg);
+            ReferenceCountUtil.safeRelease(mqttMessage);
             log.error("Exception was caught while processing MQTT message, ", ex);
             ctx.close();
         }
@@ -105,7 +113,7 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        processor.processConnectionLost();
+        processors.values().forEach(ProtocolMethodProcessor::processConnectionLost);
     }
 
     @Override
