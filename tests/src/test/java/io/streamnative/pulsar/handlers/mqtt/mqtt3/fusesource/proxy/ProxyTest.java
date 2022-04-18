@@ -97,7 +97,7 @@ public class ProxyTest extends MQTTTestBase {
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
         connection.subscribe(topics);
         String message = "Hello MQTT";
-        int numMessages = 1000;
+        int numMessages = 10000;
         for (int i = 0; i < numMessages; i++) {
             connection.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
         }
@@ -489,5 +489,63 @@ public class ProxyTest extends MQTTTestBase {
         latch.await();
         Assert.assertTrue(connected.get());
         cf.channel().close();
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testSendConsumeFromDifferentProxy() throws Exception {
+        final String topicName = "persistent://public/default/testSendConsumeFromDifferentProxy";
+        MQTT mqtt1 = new MQTT();
+        mqtt1.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection1 = mqtt1.blockingConnection();
+        connection1.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection1.subscribe(topics);
+
+        MQTT mqtt2 = new MQTT();
+        mqtt2.setHost("127.0.0.1", mqttProxyPortList.get(1));
+        BlockingConnection connection2 = mqtt2.blockingConnection();
+        connection2.connect();
+        connection2.subscribe(topics);
+
+        MQTT mqtt3 = new MQTT();
+        mqtt3.setHost("127.0.0.1", mqttProxyPortList.get(2));
+        BlockingConnection connection3 = mqtt3.blockingConnection();
+        connection3.connect();
+        connection3.subscribe(topics);
+
+        String message = "Hello MQTT";
+        int numMessages = 10000;
+
+        for (int i = 0; i < numMessages; i++) {
+            connection1.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
+        }
+
+        int count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received1 = connection1.receive();
+            if (received1 != null) {
+                Assert.assertEquals(message + i, new String(received1.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
+        count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received2 = connection2.receive();
+            if (received2 != null) {
+                Assert.assertEquals(message + i, new String(received2.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
+        count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received3 = connection3.receive();
+            if (received3 != null) {
+                Assert.assertEquals(message + i, new String(received3.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
     }
 }
