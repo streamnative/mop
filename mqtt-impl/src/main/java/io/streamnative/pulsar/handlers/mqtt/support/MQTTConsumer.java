@@ -62,7 +62,7 @@ public class MQTTConsumer extends Consumer {
             AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "addPermits");
     private volatile int addPermits = 0;
     private final ClientRestrictions clientRestrictions;
-    private final boolean isAdapter;
+    private final Connection connection;
 
     public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, Connection connection,
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
@@ -78,7 +78,7 @@ public class MQTTConsumer extends Consumer {
         this.outstandingPacketContainer = outstandingPacketContainer;
         this.metricsCollector = metricsCollector;
         this.clientRestrictions = connection.getClientRestrictions();
-        this.isAdapter = connection.isAdapter();
+        this.connection = connection;
     }
 
     @Override
@@ -103,9 +103,8 @@ public class MQTTConsumer extends Consumer {
                             mqttTopicName, super.getSubscription().getName(), msg);
                 }
                 metricsCollector.addReceived(msg.payload().readableBytes());
-                MqttAdapterMessage adapterMessage = new MqttAdapterMessage(consumerName(), msg);
-                adapterMessage.setAdapter(isAdapter);
-                cnx.ctx().channel().write(adapterMessage);
+                cnx.ctx().channel().write(new MqttAdapterMessage(connection.getClientId(), msg,
+                        connection.isFromProxy()));
             }
         }
         if (MqttQoS.AT_MOST_ONCE == qos) {

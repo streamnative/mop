@@ -40,20 +40,19 @@ import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedE
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.ack.DisconnectAck;
-import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
-import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
-import io.streamnative.pulsar.handlers.mqtt.messages.ack.UnsubscribeAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttDisconnectAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttPubAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttSubAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttUnsubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.properties.PulsarProperties;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarTopicChangeListener;
-import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -125,8 +124,9 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     }
 
     @Override
-    public void doProcessConnect(MqttAdapterMessage adapter, String userRole, ClientRestrictions clientRestrictions) {
-        final MqttConnectMessage msg = (MqttConnectMessage) adapter.getMqttMessage();
+    public void doProcessConnect(MqttAdapterMessage adapterMsg, String userRole,
+                                 ClientRestrictions clientRestrictions) {
+        final MqttConnectMessage msg = (MqttConnectMessage) adapterMsg.getMqttMessage();
         ServerRestrictions serverRestrictions = ServerRestrictions.builder()
                 .receiveMaximum(configuration.getReceiveMaximum())
                 .build();
@@ -140,7 +140,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .eventCenter(eventCenter)
-                .adapter(adapter.isAdapter())
+                .fromProxy(adapterMsg.fromProxy())
                 .processor(this)
                 .build();
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
@@ -197,13 +197,13 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         log.error("[Publish] not authorized to topic={}, userRole={}, CId= {}",
                 msg.variableHeader().topicName(), connection.getUserRole(),
                 connection.getClientId());
-        PublishAck unAuthorizedAck = PublishAck.builder()
-                .success(false)
+        MqttAck pubAck = MqttPubAck
+                .errorBuilder(connection.getProtocolVersion())
                 .packetId(msg.variableHeader().packetId())
                 .reasonCode(Mqtt5PubReasonCode.NOT_AUTHORIZED)
                 .reasonString("Not Authorized!")
                 .build();
-        connection.getAckHandler().sendPublishAck(unAuthorizedAck);
+        connection.sendAckThenClose(pubAck);
         return CompletableFuture.completedFuture(null);
     }
 
@@ -229,34 +229,31 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
 
     private void checkServerReceivePubMessageAndIncrementCounterIfNeeded(MqttAdapterMessage adapter) {
         final MqttPublishMessage msg = (MqttPublishMessage) adapter.getMqttMessage();
-        // check mqtt 5.0
-        if (!MqttUtils.isMqtt5(connection.getProtocolVersion())) {
+        // MQTT3 don't support this approach.
+        if (MqttUtils.isMqtt3(connection.getProtocolVersion())) {
             return;
         }
         if (connection.getServerReceivePubMessage() >= connection.getClientRestrictions().getReceiveMaximum()) {
             log.warn("Client publish exceed server receive maximum , the receive maximum is {}",
                     connection.getServerRestrictions().getReceiveMaximum());
-            PublishAck quotaExceededAck = PublishAck.builder()
-                    .success(false)
+            MqttAck pubAck = MqttPubAck.errorBuilder(connection.getProtocolVersion())
                     .reasonCode(Mqtt5PubReasonCode.QUOTA_EXCEEDED)
                     .packetId(msg.variableHeader().packetId())
                     .reasonString(String.format("Publish exceed server receive maximum %s.",
                             connection.getServerRestrictions().getReceiveMaximum()))
                     .build();
-            connection.getAckHandler().sendPublishAck(quotaExceededAck);
+            connection.sendAckThenClose(pubAck);
         } else {
             connection.incrementServerReceivePubMessage();
         }
     }
 
     @Override
-    public void processDisconnect(MqttAdapterMessage adapter) {
+    public void processDisconnect(MqttAdapterMessage adapterMsg) {
         // When login, checkState(msg) failed, connection is null.
-        final MqttMessage msg = adapter.getMqttMessage();
-        if (connection == null) {
-            if (!adapter.isAdapter()) {
-                channel.close();
-            }
+        final MqttMessage mqttMsg = adapterMsg.getMqttMessage();
+        if (connection == null && !adapterMsg.fromProxy()) {
+            channel.close();
             return;
         }
         final String clientId = connection.getClientId();
@@ -266,27 +263,22 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         // If client update session timeout interval property.
         Optional<Integer> newSessionExpireInterval;
         if ((newSessionExpireInterval = MqttPropertyUtils
-                .getUpdateSessionExpireIntervalIfExist(connection.getProtocolVersion(), msg)).isPresent()) {
+                .getUpdateSessionExpireIntervalIfExist(connection.getProtocolVersion(), mqttMsg)).isPresent()) {
             try {
                 connection.updateSessionExpireInterval(newSessionExpireInterval.get());
             } catch (InvalidSessionExpireIntervalException e) {
-                DisconnectAck disconnectAck = DisconnectAck
-                        .builder()
-                        .success(false)
+                MqttAck disconnectAck = MqttDisconnectAck.errorBuilder(connection.getProtocolVersion())
                         .reasonCode(Mqtt5DisConnReasonCode.PROTOCOL_ERROR)
                         .reasonString(String.format("Disconnect with wrong session expire interval value."
                                 + " the value is %s", newSessionExpireInterval))
                         .build();
-                connection.getAckHandler().sendDisconnectAck(disconnectAck);
+                connection.sendAckThenClose(disconnectAck);
                 return;
             }
         }
-        DisconnectAck disconnectAck = DisconnectAck
-                .builder()
-                .success(true)
-                .reasonCode(Mqtt5DisConnReasonCode.NORMAL)
+        MqttAck disconnectAck = MqttDisconnectAck.successBuilder(connection.getProtocolVersion())
                 .build();
-        connection.getAckHandler().sendDisconnectAck(disconnectAck);
+        connection.sendAckThenClose(disconnectAck);
     }
 
     @Override
@@ -315,7 +307,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
 
     @Override
     public void processPingReq(MqttAdapterMessage adapter) {
-        connection.send(new MqttAdapterMessage(connection.getClientId(), pingResp()));
+        connection.send(pingResp());
     }
 
     @Override
@@ -324,7 +316,6 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         final String clientId = connection.getClientId();
         final String userRole = connection.getUserRole();
         final int packetId = msg.variableHeader().messageId();
-        AckHandler ackHandler = connection.getAckHandler();
         if (log.isDebugEnabled()) {
             log.debug("[Subscribe] [{}] msg: {}", clientId, msg);
         }
@@ -348,13 +339,11 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             }
             FutureUtil.waitForAll(authorizationFutures).thenAccept(__ -> {
                 if (!authorizedFlag.get()) {
-                    SubscribeAck subscribeAck = SubscribeAck
-                            .builder()
-                            .success(false)
+                    MqttAck subAck = MqttSubAck.errorBuilder(connection.getProtocolVersion())
                             .packetId(packetId)
-                            .errorReason(MqttSubAckMessageHelper.ErrorReason.AUTHORIZATION_FAIL)
+                            .errorReason(MqttSubAck.ErrorReason.AUTHORIZATION_FAIL)
                             .build();
-                    ackHandler.sendSubscribeAck(subscribeAck);
+                    connection.sendAckThenClose(subAck);
                 } else {
                     doSubscribe(msg);
                 }
@@ -370,18 +359,15 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                 Optional.ofNullable(userProperties.get(PulsarProperties.InitialPosition.name()))
                 .map(v -> CommandSubscribe.InitialPosition.valueOf(Integer.parseInt(v)))
                 .orElse(CommandSubscribe.InitialPosition.Latest);
-        AckHandler ackHandler = connection.getAckHandler();
         final List<MqttTopicSubscription> subTopics = topicSubscriptions(msg);
         boolean duplicated = mqttSubscriptionManager.addSubscriptions(connection.getClientId(), subTopics);
         if (duplicated) {
-            SubscribeAck subscribeAck = SubscribeAck
-                    .builder()
-                    .success(false)
+            MqttAck subAck = MqttSubAck.errorBuilder(connection.getProtocolVersion())
                     .packetId(messageID)
-                    .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
-                    .reasonStr("Duplicated subscribe")
+                    .errorReason(MqttSubAck.ErrorReason.UNSPECIFIED_ERROR)
+                    .reasonString("Duplicated subscribe")
                     .build();
-            ackHandler.sendSubscribeAck(subscribeAck);
+            connection.sendAckThenClose(subAck);
             return CompletableFuture.completedFuture(null);
         }
         List<CompletableFuture<Void>> futureList = new ArrayList<>(subTopics.size());
@@ -414,19 +400,17 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         }
         final Optional<String> finalRetainedTopic = retainedTopic;
         return FutureUtil.waitForAll(futureList).thenAccept(v -> {
-            SubscribeAck subscribeAck = SubscribeAck
-                    .builder()
-                    .success(true)
+            MqttAck subAck = MqttSubAck.successBuilder(connection.getProtocolVersion())
                     .packetId(messageID)
-                    .grantedQoses(subTopics.stream()
+                    .grantedQos(subTopics.stream()
                             .map(MqttTopicSubscription::qualityOfService)
                             .collect(Collectors.toList()))
                     .build();
-            ackHandler.sendSubscribeAck(subscribeAck).addListener(listener -> {
-                finalRetainedTopic.map(topic -> connection.send(
-                        new MqttAdapterMessage(connection.getClientId(), MqttMessageUtils
-                                            .createRetainedMessage(retainedMessageHandler.getRetainedMessage(topic)))));
-            });
+            connection.sendAck(subAck)
+                            .whenComplete((ignore1, ignore2)-> {
+                                finalRetainedTopic.ifPresent(topic -> connection.send(MqttMessageUtils
+                                        .createRetainedMessage(retainedMessageHandler.getRetainedMessage(topic))));
+                            });
         }).exceptionally(ex -> {
             Throwable realCause = FutureUtil.unwrapCompletionException(ex);
             if (realCause instanceof BrokerServiceException.TopicNotFoundException) {
@@ -434,24 +418,20 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                         subTopics.stream().map(MqttTopicSubscription::topicName)
                                 .collect(Collectors.joining(",")),
                         pulsarService.getConfig().isAllowAutoTopicCreation());
-                SubscribeAck subscribeAck = SubscribeAck
-                        .builder()
-                        .success(false)
+                MqttAck subAck = MqttSubAck.errorBuilder(connection.getProtocolVersion())
                         .packetId(messageID)
-                        .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
-                        .reasonStr("Topic not found")
+                        .errorReason(MqttSubAck.ErrorReason.UNSPECIFIED_ERROR)
+                        .reasonString("Topic not found")
                         .build();
-                ackHandler.sendSubscribeAck(subscribeAck);
+                connection.sendAckThenClose(subAck);
             } else {
                 log.error("[Subscribe] [{}] Failed to process MQTT subscribe.", connection.getClientId(), ex);
-                SubscribeAck subscribeAck = SubscribeAck
-                        .builder()
-                        .success(false)
+                MqttAck subAck = MqttSubAck.errorBuilder(connection.getProtocolVersion())
                         .packetId(messageID)
-                        .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
-                        .reasonStr("[ MOP ERROR ]" + realCause.getMessage())
+                        .errorReason(MqttSubAck.ErrorReason.UNSPECIFIED_ERROR)
+                        .reasonString("[ MOP ERROR ]" + realCause.getMessage())
                         .build();
-                ackHandler.sendSubscribeAck(subscribeAck);
+                connection.sendAckThenClose(subAck);
             }
             return null;
         });
@@ -552,35 +532,28 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             futureList.add(future);
         }
         int packetId = msg.variableHeader().messageId();
-        AckHandler ackHandler = connection.getAckHandler();
         FutureUtil.waitForAll(futureList).thenAccept(__ -> {
-            UnsubscribeAck unsubscribeAck = UnsubscribeAck
-                    .builder()
-                    .success(true)
+            MqttAck unsubAck = MqttUnsubAck.successBuilder(connection.getProtocolVersion())
                     .packetId(packetId)
                     .build();
-            ackHandler.sendUnsubscribeAck(unsubscribeAck);
+            connection.sendAck(unsubAck);
         }).exceptionally(ex -> {
             log.error("[{}] Failed to process the UNSUB {}", clientId, msg);
             Throwable cause = ex.getCause();
-            UnsubscribeAck unsubscribeAck;
             if (cause instanceof MQTTNoSubscriptionExistedException) {
-                unsubscribeAck = UnsubscribeAck
-                        .builder()
-                        .success(true)
+                MqttAck unsubAck = MqttUnsubAck.successBuilder(connection.getProtocolVersion())
                         .packetId(packetId)
-                        .reasonCode(Mqtt5UnsubReasonCode.NO_SUBSCRIPTION_EXISTED)
+                        .isNoSubscriptionExisted()
                         .build();
+                connection.sendAck(unsubAck);
             } else {
-                unsubscribeAck = UnsubscribeAck
-                        .builder()
-                        .success(false)
+                MqttAck unsubAck = MqttUnsubAck.errorBuilder(connection.getProtocolVersion())
                         .packetId(packetId)
                         .reasonCode(Mqtt5UnsubReasonCode.UNSPECIFIED_ERROR)
                         .reasonString(cause.getMessage())
                         .build();
+                connection.sendAckThenClose(unsubAck);
             }
-            ackHandler.sendUnsubscribeAck(unsubscribeAck);
             return null;
         });
     }

@@ -86,7 +86,7 @@ public class MqttPropertyUtils {
      * @param properties   Mqtt properties
      * @param reasonString reason string
      */
-    public static void stuffReasonString(MqttProperties properties, String reasonString) {
+    public static void setReasonString(MqttProperties properties, String reasonString) {
         MqttProperties.StringProperty reasonStringProperty =
                 new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
                         reasonString);
@@ -94,7 +94,7 @@ public class MqttPropertyUtils {
     }
 
     public static Optional<Integer> getUpdateSessionExpireIntervalIfExist(int protocolVersion, MqttMessage msg) {
-        if (MqttUtils.isMqtt5(protocolVersion)
+        if (MqttUtils.isNotMqtt3(protocolVersion)
                 && msg.variableHeader() instanceof MqttReasonCodeAndPropertiesVariableHeader) {
             return MqttPropertyUtils
                     .getExpireInterval(((MqttReasonCodeAndPropertiesVariableHeader)

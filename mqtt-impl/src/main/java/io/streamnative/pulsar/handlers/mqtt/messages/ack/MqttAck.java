@@ -14,15 +14,22 @@
 package io.streamnative.pulsar.handlers.mqtt.messages.ack;
 
 
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
-import lombok.Builder;
-import lombok.Getter;
+import io.netty.handler.codec.mqtt.MqttMessage;
+import lombok.Data;
 
-@Builder
-@Getter
-public class PublishAck {
-    private final boolean success;
-    private final int packetId;
-    private final Mqtt5PubReasonCode reasonCode;
-    private final String reasonString;
+@Data
+public class MqttAck {
+    private final boolean protocolSupported;
+    private final MqttMessage mqttMessage;
+
+    private MqttAck(boolean protocolSupported, MqttMessage mqttMessage) {
+        this.protocolSupported = protocolSupported;
+        this.mqttMessage = mqttMessage;
+    }
+    public static MqttAck createUnsupportedAck() {
+        return new MqttAck(false, null);
+    }
+    public static MqttAck createSupportedAck(MqttMessage mqttMessage) {
+        return new MqttAck(true, mqttMessage);
+    }
 }

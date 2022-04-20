@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.messages.factory;
+package io.streamnative.pulsar.handlers.mqtt.messages.ack;
 
 
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
@@ -29,17 +29,57 @@ import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
  * This class base on #{MqttMessageBuilders}
  * @see MqttMessageBuilders
  */
-public class MqttConnectAckHelper {
+public class MqttConnectAck {
 
-    public static MqttMessageBuilders.ConnAckBuilder builder() {
-        return MqttMessageBuilders.connAck();
+    public static MqttConnectSuccessAckBuilder successBuilder(int protocolVersion) {
+        return new MqttConnectSuccessAckBuilder(protocolVersion);
     }
 
     public static MqttConnectErrorAckBuilder errorBuilder() {
         return new MqttConnectErrorAckBuilder();
     }
 
-    public static class MqttConnectErrorAckBuilder {
+    public final static class MqttConnectSuccessAckBuilder {
+        private final int protocolVersion;
+        private boolean cleanSession;
+        private int receiveMaximum;
+
+        public MqttConnectSuccessAckBuilder(int protocolVersion) {
+            this.protocolVersion = protocolVersion;
+        }
+
+        public MqttConnectSuccessAckBuilder cleanSession(boolean cleanSession) {
+            this.cleanSession = cleanSession;
+            return this;
+        }
+
+        public MqttConnectSuccessAckBuilder receiveMaximum(int receiveMaximum) {
+            this.receiveMaximum = receiveMaximum;
+            return this;
+        }
+
+        public MqttAck build() {
+            MqttMessageBuilders.ConnAckBuilder commonBuilder = MqttMessageBuilders.connAck()
+                    .sessionPresent(!cleanSession);
+            if (MqttUtils.isMqtt3(protocolVersion)) {
+                return MqttAck.createSupportedAck(commonBuilder
+                        .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.toConnectionReasonCode())
+                        .build());
+            }
+            MqttProperties properties = new MqttProperties();
+            MqttProperties.IntegerProperty property =
+                    new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
+                            receiveMaximum);
+            properties.add(property);
+            return MqttAck.createSupportedAck(
+                    commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.toConnectionReasonCode())
+                    .properties(properties)
+                    .build());
+        }
+
+    }
+
+    public final static class MqttConnectErrorAckBuilder {
         private int protocolVersion;
         private ErrorReason errorReason;
         private String reasonString;
@@ -58,45 +98,46 @@ public class MqttConnectAckHelper {
         public MqttMessage identifierInvalid(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.IDENTIFIER_INVALID;
-            return build();
+            return build().getMqttMessage();
         }
 
         public MqttMessage authFail(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.AUTH_FAILED;
-            return build();
+            return build().getMqttMessage();
         }
 
         public MqttMessage willQosNotSupport(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.WILL_QOS_NOT_SUPPORT;
-            return build();
+            return build().getMqttMessage();
         }
 
         public MqttMessage unsupportedVersion() {
             this.errorReason = ErrorReason.UNSUPPORTED_VERSION;
-            return build();
+            return build().getMqttMessage();
         }
 
         public MqttMessage protocolError(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.PROTOCOL_ERROR;
-            return build();
+            return build().getMqttMessage();
         }
 
-        public MqttMessage build() {
+        public MqttAck build() {
             MqttMessageBuilders.ConnAckBuilder connAckBuilder = MqttMessageBuilders.connAck()
                     .sessionPresent(false)
                     .returnCode(errorReason.getReasonCode(protocolVersion));
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                MqttProperties properties = new MqttProperties();
-                MqttProperties.StringProperty reasonStringProperty =
-                        new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
-                                reasonString);
-                properties.add(reasonStringProperty);
-                connAckBuilder.properties(properties);
+            if (MqttUtils.isMqtt3(protocolVersion)) {
+                return MqttAck.createSupportedAck(connAckBuilder.build());
             }
-            return connAckBuilder.build();
+            MqttProperties properties = new MqttProperties();
+            MqttProperties.StringProperty reasonStringProperty =
+                    new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
+                            reasonString);
+            properties.add(reasonStringProperty);
+            connAckBuilder.properties(properties);
+            return MqttAck.createSupportedAck(connAckBuilder.build());
         }
     }
 
@@ -125,11 +166,10 @@ public class MqttConnectAckHelper {
         }
 
         public MqttConnectReturnCode getReasonCode(int protocolVersion) {
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                return v5ReasonCode.convertToNettyKlass();
-            } else {
-                return v3ReasonCode.convertToNettyKlass();
+            if (MqttUtils.isMqtt3(protocolVersion)) {
+                return v3ReasonCode.toConnectionReasonCode();
             }
+            return v5ReasonCode.toConnectionReasonCode();
         }
     }
 }

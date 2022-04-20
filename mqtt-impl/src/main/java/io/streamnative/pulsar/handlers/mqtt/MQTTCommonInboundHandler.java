@@ -62,8 +62,8 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
             checkState(mqttMessage);
             MqttMessageType messageType = mqttMessage.fixedHeader().messageType();
             if (log.isDebugEnabled()) {
-                log.debug("Inbound handler read message : type={}, clientId : {} adapter : {}", messageType,
-                        adapterMsg.getClientId(), adapterMsg.isAdapter());
+                log.debug("Inbound handler read message : type={}, clientId : {} adapter encodeType : {}", messageType,
+                        adapterMsg.getClientId(), adapterMsg.getEncodeType());
             }
             switch (messageType) {
                 case CONNECT:
@@ -112,7 +112,7 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+    public void channelInactive(ChannelHandlerContext ctx) {
         processors.values().forEach(ProtocolMethodProcessor::processConnectionLost);
     }
 

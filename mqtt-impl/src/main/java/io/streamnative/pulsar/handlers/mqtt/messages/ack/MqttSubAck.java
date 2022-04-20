@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.messages.factory;
+package io.streamnative.pulsar.handlers.mqtt.messages.ack;
 
 import com.google.common.collect.Lists;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
-import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttMessageIdAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
@@ -29,24 +28,58 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3SubReasonC
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5SubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 
-public class MqttSubAckMessageHelper {
+public class MqttSubAck {
 
-    public static MqttMessageBuilders.SubAckBuilder builder() {
-        return MqttMessageBuilders.subAck();
+    public static MqttSubSuccessAckBuilder successBuilder(int protocolVersion) {
+        return new MqttSubSuccessAckBuilder(protocolVersion);
     }
 
-    public static MqttSubAckMessageHelper.MqttSubErrorAckBuilder errorBuilder(int protocolVersion) {
-        return new MqttSubAckMessageHelper.MqttSubErrorAckBuilder(protocolVersion);
+    public static MqttSubAck.MqttSubErrorAckBuilder errorBuilder(int protocolVersion) {
+        return new MqttSubAck.MqttSubErrorAckBuilder(protocolVersion);
     }
 
-    public static class MqttSubErrorAckBuilder {
+    public final static class MqttSubSuccessAckBuilder {
+        private final int protocolVersion;
+        private int packetId;
+        private final List<MqttQoS> grantedQoses = Lists.newArrayList();
+
+
+        public MqttSubSuccessAckBuilder(int protocolVersion) {
+            this.protocolVersion = protocolVersion;
+        }
+
+        public MqttSubSuccessAckBuilder packetId(int packetId) {
+            this.packetId = packetId;
+            return this;
+        }
+
+        public MqttSubSuccessAckBuilder grantedQos(Collection<MqttQoS> qos) {
+            grantedQoses.addAll(qos);
+            return this;
+        }
+
+        public MqttSubSuccessAckBuilder addGrantedQos(MqttQoS... qos) {
+            grantedQoses.addAll(Arrays.asList(qos));
+            return this;
+        }
+
+        public MqttAck build() {
+            return MqttAck.createSupportedAck(MqttMessageBuilders.subAck()
+                    .packetId(packetId)
+                    .addGrantedQoses(grantedQoses.toArray(new MqttQoS[]{}))
+                    .build());
+        }
+    }
+
+    public final static class MqttSubErrorAckBuilder {
         private int packetId;
         private final int protocolVersion;
-        private MqttSubAckMessageHelper.ErrorReason errorReason;
+        private MqttSubAck.ErrorReason errorReason;
         private String reasonString;
         private final List<MqttQoS> grantedQoses = Lists.newArrayList();
 
@@ -54,47 +87,47 @@ public class MqttSubAckMessageHelper {
             this.protocolVersion = protocolVersion;
         }
 
-        public MqttSubAckMessageHelper.MqttSubErrorAckBuilder reasonString(String reasonStr) {
+        public MqttSubAck.MqttSubErrorAckBuilder reasonString(String reasonStr) {
             this.reasonString = reasonStr;
             return this;
         }
 
-        public MqttSubAckMessageHelper.MqttSubErrorAckBuilder packetId(int packetId) {
+        public MqttSubAck.MqttSubErrorAckBuilder packetId(int packetId) {
             this.packetId = packetId;
             return this;
         }
 
-        public MqttSubAckMessageHelper.MqttSubErrorAckBuilder addGrantedQos(MqttQoS... qos) {
+        public MqttSubAck.MqttSubErrorAckBuilder addGrantedQos(MqttQoS... qos) {
             grantedQoses.addAll(Arrays.asList(qos));
             return this;
         }
 
-        public MqttSubAckMessageHelper.MqttSubErrorAckBuilder errorReason(ErrorReason errorReason) {
+        public MqttSubAck.MqttSubErrorAckBuilder errorReason(ErrorReason errorReason) {
             this.errorReason = errorReason;
             return this;
         }
 
-        public MqttMessage build() {
+        public MqttAck build() {
             MqttFixedHeader mqttFixedHeader =
                     new MqttFixedHeader(MqttMessageType.SUBACK, false,
                             MqttQoS.AT_MOST_ONCE, false, 0);
             MqttMessageIdAndPropertiesVariableHeader mqttSubAckVariableHeader =
-                    new MqttMessageIdAndPropertiesVariableHeader(packetId, getStuffedProperties());
+                    new MqttMessageIdAndPropertiesVariableHeader(packetId, getProperties());
             List<Integer> reasonCodes = Lists.newArrayList();
             reasonCodes.addAll(grantedQoses.stream().map(MqttQoS::value).collect(Collectors.toList()));
             reasonCodes.add(errorReason.getReasonCode(protocolVersion).value());
             MqttSubAckPayload subAckPayload = new MqttSubAckPayload(reasonCodes);
-            return new MqttSubAckMessage(mqttFixedHeader, mqttSubAckVariableHeader, subAckPayload);
+            return MqttAck.createSupportedAck(new MqttSubAckMessage(mqttFixedHeader,
+                    mqttSubAckVariableHeader, subAckPayload));
         }
 
-        private MqttProperties getStuffedProperties() {
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                MqttProperties properties = new MqttProperties();
-                MqttPropertyUtils.stuffReasonString(properties, reasonString);
-                return properties;
-            } else {
+        private MqttProperties getProperties() {
+            if (!MqttUtils.isMqtt3(protocolVersion)) {
                 return MqttProperties.NO_PROPERTIES;
             }
+            MqttProperties properties = new MqttProperties();
+            MqttPropertyUtils.setReasonString(properties, reasonString);
+            return properties;
         }
     }
 
@@ -109,10 +142,10 @@ public class MqttSubAckMessageHelper {
         private final Mqtt5SubReasonCode v5ReasonCode;
 
         public MqttReasonCode getReasonCode(int protocolVersion) {
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                return v5ReasonCode;
-            } else {
+            if (MqttUtils.isMqtt3(protocolVersion)) {
                 return v3ReasonCode;
+            } else {
+                return v5ReasonCode;
             }
         }
     }
