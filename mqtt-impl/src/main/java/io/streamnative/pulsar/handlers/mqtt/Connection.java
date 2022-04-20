@@ -13,13 +13,13 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
 import static io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils.ATTR_KEY_CONNECTION;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelException;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
@@ -27,22 +27,22 @@ import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttConnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventListener;
-import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
-import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerFactory;
+import io.streamnative.pulsar.handlers.mqtt.utils.ChannelFutureUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,6 +51,7 @@ import lombok.extern.slf4j.Slf4j;
  * session flag.
  */
 @Slf4j
+@EqualsAndHashCode
 public class Connection {
 
     @Getter
@@ -70,8 +71,6 @@ public class Connection {
     @Getter
     private final MqttConnectMessage connectMessage;
     @Getter
-    private final AckHandler ackHandler;
-    @Getter
     private final ClientRestrictions clientRestrictions;
     @Getter
     private final ServerRestrictions serverRestrictions;
@@ -80,7 +79,7 @@ public class Connection {
     @Getter
     private final ProtocolMethodProcessor processor;
     @Getter
-    private final boolean adapter;
+    private final boolean fromProxy;
     private volatile ConnectionState connectionState = DISCONNECTED;
     private final PulsarEventCenter eventCenter;
     private final List<PulsarEventListener> listeners;
@@ -103,13 +102,12 @@ public class Connection {
         this.channel = builder.channel;
         this.manager = builder.connectionManager;
         this.connectMessage = builder.connectMessage;
-        this.ackHandler = AckHandlerFactory.newAckHandler(this);
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
         this.topicSubscriptionManager = new TopicSubscriptionManager();
         this.addIdleStateHandler();
         this.eventCenter = builder.eventCenter;
         this.processor = builder.processor;
-        this.adapter = builder.adapter;
+        this.fromProxy = builder.fromProxy;
         this.listeners = Collections.synchronizedList(new ArrayList<>());
         this.manager.addConnection(this);
     }
@@ -123,61 +121,52 @@ public class Connection {
                 Math.round(clientRestrictions.getKeepAliveTime() * 1.5f)));
     }
 
-    public ChannelFuture sendConnAck() {
-        return ackHandler.sendConnAck();
-    }
-
-    public ChannelFuture send(MqttAdapterMessage adapterMessage) {
-        adapterMessage.setAdapter(isAdapter());
+    /**
+     * Convert #{MqttMessage} to #{MqttAdapterMessage} and encode type set by connection #{fromProxy} flag.
+     * Then send the message.
+     * @param mqttMessage Mqtt message
+     * @return CompletableFuture
+     */
+    public CompletableFuture<Void> convertAndSend(MqttMessage mqttMessage) {
         if (!channel.isActive()) {
-            log.error("send mqttMessage : {} failed due to channel is inactive.", adapterMessage);
-            return channel.newFailedFuture(channelInactiveException);
+            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
+            return ChannelFutureUtils.convertToCompletableFuture(channel.newFailedFuture(channelInactiveException));
         }
-        return channel.writeAndFlush(adapterMessage).addListener(future -> {
-            if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", adapterMessage, future.cause());
-            }
+        MqttAdapterMessage mqttAdapterMessage = convertToAdapterMsg(mqttMessage);
+        CompletableFuture<Void> future =
+                ChannelFutureUtils.convertToCompletableFuture(channel.writeAndFlush(mqttAdapterMessage));
+        future.exceptionally(ex -> {
+            log.error("send mqttMessage : {} failed", mqttAdapterMessage, ex);
+            return null;
         });
-    }
-
-    public ChannelFuture sendThenClose(MqttAdapterMessage adapterMessage) {
-        adapterMessage.setAdapter(isAdapter());
-        if (!channel.isActive()) {
-            log.error("send mqttMessage : {} failed due to channel is inactive.", adapterMessage);
-            return channel.newFailedFuture(channelInactiveException);
-        }
-        ChannelFuture channelFuture = channel.writeAndFlush(adapterMessage).addListener(future -> {
-            if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", adapterMessage, future.cause());
-            }
-        });
-        if (isAdapter()) {
-            disconnect();
-        } else {
-            channel.close();
-        }
-        return channelFuture;
+        return future;
     }
 
     /**
-     * Broker send disconnect.
+     * Convert #{MqttMessage} to #{MqttAdapterMessage} and encode type set by connection #{fromProxy} flag.
+     * @param mqttMessage Mqtt message
+     * @return MqttAdapterMessage
+     */
+    public MqttAdapterMessage convertToAdapterMsg(MqttMessage mqttMessage) {
+        return new MqttAdapterMessage(clientId, mqttMessage, !isFromProxy());
+    }
+
+    /**
+     * Disconnect the current connection and send a disconnect MqttMessage if needed.
      */
     public void disconnect() {
-        if (MqttUtils.isMqtt5(protocolVersion) || isAdapter()) {
+        if (this.isFromProxy() || !MqttUtils.isMqtt3(protocolVersion)) {
             MqttMessage mqttMessage = MqttMessageBuilders
                     .disconnect()
                     .reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER.byteValue())
                     .build();
-            MqttAdapterMessage adapterMsg = new MqttAdapterMessage(this.clientId, mqttMessage);
-            if (isAdapter()) {
-                send(adapterMsg);
+            convertAndSend(mqttMessage);
+            if (this.isFromProxy()) {
                 processor.processConnectionLost();
-            } else {
-                sendThenClose(adapterMsg);
+                return;
             }
-        } else {
-            channel.close();
         }
+        channel.close();
     }
 
     public CompletableFuture<Void> close() {
@@ -192,7 +181,7 @@ public class Connection {
         }
         // when use mqtt5.0 we need to use session expire interval to remove session.
         // but mqtt protocol version lower than 5.0 we don't do that.
-        if (MqttUtils.isMqtt5(protocolVersion) && !clientRestrictions.isSessionNeverExpire()) {
+        if (!MqttUtils.isMqtt3(protocolVersion) && !clientRestrictions.isSessionNeverExpire()) {
             if (clientRestrictions.isSessionExpireImmediately()) {
                 return topicSubscriptionManager.removeSubscriptions();
             } else {
@@ -242,30 +231,6 @@ public class Connection {
        clientRestrictions.updateExpireInterval(newSessionInterval);
     }
 
-    @Override
-    public String toString() {
-        return "Connection{" + "clientId=" + clientId + ", channel=" + channel
-                + ", cleanSession=" + clientRestrictions.isCleanSession() + ", state="
-                + channelState.get(this) + '}';
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Connection that = (Connection) o;
-        return Objects.equals(clientId, that.clientId) && Objects.equals(channel, that.channel);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(clientId, channel);
-    }
-
     public void incrementServerReceivePubMessage() {
         SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER.addAndGet(this, 1);
     }
@@ -278,9 +243,31 @@ public class Connection {
         return SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER.get(this);
     }
 
-    /**
-     * Connection state.
-     */
+    public void updateStateAndSendConnAck() {
+        if (!assignState(DISCONNECTED, CONNECT_ACK)) {
+            log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
+                    DISCONNECTED, CONNECT_ACK, clientId);
+            MqttConnectAck.errorBuilder()
+                    .serverUnavailable(protocolVersion)
+                    .reasonString(String.format("Unable to assign the server state from : %s to : %s",
+                            DISCONNECTED, CONNECT_ACK))
+                    .buildIfSupport()
+                    .ifPresent(this::convertAndSend);
+            disconnect();
+            return;
+        }
+        MqttConnectAck.successBuilder(protocolVersion)
+                .receiveMaximum(getServerRestrictions().getReceiveMaximum())
+                .cleanSession(clientRestrictions.isCleanSession())
+                .buildIfSupport()
+                .ifPresent(this::convertAndSend);
+        assignState(CONNECT_ACK, ESTABLISHED);
+        if (log.isDebugEnabled()) {
+            log.debug("The CONNECT message has been processed. CId={}", clientId);
+        }
+    }
+
+
     public enum ConnectionState {
         DISCONNECTED,
         CONNECT_ACK,
@@ -303,7 +290,7 @@ public class Connection {
         private ServerRestrictions serverRestrictions;
         private PulsarEventCenter eventCenter;
         private ProtocolMethodProcessor processor;
-        private boolean adapter;
+        private boolean fromProxy;
 
         public ConnectionBuilder protocolVersion(int protocolVersion) {
             this.protocolVersion = protocolVersion;
@@ -360,8 +347,8 @@ public class Connection {
             return this;
         }
 
-        public ConnectionBuilder adapter(boolean isAdapter) {
-            this.adapter = isAdapter;
+        public ConnectionBuilder fromProxy(boolean fromProxy) {
+            this.fromProxy =  fromProxy;
             return this;
         }
 

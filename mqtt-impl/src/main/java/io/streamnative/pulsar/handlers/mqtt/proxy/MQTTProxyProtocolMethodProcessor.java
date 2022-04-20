@@ -32,17 +32,15 @@ import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.AdapterChannel;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
-import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
-import io.streamnative.pulsar.handlers.mqtt.messages.ack.SubscribeAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttPubAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttSubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttSubAckMessageHelper;
 import io.streamnative.pulsar.handlers.mqtt.messages.properties.PulsarProperties;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarTopicChangeListener;
-import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.ConnectEvent;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
@@ -126,15 +124,12 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .processor(this)
                 .eventCenter(pulsarEventCenter)
                 .build();
-        connection.sendConnAck().addListener(listener -> {
-            if (listener.isSuccess()) {
-                ConnectEvent connectEvent = ConnectEvent.builder()
-                        .clientId(connection.getClientId())
-                        .address(pulsarService.getAdvertisedAddress())
-                        .build();
-                eventService.sendConnectEvent(connectEvent);
-            }
-        });
+        connection.updateStateAndSendConnAck();
+        ConnectEvent connectEvent = ConnectEvent.builder()
+                .clientId(connection.getClientId())
+                .address(pulsarService.getAdvertisedAddress())
+                .build();
+        eventService.sendConnectEvent(connectEvent);
     }
 
     @Override
@@ -154,15 +149,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     Throwable cause = ex.getCause();
                     log.error("[Proxy Publish] Failed to publish for topic : {}, CId : {}",
                             msg.variableHeader().topicName(), connection.getClientId(), cause);
-                    PublishAck unspecifiedErrorAck = PublishAck.builder()
-                            .success(false)
+                    MqttPubAck.errorBuilder(connection.getProtocolVersion())
                             .packetId(packetId)
                             .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
                             .reasonString(String.format("Failed to publish for topic, because of look up error %s",
                                     cause.getMessage()))
-                            .build();
-                    connection.getAckHandler().sendPublishAck(unspecifiedErrorAck)
-                            .addListener(__ -> connection.decrementServerReceivePubMessage());
+                            .buildIfSupport()
+                            .ifPresent(connection::convertAndSend);
+                    connection.decrementServerReceivePubMessage();
                     return null;
                 });
     }
@@ -238,7 +232,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     public void processSubscribe(MqttAdapterMessage adapter) {
         final MqttSubscribeMessage msg = (MqttSubscribeMessage) adapter.getMqttMessage();
         final String clientId = connection.getClientId();
-        AckHandler ackHandler = connection.getAckHandler();
         int packetId = msg.variableHeader().messageId();
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
@@ -248,15 +241,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, realCause);
-                    SubscribeAck subscribeAck = SubscribeAck
-                            .builder()
-                            .success(false)
+                    MqttSubAck.errorBuilder(connection.getProtocolVersion())
                             .packetId(packetId)
-                            .errorReason(MqttSubAckMessageHelper.ErrorReason.UNSPECIFIED_ERROR)
-                            .reasonStr("[ MOP ERROR ]" + realCause.getMessage())
-                            .build();
-                    ackHandler.sendSubscribeAck(subscribeAck)
-                            .addListener(__ -> subscribeTopicsCount.remove(packetId));
+                            .errorReason(MqttSubAck.ErrorReason.UNSPECIFIED_ERROR)
+                            .reasonString("[ MOP ERROR ]" + realCause.getMessage())
+                            .buildIfSupport()
+                            .ifPresent(connection::convertAndSend);
+                    subscribeTopicsCount.remove(packetId);
+                    connection.disconnect();
                     return null;
                 });
     }
@@ -319,20 +311,18 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .thenCompose(topics -> {
                     int packetId = message.variableHeader().messageId();
                     if (CollectionUtils.isEmpty(topics)) {
-                        SubscribeAck subscribeAck = SubscribeAck.builder()
+                        MqttSubAck.successBuilder(connection.getProtocolVersion())
                                 .packetId(packetId)
-                                .success(true)
-                                .grantedQoses(new ArrayList<>(message.payload().topicSubscriptions().stream()
+                                .grantedQos(new ArrayList<>(message.payload().topicSubscriptions().stream()
                                         .map(MqttTopicSubscription::qualityOfService)
                                         .collect(Collectors.toSet())))
-                                .build();
-                        connection.getAckHandler().sendSubscribeAck(subscribeAck);
+                                .buildIfSupport()
+                                .ifPresent(connection::convertAndSend);
                         return CompletableFuture.completedFuture(null);
                     }
                     List<CompletableFuture<Void>> subscribeFutures = topics.stream()
                             .map(topic -> {
                                 CompletableFuture<Void> future = writeToBroker(topic, message);
-
                                 if (incrementCounter) {
                                     future.thenAccept(__ ->
                                             increaseSubscribeTopicsCount(packetId, 1));

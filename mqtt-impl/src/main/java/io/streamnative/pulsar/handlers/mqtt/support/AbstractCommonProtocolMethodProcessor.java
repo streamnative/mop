@@ -23,7 +23,7 @@ import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidReceiveMaximumException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttConnectAck;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
@@ -69,19 +69,19 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         // Check MQTT protocol version.
         if (!MqttUtils.isSupportedVersion(protocolVersion)) {
             log.error("[CONNECT] MQTT protocol version is not valid. CId={}", clientId);
-            MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().unsupportedVersion();
+            MqttMessage mqttMessage = MqttConnectAck.errorBuilder().unsupportedVersion();
             adapter.setMqttMessage(mqttMessage);
             channel.writeAndFlush(mqttMessage);
-            if (!adapter.isAdapter()) {
+            if (!adapter.fromProxy()) {
                 channel.close();
             }
             return;
         }
         if (!MqttUtils.isQosSupported(msg)) {
-            MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().willQosNotSupport(protocolVersion);
+            MqttMessage mqttMessage = MqttConnectAck.errorBuilder().willQosNotSupport(protocolVersion);
             adapter.setMqttMessage(mqttMessage);
             channel.writeAndFlush(adapter);
-            if (!adapter.isAdapter()) {
+            if (!adapter.fromProxy()) {
                 channel.close();
             }
             return;
@@ -89,11 +89,11 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
-                MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().identifierInvalid(protocolVersion);
+                MqttMessage mqttMessage = MqttConnectAck.errorBuilder().identifierInvalid(protocolVersion);
                 log.error("[CONNECT] The MQTT client ID cannot be empty. Username={}", username);
                 adapter.setMqttMessage(mqttMessage);
                 channel.writeAndFlush(adapter);
-                if (!adapter.isAdapter()) {
+                if (!adapter.fromProxy()) {
                     channel.close();
                 }
                 return;
@@ -113,11 +113,11 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().authFail(protocolVersion);
+                MqttMessage mqttMessage = MqttConnectAck.errorBuilder().authFail(protocolVersion);
                 log.error("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
                 adapter.setMqttMessage(mqttMessage);
                 channel.writeAndFlush(adapter);
-                if (!adapter.isAdapter()) {
+                if (!adapter.fromProxy()) {
                     channel.close();
                 }
                 return;
@@ -134,10 +134,10 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
             doProcessConnect(adapter, userRole, clientRestrictionsBuilder.build());
         } catch (InvalidReceiveMaximumException invalidReceiveMaximumException) {
             log.error("[CONNECT] Fail to parse receive maximum because of zero value, CId={}", clientId);
-            MqttMessage mqttMessage = MqttConnectAckHelper.errorBuilder().protocolError(protocolVersion);
+            MqttMessage mqttMessage = MqttConnectAck.errorBuilder().protocolError(protocolVersion);
             adapter.setMqttMessage(mqttMessage);
             channel.writeAndFlush(adapter);
-            if (!adapter.isAdapter()) {
+            if (!adapter.fromProxy()) {
                 channel.close();
             }
         }

@@ -143,7 +143,6 @@ public class MQTTProxyAdapter {
         public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
             checkArgument(message instanceof MqttAdapterMessage);
             MqttAdapterMessage adapterMsg = (MqttAdapterMessage) message;
-            adapterMsg.setAdapter(false);
             String clientId = adapterMsg.getClientId();
             MqttMessage msg = adapterMsg.getMqttMessage();
             Connection connection = proxyService.getConnectionManager().getConnection(clientId);
@@ -161,8 +160,8 @@ public class MQTTProxyAdapter {
                 }
                 switch (messageType) {
                     case DISCONNECT:
-                        if (MqttUtils.isMqtt5(connection.getProtocolVersion())) {
-                            connection.getChannel().writeAndFlush(adapterMsg);
+                        if (!MqttUtils.isMqtt3(connection.getProtocolVersion())) {
+                            connection.getChannel().writeAndFlush(adapterMsg.convertEncodeTypeToMqtt());
                         }
                         connection.getChannel().close();
                         break;
@@ -171,20 +170,21 @@ public class MQTTProxyAdapter {
                         int packetId = pubMessage.variableHeader().packetId();
                         String topicName = pubMessage.variableHeader().topicName();
                         processor.getPacketIdTopic().put(packetId, topicName);
-                        processor.getChannel().writeAndFlush(adapterMsg).addListener(listener -> {
-                            ((MqttPublishMessage) adapterMsg.getMqttMessage()).release();
-                        });
+                        processor.getChannel().writeAndFlush(adapterMsg.convertEncodeTypeToMqtt())
+                                .addListener(listener -> {
+                                    ((MqttPublishMessage) adapterMsg.getMqttMessage()).release();
+                                });
                         break;
                     case CONNACK:
                         break;
                     case SUBACK:
                         MqttSubAckMessage subAckMessage = (MqttSubAckMessage) msg;
                         if (processor.checkIfSendSubAck(subAckMessage.variableHeader().messageId())) {
-                            processor.getChannel().writeAndFlush(adapterMsg);
+                            processor.getChannel().writeAndFlush(adapterMsg.convertEncodeTypeToMqtt());
                         }
                         break;
                     default:
-                        processor.getChannel().writeAndFlush(adapterMsg);
+                        processor.getChannel().writeAndFlush(adapterMsg.convertEncodeTypeToMqtt());
                         break;
                 }
             } catch (Throwable ex) {

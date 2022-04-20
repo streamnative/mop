@@ -13,57 +13,48 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.adapter;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import org.apache.commons.lang3.StringUtils;
 
+@Data
+@AllArgsConstructor
 public class MqttAdapterMessage {
 
     public static final byte MAGIC = (byte) 0xbabe;
 
     public static final byte DEFAULT_VERSION = 0x00;
 
-    @Getter
     private final byte version;
-    @Getter
     private final String clientId;
-    @Getter
-    @Setter
     private MqttMessage mqttMessage;
-    @Getter
-    @Setter
-    private boolean isAdapter;
-
-    @Getter
-    @Setter
-    private ByteBuf byteBuf;
+    private EncodeType encodeType;
 
     public MqttAdapterMessage(MqttMessage mqttMessage) {
-        this(DEFAULT_VERSION, "", mqttMessage);
+        this(DEFAULT_VERSION, StringUtils.EMPTY, mqttMessage, EncodeType.ADAPTER_MESSAGE);
     }
 
     public MqttAdapterMessage(String clientId, MqttMessage mqttMessage) {
-        this(DEFAULT_VERSION, clientId, mqttMessage);
+        this(DEFAULT_VERSION, clientId, mqttMessage, EncodeType.ADAPTER_MESSAGE);
     }
-
+    public MqttAdapterMessage(String clientId, MqttMessage mqttMessage, boolean encodeToMqtt) {
+        this(DEFAULT_VERSION, clientId, mqttMessage,
+                encodeToMqtt ? EncodeType.MQTT_MESSAGE : EncodeType.ADAPTER_MESSAGE);
+    }
     public MqttAdapterMessage(byte version, String clientId) {
-        this(version, clientId, null);
+        this(version, clientId, null, EncodeType.ADAPTER_MESSAGE);
+    }
+    public boolean fromProxy() {
+        return encodeType == EncodeType.ADAPTER_MESSAGE;
+    }
+    public MqttAdapterMessage convertEncodeTypeToMqtt() {
+        this.encodeType = EncodeType.MQTT_MESSAGE;
+        return this;
     }
 
-    public MqttAdapterMessage(byte version, String clientId, MqttMessage mqttMessage) {
-        this.version = version;
-        this.clientId = clientId;
-        this.mqttMessage = mqttMessage;
-    }
-
-    @Override
-    public String toString() {
-        return "MqttAdapterMessage{"
-                + "version=" + version
-                + ", clientId='" + clientId
-                + ", mqttMessage=" + mqttMessage
-                + ", isAdapter=" + isAdapter
-                + '}';
+    public enum EncodeType {
+        MQTT_MESSAGE,
+        ADAPTER_MESSAGE
     }
 }

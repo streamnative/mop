@@ -21,7 +21,6 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
-import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -62,7 +61,7 @@ public class MQTTConsumer extends Consumer {
             AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "addPermits");
     private volatile int addPermits = 0;
     private final ClientRestrictions clientRestrictions;
-    private final boolean isAdapter;
+    private final Connection connection;
 
     public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, Connection connection,
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
@@ -78,7 +77,7 @@ public class MQTTConsumer extends Consumer {
         this.outstandingPacketContainer = outstandingPacketContainer;
         this.metricsCollector = metricsCollector;
         this.clientRestrictions = connection.getClientRestrictions();
-        this.isAdapter = connection.isAdapter();
+        this.connection = connection;
     }
 
     @Override
@@ -103,9 +102,7 @@ public class MQTTConsumer extends Consumer {
                             mqttTopicName, super.getSubscription().getName(), msg);
                 }
                 metricsCollector.addReceived(msg.payload().readableBytes());
-                MqttAdapterMessage adapterMessage = new MqttAdapterMessage(consumerName(), msg);
-                adapterMessage.setAdapter(isAdapter);
-                cnx.ctx().channel().write(adapterMessage);
+                cnx.ctx().channel().write(connection.convertToAdapterMsg(msg));
             }
         }
         if (MqttQoS.AT_MOST_ONCE == qos) {

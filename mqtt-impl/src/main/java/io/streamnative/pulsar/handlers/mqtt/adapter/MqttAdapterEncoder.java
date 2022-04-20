@@ -49,21 +49,23 @@ public class MqttAdapterEncoder extends MessageToMessageEncoder<MqttAdapterMessa
 
     @Override
     protected void encode(ChannelHandlerContext ctx, MqttAdapterMessage msg, List<Object> out) throws Exception {
-        ByteBuf buffer;
-        if (msg.isAdapter()) {
-            ByteBuf mqtt = (ByteBuf) doEncode.invoke(ENCODER, ctx, msg.getMqttMessage());
-            byte[] clientId = msg.getClientId().getBytes(StandardCharsets.UTF_8);
-            buffer = ctx.alloc().buffer(1 + 1 + 4 + clientId.length + 4 + mqtt.readableBytes());
-            buffer.writeByte(MqttAdapterMessage.MAGIC);
-            buffer.writeByte(msg.getVersion());
-            buffer.writeInt(clientId.length);
-            buffer.writeBytes(clientId);
-            buffer.writeInt(mqtt.readableBytes());
-            buffer.writeBytes(mqtt);
-            ReferenceCountUtil.safeRelease(mqtt);
-        } else {
-            buffer = (ByteBuf) doEncode.invoke(ENCODER, ctx, msg.getMqttMessage());
+        switch (msg.getEncodeType()) {
+            case MQTT_MESSAGE:
+                out.add(doEncode.invoke(ENCODER, ctx, msg.getMqttMessage()));
+                break;
+            case ADAPTER_MESSAGE:
+                ByteBuf mqtt = (ByteBuf) doEncode.invoke(ENCODER, ctx, msg.getMqttMessage());
+                byte[] clientId = msg.getClientId().getBytes(StandardCharsets.UTF_8);
+                ByteBuf protocolBuffer = ctx.alloc().buffer(1 + 1 + 4 + clientId.length + 4 + mqtt.readableBytes());
+                protocolBuffer.writeByte(MqttAdapterMessage.MAGIC);
+                protocolBuffer.writeByte(msg.getVersion());
+                protocolBuffer.writeInt(clientId.length);
+                protocolBuffer.writeBytes(clientId);
+                protocolBuffer.writeInt(mqtt.readableBytes());
+                protocolBuffer.writeBytes(mqtt);
+                ReferenceCountUtil.safeRelease(mqtt);
+                out.add(protocolBuffer);
+                break;
         }
-        out.add(buffer);
     }
 }

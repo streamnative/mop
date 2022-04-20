@@ -3,7 +3,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.messages.factory;
+package io.streamnative.pulsar.handlers.mqtt.messages.ack;
 
 
 import io.netty.handler.codec.mqtt.MqttConnectReturnCode;
@@ -21,6 +21,7 @@ import io.netty.handler.codec.mqtt.MqttProperties;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
+import java.util.Optional;
 
 /**
  * Enhance mqtt connect ack message builder.
@@ -29,17 +30,56 @@ import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
  * This class base on #{MqttMessageBuilders}
  * @see MqttMessageBuilders
  */
-public class MqttConnectAckHelper {
+public class MqttConnectAck {
 
-    public static MqttMessageBuilders.ConnAckBuilder builder() {
-        return MqttMessageBuilders.connAck();
+    public static MqttConnectSuccessAckBuilder successBuilder(int protocolVersion) {
+        return new MqttConnectSuccessAckBuilder(protocolVersion);
     }
 
     public static MqttConnectErrorAckBuilder errorBuilder() {
         return new MqttConnectErrorAckBuilder();
     }
 
-    public static class MqttConnectErrorAckBuilder {
+    public final static class MqttConnectSuccessAckBuilder {
+        private final int protocolVersion;
+        private boolean cleanSession;
+        private int receiveMaximum;
+
+        public MqttConnectSuccessAckBuilder(int protocolVersion) {
+            this.protocolVersion = protocolVersion;
+        }
+
+        public MqttConnectSuccessAckBuilder cleanSession(boolean cleanSession) {
+            this.cleanSession = cleanSession;
+            return this;
+        }
+
+        public MqttConnectSuccessAckBuilder receiveMaximum(int receiveMaximum) {
+            this.receiveMaximum = receiveMaximum;
+            return this;
+        }
+
+        public Optional<MqttMessage> buildIfSupport() {
+            MqttMessageBuilders.ConnAckBuilder commonBuilder = MqttMessageBuilders.connAck()
+                    .sessionPresent(!cleanSession);
+            if (MqttUtils.isMqtt3(protocolVersion)) {
+                return Optional.of(commonBuilder
+                        .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.convertToNettyKlass())
+                        .build());
+            }
+            MqttProperties properties = new MqttProperties();
+            MqttProperties.IntegerProperty property =
+                    new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
+                            receiveMaximum);
+            properties.add(property);
+            return Optional.of(commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.convertToNettyKlass())
+                    .properties(properties)
+                    .build());
+        }
+
+    }
+
+    public final static class MqttConnectErrorAckBuilder {
         private int protocolVersion;
         private ErrorReason errorReason;
         private String reasonString;
@@ -58,45 +98,56 @@ public class MqttConnectAckHelper {
         public MqttMessage identifierInvalid(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.IDENTIFIER_INVALID;
-            return build();
+            Optional<MqttMessage> mqttMessage = buildIfSupport();
+            assert mqttMessage.isPresent();
+            return mqttMessage.get();
         }
 
         public MqttMessage authFail(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.AUTH_FAILED;
-            return build();
+            Optional<MqttMessage> mqttMessage = buildIfSupport();
+            assert mqttMessage.isPresent();
+            return mqttMessage.get();
         }
 
         public MqttMessage willQosNotSupport(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.WILL_QOS_NOT_SUPPORT;
-            return build();
+            Optional<MqttMessage> mqttMessage = buildIfSupport();
+            assert mqttMessage.isPresent();
+            return mqttMessage.get();
         }
 
         public MqttMessage unsupportedVersion() {
             this.errorReason = ErrorReason.UNSUPPORTED_VERSION;
-            return build();
+            Optional<MqttMessage> mqttMessage = buildIfSupport();
+            assert mqttMessage.isPresent();
+            return mqttMessage.get();
         }
 
         public MqttMessage protocolError(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.PROTOCOL_ERROR;
-            return build();
+            Optional<MqttMessage> mqttMessage = buildIfSupport();
+            assert mqttMessage.isPresent();
+            return mqttMessage.get();
         }
 
-        public MqttMessage build() {
+        public Optional<MqttMessage> buildIfSupport() {
             MqttMessageBuilders.ConnAckBuilder connAckBuilder = MqttMessageBuilders.connAck()
                     .sessionPresent(false)
                     .returnCode(errorReason.getReasonCode(protocolVersion));
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                MqttProperties properties = new MqttProperties();
-                MqttProperties.StringProperty reasonStringProperty =
-                        new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
-                                reasonString);
-                properties.add(reasonStringProperty);
-                connAckBuilder.properties(properties);
+            if (MqttUtils.isMqtt3(protocolVersion)) {
+                return Optional.of(connAckBuilder.build());
             }
-            return connAckBuilder.build();
+            MqttProperties properties = new MqttProperties();
+            MqttProperties.StringProperty reasonStringProperty =
+                    new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
+                            reasonString);
+            properties.add(reasonStringProperty);
+            connAckBuilder.properties(properties);
+            return Optional.of(connAckBuilder.build());
         }
     }
 
@@ -125,11 +176,10 @@ public class MqttConnectAckHelper {
         }
 
         public MqttConnectReturnCode getReasonCode(int protocolVersion) {
-            if (MqttUtils.isMqtt5(protocolVersion)) {
-                return v5ReasonCode.convertToNettyKlass();
-            } else {
+            if (MqttUtils.isMqtt3(protocolVersion)) {
                 return v3ReasonCode.convertToNettyKlass();
             }
+            return v5ReasonCode.convertToNettyKlass();
         }
     }
 }
