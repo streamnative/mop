@@ -126,7 +126,7 @@ public class MqttSubAck {
                 return MqttProperties.NO_PROPERTIES;
             }
             MqttProperties properties = new MqttProperties();
-            MqttPropertyUtils.stuffReasonString(properties, reasonString);
+            MqttPropertyUtils.setReasonString(properties, reasonString);
             return properties;
         }
     }
