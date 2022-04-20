@@ -38,9 +38,8 @@ public class MqttAdapterMessage {
     public MqttAdapterMessage(String clientId, MqttMessage mqttMessage) {
         this(DEFAULT_VERSION, clientId, mqttMessage, EncodeType.ADAPTER_MESSAGE);
     }
-    public MqttAdapterMessage(String clientId, MqttMessage mqttMessage, boolean encodeToMqtt) {
-        this(DEFAULT_VERSION, clientId, mqttMessage,
-                encodeToMqtt ? EncodeType.MQTT_MESSAGE : EncodeType.ADAPTER_MESSAGE);
+    public MqttAdapterMessage(String clientId, MqttMessage mqttMessage, boolean fromProxy) {
+        this(DEFAULT_VERSION, clientId, mqttMessage, fromProxy ? EncodeType.ADAPTER_MESSAGE : EncodeType.MQTT_MESSAGE);
     }
     public MqttAdapterMessage(byte version, String clientId) {
         this(version, clientId, null, EncodeType.ADAPTER_MESSAGE);

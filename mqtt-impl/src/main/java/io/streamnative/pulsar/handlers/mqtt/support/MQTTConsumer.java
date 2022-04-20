@@ -104,7 +104,7 @@ public class MQTTConsumer extends Consumer {
                 }
                 metricsCollector.addReceived(msg.payload().readableBytes());
                 cnx.ctx().channel().write(new MqttAdapterMessage(connection.getClientId(), msg,
-                        !connection.isFromProxy()));
+                        connection.isFromProxy()));
             }
         }
         if (MqttQoS.AT_MOST_ONCE == qos) {

@@ -133,7 +133,7 @@ public class Connection {
             log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
             return ChannelFutureUtils.convertToCompletableFuture(channel.newFailedFuture(channelInactiveException));
         }
-        MqttAdapterMessage mqttAdapterMessage = new MqttAdapterMessage(clientId, mqttMessage, !isFromProxy());
+        MqttAdapterMessage mqttAdapterMessage = new MqttAdapterMessage(clientId, mqttMessage, isFromProxy());
         CompletableFuture<Void> future =
                 ChannelFutureUtils.convertToCompletableFuture(channel.writeAndFlush(mqttAdapterMessage));
         future.exceptionally(ex -> {
