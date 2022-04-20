@@ -63,7 +63,7 @@ public class MqttConnectAck {
                     .sessionPresent(!cleanSession);
             if (MqttUtils.isMqtt3(protocolVersion)) {
                 return MqttAck.createSupportAck(commonBuilder
-                        .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.convertToNettyKlass())
+                        .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.toConnectionReasonCode())
                         .build());
             }
             MqttProperties properties = new MqttProperties();
@@ -71,7 +71,7 @@ public class MqttConnectAck {
                     new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
                             receiveMaximum);
             properties.add(property);
-            return MqttAck.createSupportAck(commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.convertToNettyKlass())
+            return MqttAck.createSupportAck(commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.toConnectionReasonCode())
                     .properties(properties)
                     .build());
         }
@@ -166,9 +166,9 @@ public class MqttConnectAck {
 
         public MqttConnectReturnCode getReasonCode(int protocolVersion) {
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return v3ReasonCode.convertToNettyKlass();
+                return v3ReasonCode.toConnectionReasonCode();
             }
-            return v5ReasonCode.convertToNettyKlass();
+            return v5ReasonCode.toConnectionReasonCode();
         }
     }
 }
