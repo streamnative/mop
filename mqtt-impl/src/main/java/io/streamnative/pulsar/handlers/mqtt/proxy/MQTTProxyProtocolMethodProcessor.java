@@ -249,7 +249,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             .build();
                     connection.sendAckThenClose(subAck);
                     subscribeTopicsCount.remove(packetId);
-                    connection.disconnect();
                     return null;
                 });
     }
