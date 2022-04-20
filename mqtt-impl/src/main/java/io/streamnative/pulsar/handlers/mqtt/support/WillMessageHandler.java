@@ -66,7 +66,7 @@ public class WillMessageHandler {
         for (Pair<String, String> entry : subscriptions) {
             Connection connection = connectionManager.getConnection(entry.getLeft());
             if (connection != null) {
-                connection.convertAndSend(msg);
+                connection.send(msg);
             } else {
                 log.warn("Not find connection for empty : {}", entry.getLeft());
             }

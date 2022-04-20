@@ -48,10 +48,6 @@ public class MqttAdapterMessage {
     public boolean fromProxy() {
         return encodeType == EncodeType.ADAPTER_MESSAGE;
     }
-    public MqttAdapterMessage convertEncodeTypeToMqtt() {
-        this.encodeType = EncodeType.MQTT_MESSAGE;
-        return this;
-    }
 
     public enum EncodeType {
         MQTT_MESSAGE,

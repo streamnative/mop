@@ -13,13 +13,11 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.messages.ack;
 
-import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
-import java.util.Optional;
 
 public class MqttPubAck {
 
@@ -50,20 +48,20 @@ public class MqttPubAck {
             return this;
         }
 
-        public Optional<MqttMessage> buildIfSupport() {
+        public MqttAck build() {
             MqttMessageBuilders.PubAckBuilder commonBuilder = MqttMessageBuilders.pubAck().packetId(packetId);
             if (MqttUtils.isMqtt3(protocolVersion)) {
                 if (isNoMatchingSubscription) {
                     throw new IllegalArgumentException("MQTT3 not support [isNoMatchingSubscription]");
                 }
-                return Optional.of(commonBuilder.build());
+                return MqttAck.createSupportAck(commonBuilder.build());
             }
             if (isNoMatchingSubscription) {
                 commonBuilder.reasonCode(Mqtt5PubReasonCode.NO_MATCHING_SUBSCRIBERS.byteValue());
             } else {
                 commonBuilder.reasonCode(Mqtt5PubReasonCode.SUCCESS.byteValue());
             }
-            return Optional.of(commonBuilder.build());
+            return MqttAck.createSupportAck(commonBuilder.build());
         }
 
     }
@@ -94,19 +92,19 @@ public class MqttPubAck {
             return this;
         }
 
-        public Optional<MqttMessage> buildIfSupport() {
+        public MqttAck build() {
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return Optional.empty();
+                return MqttAck.createUnSupportAck();
             } else {
-                return Optional.of(MqttMessageBuilders.pubAck()
+                return MqttAck.createSupportAck(MqttMessageBuilders.pubAck()
                         .reasonCode(reasonCode.byteValue())
                         .packetId(packetId)
-                        .properties(getStuffedProperties())
+                        .properties(getProperties())
                         .build());
             }
         }
 
-        private MqttProperties getStuffedProperties() {
+        private MqttProperties getProperties() {
             if (MqttUtils.isMqtt3(protocolVersion)) {
                 return MqttProperties.NO_PROPERTIES;
             }

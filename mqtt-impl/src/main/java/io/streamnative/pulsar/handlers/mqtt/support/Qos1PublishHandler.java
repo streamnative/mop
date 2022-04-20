@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.Channel;
-import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
@@ -22,11 +21,11 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttPubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -58,11 +57,10 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
         // we need to check if subscription exist when protocol version is mqtt 5.x
         return ret
                 .thenCompose(__ -> {
-                    Optional<MqttMessage> pubAck = MqttPubAck.successBuilder(protocolVersion)
+                    MqttAck pubAck = MqttPubAck.successBuilder(protocolVersion)
                             .packetId(packetId)
-                            .buildIfSupport();
-                    assert pubAck.isPresent();
-                    CompletableFuture<Void> future = connection.convertAndSend(pubAck.get());
+                            .build();
+                    CompletableFuture<Void> future = connection.sendAck(pubAck);
                     future.whenComplete((result, error) -> {
                         connection.decrementServerReceivePubMessage();
                         if (log.isDebugEnabled()) {
@@ -75,34 +73,31 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
                     if (realCause instanceof MQTTNoMatchingSubscriberException) {
                         log.warn("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
-                        MqttPubAck.successBuilder(protocolVersion)
+                        MqttAck mqttAck = MqttPubAck.successBuilder(protocolVersion)
                                 .packetId(packetId)
                                 .isNoMatchingSubscription()
-                                .buildIfSupport()
-                                .ifPresent(mqttMessage -> connection.convertAndSend(mqttMessage)
-                                        .whenComplete((result, error)->{
-                                            connection.decrementServerReceivePubMessage();
-                                        })
-                                );
+                                .build();
+                        connection.sendAck(mqttAck)
+                                .whenComplete((result, error)->{
+                                    connection.decrementServerReceivePubMessage();
+                                });
                     } else if (realCause instanceof BrokerServiceException.TopicNotFoundException) {
                         log.warn("Topic [{}] Not found, the configuration [isAllowAutoTopicCreation={}]",
                                 topic, pulsarService.getConfig().isAllowAutoTopicCreation());
-                        MqttPubAck.errorBuilder(protocolVersion)
+                        MqttAck pubAck = MqttPubAck.errorBuilder(protocolVersion)
                                 .packetId(packetId)
                                 .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
                                 .reasonString("Topic not found")
-                                .buildIfSupport()
-                                .ifPresent(connection::convertAndSend);
-                        connection.disconnect();
+                                .build();
+                        connection.sendAckThenClose(pubAck);
                     } else {
                         log.error("[{}] Publish msg {} fail.", topic, msg, ex);
-                        MqttPubAck.errorBuilder(protocolVersion)
+                        MqttAck pubAck = MqttPubAck.errorBuilder(protocolVersion)
                                 .packetId(packetId)
                                 .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
                                 .reasonString(realCause.getMessage())
-                                .buildIfSupport()
-                                .ifPresent(connection::convertAndSend);
-                        connection.disconnect();
+                                .build();
+                        connection.sendAckThenClose(pubAck);
                     }
                     return null;
                 });

@@ -13,13 +13,11 @@
  */
 
 package io.streamnative.pulsar.handlers.mqtt.messages.ack;
-import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
-import java.util.Optional;
 
 public class MqttUnsubAck {
 
@@ -50,18 +48,18 @@ public class MqttUnsubAck {
             return this;
         }
 
-        public Optional<MqttMessage> buildIfSupport() {
+        public MqttAck build() {
             MqttMessageBuilders.UnsubAckBuilder commonBuilder =
                     MqttMessageBuilders.unsubAck().packetId(packetId);
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return Optional.of(commonBuilder.build());
+                return MqttAck.createSupportAck(commonBuilder.build());
             }
             if (isNoSubscriptionExisted) {
                 commonBuilder.addReasonCode(Mqtt5UnsubReasonCode.NO_SUBSCRIPTION_EXISTED.byteValue());
             } else {
                 commonBuilder.addReasonCode(Mqtt5UnsubReasonCode.SUCCESS.byteValue());
             }
-            return Optional.of(commonBuilder.build());
+            return MqttAck.createSupportAck(commonBuilder.build());
         }
 
     }
@@ -92,18 +90,18 @@ public class MqttUnsubAck {
             return this;
         }
 
-        public Optional<MqttMessage> buildIfSupport() {
+        public MqttAck build() {
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return Optional.empty();
+                return MqttAck.createUnSupportAck();
             }
-            return Optional.of(MqttMessageBuilders.unsubAck()
+            return MqttAck.createSupportAck(MqttMessageBuilders.unsubAck()
                     .packetId(packetId)
                     .addReasonCode(reasonCode.shortValue())
-                    .properties(getStuffedProperties())
+                    .properties(getProperties())
                     .build());
         }
 
-        private MqttProperties getStuffedProperties() {
+        private MqttProperties getProperties() {
             if (MqttUtils.isMqtt3(protocolVersion)) {
                 return MqttProperties.NO_PROPERTIES;
             }

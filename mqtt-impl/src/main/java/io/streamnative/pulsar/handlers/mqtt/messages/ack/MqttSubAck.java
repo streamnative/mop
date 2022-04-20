@@ -15,7 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt.messages.ack;
 
 import com.google.common.collect.Lists;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
-import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttMessageIdAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
@@ -31,7 +30,6 @@ import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 
@@ -70,8 +68,8 @@ public class MqttSubAck {
             return this;
         }
 
-        public Optional<MqttMessage> buildIfSupport() {
-            return Optional.of(MqttMessageBuilders.subAck()
+        public MqttAck build() {
+            return MqttAck.createSupportAck(MqttMessageBuilders.subAck()
                     .packetId(packetId)
                     .addGrantedQoses(grantedQoses.toArray(new MqttQoS[]{}))
                     .build());
@@ -109,20 +107,21 @@ public class MqttSubAck {
             return this;
         }
 
-        public Optional<MqttMessage> buildIfSupport() {
+        public MqttAck build() {
             MqttFixedHeader mqttFixedHeader =
                     new MqttFixedHeader(MqttMessageType.SUBACK, false,
                             MqttQoS.AT_MOST_ONCE, false, 0);
             MqttMessageIdAndPropertiesVariableHeader mqttSubAckVariableHeader =
-                    new MqttMessageIdAndPropertiesVariableHeader(packetId, getStuffedProperties());
+                    new MqttMessageIdAndPropertiesVariableHeader(packetId, getProperties());
             List<Integer> reasonCodes = Lists.newArrayList();
             reasonCodes.addAll(grantedQoses.stream().map(MqttQoS::value).collect(Collectors.toList()));
             reasonCodes.add(errorReason.getReasonCode(protocolVersion).value());
             MqttSubAckPayload subAckPayload = new MqttSubAckPayload(reasonCodes);
-            return Optional.of(new MqttSubAckMessage(mqttFixedHeader, mqttSubAckVariableHeader, subAckPayload));
+            return MqttAck.createSupportAck(new MqttSubAckMessage(mqttFixedHeader,
+                    mqttSubAckVariableHeader, subAckPayload));
         }
 
-        private MqttProperties getStuffedProperties() {
+        private MqttProperties getProperties() {
             if (!MqttUtils.isMqtt3(protocolVersion)) {
                 return MqttProperties.NO_PROPERTIES;
             }

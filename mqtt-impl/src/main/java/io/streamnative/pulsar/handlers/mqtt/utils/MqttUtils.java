@@ -39,6 +39,9 @@ public class MqttUtils {
     public static boolean isMqtt3(int version) {
         return version == MqttVersion.MQTT_3_1.protocolLevel() || version == MqttVersion.MQTT_3_1_1.protocolLevel();
     }
+    public static boolean isNotMqtt3(int version) {
+        return !isMqtt3(version);
+    }
     public static boolean isQosSupported(MqttConnectMessage msg) {
         int willQos = msg.variableHeader().willQos();
         MqttQoS mqttQoS = MqttQoS.valueOf(willQos);

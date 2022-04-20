@@ -94,7 +94,7 @@ public class MqttPropertyUtils {
     }
 
     public static Optional<Integer> getUpdateSessionExpireIntervalIfExist(int protocolVersion, MqttMessage msg) {
-        if (!MqttUtils.isMqtt3(protocolVersion)
+        if (MqttUtils.isNotMqtt3(protocolVersion)
                 && msg.variableHeader() instanceof MqttReasonCodeAndPropertiesVariableHeader) {
             return MqttPropertyUtils
                     .getExpireInterval(((MqttReasonCodeAndPropertiesVariableHeader)

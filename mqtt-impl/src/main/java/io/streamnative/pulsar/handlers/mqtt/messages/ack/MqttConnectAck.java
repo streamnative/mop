@@ -21,7 +21,6 @@ import io.netty.handler.codec.mqtt.MqttProperties;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
-import java.util.Optional;
 
 /**
  * Enhance mqtt connect ack message builder.
@@ -59,11 +58,11 @@ public class MqttConnectAck {
             return this;
         }
 
-        public Optional<MqttMessage> buildIfSupport() {
+        public MqttAck build() {
             MqttMessageBuilders.ConnAckBuilder commonBuilder = MqttMessageBuilders.connAck()
                     .sessionPresent(!cleanSession);
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return Optional.of(commonBuilder
+                return MqttAck.createSupportAck(commonBuilder
                         .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.convertToNettyKlass())
                         .build());
             }
@@ -72,7 +71,7 @@ public class MqttConnectAck {
                     new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
                             receiveMaximum);
             properties.add(property);
-            return Optional.of(commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.convertToNettyKlass())
+            return MqttAck.createSupportAck(commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.convertToNettyKlass())
                     .properties(properties)
                     .build());
         }
@@ -98,48 +97,38 @@ public class MqttConnectAck {
         public MqttMessage identifierInvalid(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.IDENTIFIER_INVALID;
-            Optional<MqttMessage> mqttMessage = buildIfSupport();
-            assert mqttMessage.isPresent();
-            return mqttMessage.get();
+            return build().getMqttMessage();
         }
 
         public MqttMessage authFail(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.AUTH_FAILED;
-            Optional<MqttMessage> mqttMessage = buildIfSupport();
-            assert mqttMessage.isPresent();
-            return mqttMessage.get();
+            return build().getMqttMessage();
         }
 
         public MqttMessage willQosNotSupport(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.WILL_QOS_NOT_SUPPORT;
-            Optional<MqttMessage> mqttMessage = buildIfSupport();
-            assert mqttMessage.isPresent();
-            return mqttMessage.get();
+            return build().getMqttMessage();
         }
 
         public MqttMessage unsupportedVersion() {
             this.errorReason = ErrorReason.UNSUPPORTED_VERSION;
-            Optional<MqttMessage> mqttMessage = buildIfSupport();
-            assert mqttMessage.isPresent();
-            return mqttMessage.get();
+            return build().getMqttMessage();
         }
 
         public MqttMessage protocolError(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.PROTOCOL_ERROR;
-            Optional<MqttMessage> mqttMessage = buildIfSupport();
-            assert mqttMessage.isPresent();
-            return mqttMessage.get();
+            return build().getMqttMessage();
         }
 
-        public Optional<MqttMessage> buildIfSupport() {
+        public MqttAck build() {
             MqttMessageBuilders.ConnAckBuilder connAckBuilder = MqttMessageBuilders.connAck()
                     .sessionPresent(false)
                     .returnCode(errorReason.getReasonCode(protocolVersion));
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return Optional.of(connAckBuilder.build());
+                return MqttAck.createSupportAck(connAckBuilder.build());
             }
             MqttProperties properties = new MqttProperties();
             MqttProperties.StringProperty reasonStringProperty =
@@ -147,7 +136,7 @@ public class MqttConnectAck {
                             reasonString);
             properties.add(reasonStringProperty);
             connAckBuilder.properties(properties);
-            return Optional.of(connAckBuilder.build());
+            return MqttAck.createSupportAck(connAckBuilder.build());
         }
     }
 

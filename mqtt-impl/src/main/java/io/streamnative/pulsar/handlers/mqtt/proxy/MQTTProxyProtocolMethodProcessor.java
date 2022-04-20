@@ -32,6 +32,7 @@ import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.AdapterChannel;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttPubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttSubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
@@ -124,7 +125,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .processor(this)
                 .eventCenter(pulsarEventCenter)
                 .build();
-        connection.updateStateAndSendConnAck();
+        connection.sendConnAck();
         ConnectEvent connectEvent = ConnectEvent.builder()
                 .clientId(connection.getClientId())
                 .address(pulsarService.getAdvertisedAddress())
@@ -149,13 +150,13 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     Throwable cause = ex.getCause();
                     log.error("[Proxy Publish] Failed to publish for topic : {}, CId : {}",
                             msg.variableHeader().topicName(), connection.getClientId(), cause);
-                    MqttPubAck.errorBuilder(connection.getProtocolVersion())
+                    MqttAck pubAck = MqttPubAck.errorBuilder(connection.getProtocolVersion())
                             .packetId(packetId)
                             .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
                             .reasonString(String.format("Failed to publish for topic, because of look up error %s",
                                     cause.getMessage()))
-                            .buildIfSupport()
-                            .ifPresent(connection::convertAndSend);
+                            .build();
+                    connection.sendAckThenClose(pubAck);
                     connection.decrementServerReceivePubMessage();
                     return null;
                 });
@@ -241,12 +242,12 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, realCause);
-                    MqttSubAck.errorBuilder(connection.getProtocolVersion())
+                    MqttAck subAck = MqttSubAck.errorBuilder(connection.getProtocolVersion())
                             .packetId(packetId)
                             .errorReason(MqttSubAck.ErrorReason.UNSPECIFIED_ERROR)
                             .reasonString("[ MOP ERROR ]" + realCause.getMessage())
-                            .buildIfSupport()
-                            .ifPresent(connection::convertAndSend);
+                            .build();
+                    connection.sendAckThenClose(subAck);
                     subscribeTopicsCount.remove(packetId);
                     connection.disconnect();
                     return null;
@@ -311,13 +312,13 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .thenCompose(topics -> {
                     int packetId = message.variableHeader().messageId();
                     if (CollectionUtils.isEmpty(topics)) {
-                        MqttSubAck.successBuilder(connection.getProtocolVersion())
+                        MqttAck subAck = MqttSubAck.successBuilder(connection.getProtocolVersion())
                                 .packetId(packetId)
                                 .grantedQos(new ArrayList<>(message.payload().topicSubscriptions().stream()
                                         .map(MqttTopicSubscription::qualityOfService)
                                         .collect(Collectors.toSet())))
-                                .buildIfSupport()
-                                .ifPresent(connection::convertAndSend);
+                                .build();
+                        connection.sendAck(subAck);
                         return CompletableFuture.completedFuture(null);
                     }
                     List<CompletableFuture<Void>> subscribeFutures = topics.stream()

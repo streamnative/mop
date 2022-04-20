@@ -21,6 +21,7 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -102,7 +103,8 @@ public class MQTTConsumer extends Consumer {
                             mqttTopicName, super.getSubscription().getName(), msg);
                 }
                 metricsCollector.addReceived(msg.payload().readableBytes());
-                cnx.ctx().channel().write(connection.convertToAdapterMsg(msg));
+                cnx.ctx().channel().write(new MqttAdapterMessage(connection.getClientId(), msg,
+                        !connection.isFromProxy()));
             }
         }
         if (MqttQoS.AT_MOST_ONCE == qos) {

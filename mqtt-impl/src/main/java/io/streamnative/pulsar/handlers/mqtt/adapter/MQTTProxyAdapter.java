@@ -143,6 +143,7 @@ public class MQTTProxyAdapter {
         public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
             checkArgument(message instanceof MqttAdapterMessage);
             MqttAdapterMessage adapterMsg = (MqttAdapterMessage) message;
+            adapterMsg.setEncodeType(MqttAdapterMessage.EncodeType.MQTT_MESSAGE);
             String clientId = adapterMsg.getClientId();
             MqttMessage msg = adapterMsg.getMqttMessage();
             Connection connection = proxyService.getConnectionManager().getConnection(clientId);
@@ -160,8 +161,8 @@ public class MQTTProxyAdapter {
                 }
                 switch (messageType) {
                     case DISCONNECT:
-                        if (!MqttUtils.isMqtt3(connection.getProtocolVersion())) {
-                            connection.getChannel().writeAndFlush(adapterMsg.convertEncodeTypeToMqtt());
+                        if (MqttUtils.isNotMqtt3(connection.getProtocolVersion())) {
+                            connection.getChannel().writeAndFlush(adapterMsg);
                         }
                         connection.getChannel().close();
                         break;
@@ -170,7 +171,7 @@ public class MQTTProxyAdapter {
                         int packetId = pubMessage.variableHeader().packetId();
                         String topicName = pubMessage.variableHeader().topicName();
                         processor.getPacketIdTopic().put(packetId, topicName);
-                        processor.getChannel().writeAndFlush(adapterMsg.convertEncodeTypeToMqtt())
+                        processor.getChannel().writeAndFlush(adapterMsg)
                                 .addListener(listener -> {
                                     ((MqttPublishMessage) adapterMsg.getMqttMessage()).release();
                                 });
@@ -180,11 +181,11 @@ public class MQTTProxyAdapter {
                     case SUBACK:
                         MqttSubAckMessage subAckMessage = (MqttSubAckMessage) msg;
                         if (processor.checkIfSendSubAck(subAckMessage.variableHeader().messageId())) {
-                            processor.getChannel().writeAndFlush(adapterMsg.convertEncodeTypeToMqtt());
+                            processor.getChannel().writeAndFlush(adapterMsg);
                         }
                         break;
                     default:
-                        processor.getChannel().writeAndFlush(adapterMsg.convertEncodeTypeToMqtt());
+                        processor.getChannel().writeAndFlush(adapterMsg);
                         break;
                 }
             } catch (Throwable ex) {
