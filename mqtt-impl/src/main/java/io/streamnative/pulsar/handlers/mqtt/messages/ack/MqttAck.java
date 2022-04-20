@@ -19,11 +19,11 @@ import lombok.Data;
 
 @Data
 public class MqttAck {
-    private final boolean support;
+    private final boolean protocolSupported;
     private final MqttMessage mqttMessage;
 
-    private MqttAck(boolean support, MqttMessage mqttMessage) {
-        this.support = support;
+    private MqttAck(boolean protocolSupported, MqttMessage mqttMessage) {
+        this.protocolSupported = protocolSupported;
         this.mqttMessage = mqttMessage;
     }
     public static MqttAck createUnSupportAck() {

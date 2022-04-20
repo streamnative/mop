@@ -143,7 +143,7 @@ public class Connection {
         return future;
     }
     public CompletableFuture<Void> sendAck(MqttAck mqttAck) {
-        return mqttAck.isSupport()
+        return mqttAck.isProtocolSupported()
                 ? send(mqttAck.getMqttMessage())
                 : CompletableFuture.completedFuture(null);
     }
