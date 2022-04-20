@@ -23,7 +23,6 @@ import org.apache.commons.lang3.StringUtils;
 public class MqttAdapterMessage {
 
     public static final byte MAGIC = (byte) 0xbabe;
-
     public static final byte DEFAULT_VERSION = 0x00;
 
     private final byte version;
@@ -38,12 +37,15 @@ public class MqttAdapterMessage {
     public MqttAdapterMessage(String clientId, MqttMessage mqttMessage) {
         this(DEFAULT_VERSION, clientId, mqttMessage, EncodeType.ADAPTER_MESSAGE);
     }
+
     public MqttAdapterMessage(String clientId, MqttMessage mqttMessage, boolean fromProxy) {
         this(DEFAULT_VERSION, clientId, mqttMessage, fromProxy ? EncodeType.ADAPTER_MESSAGE : EncodeType.MQTT_MESSAGE);
     }
+
     public MqttAdapterMessage(byte version, String clientId) {
         this(version, clientId, null, EncodeType.ADAPTER_MESSAGE);
     }
+
     public boolean fromProxy() {
         return encodeType == EncodeType.ADAPTER_MESSAGE;
     }
