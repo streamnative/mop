@@ -40,10 +40,10 @@ import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -52,7 +52,6 @@ import lombok.extern.slf4j.Slf4j;
  * session flag.
  */
 @Slf4j
-@EqualsAndHashCode
 public class Connection {
 
     @Getter
@@ -359,5 +358,29 @@ public class Connection {
         public Connection build() {
             return new Connection(this);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Connection{" + "clientId=" + clientId + ", channel=" + channel
+                + ", cleanSession=" + clientRestrictions.isCleanSession() + ", state="
+                + channelState.get(this) + '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Connection that = (Connection) o;
+        return Objects.equals(clientId, that.clientId) && Objects.equals(channel, that.channel);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(clientId, channel);
     }
 }

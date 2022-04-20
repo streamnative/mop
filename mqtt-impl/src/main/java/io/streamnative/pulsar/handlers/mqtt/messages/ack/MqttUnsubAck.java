@@ -52,14 +52,14 @@ public class MqttUnsubAck {
             MqttMessageBuilders.UnsubAckBuilder commonBuilder =
                     MqttMessageBuilders.unsubAck().packetId(packetId);
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return MqttAck.createSupportAck(commonBuilder.build());
+                return MqttAck.createSupportedAck(commonBuilder.build());
             }
             if (isNoSubscriptionExisted) {
                 commonBuilder.addReasonCode(Mqtt5UnsubReasonCode.NO_SUBSCRIPTION_EXISTED.byteValue());
             } else {
                 commonBuilder.addReasonCode(Mqtt5UnsubReasonCode.SUCCESS.byteValue());
             }
-            return MqttAck.createSupportAck(commonBuilder.build());
+            return MqttAck.createSupportedAck(commonBuilder.build());
         }
 
     }
@@ -92,9 +92,9 @@ public class MqttUnsubAck {
 
         public MqttAck build() {
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return MqttAck.createUnSupportAck();
+                return MqttAck.createUnsupportedAck();
             }
-            return MqttAck.createSupportAck(MqttMessageBuilders.unsubAck()
+            return MqttAck.createSupportedAck(MqttMessageBuilders.unsubAck()
                     .packetId(packetId)
                     .addReasonCode(reasonCode.shortValue())
                     .properties(getProperties())

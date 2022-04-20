@@ -62,7 +62,7 @@ public class MqttConnectAck {
             MqttMessageBuilders.ConnAckBuilder commonBuilder = MqttMessageBuilders.connAck()
                     .sessionPresent(!cleanSession);
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return MqttAck.createSupportAck(commonBuilder
+                return MqttAck.createSupportedAck(commonBuilder
                         .returnCode(Mqtt3ConnReasonCode.CONNECTION_ACCEPTED.toConnectionReasonCode())
                         .build());
             }
@@ -71,7 +71,7 @@ public class MqttConnectAck {
                     new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
                             receiveMaximum);
             properties.add(property);
-            return MqttAck.createSupportAck(commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.toConnectionReasonCode())
+            return MqttAck.createSupportedAck(commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.toConnectionReasonCode())
                     .properties(properties)
                     .build());
         }
@@ -128,7 +128,7 @@ public class MqttConnectAck {
                     .sessionPresent(false)
                     .returnCode(errorReason.getReasonCode(protocolVersion));
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return MqttAck.createSupportAck(connAckBuilder.build());
+                return MqttAck.createSupportedAck(connAckBuilder.build());
             }
             MqttProperties properties = new MqttProperties();
             MqttProperties.StringProperty reasonStringProperty =
@@ -136,7 +136,7 @@ public class MqttConnectAck {
                             reasonString);
             properties.add(reasonStringProperty);
             connAckBuilder.properties(properties);
-            return MqttAck.createSupportAck(connAckBuilder.build());
+            return MqttAck.createSupportedAck(connAckBuilder.build());
         }
     }
 

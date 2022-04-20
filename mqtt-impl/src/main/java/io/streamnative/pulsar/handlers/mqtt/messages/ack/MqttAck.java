@@ -26,10 +26,10 @@ public class MqttAck {
         this.protocolSupported = protocolSupported;
         this.mqttMessage = mqttMessage;
     }
-    public static MqttAck createUnSupportAck() {
+    public static MqttAck createUnsupportedAck() {
         return new MqttAck(false, null);
     }
-    public static MqttAck createSupportAck(MqttMessage mqttMessage) {
+    public static MqttAck createSupportedAck(MqttMessage mqttMessage) {
         return new MqttAck(true, mqttMessage);
     }
 }

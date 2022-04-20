@@ -69,7 +69,7 @@ public class MqttSubAck {
         }
 
         public MqttAck build() {
-            return MqttAck.createSupportAck(MqttMessageBuilders.subAck()
+            return MqttAck.createSupportedAck(MqttMessageBuilders.subAck()
                     .packetId(packetId)
                     .addGrantedQoses(grantedQoses.toArray(new MqttQoS[]{}))
                     .build());
@@ -117,7 +117,7 @@ public class MqttSubAck {
             reasonCodes.addAll(grantedQoses.stream().map(MqttQoS::value).collect(Collectors.toList()));
             reasonCodes.add(errorReason.getReasonCode(protocolVersion).value());
             MqttSubAckPayload subAckPayload = new MqttSubAckPayload(reasonCodes);
-            return MqttAck.createSupportAck(new MqttSubAckMessage(mqttFixedHeader,
+            return MqttAck.createSupportedAck(new MqttSubAckMessage(mqttFixedHeader,
                     mqttSubAckVariableHeader, subAckPayload));
         }
 

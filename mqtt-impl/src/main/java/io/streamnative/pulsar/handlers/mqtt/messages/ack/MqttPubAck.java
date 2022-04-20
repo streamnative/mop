@@ -54,14 +54,14 @@ public class MqttPubAck {
                 if (isNoMatchingSubscription) {
                     throw new IllegalArgumentException("MQTT3 not support [isNoMatchingSubscription]");
                 }
-                return MqttAck.createSupportAck(commonBuilder.build());
+                return MqttAck.createSupportedAck(commonBuilder.build());
             }
             if (isNoMatchingSubscription) {
                 commonBuilder.reasonCode(Mqtt5PubReasonCode.NO_MATCHING_SUBSCRIBERS.byteValue());
             } else {
                 commonBuilder.reasonCode(Mqtt5PubReasonCode.SUCCESS.byteValue());
             }
-            return MqttAck.createSupportAck(commonBuilder.build());
+            return MqttAck.createSupportedAck(commonBuilder.build());
         }
 
     }
@@ -94,9 +94,9 @@ public class MqttPubAck {
 
         public MqttAck build() {
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return MqttAck.createUnSupportAck();
+                return MqttAck.createUnsupportedAck();
             } else {
-                return MqttAck.createSupportAck(MqttMessageBuilders.pubAck()
+                return MqttAck.createSupportedAck(MqttMessageBuilders.pubAck()
                         .reasonCode(reasonCode.byteValue())
                         .packetId(packetId)
                         .properties(getProperties())

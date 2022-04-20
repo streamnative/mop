@@ -38,9 +38,9 @@ public class MqttDisconnectAck {
         public MqttAck build() {
             MqttMessageBuilders.DisconnectBuilder commonBuilder = MqttMessageBuilders.disconnect();
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return MqttAck.createUnSupportAck();
+                return MqttAck.createUnsupportedAck();
             }
-            return MqttAck.createSupportAck(commonBuilder.reasonCode(Mqtt5DisConnReasonCode.NORMAL.byteValue())
+            return MqttAck.createSupportedAck(commonBuilder.reasonCode(Mqtt5DisConnReasonCode.NORMAL.byteValue())
                     .build());
         }
     }
@@ -69,9 +69,9 @@ public class MqttDisconnectAck {
 
         public MqttAck build() {
             if (MqttUtils.isMqtt3(protocolVersion)) {
-                return MqttAck.createUnSupportAck();
+                return MqttAck.createUnsupportedAck();
             } else {
-                return MqttAck.createSupportAck(MqttMessageBuilders
+                return MqttAck.createSupportedAck(MqttMessageBuilders
                         .disconnect()
                         .reasonCode(reasonCode.byteValue())
                         .properties(getProperties())
