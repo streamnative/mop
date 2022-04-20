@@ -21,9 +21,9 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
-import io.streamnative.pulsar.handlers.mqtt.messages.ack.PublishAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttPubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.concurrent.CompletableFuture;
@@ -46,71 +46,58 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
         final MqttPublishMessage msg = (MqttPublishMessage) adapter.getMqttMessage();
         final Connection connection = NettyUtils.getConnection(channel);
         final int protocolVersion = connection.getProtocolVersion();
-        final boolean isMqtt5 = MqttUtils.isMqtt5(protocolVersion);
         final int packetId = msg.variableHeader().packetId();
         final String topic = msg.variableHeader().topicName();
         final CompletableFuture<Void> ret;
         if (MqttUtils.isRetainedMessage(msg)) {
             ret = retainedMessageHandler.addRetainedMessage(msg);
         } else {
-            ret = writeToPulsarTopic(msg, isMqtt5).thenApply(__ -> null);
+            ret = writeToPulsarTopic(msg, !MqttUtils.isMqtt3(protocolVersion)).thenApply(__ -> null);
         }
         // we need to check if subscription exist when protocol version is mqtt 5.x
         return ret
                 .thenCompose(__ -> {
-                    PublishAck publishAck = PublishAck.builder()
-                            .success(true)
+                    MqttAck pubAck = MqttPubAck.successBuilder(protocolVersion)
                             .packetId(packetId)
                             .build();
-                    CompletableFuture<Void> publishAckFuture = new CompletableFuture<>();
-                    connection.getAckHandler().sendPublishAck(publishAck)
-                            .addListener(result -> {
-                                if (result.isSuccess()) {
-                                    // decrement server receive publish message counter
-                                    connection.decrementServerReceivePubMessage();
-                                    if (log.isDebugEnabled()) {
-                                        log.debug("[{}] Send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
-                                                connection.getClientId());
-                                    }
-                                    publishAckFuture.complete(null);
-                                } else {
-                                    log.warn("[{}] Failed to send Pub Ack {} to {}", topic,
-                                            msg.variableHeader().packetId(), connection.getClientId(), result.cause());
-                                    publishAckFuture.completeExceptionally(result.cause());
-                                }
-                            });
-                    return publishAckFuture;
+                    CompletableFuture<Void> future = connection.sendAck(pubAck);
+                    future.whenComplete((result, error) -> {
+                        connection.decrementServerReceivePubMessage();
+                        if (log.isDebugEnabled()) {
+                            log.debug("[{}] Send Pub Ack {} to {}", topic, msg.variableHeader().packetId(),
+                                    connection.getClientId());
+                        }
+                    });
+                    return future;
                 }).exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
-                    AckHandler ackHandler = connection.getAckHandler();
                     if (realCause instanceof MQTTNoMatchingSubscriberException) {
                         log.warn("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
-                        PublishAck noMatchingSubscribersAck = PublishAck.builder()
-                                .success(true)
+                        MqttAck mqttAck = MqttPubAck.successBuilder(protocolVersion)
                                 .packetId(packetId)
-                                .reasonCode(Mqtt5PubReasonCode.NO_MATCHING_SUBSCRIBERS)
+                                .isNoMatchingSubscription()
                                 .build();
-                        ackHandler.sendPublishAck(noMatchingSubscribersAck)
-                                .addListener(__ -> connection.decrementServerReceivePubMessage());
+                        connection.sendAck(mqttAck)
+                                .whenComplete((result, error)->{
+                                    connection.decrementServerReceivePubMessage();
+                                });
                     } else if (realCause instanceof BrokerServiceException.TopicNotFoundException) {
                         log.warn("Topic [{}] Not found, the configuration [isAllowAutoTopicCreation={}]",
                                 topic, pulsarService.getConfig().isAllowAutoTopicCreation());
-                        PublishAck topicNotFoundAck = PublishAck.builder()
-                                .success(false)
+                        MqttAck pubAck = MqttPubAck.errorBuilder(protocolVersion)
                                 .packetId(packetId)
                                 .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
                                 .reasonString("Topic not found")
                                 .build();
-                        ackHandler.sendPublishAck(topicNotFoundAck);
+                        connection.sendAckThenClose(pubAck);
                     } else {
                         log.error("[{}] Publish msg {} fail.", topic, msg, ex);
-                        PublishAck unKnowErrorAck = PublishAck.builder()
-                                .success(false)
+                        MqttAck pubAck = MqttPubAck.errorBuilder(protocolVersion)
                                 .packetId(packetId)
                                 .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
                                 .reasonString(realCause.getMessage())
                                 .build();
-                        ackHandler.sendPublishAck(unKnowErrorAck);
+                        connection.sendAckThenClose(pubAck);
                     }
                     return null;
                 });

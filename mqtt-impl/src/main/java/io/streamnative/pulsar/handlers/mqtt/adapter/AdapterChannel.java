@@ -37,7 +37,6 @@ public class AdapterChannel {
 
     public ChannelFuture writeAndFlush(String clientId, MqttMessage msg) {
         MqttAdapterMessage adapterMessage = new MqttAdapterMessage(clientId, msg);
-        adapterMessage.setAdapter(true);
         if (!channel.isActive()) {
             channel = adapter.getChannel(broker);
         }

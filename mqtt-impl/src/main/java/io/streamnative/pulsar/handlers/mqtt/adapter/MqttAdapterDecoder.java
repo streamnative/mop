@@ -34,6 +34,7 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
         super(State.MAGIC);
     }
 
+    @SuppressWarnings("checkstyle:FallThrough")
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         switch (state()) {
@@ -68,8 +69,6 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
             case BODY:
                 ByteBuf mqttBuf = in.readBytes(header.getBodyLength());
                 MqttAdapterMessage adapterMsg = new MqttAdapterMessage(header.version, header.clientId);
-                adapterMsg.setAdapter(true);
-                adapterMsg.setByteBuf(mqttBuf);
                 out.add(adapterMsg);
                 out.add(mqttBuf);
                 checkpoint(State.MAGIC);
@@ -91,7 +90,7 @@ public class MqttAdapterDecoder extends ReplayingDecoder<MqttAdapterDecoder.Stat
 
     @Getter
     @Setter
-    class Header {
+    static class Header {
         byte version;
         int clientIdLength;
         String clientId;

@@ -26,7 +26,8 @@ public class CombineHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object message) {
         checkArgument(message instanceof MqttMessage);
-        MqttAdapterMessage adapterMsg = new MqttAdapterMessage(DEFAULT_CLIENT_ID, (MqttMessage) message);
+        MqttAdapterMessage adapterMsg = new MqttAdapterMessage(MqttAdapterMessage.DEFAULT_VERSION,
+                DEFAULT_CLIENT_ID, (MqttMessage) message, MqttAdapterMessage.EncodeType.MQTT_MESSAGE);
         ctx.fireChannelRead(adapterMsg);
     }
 }

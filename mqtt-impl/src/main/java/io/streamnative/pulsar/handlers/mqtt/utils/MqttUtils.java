@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
-import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttVersion;
@@ -37,16 +36,12 @@ public class MqttUtils {
                 || version == MqttVersion.MQTT_5.protocolLevel();
     }
 
-    /**
-     * Determine whether the protocol version is mqtt 5.0.
-     *
-     * @param version -mqtt protocol version
-     * @return - Is mqtt 5.0 version.
-     */
-    public static boolean isMqtt5(int version) {
-        return version == MqttVersion.MQTT_5.protocolLevel();
+    public static boolean isMqtt3(int version) {
+        return version == MqttVersion.MQTT_3_1.protocolLevel() || version == MqttVersion.MQTT_3_1_1.protocolLevel();
     }
-
+    public static boolean isNotMqtt3(int version) {
+        return !isMqtt3(version);
+    }
     public static boolean isQosSupported(MqttConnectMessage msg) {
         int willQos = msg.variableHeader().willQos();
         MqttQoS mqttQoS = MqttQoS.valueOf(willQos);
@@ -55,10 +50,6 @@ public class MqttUtils {
 
     public static boolean isRetainedMessage(MqttPublishMessage msg) {
         return msg.fixedHeader().isRetain();
-    }
-
-    public static boolean isRetainedMessage(MqttMessage msg) {
-        return msg != null && msg instanceof MqttPublishMessage && msg.fixedHeader().isRetain();
     }
 
     public static boolean isRegexFilter(String topicFilter) {
