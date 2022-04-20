@@ -166,10 +166,12 @@ public class Connection {
             send(mqttMessage);
             if (this.isFromProxy()) {
                 processor.processConnectionLost();
-                return;
+            } else {
+                channel.close();
             }
+        } else {
+            channel.close();
         }
-        channel.close();
     }
 
     public CompletableFuture<Void> close() {
