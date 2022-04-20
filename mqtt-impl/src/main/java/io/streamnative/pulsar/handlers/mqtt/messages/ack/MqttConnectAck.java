@@ -71,7 +71,8 @@ public class MqttConnectAck {
                     new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
                             receiveMaximum);
             properties.add(property);
-            return MqttAck.createSupportedAck(commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.toConnectionReasonCode())
+            return MqttAck.createSupportedAck(
+                    commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.toConnectionReasonCode())
                     .properties(properties)
                     .build());
         }
