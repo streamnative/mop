@@ -36,11 +36,11 @@ import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.util.netty.ChannelFutures;
@@ -52,11 +52,11 @@ import org.apache.pulsar.common.util.netty.EventLoopUtil;
 @Slf4j
 public class MQTTProxyAdapter {
 
-    private static final Random random = new Random();
     private final DefaultThreadFactory threadFactory = new DefaultThreadFactory("mqtt-proxy-adapter");
     private final MQTTProxyService proxyService;
     private final Bootstrap bootstrap;
     private final EventLoopGroup eventLoopGroup;
+    private final AtomicInteger counter = new AtomicInteger(0);
     @Getter
     private final ConcurrentMap<InetSocketAddress, Map<Integer, CompletableFuture<Channel>>> pool;
     private final int workerThread = Runtime.getRuntime().availableProcessors();
@@ -67,7 +67,7 @@ public class MQTTProxyAdapter {
         this.pool = new ConcurrentHashMap<>();
         this.bootstrap = new Bootstrap();
         this.eventLoopGroup = EventLoopUtil.newEventLoopGroup(workerThread, false, threadFactory);
-        this.maxNoOfChannels = proxyService.getProxyConfig().getMqttProxyMaxNoOfChannels();
+        this.maxNoOfChannels = proxyService.getProxyConfig().getMaxNoOfChannels();
         this.bootstrap.group(eventLoopGroup)
                 .channel(EventLoopUtil.getClientSocketChannelClass(eventLoopGroup))
                 .handler(new ChannelInitializer<SocketChannel>() {
@@ -90,13 +90,14 @@ public class MQTTProxyAdapter {
     }
 
     public CompletableFuture<Channel> getChannel(InetSocketAddress broker) {
-        final int randomKey = signSafeMod(random.nextInt(), maxNoOfChannels);
+        final int channelKey = signSafeMod(counter.incrementAndGet(), maxNoOfChannels);
         return pool.computeIfAbsent(broker, (x) -> new ConcurrentHashMap<>())
-                .computeIfAbsent(randomKey, __-> createChannel(broker, randomKey));
+                .computeIfAbsent(channelKey, __-> createChannel(broker, channelKey));
     }
 
     private CompletableFuture<Channel> createChannel(InetSocketAddress host, int channelKey) {
-        CompletableFuture<Channel> channelFuture = ChannelFutures.toCompletableFuture(bootstrap.connect(host))
+        CompletableFuture<Channel> channelFuture = ChannelFutures.toCompletableFuture(bootstrap.register())
+                .thenCompose(channel -> ChannelFutures.toCompletableFuture(channel.connect(host)))
                 .thenApply(channel -> {
                     channel.closeFuture().addListener(v -> {
                         if (log.isDebugEnabled()) {
@@ -130,15 +131,13 @@ public class MQTTProxyAdapter {
     }
 
     private void closeChannels() {
-        pool.values().forEach(map -> map.values().forEach(future -> {
-            if (future.isDone()) {
-                if (!future.isCompletedExceptionally()) {
-                    future.join().close();
-                }
-            } else {
-                future.thenAccept(Channel::close);
-            }
-        }));
+        pool.values().forEach(map -> map.values().forEach(future ->
+                future.whenComplete((channel, ex) -> {
+                    if (channel != null) {
+                        channel.close();
+                    }
+                }))
+        );
     }
 
     public class AdapterHandler extends ChannelInboundHandlerAdapter {

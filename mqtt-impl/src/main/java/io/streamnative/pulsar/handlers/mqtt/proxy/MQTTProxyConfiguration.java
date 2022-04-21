@@ -67,6 +67,6 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
             required = true,
             doc = "The maximum number of channels which can exist concurrently on a connection."
     )
-    private int mqttProxyMaxNoOfChannels = 1;
+    private int maxNoOfChannels = 1;
 
 }

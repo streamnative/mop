@@ -103,7 +103,7 @@ public class MqttProxyAdapterTest extends MQTTTestBase {
         final int channelNumPerBroker = 10;
         MQTTProxyService mockProxyService = Mockito.mock(MQTTProxyService.class);
         MQTTProxyConfiguration mqttProxyConfiguration = new MQTTProxyConfiguration();
-        mqttProxyConfiguration.setMqttProxyMaxNoOfChannels(channelNumPerBroker);
+        mqttProxyConfiguration.setMaxNoOfChannels(channelNumPerBroker);
         Mockito.when(mockProxyService.getProxyConfig()).thenReturn(mqttProxyConfiguration);
         MQTTProxyAdapter mqttProxyAdapter = new MQTTProxyAdapter(mockProxyService);
         List<InetSocketAddress> proxyAddresses =
