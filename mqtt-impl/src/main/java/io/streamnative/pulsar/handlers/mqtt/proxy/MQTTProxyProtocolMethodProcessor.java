@@ -252,6 +252,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
             }
             connectionManager.removeConnection(connection);
+            connection.close();
         }
         topicBrokers.clear();
     }
