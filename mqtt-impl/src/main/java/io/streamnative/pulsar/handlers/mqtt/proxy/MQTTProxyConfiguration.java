@@ -51,8 +51,15 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
 
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
+            doc = "Maximum number of pending send requests allowed on "
+                    + "each proxy connection to prevent overloading a broker."
+    )
+    private int maxPendingSendRequest = 1000;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
             doc = "Enable system event service."
     )
-    private boolean systemEventEnabled = false;
+    private boolean systemEventEnabled = true;
 
 }

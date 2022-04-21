@@ -26,7 +26,7 @@ public class MqttAdapterMessage {
     public static final byte DEFAULT_VERSION = 0x00;
 
     private final byte version;
-    private final String clientId;
+    private String clientId;
     private MqttMessage mqttMessage;
     private EncodeType encodeType;
 

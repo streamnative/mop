@@ -97,7 +97,7 @@ public class ProxyTest extends MQTTTestBase {
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
         connection.subscribe(topics);
         String message = "Hello MQTT";
-        int numMessages = 1000;
+        int numMessages = 20000;
         for (int i = 0; i < numMessages; i++) {
             connection.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
         }
