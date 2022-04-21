@@ -21,6 +21,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
@@ -40,7 +41,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.util.netty.ChannelFutures;
@@ -56,7 +57,7 @@ public class MQTTProxyAdapter {
     private final MQTTProxyService proxyService;
     private final Bootstrap bootstrap;
     private final EventLoopGroup eventLoopGroup;
-    private final AtomicInteger counter = new AtomicInteger(0);
+    private final AtomicLong counter = new AtomicLong(0);
     @Getter
     private final ConcurrentMap<InetSocketAddress, Map<Integer, CompletableFuture<Channel>>> pool;
     private final int workerThread = Runtime.getRuntime().availableProcessors();
@@ -69,6 +70,7 @@ public class MQTTProxyAdapter {
         this.eventLoopGroup = EventLoopUtil.newEventLoopGroup(workerThread, false, threadFactory);
         this.maxNoOfChannels = proxyService.getProxyConfig().getMaxNoOfChannels();
         this.bootstrap.group(eventLoopGroup)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, proxyService.getProxyConfig().getConnectTimeoutMs())
                 .channel(EventLoopUtil.getClientSocketChannelClass(eventLoopGroup))
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
