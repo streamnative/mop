@@ -118,6 +118,40 @@ public class ProxyTest extends MQTTTestBase {
         connection.disconnect();
     }
 
+    @Test(timeOut = TIMEOUT)
+    public void testBacklogShouldBeZeroWithQos1() throws Exception {
+        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos1";
+        MQTT mqtt = createMQTTProxyClient();
+        mqtt.setKeepAlive((short) 5);
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        int numMessages = 20000;
+        for (int i = 0; i < numMessages; i++) {
+            connection.publish(topicName, (message + i).getBytes(), QoS.AT_LEAST_ONCE, false);
+        }
+
+        int count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received = connection.receive();
+            if (received != null) {
+                Assert.assertEquals(message + i, new String(received.getPayload()));
+                received.ack();
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
+
+        Awaitility.await().untilAsserted(() ->
+                Assert.assertEquals(admin.topics().getStats(topicName).getSubscriptions().size(), 1));
+        Awaitility.await().untilAsserted(() ->
+                Assert.assertEquals(admin.topics().getStats(topicName)
+                .getSubscriptions().entrySet().iterator().next().getValue().getMsgBacklog(), 0));
+        connection.disconnect();
+    }
+
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT, priority = 4)
     public void testSendAndConsume(String topicName) throws Exception {
         MQTT mqtt = createMQTTProxyClient();
@@ -547,5 +581,89 @@ public class ProxyTest extends MQTTTestBase {
             }
         }
         Assert.assertEquals(count, numMessages);
+        connection3.disconnect();
+        connection2.disconnect();
+        connection1.disconnect();
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testSendConsumeWithSameProxy() throws Exception {
+        final String topicName = "persistent://public/default/testSendConsumeWithSameProxy";
+        MQTT mqtt1 = new MQTT();
+        mqtt1.setClientId("client-1");
+        mqtt1.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection1 = mqtt1.blockingConnection();
+        connection1.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection1.subscribe(topics);
+
+        MQTT mqtt2 = new MQTT();
+        mqtt2.setClientId("client-2");
+        mqtt2.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection2 = mqtt2.blockingConnection();
+        connection2.connect();
+        connection2.subscribe(topics);
+
+        MQTT mqtt3 = new MQTT();
+        mqtt3.setClientId("client-3");
+        mqtt3.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection3 = mqtt3.blockingConnection();
+        connection3.connect();
+        connection3.subscribe(topics);
+
+        MQTT mqtt4 = new MQTT();
+        mqtt4.setClientId("client-4");
+        mqtt4.setHost("127.0.0.1", mqttProxyPortList.get(0));
+        BlockingConnection connection4 = mqtt4.blockingConnection();
+        connection4.connect();
+        connection4.subscribe(topics);
+
+        String message = "Hello MQTT";
+        int numMessages = 1000;
+
+        for (int i = 0; i < numMessages; i++) {
+            connection1.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
+        }
+
+        int count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received1 = connection1.receive();
+            if (received1 != null) {
+                Assert.assertEquals(message + i, new String(received1.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
+        count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received2 = connection2.receive();
+            if (received2 != null) {
+                Assert.assertEquals(message + i, new String(received2.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
+        count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received3 = connection3.receive();
+            if (received3 != null) {
+                Assert.assertEquals(message + i, new String(received3.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
+        count = 0;
+        for (int i = 0; i < numMessages; i++) {
+            Message received4 = connection4.receive();
+            if (received4 != null) {
+                Assert.assertEquals(message + i, new String(received4.getPayload()));
+                count++;
+            }
+        }
+        Assert.assertEquals(count, numMessages);
+        connection4.disconnect();
+        connection3.disconnect();
+        connection2.disconnect();
+        connection1.disconnect();
     }
 }

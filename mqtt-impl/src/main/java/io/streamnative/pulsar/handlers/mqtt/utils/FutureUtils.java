@@ -16,14 +16,14 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 import io.netty.channel.ChannelFuture;
 import java.util.concurrent.CompletableFuture;
 
-public class ChannelFutureUtils {
+public class FutureUtils {
 
     /**
      * Wrapper Netty ChannelFuture to CompletableFuture.
      * @param channelFuture Netty ChannelFuture
      * @return CompletableFuture
      */
-    public static CompletableFuture<Void> convertToCompletableFuture(ChannelFuture channelFuture) {
+    public static CompletableFuture<Void> completableFuture(ChannelFuture channelFuture) {
         CompletableFuture<Void> future = new CompletableFuture<>();
         channelFuture.addListener(result -> {
             if (result.isSuccess()) {

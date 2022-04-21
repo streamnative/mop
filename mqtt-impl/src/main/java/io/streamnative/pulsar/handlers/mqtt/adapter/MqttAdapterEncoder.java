@@ -19,6 +19,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.util.ReferenceCountUtil;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -49,23 +50,29 @@ public class MqttAdapterEncoder extends MessageToMessageEncoder<MqttAdapterMessa
 
     @Override
     protected void encode(ChannelHandlerContext ctx, MqttAdapterMessage msg, List<Object> out) throws Exception {
-        switch (msg.getEncodeType()) {
-            case MQTT_MESSAGE:
-                out.add(doEncode.invoke(ENCODER, ctx, msg.getMqttMessage()));
-                break;
-            case ADAPTER_MESSAGE:
-                ByteBuf mqtt = (ByteBuf) doEncode.invoke(ENCODER, ctx, msg.getMqttMessage());
-                byte[] clientId = msg.getClientId().getBytes(StandardCharsets.UTF_8);
-                ByteBuf protocolBuffer = ctx.alloc().buffer(1 + 1 + 4 + clientId.length + 4 + mqtt.readableBytes());
-                protocolBuffer.writeByte(MqttAdapterMessage.MAGIC);
-                protocolBuffer.writeByte(msg.getVersion());
-                protocolBuffer.writeInt(clientId.length);
-                protocolBuffer.writeBytes(clientId);
-                protocolBuffer.writeInt(mqtt.readableBytes());
-                protocolBuffer.writeBytes(mqtt);
-                ReferenceCountUtil.safeRelease(mqtt);
-                out.add(protocolBuffer);
-                break;
+        try {
+            switch (msg.getEncodeType()) {
+                case MQTT_MESSAGE:
+                    out.add(doEncode.invoke(ENCODER, ctx, msg.getMqttMessage()));
+                    break;
+                case ADAPTER_MESSAGE:
+                    ByteBuf mqtt = (ByteBuf) doEncode.invoke(ENCODER, ctx, msg.getMqttMessage());
+                    byte[] clientId = msg.getClientId().getBytes(StandardCharsets.UTF_8);
+                    ByteBuf protocolBuffer = ctx.alloc().buffer(1 + 1 + 4 + clientId.length + 4 + mqtt.readableBytes());
+                    protocolBuffer.writeByte(MqttAdapterMessage.MAGIC);
+                    protocolBuffer.writeByte(msg.getVersion());
+                    protocolBuffer.writeInt(clientId.length);
+                    protocolBuffer.writeBytes(clientId);
+                    protocolBuffer.writeInt(mqtt.readableBytes());
+                    protocolBuffer.writeBytes(mqtt);
+                    ReferenceCountUtil.safeRelease(mqtt);
+                    out.add(protocolBuffer);
+                    break;
+            }
+        } finally {
+            if (msg.getMqttMessage() instanceof MqttPublishMessage) {
+                ReferenceCountUtil.safeRelease(msg.getMqttMessage());
+            }
         }
     }
 }

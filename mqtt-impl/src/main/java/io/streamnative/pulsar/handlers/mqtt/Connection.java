@@ -34,7 +34,7 @@ import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventListener;
-import io.streamnative.pulsar.handlers.mqtt.utils.ChannelFutureUtils;
+import io.streamnative.pulsar.handlers.mqtt.utils.FutureUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import java.util.ArrayList;
@@ -130,22 +130,24 @@ public class Connection {
     public CompletableFuture<Void> send(MqttMessage mqttMessage) {
         if (!channel.isActive()) {
             log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
-            return ChannelFutureUtils.convertToCompletableFuture(channel.newFailedFuture(channelInactiveException));
+            return FutureUtils.completableFuture(channel.newFailedFuture(channelInactiveException));
         }
         MqttAdapterMessage mqttAdapterMessage = new MqttAdapterMessage(clientId, mqttMessage, isFromProxy());
         CompletableFuture<Void> future =
-                ChannelFutureUtils.convertToCompletableFuture(channel.writeAndFlush(mqttAdapterMessage));
+                FutureUtils.completableFuture(channel.writeAndFlush(mqttAdapterMessage));
         future.exceptionally(ex -> {
             log.error("send mqttMessage : {} failed", mqttAdapterMessage, ex);
             return null;
         });
         return future;
     }
+
     public CompletableFuture<Void> sendAck(MqttAck mqttAck) {
         return mqttAck.isProtocolSupported()
                 ? send(mqttAck.getMqttMessage())
                 : CompletableFuture.completedFuture(null);
     }
+
     public CompletableFuture<Void> sendAckThenClose(MqttAck mqttAck) {
         return sendAck(mqttAck)
                 .whenComplete((result, error) -> {
@@ -200,16 +202,7 @@ public class Connection {
         }
     }
 
-    public boolean assignState(ConnectionState expected, ConnectionState newState) {
-        if (log.isDebugEnabled()) {
-            log.debug(
-                    "Updating state of connection = {}, currentState = {}, "
-                            + "expectedState = {}, newState = {}.",
-                    this,
-                    channelState.get(this),
-                    expected,
-                    newState);
-        }
+    private boolean assignState(ConnectionState expected, ConnectionState newState) {
         boolean ret = channelState.compareAndSet(this, expected, newState);
         if (!ret) {
             log.error(
@@ -249,8 +242,6 @@ public class Connection {
 
     public void sendConnAck() {
         if (!assignState(DISCONNECTED, CONNECT_ACK)) {
-            log.warn("Unable to assign the state from : {} to : {} for CId={}, close channel",
-                    DISCONNECTED, CONNECT_ACK, clientId);
             MqttAck connAck = MqttConnectAck.errorBuilder()
                     .serverUnavailable(protocolVersion)
                     .reasonString(String.format("Unable to assign the server state from : %s to : %s",
@@ -263,8 +254,7 @@ public class Connection {
                 .receiveMaximum(getServerRestrictions().getReceiveMaximum())
                 .cleanSession(clientRestrictions.isCleanSession())
                 .build();
-        sendAck(connAck);
-        assignState(CONNECT_ACK, ESTABLISHED);
+        sendAck(connAck).thenAccept(__ -> assignState(CONNECT_ACK, ESTABLISHED));
         if (log.isDebugEnabled()) {
             log.debug("The CONNECT message has been processed. CId={}", clientId);
         }
