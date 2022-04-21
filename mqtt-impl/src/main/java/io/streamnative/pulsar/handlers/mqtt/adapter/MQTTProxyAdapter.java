@@ -103,14 +103,14 @@ public class MQTTProxyAdapter {
                 .thenApply(channel -> {
                     channel.closeFuture().addListener(v -> {
                         if (log.isDebugEnabled()) {
-                            log.debug("Removing closed channel from pool {}", channel);
+                            log.debug("[Proxy Adapter] Removing closed channel from pool {}", channel);
                         }
                         cleanupChannel(host, channelKey);
                     });
                     return channel;
                 });
         channelFuture.exceptionally(ex -> {
-            log.error(String.format("Connect to : %s failed.", host), ex);
+            log.error("[Proxy Adapter] Connect to : {} failed.", host, ex);
             return null;
         });
         return channelFuture;
