@@ -197,5 +197,12 @@ public class MQTTProxyAdapter {
             log.error("exception caught when connect with MoP broker.", cause);
             ctx.close();
         }
+
+        @Override
+        public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
+            if (log.isDebugEnabled()) {
+                log.debug("Channel writability has changed to: {}", ctx.channel().isWritable());
+            }
+        }
     }
 }

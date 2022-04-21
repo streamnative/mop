@@ -77,8 +77,8 @@ public class MQTTProxyService implements Closeable {
         this.authenticationService = mqttService.getAuthenticationService();
         this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
         this.eventService = proxyConfig.isSystemEventEnabled()
-                ? new SystemTopicBasedSystemEventService(mqttService.getPulsarService()) :
-                new DisabledSystemEventService();
+                ? new SystemTopicBasedSystemEventService(mqttService.getPulsarService())
+                : new DisabledSystemEventService();
         this.eventService.addListener(connectionManager.getEventListener());
         this.eventService.addListener(mqttService.getWillMessageHandler().getEventListener());
         this.eventService.addListener(mqttService.getRetainedMessageHandler().getEventListener());
