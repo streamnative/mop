@@ -171,10 +171,7 @@ public class MQTTProxyAdapter {
                         int packetId = pubMessage.variableHeader().packetId();
                         String topicName = pubMessage.variableHeader().topicName();
                         processor.getPacketIdTopic().put(packetId, topicName);
-                        processor.getChannel().writeAndFlush(adapterMsg)
-                                .addListener(listener -> {
-                                    ((MqttPublishMessage) adapterMsg.getMqttMessage()).release();
-                                });
+                        processor.getChannel().writeAndFlush(adapterMsg);
                         break;
                     case CONNACK:
                         break;

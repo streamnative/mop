@@ -15,6 +15,7 @@
 package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.proxy;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -162,11 +163,13 @@ public class ProxyTLSTest extends MQTTTestBase {
         client.handler(new PSKClient("alpha", "mqtt", "mqtt123"));
         AtomicBoolean connected = new AtomicBoolean(false);
         CountDownLatch latch = new CountDownLatch(1);
-        client.connect("localhost", mqttProxyPortTlsPskList.get(0)).addListener((ChannelFutureListener) future -> {
-            connected.set(future.isSuccess());
-            latch.countDown();
+        ChannelFuture cf = client.connect("localhost",
+                mqttProxyPortTlsPskList.get(0)).addListener((ChannelFutureListener) future -> {
+                    connected.set(future.isSuccess());
+                    latch.countDown();
         });
         latch.await();
         Assert.assertTrue(connected.get());
+        cf.channel().close();
     }
 }
