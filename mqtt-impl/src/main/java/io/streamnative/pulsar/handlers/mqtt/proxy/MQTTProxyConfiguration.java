@@ -62,4 +62,11 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
     )
     private boolean systemEventEnabled = true;
 
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            required = true,
+            doc = "The maximum number of channels which can exist concurrently on a connection."
+    )
+    private int mqttProxyMaxNoOfChannels = 1;
+
 }

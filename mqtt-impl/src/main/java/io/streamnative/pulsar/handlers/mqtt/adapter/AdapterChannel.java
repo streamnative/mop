@@ -29,21 +29,30 @@ public class AdapterChannel {
     private final MQTTProxyAdapter adapter;
     @Getter
     private final InetSocketAddress broker;
-    private volatile Channel channel;
+    private CompletableFuture<Channel> channelFuture;
 
-    public AdapterChannel(MQTTProxyAdapter adapter, InetSocketAddress broker, Channel channel) {
+    public AdapterChannel(MQTTProxyAdapter adapter,
+                          InetSocketAddress broker, CompletableFuture<Channel> channelFuture) {
         this.adapter = adapter;
         this.broker = broker;
-        this.channel = channel;
+        this.channelFuture = channelFuture;
     }
 
     public CompletableFuture<Void> writeAndFlush(final MqttAdapterMessage adapterMsg) {
         checkArgument(StringUtils.isNotBlank(adapterMsg.getClientId()), "clientId is blank");
         adapterMsg.setEncodeType(MqttAdapterMessage.EncodeType.ADAPTER_MESSAGE);
-        if (!channel.isActive()) {
-            channel = adapter.getChannel(broker);
-        }
-        return FutureUtils.completableFuture(channel.writeAndFlush(adapterMsg));
+        CompletableFuture<Void> future = channelFuture.thenCompose(channel -> {
+            if (!channel.isActive()) {
+                channelFuture = adapter.getChannel(broker);
+                return writeAndFlush(adapterMsg);
+            }
+            return FutureUtils.completableFuture(channel.writeAndFlush(adapterMsg));
+        });
+        future.exceptionally(ex -> {
+            log.error("[AdapterChannel] Proxy write to broker {} message {} failed.", broker, adapterMsg, ex);
+            return null;
+        });
+        return future;
     }
 
     /**
@@ -52,8 +61,10 @@ public class AdapterChannel {
      * @param connection
      */
     public void registerAdapterChannelInactiveListener(Connection connection) {
-        MQTTProxyAdapter.AdapterHandler channelHandler = (MQTTProxyAdapter.AdapterHandler)
-                channel.pipeline().get(MQTTProxyAdapter.AdapterHandler.NAME);
-        channelHandler.registerAdapterChannelInactiveListener(connection);
+        channelFuture.thenAccept(channel -> {
+            MQTTProxyAdapter.AdapterHandler channelHandler = (MQTTProxyAdapter.AdapterHandler)
+                    channel.pipeline().get(MQTTProxyAdapter.AdapterHandler.NAME);
+            channelHandler.registerAdapterChannelInactiveListener(connection);
+        });
     }
 }

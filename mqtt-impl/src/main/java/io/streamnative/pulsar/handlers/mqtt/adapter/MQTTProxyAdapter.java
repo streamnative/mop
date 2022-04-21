@@ -15,9 +15,9 @@ package io.streamnative.pulsar.handlers.mqtt.adapter;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
+import static org.apache.pulsar.client.util.MathUtils.signSafeMod;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
@@ -35,10 +35,15 @@ import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.net.InetSocketAddress;
 import java.util.Collections;
+import java.util.Map;
+import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.common.util.netty.ChannelFutures;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
 
 /**
@@ -47,18 +52,22 @@ import org.apache.pulsar.common.util.netty.EventLoopUtil;
 @Slf4j
 public class MQTTProxyAdapter {
 
+    private static final Random random = new Random();
     private final DefaultThreadFactory threadFactory = new DefaultThreadFactory("mqtt-proxy-adapter");
     private final MQTTProxyService proxyService;
     private final Bootstrap bootstrap;
     private final EventLoopGroup eventLoopGroup;
-    private final ConcurrentMap<InetSocketAddress, Channel> channels;
+    @Getter
+    private final ConcurrentMap<InetSocketAddress, Map<Integer, CompletableFuture<Channel>>> pool;
     private final int workerThread = Runtime.getRuntime().availableProcessors();
+    private final int maxNoOfChannels;
 
     public MQTTProxyAdapter(MQTTProxyService proxyService) {
         this.proxyService = proxyService;
-        this.channels = new ConcurrentHashMap<>();
+        this.pool = new ConcurrentHashMap<>();
         this.bootstrap = new Bootstrap();
         this.eventLoopGroup = EventLoopUtil.newEventLoopGroup(workerThread, false, threadFactory);
+        this.maxNoOfChannels = proxyService.getProxyConfig().getMqttProxyMaxNoOfChannels();
         this.bootstrap.group(eventLoopGroup)
                 .channel(EventLoopUtil.getClientSocketChannelClass(eventLoopGroup))
                 .handler(new ChannelInitializer<SocketChannel>() {
@@ -80,31 +89,34 @@ public class MQTTProxyAdapter {
         return new AdapterChannel(this, broker, getChannel(broker));
     }
 
-    public Channel getChannel(InetSocketAddress broker) {
-        Channel channel = channels.get(broker);
-        if (channel == null || !channel.isActive()) {
-            return createNewChannel(broker);
-        }
-        return channel;
+    public CompletableFuture<Channel> getChannel(InetSocketAddress broker) {
+        final int randomKey = signSafeMod(random.nextInt(), maxNoOfChannels);
+        return pool.computeIfAbsent(broker, (x) -> new ConcurrentHashMap<>())
+                .computeIfAbsent(randomKey, __-> createChannel(broker, randomKey));
     }
 
-    private Channel createNewChannel(InetSocketAddress host) {
-        ChannelFuture future;
-        try {
-            synchronized (bootstrap) {
-                future = bootstrap.connect(host).await();
-            }
-        } catch (Exception e) {
-            log.error(String.format("Connect to : %s error.", host), e);
+    private CompletableFuture<Channel> createChannel(InetSocketAddress host, int channelKey) {
+        CompletableFuture<Channel> channelFuture = ChannelFutures.toCompletableFuture(bootstrap.connect(host))
+                .thenApply(channel -> {
+                    channel.closeFuture().addListener(v -> {
+                        if (log.isDebugEnabled()) {
+                            log.debug("Removing closed channel from pool {}", channel);
+                        }
+                        cleanupChannel(host, channelKey);
+                    });
+                    return channel;
+                });
+        channelFuture.exceptionally(ex -> {
+            log.error(String.format("Connect to : %s failed.", host), ex);
             return null;
-        }
-        if (future.isSuccess()) {
-            Channel channel = future.channel();
-            channels.put(host, channel);
-            return channel;
-        } else {
-            log.error(String.format("Connect to : %s failed.", host), future.cause());
-            return null;
+        });
+        return channelFuture;
+    }
+
+    private void cleanupChannel(InetSocketAddress broker, int channelKey) {
+        Map<Integer, CompletableFuture<Channel>> brokerChannels = pool.get(broker);
+        if (brokerChannels != null) {
+            brokerChannels.remove(channelKey);
         }
     }
 
@@ -118,10 +130,15 @@ public class MQTTProxyAdapter {
     }
 
     private void closeChannels() {
-        for (Channel cw : this.channels.values()) {
-            cw.close();
-        }
-        this.channels.clear();
+        pool.values().forEach(map -> map.values().forEach(future -> {
+            if (future.isDone()) {
+                if (!future.isCompletedExceptionally()) {
+                    future.join().close();
+                }
+            } else {
+                future.thenAccept(Channel::close);
+            }
+        }));
     }
 
     public class AdapterHandler extends ChannelInboundHandlerAdapter {
