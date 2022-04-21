@@ -90,7 +90,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
     private int pendingSendRequest = 0;
     private final int maxPendingSendRequest;
-    private final int resumeReadsThreshold;
+    private final int resumeReadThreshold;
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
         super(proxyService.getAuthenticationService(),
@@ -107,7 +107,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.pulsarEventCenter = proxyService.getEventCenter();
         this.proxyAdapter = proxyService.getProxyAdapter();
         this.maxPendingSendRequest = proxyConfig.getMaxPendingSendRequest();
-        this.resumeReadsThreshold = maxPendingSendRequest / 2;
+        this.resumeReadThreshold = maxPendingSendRequest / 2;
     }
 
     @Override
@@ -177,7 +177,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     }
 
     private CompletableFuture<Void> endPublish() {
-        if (--pendingSendRequest == resumeReadsThreshold) {
+        if (--pendingSendRequest == resumeReadThreshold) {
             if (!ctx.channel().config().isAutoRead()) {
                 ctx.channel().config().setAutoRead(true);
                 ctx.read();
