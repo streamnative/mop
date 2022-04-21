@@ -13,6 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.broker;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelId;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -24,8 +27,6 @@ import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
-import org.mockito.Mockito;
-import org.testng.annotations.Test;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +34,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
+import org.mockito.Mockito;
+import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
+
 
 public class AdapterChannelTest extends MQTTTestBase {
 
