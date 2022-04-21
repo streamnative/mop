@@ -13,13 +13,15 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.adapter;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.handler.codec.mqtt.MqttMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.utils.FutureUtils;
 import java.net.InetSocketAddress;
+import java.util.concurrent.CompletableFuture;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 public class AdapterChannel {
@@ -35,12 +37,13 @@ public class AdapterChannel {
         this.channel = channel;
     }
 
-    public ChannelFuture writeAndFlush(String clientId, MqttMessage msg) {
-        MqttAdapterMessage adapterMessage = new MqttAdapterMessage(clientId, msg);
+    public CompletableFuture<Void> writeAndFlush(final MqttAdapterMessage adapterMsg) {
+        checkArgument(StringUtils.isNotBlank(adapterMsg.getClientId()), "clientId is blank");
+        adapterMsg.setEncodeType(MqttAdapterMessage.EncodeType.ADAPTER_MESSAGE);
         if (!channel.isActive()) {
             channel = adapter.getChannel(broker);
         }
-        return channel.writeAndFlush(adapterMessage);
+        return FutureUtils.completableFuture(channel.writeAndFlush(adapterMsg));
     }
 
     /**
@@ -50,12 +53,7 @@ public class AdapterChannel {
      */
     public void registerAdapterChannelInactiveListener(Connection connection) {
         MQTTProxyAdapter.AdapterHandler channelHandler = (MQTTProxyAdapter.AdapterHandler)
-                channel.pipeline().get("adapter-handler");
+                channel.pipeline().get(MQTTProxyAdapter.AdapterHandler.NAME);
         channelHandler.registerAdapterChannelInactiveListener(connection);
     }
-
-    public boolean isWritable() {
-        return this.channel.isWritable();
-    }
-
 }
