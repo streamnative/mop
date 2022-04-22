@@ -349,7 +349,7 @@ public class ProxyTest extends MQTTTestBase {
         BlockingConnection consumer = mqttConsumer.blockingConnection();
         consumer.connect();
         String topicName1 = "topic-unload-1";
-        Topic[] topic1 = { new Topic(topicName1, QoS.AT_LEAST_ONCE)};
+        Topic[] topic1 = { new Topic(topicName1, QoS.AT_MOST_ONCE)};
         consumer.subscribe(topic1);
         MQTT mqttProducer = createMQTTProxyClient();
         BlockingConnection producer = mqttProducer.blockingConnection();
