@@ -88,7 +88,7 @@ public class ProxyTest extends MQTTTestBase {
         return mqtt;
     }
 
-    @Test(timeOut = TIMEOUT)
+//    @Test(timeOut = TIMEOUT)
     public void testBacklogShouldBeZeroWithQos0() throws Exception {
         final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0";
         MQTT mqtt = createMQTTProxyClient();
@@ -118,7 +118,7 @@ public class ProxyTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-    @Test(timeOut = TIMEOUT)
+//    @Test(timeOut = TIMEOUT)
     public void testBacklogShouldBeZeroWithQos1() throws Exception {
         final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos1";
         MQTT mqtt = createMQTTProxyClient();
