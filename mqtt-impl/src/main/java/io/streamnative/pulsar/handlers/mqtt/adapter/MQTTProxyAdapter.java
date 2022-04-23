@@ -162,9 +162,9 @@ public class MQTTProxyAdapter {
                 switch (messageType) {
                     case DISCONNECT:
                         if (MqttUtils.isNotMqtt3(connection.getProtocolVersion())) {
-                            connection.getChannel().writeAndFlush(adapterMsg);
+                            processor.getChannel().writeAndFlush(adapterMsg);
                         }
-                        connection.getChannel().close();
+                        processor.getChannel().close();
                         break;
                     case PUBLISH:
                         MqttPublishMessage pubMessage = (MqttPublishMessage) msg;

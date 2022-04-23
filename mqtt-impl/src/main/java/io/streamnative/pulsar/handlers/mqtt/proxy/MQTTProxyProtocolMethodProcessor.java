@@ -244,15 +244,18 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
     @Override
     public void processConnectionLost() {
-        // If client close the channel without calling disconnect, then we should call disconnect to notify broker
-        // to clean up the resource.
-        processDisconnect(new MqttAdapterMessage(MqttMessageUtils.createMqttDisconnectMessage()));
+        if (log.isDebugEnabled()) {
+            log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
+        }
         if (connection != null) {
-            if (log.isDebugEnabled()) {
-                log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
+            // If client close the channel without calling disconnect, then we should call disconnect to notify broker
+            // to clean up the resource.
+            if (!isDisconnected.get()) {
+                processDisconnect(new MqttAdapterMessage(MqttMessageUtils.createMqttDisconnectMessage()));
+            } else {
+                connectionManager.removeConnection(connection);
+                connection.close();
             }
-            connectionManager.removeConnection(connection);
-            connection.close();
         }
         topicBrokers.clear();
     }
