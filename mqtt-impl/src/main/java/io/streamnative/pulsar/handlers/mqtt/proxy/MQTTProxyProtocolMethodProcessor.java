@@ -86,6 +86,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final SystemEventService eventService;
     private final PulsarEventCenter pulsarEventCenter;
     private final MQTTProxyAdapter proxyAdapter;
+    @Getter
     private final AtomicBoolean isDisconnected = new AtomicBoolean(false);
 
     private int pendingSendRequest = 0;
@@ -250,12 +251,9 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         if (connection != null) {
             // If client close the channel without calling disconnect, then we should call disconnect to notify broker
             // to clean up the resource.
-            if (!isDisconnected.get()) {
-                processDisconnect(new MqttAdapterMessage(MqttMessageUtils.createMqttDisconnectMessage()));
-            } else {
-                connectionManager.removeConnection(connection);
-                connection.close();
-            }
+            processDisconnect(new MqttAdapterMessage(MqttMessageUtils.createMqttDisconnectMessage()));
+            connectionManager.removeConnection(connection);
+            connection.close();
         }
         topicBrokers.clear();
     }
