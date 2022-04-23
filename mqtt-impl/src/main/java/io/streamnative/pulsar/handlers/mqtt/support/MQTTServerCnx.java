@@ -15,10 +15,10 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.ChannelHandlerContext;
 import lombok.extern.slf4j.Slf4j;
+import java.util.concurrent.CompletableFuture;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.ServerCnx;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Server cnx for MQTT server.
