@@ -96,7 +96,7 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                                 String[] splits = brokerUrl.get().split(ConfigurationUtils.COLON);
                                 String port = splits[splits.length - 1];
                                 int mqttBrokerPort = Integer.parseInt(port);
-                                return CompletableFuture.completedFuture(InetSocketAddress.createUnresolved(
+                                return CompletableFuture.completedFuture(new InetSocketAddress(
                                         lookupPair.getLeft().getHostName(), mqttBrokerPort));
                                 });
                         })

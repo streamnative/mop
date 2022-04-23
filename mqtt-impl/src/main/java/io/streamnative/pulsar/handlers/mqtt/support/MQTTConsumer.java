@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Entry;
 import org.apache.pulsar.broker.service.Consumer;
@@ -62,6 +63,7 @@ public class MQTTConsumer extends Consumer {
             AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "addPermits");
     private volatile int addPermits = 0;
     private final ClientRestrictions clientRestrictions;
+    @Getter
     private final Connection connection;
 
     public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, Connection connection,
