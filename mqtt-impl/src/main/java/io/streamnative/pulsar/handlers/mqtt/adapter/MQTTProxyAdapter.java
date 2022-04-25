@@ -180,9 +180,11 @@ public class MQTTProxyAdapter {
                 switch (messageType) {
                     case DISCONNECT:
                         if (MqttUtils.isNotMqtt3(connection.getProtocolVersion())) {
-                            connection.getChannel().writeAndFlush(adapterMsg);
+                            processor.getChannel().writeAndFlush(adapterMsg);
                         }
-                        connection.getChannel().close();
+                        // When the adapter receives DISCONNECT, we don't need to trigger send disconnect to broker.
+                        processor.isDisconnected().set(true);
+                        processor.getChannel().close();
                         break;
                     case PUBLISH:
                         MqttPublishMessage pubMessage = (MqttPublishMessage) msg;
