@@ -86,7 +86,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final SystemEventService eventService;
     private final PulsarEventCenter pulsarEventCenter;
     private final MQTTProxyAdapter proxyAdapter;
-    @Getter
     private final AtomicBoolean isDisconnected = new AtomicBoolean(false);
 
     private int pendingSendRequest = 0;
@@ -454,5 +453,9 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             return false;
         }
         return decreaseSubscribeTopicsCount(packetId) == 0;
+    }
+
+    public AtomicBoolean isDisconnected() {
+        return this.isDisconnected;
     }
 }

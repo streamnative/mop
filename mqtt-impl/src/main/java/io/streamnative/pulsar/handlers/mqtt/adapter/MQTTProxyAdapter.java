@@ -183,7 +183,7 @@ public class MQTTProxyAdapter {
                             processor.getChannel().writeAndFlush(adapterMsg);
                         }
                         // When the adapter receives DISCONNECT, we don't need to trigger send disconnect to broker.
-                        processor.getIsDisconnected().set(true);
+                        processor.isDisconnected().set(true);
                         processor.getChannel().close();
                         break;
                     case PUBLISH:
