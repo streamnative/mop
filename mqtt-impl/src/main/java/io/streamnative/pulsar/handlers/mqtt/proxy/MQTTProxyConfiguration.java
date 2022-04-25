@@ -62,4 +62,16 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
     )
     private boolean systemEventEnabled = true;
 
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            doc = "The maximum number of channels which can exist concurrently on a connection."
+    )
+    private int maxNoOfChannels = 1;
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            doc = "Proxy connect to broker timeout (ms)"
+    )
+    private int connectTimeoutMs = 10;
+
 }
