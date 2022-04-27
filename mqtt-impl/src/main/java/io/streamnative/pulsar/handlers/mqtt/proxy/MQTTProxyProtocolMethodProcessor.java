@@ -229,12 +229,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             if (log.isDebugEnabled()) {
                 log.debug("[Proxy Disconnect] [{}] ", clientId);
             }
-            topicBrokers.values().forEach(adapterChannel -> {
-                adapterChannel.thenAccept(channel -> {
-                    msg.setClientId(clientId);
-                    channel.writeAndFlush(msg);
-                });
-            });
+            msg.setClientId(clientId);
+            // Deduplicate the channel to avoid sending disconnects many times.
+            CompletableFuture.allOf(topicBrokers.values().toArray(new CompletableFuture[0]))
+                    .whenComplete((result, ex) -> topicBrokers.values().stream()
+                            .filter(future -> !future.isCompletedExceptionally())
+                            .map(CompletableFuture::join)
+                            .collect(Collectors.toSet())
+                            .forEach(channel -> channel.writeAndFlush(msg)));
         } else {
             if (log.isDebugEnabled()) {
                 log.debug("Disconnect is already triggered, ignore");
