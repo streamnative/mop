@@ -51,8 +51,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReaso
 import io.streamnative.pulsar.handlers.mqtt.messages.properties.PulsarProperties;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
-import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
-import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarTopicChangeListener;
+import io.streamnative.pulsar.handlers.mqtt.support.event.AutoSubscribeHandler;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
@@ -78,7 +77,6 @@ import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
-import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.Codec;
 import org.apache.pulsar.common.util.FutureUtil;
@@ -100,8 +98,8 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     private final MQTTSubscriptionManager mqttSubscriptionManager;
     private final WillMessageHandler willMessageHandler;
     private final RetainedMessageHandler retainedMessageHandler;
+    private final AutoSubscribeHandler autoSubscribeHandler;
     private Connection connection;
-    private final PulsarEventCenter eventCenter;
     @Getter
     private final CompletableFuture<Void> inactiveFuture = new CompletableFuture<>();
 
@@ -120,7 +118,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         this.willMessageHandler = mqttService.getWillMessageHandler();
         this.retainedMessageHandler = mqttService.getRetainedMessageHandler();
         this.serverCnx = new MQTTServerCnx(pulsarService, ctx);
-        this.eventCenter = mqttService.getEventCenter();
+        this.autoSubscribeHandler = new AutoSubscribeHandler(mqttService.getEventCenter());
     }
 
     @Override
@@ -139,7 +137,6 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                 .serverRestrictions(serverRestrictions)
                 .channel(channel)
                 .connectionManager(connectionManager)
-                .eventCenter(eventCenter)
                 .fromProxy(adapterMsg.fromProxy())
                 .processor(this)
                 .build();
@@ -284,6 +281,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     @Override
     public void processConnectionLost() {
         try {
+            autoSubscribeHandler.close();
             if (connection == null) {
                 channel.close();
                 return;
@@ -438,54 +436,29 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     }
 
     private void registerRegexTopicFilterListener(MqttTopicSubscription subTopic) {
-        connection.addTopicChangeListener(new PulsarTopicChangeListener() {
-            @Override
-            public void onTopicLoad(TopicName changedTopicName) {
-                if (changedTopicName.isPartitioned()) {
-                    // Current don't support partitioned topic
-                    return;
-                }
-                String subTopicName = subTopic.topicName();
-                String pulsarTopicNameStr = PulsarTopicUtils.getPulsarTopicName(subTopicName,
-                        configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
-                        true, TopicDomain.getEnum(configuration.getDefaultTopicDomain()));
-                TopicName pulsarTopicName = TopicName.get(pulsarTopicNameStr);
-                // Support user use namespace level regex
-                if (!Objects.equals(changedTopicName.getNamespace(), pulsarTopicName.getNamespace())) {
-                    return;
-                }
-                TopicFilter topicFilter = PulsarTopicUtils.getTopicFilter(subTopic.topicName());
-                if (!topicFilter.test(Codec.decode(changedTopicName.getLocalName()))) {
-                    return;
-                }
-                PulsarTopicUtils.getOrCreateSubscription(pulsarService,
-                        changedTopicName.toString(), connection.getClientId(), configuration.getDefaultTenant(),
-                        configuration.getDefaultNamespace(), configuration.getDefaultTopicDomain(),
-                                CommandSubscribe.InitialPosition.Earliest)
-                        .thenCompose(sub -> {
-                            Optional<String> existConsumer = sub.getConsumers().stream().map(Consumer::consumerName)
-                                    .filter(name -> Objects.equals(name, connection.getClientId()))
-                                    .findAny();
-                            if (existConsumer.isPresent()) {
-                                return CompletableFuture.completedFuture(null);
-                            }
-                            return createAndSubConsumer(sub, subTopic, changedTopicName.toString());
-                        })
-                        .thenRun(() -> log.info("[{}] Subscribe new topic [{}] success", connection.getClientId(),
-                                Codec.decode(changedTopicName.toString())))
-                        .exceptionally(ex -> {
-                            log.error("[{}][Subscribe] Fail to subscribe new topic [{}] "
-                                            + "for topic filter [{}]", connection.getClientId(), changedTopicName,
-                                    subTopic.topicName());
-                            return null;
-                        });
-            }
-
-            @Override
-            public void onTopicUnload(TopicName topicName) {
-                // NO-OP
-            }
-        });
+        autoSubscribeHandler.register(
+                PulsarTopicUtils.getTopicFilter(subTopic.topicName()),
+            (encodedChangedTopic) -> PulsarTopicUtils.getOrCreateSubscription(pulsarService,
+                            encodedChangedTopic, connection.getClientId(), configuration.getDefaultTenant(),
+                            configuration.getDefaultNamespace(), configuration.getDefaultTopicDomain(),
+                            CommandSubscribe.InitialPosition.Earliest)
+                    .thenCompose(sub -> {
+                        Optional<String> existConsumer = sub.getConsumers().stream().map(Consumer::consumerName)
+                                .filter(name -> Objects.equals(name, connection.getClientId()))
+                                .findAny();
+                        if (existConsumer.isPresent()) {
+                            return CompletableFuture.completedFuture(null);
+                        }
+                        return createAndSubConsumer(sub, subTopic, encodedChangedTopic);
+                    })
+                    .thenRun(() -> log.info("[{}] Subscribe new topic [{}] success", connection.getClientId(),
+                            Codec.decode(encodedChangedTopic)))
+                    .exceptionally(ex -> {
+                        log.error("[{}][Subscribe] Fail to subscribe new topic [{}] "
+                                        + "for topic filter [{}]", connection.getClientId(), encodedChangedTopic,
+                                subTopic.topicName());
+                        return null;
+                    }));
     }
 
     private CompletableFuture<Void> createAndSubConsumer(Subscription sub,
@@ -513,6 +486,10 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
                     topicFilter, configuration.getDefaultTenant(), configuration.getDefaultNamespace(), pulsarService,
                     configuration.getDefaultTopicDomain());
+            if (MqttUtils.isRegexFilter(topicFilter)) {
+                TopicFilter filter = PulsarTopicUtils.getTopicFilter(topicFilter);
+                autoSubscribeHandler.unregister(filter);
+            }
             CompletableFuture<Void> future = topicListFuture.thenCompose(topics -> {
                 List<CompletableFuture<Void>> futures = topics.stream()
                         .map(topic -> PulsarTopicUtils.getTopicReference(pulsarService,
