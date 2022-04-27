@@ -166,7 +166,7 @@ public class Connection {
         }
     }
 
-    public CompletableFuture<Void> close() {
+    public CompletableFuture<Void> cleanup() {
         log.info("Closing connection clientId = {}", clientId);
         assignState(ESTABLISHED, DISCONNECTED);
         if (clientRestrictions.isCleanSession()) {

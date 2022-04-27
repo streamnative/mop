@@ -297,7 +297,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             }
             connectionManager.removeConnection(connection);
             mqttSubscriptionManager.removeSubscription(clientId);
-            connection.close();
+            connection.cleanup();
         } finally {
             inactiveFuture.complete(null);
         }

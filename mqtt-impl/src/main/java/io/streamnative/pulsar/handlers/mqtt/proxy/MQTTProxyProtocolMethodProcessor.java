@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import com.google.common.collect.Lists;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -20,6 +21,7 @@ import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
@@ -49,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -80,6 +83,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final Map<Integer, String> packetIdTopic;
     // Map sequence Id -> topic count
     private final ConcurrentHashMap<Integer, AtomicInteger> subscribeTopicsCount;
+    private final ConcurrentHashMap<Integer, AtomicInteger> unsubscribeTopicsCount;
     private final MQTTConnectionManager connectionManager;
     private final SystemEventService eventService;
     private final MQTTProxyAdapter proxyAdapter;
@@ -103,6 +107,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.adapterChannels = new ConcurrentHashMap<>();
         this.subscribeTopicsCount = new ConcurrentHashMap<>();
         this.packetIdTopic = new ConcurrentHashMap<>();
+        this.unsubscribeTopicsCount = new ConcurrentHashMap<>();
         this.proxyAdapter = proxyService.getProxyAdapter();
         this.maxPendingSendRequest = proxyConfig.getMaxPendingSendRequest();
         this.resumeReadThreshold = maxPendingSendRequest / 2;
@@ -254,7 +259,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             // to clean up the resource.
             processDisconnect(new MqttAdapterMessage(MqttMessageUtils.createMqttDisconnectMessage()));
             connectionManager.removeConnection(connection);
-            connection.close();
+            connection.cleanup();
         }
         topicBrokers.clear();
     }
@@ -268,8 +273,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
+        registerTopicListener(adapter);
         doSubscribe(adapter, true)
-                .thenAccept(__ -> registerTopicListener(adapter))
                 .exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, realCause);
@@ -338,7 +343,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     }
                     List<CompletableFuture<Void>> subscribeFutures = topics.stream()
                             .map(topic -> {
-                                CompletableFuture<Void> future = writeToBroker(topic, adapter);
+                                MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
+                                        .messageId(message.variableHeader().messageId())
+                                        .addSubscription(MqttQoS.AT_LEAST_ONCE, Codec.decode(topic))
+                                        .properties(message.idAndPropertiesVariableHeader().properties())
+                                        .build();
+                                MqttAdapterMessage mqttAdapterMessage =
+                                        new MqttAdapterMessage(connection.getClientId(), subscribeMessage);
+                                CompletableFuture<Void> future = writeToBroker(topic, mqttAdapterMessage);
                                 if (incrementCounter) {
                                     future.thenAccept(__ ->
                                             increaseSubscribeTopicsCount(packetId, 1));
@@ -361,20 +373,38 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         if (log.isDebugEnabled()) {
             log.debug("[Proxy UnSubscribe] [{}]", connection.getClientId());
         }
-        List<String> topics = msg.payload().topics();
-        List<CompletableFuture<Void>> futures = new ArrayList<>(topics.size());
-        for (String topic : topics) {
+        msg.payload().topics().stream().map(topic -> {
             if (MqttUtils.isRegexFilter(topic)) {
                 TopicFilter filter = PulsarTopicUtils.getTopicFilter(topic);
                 autoSubscribeHandler.unregister(filter);
             }
-            futures.add(writeToBroker(topic, adapter));
-        }
-        FutureUtil.waitForAll(Collections.unmodifiableList(futures))
-                .exceptionally(ex -> {
-                    log.error("[Proxy UnSubscribe] Failed to perform lookup request", ex);
-                    channel.close();
-                    return null;
+            return PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(topic, proxyConfig.getDefaultTenant(),
+                    proxyConfig.getDefaultNamespace(), pulsarService, proxyConfig.getDefaultTopicDomain());
+        }).reduce((pre, curr) -> pre.thenCombine(curr, (l, r) -> {
+            List<String> container = Lists.newArrayListWithCapacity(l.size() + r.size());
+            container.addAll(l);
+            container.addAll(r);
+            return container;
+        })).orElseGet(() -> CompletableFuture.completedFuture(Collections.emptyList()))
+        .thenCompose(pulsarTopics -> {
+            MqttUnsubscribeMessage mqttMessage = (MqttUnsubscribeMessage) adapter.getMqttMessage();
+            List<CompletableFuture<Void>> writeFutures = pulsarTopics.stream().map(pulsarTopic -> {
+                MqttUnsubscribeMessage unsubscribeMessage = MqttMessageBuilders
+                        .unsubscribe()
+                        .messageId(mqttMessage.variableHeader().messageId())
+                        .addTopicFilter(Codec.decode(pulsarTopic))
+                        .build();
+                MqttAdapterMessage mqttAdapterMessage =
+                        new MqttAdapterMessage(connection.getClientId(), unsubscribeMessage);
+                increaseUnsubscribeTopicsCount(unsubscribeMessage.variableHeader().messageId(), 1);
+                return writeToBroker(pulsarTopic, mqttAdapterMessage);
+            }).collect(Collectors.toList());
+            return FutureUtil.waitForAll(writeFutures);
+        }).exceptionally(ex -> {
+            log.error("[Proxy UnSubscribe] Failed to perform lookup request", ex);
+            unsubscribeTopicsCount.remove(msg.variableHeader().messageId());
+            channel.close();
+            return null;
         });
     }
 
@@ -399,17 +429,41 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         return this.channel;
     }
 
-    /**
-     *  MQTT support subscribe many topics in one subscribe request.
-     *  We need to record it's subscribe count.
-     * @param seq
-     * @param count
-     */
     private void increaseSubscribeTopicsCount(int seq, int count) {
         AtomicInteger subscribeCount = subscribeTopicsCount.putIfAbsent(seq, new AtomicInteger(count));
         if (subscribeCount != null) {
             subscribeCount.addAndGet(count);
         }
+    }
+
+    private void increaseUnsubscribeTopicsCount(int seq, int count) {
+        AtomicInteger unSubscribeCount = unsubscribeTopicsCount.putIfAbsent(seq, new AtomicInteger(count));
+        if (unSubscribeCount != null) {
+            unSubscribeCount.addAndGet(count);
+        }
+    }
+
+    private int decreaseUnsubscribeTopicsCount(int seq) {
+        AtomicInteger unSubscribeCount = unsubscribeTopicsCount.get(seq);
+        if (unSubscribeCount == null) {
+            log.warn("Unexpected unsubscribe behavior for the proxy, respond seq {} "
+                    + "but but the seq does not tracked by the proxy. ", seq);
+            return -1;
+        } else {
+            int value = unSubscribeCount.decrementAndGet();
+            if (value == 0) {
+                unsubscribeTopicsCount.remove(seq);
+            }
+            return value;
+        }
+    }
+
+    public boolean checkIfSendUnsubAck(int messageId) {
+        AtomicInteger counter = unsubscribeTopicsCount.get(messageId);
+        if (counter == null || 0 == counter.get()) {
+            return false;
+        }
+        return decreaseUnsubscribeTopicsCount(messageId) == 0;
     }
 
     private int decreaseSubscribeTopicsCount(int seq) {
@@ -427,20 +481,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         }
     }
 
-    /**
-     * If one sub-ack succeed, we need to decrease it's sub-count.
-     * As the sub-count return zero, it means the subscribe action succeed.
-     * @param packetId
-     * @return
-     */
     public boolean checkIfSendSubAck(int packetId) {
-        // In regex subscription, we don't need to send any ack to client.
         AtomicInteger counter = subscribeTopicsCount.get(packetId);
         if (counter == null || 0 == counter.get()) {
             return false;
         }
         return decreaseSubscribeTopicsCount(packetId) == 0;
     }
+
 
     public AtomicBoolean isDisconnected() {
         return this.isDisconnected;

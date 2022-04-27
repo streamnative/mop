@@ -29,6 +29,7 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
+import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyProtocolMethodProcessor;
@@ -198,6 +199,12 @@ public class MQTTProxyAdapter {
                     case SUBACK:
                         MqttSubAckMessage subAckMessage = (MqttSubAckMessage) msg;
                         if (processor.checkIfSendSubAck(subAckMessage.variableHeader().messageId())) {
+                            processor.getChannel().writeAndFlush(adapterMsg);
+                        }
+                        break;
+                    case UNSUBACK:
+                        MqttUnsubAckMessage unSubAckMessage = (MqttUnsubAckMessage) msg;
+                        if (processor.checkIfSendUnsubAck(unSubAckMessage.variableHeader().messageId())) {
                             processor.getChannel().writeAndFlush(adapterMsg);
                         }
                         break;
