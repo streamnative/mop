@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import com.google.common.collect.Lists;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
@@ -55,7 +54,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -81,14 +79,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final Map<InetSocketAddress, AdapterChannel> adapterChannels;
     @Getter
     private final Map<Integer, String> packetIdTopic;
-    // Map sequence Id -> topic count
-    private final ConcurrentHashMap<Integer, AtomicInteger> subscribeTopicsCount;
-    private final ConcurrentHashMap<Integer, AtomicInteger> unsubscribeTopicsCount;
+    @Getter
+    private final MessageAckTracker subscribeAckTracker;
+    @Getter
+    private final MessageAckTracker unsubscribeAckTracker;
     private final MQTTConnectionManager connectionManager;
     private final SystemEventService eventService;
     private final MQTTProxyAdapter proxyAdapter;
     private final AtomicBoolean isDisconnected = new AtomicBoolean(false);
-    private final MQTTProxyService mqttProxyService;
     private final AutoSubscribeHandler autoSubscribeHandler;
 
     private int pendingSendRequest = 0;
@@ -105,13 +103,12 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.eventService = proxyService.getEventService();
         this.topicBrokers = new ConcurrentHashMap<>();
         this.adapterChannels = new ConcurrentHashMap<>();
-        this.subscribeTopicsCount = new ConcurrentHashMap<>();
+        this.subscribeAckTracker = new MessageAckTracker();
+        this.unsubscribeAckTracker = new MessageAckTracker();
         this.packetIdTopic = new ConcurrentHashMap<>();
-        this.unsubscribeTopicsCount = new ConcurrentHashMap<>();
         this.proxyAdapter = proxyService.getProxyAdapter();
         this.maxPendingSendRequest = proxyConfig.getMaxPendingSendRequest();
         this.resumeReadThreshold = maxPendingSendRequest / 2;
-        this.mqttProxyService = proxyService;
         this.autoSubscribeHandler = new AutoSubscribeHandler(proxyService.getEventCenter());
     }
 
@@ -284,7 +281,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             .reasonString("[ MOP ERROR ]" + realCause.getMessage())
                             .build();
                     connection.sendAckThenClose(subAck);
-                    subscribeTopicsCount.remove(packetId);
+                    subscribeAckTracker.remove(packetId);
                     return null;
                 });
     }
@@ -350,11 +347,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                                         .build();
                                 MqttAdapterMessage mqttAdapterMessage =
                                         new MqttAdapterMessage(connection.getClientId(), subscribeMessage);
-                                CompletableFuture<Void> future = writeToBroker(topic, mqttAdapterMessage);
                                 if (incrementCounter) {
-                                    future.thenAccept(__ ->
-                                            increaseSubscribeTopicsCount(packetId, 1));
+                                    subscribeAckTracker.increment(packetId);
                                 }
+                                CompletableFuture<Void> future = writeToBroker(topic, mqttAdapterMessage);
                                 future.thenAccept(__ -> registerAdapterChannelInactiveListener(topic));
                                 return future;
                             }).collect(Collectors.toList());
@@ -396,13 +392,13 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                         .build();
                 MqttAdapterMessage mqttAdapterMessage =
                         new MqttAdapterMessage(connection.getClientId(), unsubscribeMessage);
-                increaseUnsubscribeTopicsCount(unsubscribeMessage.variableHeader().messageId(), 1);
+                unsubscribeAckTracker.increment(unsubscribeMessage.variableHeader().messageId());
                 return writeToBroker(pulsarTopic, mqttAdapterMessage);
             }).collect(Collectors.toList());
             return FutureUtil.waitForAll(writeFutures);
         }).exceptionally(ex -> {
             log.error("[Proxy UnSubscribe] Failed to perform lookup request", ex);
-            unsubscribeTopicsCount.remove(msg.variableHeader().messageId());
+            unsubscribeAckTracker.remove(msg.variableHeader().messageId());
             channel.close();
             return null;
         });
@@ -424,71 +420,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     return adapterChannel;
                 })));
     }
-
-    public Channel getChannel() {
-        return this.channel;
-    }
-
-    private void increaseSubscribeTopicsCount(int seq, int count) {
-        AtomicInteger subscribeCount = subscribeTopicsCount.putIfAbsent(seq, new AtomicInteger(count));
-        if (subscribeCount != null) {
-            subscribeCount.addAndGet(count);
-        }
-    }
-
-    private void increaseUnsubscribeTopicsCount(int seq, int count) {
-        AtomicInteger unSubscribeCount = unsubscribeTopicsCount.putIfAbsent(seq, new AtomicInteger(count));
-        if (unSubscribeCount != null) {
-            unSubscribeCount.addAndGet(count);
-        }
-    }
-
-    private int decreaseUnsubscribeTopicsCount(int seq) {
-        AtomicInteger unSubscribeCount = unsubscribeTopicsCount.get(seq);
-        if (unSubscribeCount == null) {
-            log.warn("Unexpected unsubscribe behavior for the proxy, respond seq {} "
-                    + "but but the seq does not tracked by the proxy. ", seq);
-            return -1;
-        } else {
-            int value = unSubscribeCount.decrementAndGet();
-            if (value == 0) {
-                unsubscribeTopicsCount.remove(seq);
-            }
-            return value;
-        }
-    }
-
-    public boolean checkIfSendUnsubAck(int messageId) {
-        AtomicInteger counter = unsubscribeTopicsCount.get(messageId);
-        if (counter == null || 0 == counter.get()) {
-            return false;
-        }
-        return decreaseUnsubscribeTopicsCount(messageId) == 0;
-    }
-
-    private int decreaseSubscribeTopicsCount(int seq) {
-        AtomicInteger subscribeCount = subscribeTopicsCount.get(seq);
-        if (subscribeCount == null) {
-            log.warn("Unexpected subscribe behavior for the proxy, respond seq {} "
-                    + "but but the seq does not tracked by the proxy. ", seq);
-            return -1;
-        } else {
-            int value = subscribeCount.decrementAndGet();
-            if (value == 0) {
-                subscribeTopicsCount.remove(seq);
-            }
-            return value;
-        }
-    }
-
-    public boolean checkIfSendSubAck(int packetId) {
-        AtomicInteger counter = subscribeTopicsCount.get(packetId);
-        if (counter == null || 0 == counter.get()) {
-            return false;
-        }
-        return decreaseSubscribeTopicsCount(packetId) == 0;
-    }
-
 
     public AtomicBoolean isDisconnected() {
         return this.isDisconnected;

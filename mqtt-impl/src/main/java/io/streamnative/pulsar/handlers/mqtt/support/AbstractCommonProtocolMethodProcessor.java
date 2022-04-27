@@ -28,6 +28,7 @@ import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -38,6 +39,7 @@ import org.apache.commons.lang3.StringUtils;
 public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolMethodProcessor {
 
     protected final ChannelHandlerContext ctx;
+    @Getter
     protected final Channel channel;
 
     protected final MQTTAuthenticationService authenticationService;
