@@ -35,13 +35,10 @@ public class MessageAckTracker {
 
     public boolean decrementAndCheck(int messageId) {
         AtomicInteger counter = messageIdCounter.get(messageId);
-        if (counter == null) {
-            return true;
+        if (counter == null || counter.decrementAndGet() > 0) {
+            return false;
         }
-        if (counter.decrementAndGet() <= 0) {
-            return messageIdCounter.remove(messageId) != null;
-        }
-        return false;
+        return messageIdCounter.remove(messageId) != null;
     }
 
     public void remove(int messageId) {
