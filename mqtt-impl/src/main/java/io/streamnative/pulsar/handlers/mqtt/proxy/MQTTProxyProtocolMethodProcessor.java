@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
 import org.apache.pulsar.common.naming.TopicDomain;
@@ -323,38 +324,43 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
     private CompletableFuture<Void> doSubscribe(final MqttAdapterMessage adapter, final boolean incrementCounter) {
         final MqttSubscribeMessage message = (MqttSubscribeMessage) adapter.getMqttMessage();
-        return PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(message, proxyConfig.getDefaultTenant(),
-                        proxyConfig.getDefaultNamespace(),
-                        pulsarService, proxyConfig.getDefaultTopicDomain())
-                .thenCompose(topics -> {
-                    int packetId = message.variableHeader().messageId();
-                    if (CollectionUtils.isEmpty(topics)) {
-                        MqttAck subAck = MqttSubAck.successBuilder(connection.getProtocolVersion())
-                                .packetId(packetId)
-                                .grantedQos(new ArrayList<>(message.payload().topicSubscriptions().stream()
-                                        .map(MqttTopicSubscription::qualityOfService)
-                                        .collect(Collectors.toSet())))
-                                .build();
-                        connection.sendAck(subAck);
-                        return CompletableFuture.completedFuture(null);
-                    }
-                    if (incrementCounter) {
-                        subscribeAckTracker.increment(packetId, topics.size());
-                    }
-                    List<CompletableFuture<Void>> subscribeFutures = topics.stream()
-                            .map(topic -> {
-                                MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
-                                        .messageId(message.variableHeader().messageId())
-                                        .addSubscription(MqttQoS.AT_LEAST_ONCE, Codec.decode(topic))
-                                        .properties(message.idAndPropertiesVariableHeader().properties())
+        final int packetId = message.variableHeader().messageId();
+        List<CompletableFuture<Void>> futures = message.payload().topicSubscriptions().stream()
+                .map(subscription -> PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(subscription.topicName(),
+                                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
+                                proxyConfig.getDefaultTopicDomain())
+                        .thenCompose(pulsarTopicNames -> {
+                            if (CollectionUtils.isEmpty(pulsarTopicNames)) {
+                                MqttAck subAck = MqttSubAck.successBuilder(connection.getProtocolVersion())
+                                        .packetId(packetId)
+                                        .grantedQos(new ArrayList<>(message.payload().topicSubscriptions().stream()
+                                                .map(MqttTopicSubscription::qualityOfService)
+                                                .collect(Collectors.toSet())))
                                         .build();
-                                MqttAdapterMessage mqttAdapterMessage =
-                                        new MqttAdapterMessage(connection.getClientId(), subscribeMessage);
-                                return writeToBroker(topic, mqttAdapterMessage)
-                                        .thenAccept(__ -> registerAdapterChannelInactiveListener(topic));
-                            }).collect(Collectors.toList());
-                    return FutureUtil.waitForAll(subscribeFutures);
-                });
+                                connection.sendAck(subAck);
+                                return CompletableFuture.completedFuture(null);
+                            }
+                            if (incrementCounter) {
+                                subscribeAckTracker.increment(packetId, pulsarTopicNames.size());
+                            }
+                            List<CompletableFuture<Void>> writeFutures = pulsarTopicNames.stream()
+                                    .map(pulsarTopicName -> {
+                                        MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
+                                                .messageId(message.variableHeader().messageId())
+                                                .addSubscription(subscription.qualityOfService(),
+                                                        Codec.decode(pulsarTopicName))
+                                                .properties(message.idAndPropertiesVariableHeader().properties())
+                                                .build();
+                                        MqttAdapterMessage mqttAdapterMessage =
+                                                new MqttAdapterMessage(connection.getClientId(), subscribeMessage);
+                                        return writeToBroker(pulsarTopicName, mqttAdapterMessage)
+                                                .thenAccept(__ ->
+                                                        registerAdapterChannelInactiveListener(pulsarTopicName));
+                                    }).collect(Collectors.toList());
+                            return FutureUtil.waitForAll(writeFutures);
+                        })
+                ).collect(Collectors.toList());
+        return FutureUtil.waitForAll(futures);
     }
 
     private void registerAdapterChannelInactiveListener(final String topic) {

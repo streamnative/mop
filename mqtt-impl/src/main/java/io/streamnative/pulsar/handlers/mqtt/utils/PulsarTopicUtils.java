@@ -15,8 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils.isRegexFilter;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Lists;
-import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
 import java.net.URLDecoder;
@@ -195,23 +193,6 @@ public class PulsarTopicUtils {
         } else {
             return new TopicFilterImpl(mqttTopicFilter);
         }
-    }
-
-    public static CompletableFuture<List<String>> asyncGetTopicsForSubscribeMsg(MqttSubscribeMessage msg,
-                 String defaultTenant, String defaultNamespace, PulsarService pulsarService,
-                                                                                String defaultTopicDomain) {
-        return msg.payload().topicSubscriptions().stream()
-                .map(mqttTopicSubscription ->
-                        asyncGetTopicListFromTopicSubscription(
-                                mqttTopicSubscription.topicName(), defaultTenant, defaultNamespace,
-                        pulsarService, defaultTopicDomain))
-                .reduce((pre, curr)-> pre.thenCombine(curr, (l, r) -> {
-                        List<String> topics = Lists.newArrayListWithCapacity(l.size() + r.size());
-                        topics.addAll(l);
-                        topics.addAll(r);
-                        return topics;
-                    })
-                ).orElseGet(()-> CompletableFuture.completedFuture(Collections.emptyList()));
     }
 
     public static CompletableFuture<List<String>> asyncGetTopicListFromTopicSubscription(String topicFilter,
