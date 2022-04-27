@@ -338,6 +338,9 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                         connection.sendAck(subAck);
                         return CompletableFuture.completedFuture(null);
                     }
+                    if (incrementCounter) {
+                        subscribeAckTracker.increment(packetId, topics.size());
+                    }
                     List<CompletableFuture<Void>> subscribeFutures = topics.stream()
                             .map(topic -> {
                                 MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
@@ -347,12 +350,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                                         .build();
                                 MqttAdapterMessage mqttAdapterMessage =
                                         new MqttAdapterMessage(connection.getClientId(), subscribeMessage);
-                                if (incrementCounter) {
-                                    subscribeAckTracker.increment(packetId);
-                                }
-                                CompletableFuture<Void> future = writeToBroker(topic, mqttAdapterMessage);
-                                future.thenAccept(__ -> registerAdapterChannelInactiveListener(topic));
-                                return future;
+                                return writeToBroker(topic, mqttAdapterMessage)
+                                        .thenAccept(__ -> registerAdapterChannelInactiveListener(topic));
                             }).collect(Collectors.toList());
                     return FutureUtil.waitForAll(subscribeFutures);
                 });
@@ -384,6 +383,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         })).orElseGet(() -> CompletableFuture.completedFuture(Collections.emptyList()))
         .thenCompose(pulsarTopics -> {
             MqttUnsubscribeMessage mqttMessage = (MqttUnsubscribeMessage) adapter.getMqttMessage();
+            unsubscribeAckTracker.increment(mqttMessage.variableHeader().messageId(), pulsarTopics.size());
             List<CompletableFuture<Void>> writeFutures = pulsarTopics.stream().map(pulsarTopic -> {
                 MqttUnsubscribeMessage unsubscribeMessage = MqttMessageBuilders
                         .unsubscribe()
@@ -392,7 +392,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                         .build();
                 MqttAdapterMessage mqttAdapterMessage =
                         new MqttAdapterMessage(connection.getClientId(), unsubscribeMessage);
-                unsubscribeAckTracker.increment(unsubscribeMessage.variableHeader().messageId());
                 return writeToBroker(pulsarTopic, mqttAdapterMessage);
             }).collect(Collectors.toList());
             return FutureUtil.waitForAll(writeFutures);

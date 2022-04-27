@@ -25,19 +25,21 @@ public class MessageAckTracker {
     }
 
     public void increment(int messageId) {
+        increment(messageId, 1);
+    }
+
+    public void increment(int messageId, int count) {
         messageIdCounter.computeIfAbsent(messageId,
-                (k) -> new AtomicInteger(0)).incrementAndGet();
+                (k) -> new AtomicInteger(0)).addAndGet(count);
     }
 
     public boolean decrementAndCheck(int messageId) {
         AtomicInteger counter = messageIdCounter.get(messageId);
-        if (counter == null || counter.get() == 0) {
+        if (counter == null) {
             return true;
         }
-        int count = counter.decrementAndGet();
-        if (count == 0) {
-            messageIdCounter.remove(messageId);
-            return true;
+        if (counter.decrementAndGet() <= 0) {
+            return messageIdCounter.remove(messageId) != null;
         }
         return false;
     }

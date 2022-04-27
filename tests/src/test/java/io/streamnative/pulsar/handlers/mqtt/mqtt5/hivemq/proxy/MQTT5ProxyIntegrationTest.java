@@ -44,7 +44,7 @@ public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
         return conf;
     }
 
-    @Test(invocationCount = 20)
+    @Test
     public void testDynamicUpdateSubscribe() throws InterruptedException, PulsarAdminException {
         final String topicFilter = "/a/#";
         final String topic1 = "/a/b/c";
