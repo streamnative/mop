@@ -45,10 +45,7 @@ import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -346,9 +343,12 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                                         boolean isDefaultTopicName = PulsarTopicUtils.isDefaultDomainAndNs(
                                                 pulsarTopicNameObj, proxyConfig.getDefaultTopicDomain(),
                                                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
+                                        boolean isSameName = Objects.equals(Codec.decode(pulsarTopicName),
+                                                subscription.topicName());
                                         MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
                                                 .messageId(message.variableHeader().messageId())
                                                 .addSubscription(subscription.qualityOfService(), isDefaultTopicName
+                                                        && !isSameName
                                                         ? Codec.decode(pulsarTopicNameObj.getLocalName())
                                                         : Codec.decode(pulsarTopicName))
                                                 .properties(message.idAndPropertiesVariableHeader().properties())
