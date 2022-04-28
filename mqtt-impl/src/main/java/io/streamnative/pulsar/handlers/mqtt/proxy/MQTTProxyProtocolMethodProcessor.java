@@ -146,17 +146,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         final String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
                 TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
-        MqttPublishMessage newPubMessage = MqttMessageBuilders
-                .publish()
-                .topicName(pulsarTopicName)
-                .messageId(msg.variableHeader().packetId())
-                .payload(msg.payload())
-                .properties(msg.variableHeader().properties())
-                .qos(msg.fixedHeader().qosLevel())
-                .retained(msg.fixedHeader().isRetain())
-                .build();
         adapter.setClientId(connection.getClientId());
-        adapter.setMqttMessage(newPubMessage);
         startPublish()
                 .thenCompose(__ ->  writeToBroker(pulsarTopicName, adapter))
                 .whenComplete((unused, ex) -> {
@@ -352,10 +342,15 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             }
                             List<CompletableFuture<Void>> writeFutures = pulsarTopicNames.stream()
                                     .map(pulsarTopicName -> {
+                                        TopicName pulsarTopicNameObj = TopicName.get(pulsarTopicName);
+                                        boolean isDefaultTopicName = PulsarTopicUtils.isDefaultDomainAndNs(
+                                                pulsarTopicNameObj, proxyConfig.getDefaultTopicDomain(),
+                                                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
                                         MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
                                                 .messageId(message.variableHeader().messageId())
-                                                .addSubscription(subscription.qualityOfService(),
-                                                        Codec.decode(pulsarTopicName))
+                                                .addSubscription(subscription.qualityOfService(), isDefaultTopicName
+                                                        ? Codec.decode(pulsarTopicNameObj.getLocalName())
+                                                        : Codec.decode(pulsarTopicName))
                                                 .properties(message.idAndPropertiesVariableHeader().properties())
                                                 .build();
                                         MqttAdapterMessage mqttAdapterMessage =
