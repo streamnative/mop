@@ -146,7 +146,17 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         final String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
                 TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
+        MqttPublishMessage newPubMessage = MqttMessageBuilders
+                .publish()
+                .topicName(pulsarTopicName)
+                .messageId(msg.variableHeader().packetId())
+                .payload(msg.payload())
+                .properties(msg.variableHeader().properties())
+                .qos(msg.fixedHeader().qosLevel())
+                .retained(msg.fixedHeader().isRetain())
+                .build();
         adapter.setClientId(connection.getClientId());
+        adapter.setMqttMessage(newPubMessage);
         startPublish()
                 .thenCompose(__ ->  writeToBroker(pulsarTopicName, adapter))
                 .whenComplete((unused, ex) -> {
