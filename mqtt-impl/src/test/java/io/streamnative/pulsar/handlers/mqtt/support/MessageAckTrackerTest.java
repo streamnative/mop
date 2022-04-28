@@ -13,10 +13,10 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
-import io.streamnative.pulsar.handlers.mqtt.proxy.MessageAckTracker;
-import org.testng.annotations.Test;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MessageAckTracker;
+import org.testng.annotations.Test;
 
 public class MessageAckTrackerTest {
 

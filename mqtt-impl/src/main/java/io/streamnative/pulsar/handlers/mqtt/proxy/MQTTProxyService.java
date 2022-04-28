@@ -23,7 +23,6 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;
-import io.streamnative.pulsar.handlers.mqtt.support.event.AutoSubscribeHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;

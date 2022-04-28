@@ -3,10 +3,6 @@ package io.streamnative.pulsar.handlers.mqtt.support.event;
 
 import com.google.common.collect.Lists;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.pulsar.common.naming.TopicName;
-import org.apache.pulsar.common.util.Codec;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -14,6 +10,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.util.Codec;
 
 @Slf4j
 public class AutoSubscribeHandler implements PulsarTopicChangeListener {
