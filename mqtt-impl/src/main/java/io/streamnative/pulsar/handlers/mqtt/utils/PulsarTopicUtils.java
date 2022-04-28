@@ -247,7 +247,7 @@ public class PulsarTopicUtils {
                                                String defaultTopicDomain,
                                                String defaultTenant,
                                                String defaultNamespace) {
-        return Objects.equals(topicName.getDomain().value(), defaultTopicDomain) &&
-                Objects.equals(topicName.getNamespace(), defaultTenant + "/" + defaultNamespace);
+        return Objects.equals(topicName.getDomain().value(), defaultTopicDomain)
+                && Objects.equals(topicName.getNamespace(), defaultTenant + "/" + defaultNamespace);
     }
 }
