@@ -341,21 +341,17 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             }
                             List<CompletableFuture<Void>> writeFutures = pulsarTopicNames.stream()
                                     .map(encodedPulsarTopicName -> {
+                                        String subscribeTopicName;
                                         TopicName encodedPulsarTopicNameObj = TopicName.get(encodedPulsarTopicName);
                                         boolean isDefaultPulsarEncodedTopicName = PulsarTopicUtils.isDefaultDomainAndNs(
                                                 encodedPulsarTopicNameObj, proxyConfig.getDefaultTopicDomain(),
                                                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
-                                        String mqttTopicFilter = subscription.topicName();
-                                        String subscribeTopicName;
                                         if (isDefaultPulsarEncodedTopicName) {
-                                            if (MqttUtils.isRegexFilter(mqttTopicFilter)) {
-                                                subscribeTopicName =
-                                                        Codec.decode(encodedPulsarTopicNameObj.getLocalName());
-                                            } else {
-                                                subscribeTopicName = mqttTopicFilter;
-                                            }
+                                            subscribeTopicName  = MqttUtils.isRegexFilter(subscription.topicName())
+                                                    ? Codec.decode(encodedPulsarTopicNameObj.getLocalName())
+                                                    : subscription.topicName();
                                         } else {
-                                            subscribeTopicName = Codec.decode(encodedPulsarTopicName);
+                                            subscribeTopicName =  Codec.decode(encodedPulsarTopicName);
                                         }
                                         MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
                                                 .messageId(message.variableHeader().messageId())
