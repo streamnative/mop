@@ -29,6 +29,6 @@ public class MessageAckTrackerTest {
         assertFalse(messageAckTracker.decrementAndCheck(messageId));
         assertTrue(messageAckTracker.decrementAndCheck(messageId));
         final int unknownMessageId = 123;
-        assertTrue(messageAckTracker.decrementAndCheck(unknownMessageId));
+        assertFalse(messageAckTracker.decrementAndCheck(unknownMessageId));
     }
 }
