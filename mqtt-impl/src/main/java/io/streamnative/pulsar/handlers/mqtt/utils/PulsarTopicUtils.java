@@ -242,9 +242,4 @@ public class PulsarTopicUtils {
             return FutureUtil.failedFuture(e);
         }
     }
-    public static boolean isDefaultDomainAndNs(TopicName pulsarTopicNameObj, String defaultTopicDomain,
-                                               String defaultTenant, String defaultNamespace) {
-        return Objects.equals(pulsarTopicNameObj.getDomain().value(), defaultTopicDomain)
-                && Objects.equals(pulsarTopicNameObj.getNamespace(), defaultTenant + "/" + defaultNamespace);
-    }
 }

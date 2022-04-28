@@ -270,7 +270,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
         registerTopicListener(adapter);
-        doSubscribe(adapter, true)
+        doSubscribe(adapter, false)
                 .exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, realCause);
@@ -293,11 +293,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 autoSubscribeHandler.register(
                         PulsarTopicUtils.getTopicFilter(topicFilter),
                         (encodedChangedTopic) -> {
-                            MqttProperties.UserProperty property = new MqttProperties.UserProperty(
-                                    PulsarProperties.InitialPosition.name(),
-                                    String.valueOf(CommandSubscribe.InitialPosition.Earliest_VALUE));
                             MqttProperties mqttProperties = new MqttProperties();
-                            mqttProperties.add(property);
+                            mqttProperties.add(new MqttProperties.UserProperty(
+                                    PulsarProperties.InitialPosition.name(),
+                                    String.valueOf(CommandSubscribe.InitialPosition.Earliest_VALUE)));
                             MqttSubscribeMessage message = MqttMessageBuilders
                                     .subscribe()
                                     .messageId(msg.variableHeader().messageId())
@@ -306,7 +305,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                                     .build();
                             MqttAdapterMessage adapterMessage =
                                     new MqttAdapterMessage(connection.getClientId(), message);
-                            doSubscribe(adapterMessage, false)
+                            doSubscribe(adapterMessage, true)
                                     .thenRun(() -> log.info("[{}] Subscribe new topic [{}] success",
                                             connection.getClientId(), Codec.decode(encodedChangedTopic)))
                                     .exceptionally(ex -> {
@@ -320,7 +319,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         }
     }
 
-    private CompletableFuture<Void> doSubscribe(final MqttAdapterMessage adapter, final boolean incrementCounter) {
+    private CompletableFuture<Void> doSubscribe(final MqttAdapterMessage adapter, final boolean isAutoSubscribe) {
         final MqttSubscribeMessage message = (MqttSubscribeMessage) adapter.getMqttMessage();
         final int packetId = message.variableHeader().messageId();
         List<CompletableFuture<Void>> futures = message.payload().topicSubscriptions().stream()
@@ -338,30 +337,29 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                                 connection.sendAck(subAck);
                                 return CompletableFuture.completedFuture(null);
                             }
-                            if (incrementCounter) {
+                            if (!isAutoSubscribe) {
                                 subscribeAckTracker.increment(packetId, pulsarTopicNames.size());
                             }
                             List<CompletableFuture<Void>> writeFutures = pulsarTopicNames.stream()
-                                    .map(pulsarTopicName -> {
-                                        TopicName pulsarTopicNameObj = TopicName.get(pulsarTopicName);
-                                        boolean isDefaultTopicName = PulsarTopicUtils.isDefaultDomainAndNs(
-                                                pulsarTopicNameObj, proxyConfig.getDefaultTopicDomain(),
-                                                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
-                                        boolean isSameName = Objects.equals(Codec.decode(pulsarTopicName),
-                                                subscription.topicName());
+                                    .map(encodedPulsarTopicName -> {
+                                        String mqttTopicName = subscription.topicName();
+                                        String encodedMqttTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(
+                                                mqttTopicName, proxyConfig.getDefaultTenant(),
+                                                proxyConfig.getDefaultNamespace(),
+                                                TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
+                                        String subscribeTopicName =
+                                                Objects.equals(encodedMqttTopicName, encodedPulsarTopicName)
+                                                        ? mqttTopicName : Codec.decode(encodedPulsarTopicName);
                                         MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
                                                 .messageId(message.variableHeader().messageId())
-                                                .addSubscription(subscription.qualityOfService(), isDefaultTopicName
-                                                        && !isSameName
-                                                        ? Codec.decode(pulsarTopicNameObj.getLocalName())
-                                                        : Codec.decode(pulsarTopicName))
+                                                .addSubscription(subscription.qualityOfService(), subscribeTopicName)
                                                 .properties(message.idAndPropertiesVariableHeader().properties())
                                                 .build();
                                         MqttAdapterMessage mqttAdapterMessage =
                                                 new MqttAdapterMessage(connection.getClientId(), subscribeMessage);
-                                        return writeToBroker(pulsarTopicName, mqttAdapterMessage)
+                                        return writeToBroker(encodedPulsarTopicName, mqttAdapterMessage)
                                                 .thenAccept(__ ->
-                                                        registerAdapterChannelInactiveListener(pulsarTopicName));
+                                                        registerAdapterChannelInactiveListener(encodedPulsarTopicName));
                                     }).collect(Collectors.toList());
                             return FutureUtil.waitForAll(writeFutures);
                         })
