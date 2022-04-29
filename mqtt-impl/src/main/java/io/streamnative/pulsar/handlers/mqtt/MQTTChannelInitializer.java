@@ -20,6 +20,7 @@ import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
@@ -69,7 +70,12 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
                         mqttConfig.getTlsProtocols(),
                         mqttConfig.getTlsCertRefreshCheckDurationSec());
             } else {
+                SslProvider sslProvider = null;
+                if (mqttConfig.getTlsProvider() != null) {
+                    sslProvider = SslProvider.valueOf(mqttConfig.getTlsProvider());
+                }
                 sslCtxRefresher = new NettyServerSslContextBuilder(
+                        sslProvider,
                         mqttConfig.isTlsAllowInsecureConnection(),
                         mqttConfig.getTlsTrustCertsFilePath(),
                         mqttConfig.getTlsCertificateFilePath(),
