@@ -341,21 +341,11 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             }
                             List<CompletableFuture<Void>> writeFutures = pulsarTopicNames.stream()
                                     .map(encodedPulsarTopicName -> {
-                                        String subscribeTopicName;
-                                        TopicName encodedPulsarTopicNameObj = TopicName.get(encodedPulsarTopicName);
-                                        boolean isDefaultPulsarEncodedTopicName = PulsarTopicUtils.isDefaultDomainAndNs(
-                                                encodedPulsarTopicNameObj, proxyConfig.getDefaultTopicDomain(),
-                                                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
-                                        if (isDefaultPulsarEncodedTopicName) {
-                                            subscribeTopicName  = MqttUtils.isRegexFilter(subscription.topicName())
-                                                    ? Codec.decode(encodedPulsarTopicNameObj.getLocalName())
-                                                    : subscription.topicName();
-                                        } else {
-                                            subscribeTopicName =  Codec.decode(encodedPulsarTopicName);
-                                        }
+                                        String mqttTopicName = getMqttTopicName(subscription,
+                                                encodedPulsarTopicName);
                                         MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
                                                 .messageId(message.variableHeader().messageId())
-                                                .addSubscription(subscription.qualityOfService(), subscribeTopicName)
+                                                .addSubscription(subscription.qualityOfService(), mqttTopicName)
                                                 .properties(message.idAndPropertiesVariableHeader().properties())
                                                 .build();
                                         MqttAdapterMessage mqttAdapterMessage =
@@ -368,6 +358,20 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                         })
                 ).collect(Collectors.toList());
         return FutureUtil.waitForAll(futures);
+    }
+
+    private String getMqttTopicName(MqttTopicSubscription subscription, String encodedPulsarTopicName) {
+        TopicName encodedPulsarTopicNameObj = TopicName.get(encodedPulsarTopicName);
+        boolean isDefaultPulsarEncodedTopicName = PulsarTopicUtils.isDefaultDomainAndNs(
+                encodedPulsarTopicNameObj, proxyConfig.getDefaultTopicDomain(),
+                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
+        if (isDefaultPulsarEncodedTopicName) {
+            return MqttUtils.isRegexFilter(subscription.topicName())
+                    ? Codec.decode(encodedPulsarTopicNameObj.getLocalName())
+                    : subscription.topicName();
+        } else {
+            return Codec.decode(encodedPulsarTopicName);
+        }
     }
 
     private void registerAdapterChannelInactiveListener(final String topic) {
