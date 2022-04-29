@@ -200,14 +200,14 @@ public class MQTTProxyAdapter {
                     case SUBACK:
                         MqttSubAckMessage subAckMessage = (MqttSubAckMessage) msg;
                         int subMessageId = subAckMessage.variableHeader().messageId();
-                        if (processor.getSubscribeAckTracker().decrementAndCheck(subMessageId)) {
+                        if (processor.getSubscribeAckTracker().checkIfSendAck(subMessageId)) {
                             clientChannel.writeAndFlush(adapterMsg);
                         }
                         break;
                     case UNSUBACK:
                         MqttUnsubAckMessage unSubAckMessage = (MqttUnsubAckMessage) msg;
                         int unSubMessageId = unSubAckMessage.variableHeader().messageId();
-                        if (processor.getUnsubscribeAckTracker().decrementAndCheck(unSubMessageId)) {
+                        if (processor.getUnsubscribeAckTracker().checkIfSendAck(unSubMessageId)) {
                             clientChannel.writeAndFlush(adapterMsg);
                         }
                         break;

@@ -33,7 +33,7 @@ public class MessageAckTracker {
                 (k) -> new AtomicInteger(0)).addAndGet(count);
     }
 
-    public boolean decrementAndCheck(int messageId) {
+    public boolean checkIfSendAck(int messageId) {
         AtomicInteger counter = messageIdCounter.get(messageId);
         if (counter == null || counter.decrementAndGet() > 0) {
             return false;

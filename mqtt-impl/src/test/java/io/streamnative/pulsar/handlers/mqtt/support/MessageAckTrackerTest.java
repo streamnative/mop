@@ -26,9 +26,9 @@ public class MessageAckTrackerTest {
         final int messageId = 11111;
         messageAckTracker.increment(messageId);
         messageAckTracker.increment(messageId);
-        assertFalse(messageAckTracker.decrementAndCheck(messageId));
-        assertTrue(messageAckTracker.decrementAndCheck(messageId));
+        assertFalse(messageAckTracker.checkIfSendAck(messageId));
+        assertTrue(messageAckTracker.checkIfSendAck(messageId));
         final int unknownMessageId = 123;
-        assertFalse(messageAckTracker.decrementAndCheck(unknownMessageId));
+        assertFalse(messageAckTracker.checkIfSendAck(unknownMessageId));
     }
 }
