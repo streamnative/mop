@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import io.netty.channel.Channel;
+import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
@@ -37,8 +37,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.properties.PulsarProperties
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
-import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
-import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarTopicChangeListener;
+import io.streamnative.pulsar.handlers.mqtt.support.event.AutoSubscribeHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.ConnectEvent;
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
@@ -50,11 +49,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -80,13 +77,15 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final Map<InetSocketAddress, AdapterChannel> adapterChannels;
     @Getter
     private final Map<Integer, String> packetIdTopic;
-    // Map sequence Id -> topic count
-    private final ConcurrentHashMap<Integer, AtomicInteger> subscribeTopicsCount;
+    @Getter
+    private final MessageAckTracker subscribeAckTracker;
+    @Getter
+    private final MessageAckTracker unsubscribeAckTracker;
     private final MQTTConnectionManager connectionManager;
     private final SystemEventService eventService;
-    private final PulsarEventCenter pulsarEventCenter;
     private final MQTTProxyAdapter proxyAdapter;
     private final AtomicBoolean isDisconnected = new AtomicBoolean(false);
+    private final AutoSubscribeHandler autoSubscribeHandler;
 
     private int pendingSendRequest = 0;
     private final int maxPendingSendRequest;
@@ -102,12 +101,13 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.eventService = proxyService.getEventService();
         this.topicBrokers = new ConcurrentHashMap<>();
         this.adapterChannels = new ConcurrentHashMap<>();
-        this.subscribeTopicsCount = new ConcurrentHashMap<>();
+        this.subscribeAckTracker = new MessageAckTracker();
+        this.unsubscribeAckTracker = new MessageAckTracker();
         this.packetIdTopic = new ConcurrentHashMap<>();
-        this.pulsarEventCenter = proxyService.getEventCenter();
         this.proxyAdapter = proxyService.getProxyAdapter();
         this.maxPendingSendRequest = proxyConfig.getMaxPendingSendRequest();
         this.resumeReadThreshold = maxPendingSendRequest / 2;
+        this.autoSubscribeHandler = new AutoSubscribeHandler(proxyService.getEventCenter());
     }
 
     @Override
@@ -126,7 +126,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .channel(channel)
                 .connectionManager(connectionManager)
                 .processor(this)
-                .eventCenter(pulsarEventCenter)
                 .build();
         connection.sendConnAck();
         ConnectEvent connectEvent = ConnectEvent.builder()
@@ -249,12 +248,13 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
         }
+        autoSubscribeHandler.close();
         if (connection != null) {
             // If client close the channel without calling disconnect, then we should call disconnect to notify broker
             // to clean up the resource.
             processDisconnect(new MqttAdapterMessage(MqttMessageUtils.createMqttDisconnectMessage()));
             connectionManager.removeConnection(connection);
-            connection.close();
+            connection.cleanup();
         }
         topicBrokers.clear();
     }
@@ -268,8 +268,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
-        doSubscribe(adapter, true)
-                .thenAccept(__ -> registerTopicListener(adapter))
+        registerTopicListener(adapter);
+        doSubscribe(adapter, false)
                 .exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, realCause);
@@ -279,7 +279,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             .reasonString("[ MOP ERROR ]" + realCause.getMessage())
                             .build();
                     connection.sendAckThenClose(subAck);
-                    subscribeTopicsCount.remove(packetId);
+                    subscribeAckTracker.remove(packetId);
                     return null;
                 });
     }
@@ -289,83 +289,89 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         for (MqttTopicSubscription subscription : msg.payload().topicSubscriptions()) {
             String topicFilter = subscription.topicName();
             if (MqttUtils.isRegexFilter(topicFilter)) {
-                connection.addTopicChangeListener(new PulsarTopicChangeListener() {
-                    @Override
-                    public void onTopicLoad(TopicName changedTopicName) {
-                        String subTopicName = subscription.topicName();
-                        String pulsarTopicNameStr = PulsarTopicUtils.getPulsarTopicName(subTopicName,
-                                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
-                                true, TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
-                        TopicName pulsarTopicName = TopicName.get(pulsarTopicNameStr);
-                        // Support user use namespace level regex
-                        if (!Objects.equals(changedTopicName.getNamespace(), pulsarTopicName.getNamespace())) {
-                            return;
-                        }
-                        TopicFilter topicFilter = PulsarTopicUtils.getTopicFilter(subTopicName);
-                        String decodedTopicName = Codec.decode(changedTopicName.getLocalName());
-                        if (!topicFilter.test(decodedTopicName)) {
-                            return;
-                        }
-                        MqttProperties.UserProperty property = new MqttProperties.UserProperty(
-                                PulsarProperties.InitialPosition.name(),
-                                        String.valueOf(CommandSubscribe.InitialPosition.Earliest_VALUE));
-                        MqttProperties mqttProperties = new MqttProperties();
-                        mqttProperties.add(property);
-                        MqttSubscribeMessage message = MqttMessageBuilders
-                                .subscribe()
-                                .messageId(msg.variableHeader().messageId())
-                                .addSubscription(subscription.qualityOfService(), decodedTopicName)
-                                .properties(mqttProperties)
-                                .build();
-                        MqttAdapterMessage adapterMessage = new MqttAdapterMessage(connection.getClientId(), message);
-                        doSubscribe(adapterMessage, false)
-                                .thenRun(() -> log.info("[{}] Subscribe new topic [{}] success",
-                                        connection.getClientId(), Codec.decode(changedTopicName.toString())))
-                                .exceptionally(ex -> {
-                                    log.error("[{}][{}] Subscribe new topic [{}] Fail, the message is {}",
-                                            connection.getClientId(), topicFilter, changedTopicName, ex.getMessage());
-                                    return null;
-                                });
-                    }
-
-                    @Override
-                    public void onTopicUnload(TopicName topicName) {
-                        // NO-OP
-                    }
-                });
+                autoSubscribeHandler.register(
+                        PulsarTopicUtils.getTopicFilter(topicFilter),
+                        (encodedChangedTopic) -> {
+                            MqttProperties mqttProperties = new MqttProperties();
+                            mqttProperties.add(new MqttProperties.UserProperty(
+                                    PulsarProperties.InitialPosition.name(),
+                                    String.valueOf(CommandSubscribe.InitialPosition.Earliest_VALUE)));
+                            MqttSubscribeMessage message = MqttMessageBuilders
+                                    .subscribe()
+                                    .messageId(msg.variableHeader().messageId())
+                                    .addSubscription(subscription.qualityOfService(), Codec.decode(encodedChangedTopic))
+                                    .properties(mqttProperties)
+                                    .build();
+                            MqttAdapterMessage adapterMessage =
+                                    new MqttAdapterMessage(connection.getClientId(), message);
+                            doSubscribe(adapterMessage, true)
+                                    .thenRun(() -> log.info("[{}] Subscribe new topic [{}] success",
+                                            connection.getClientId(), Codec.decode(encodedChangedTopic)))
+                                    .exceptionally(ex -> {
+                                        log.error("[{}][{}] Subscribe new topic [{}] Fail, the message is {}",
+                                                connection.getClientId(), topicFilter, encodedChangedTopic,
+                                                ex.getMessage());
+                                        return null;
+                                    });
+                        });
             }
         }
     }
 
-    private CompletableFuture<Void> doSubscribe(final MqttAdapterMessage adapter, final boolean incrementCounter) {
+    private CompletableFuture<Void> doSubscribe(final MqttAdapterMessage adapter, final boolean isAutoSubscribe) {
         final MqttSubscribeMessage message = (MqttSubscribeMessage) adapter.getMqttMessage();
-        return PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(message, proxyConfig.getDefaultTenant(),
-                        proxyConfig.getDefaultNamespace(),
-                        pulsarService, proxyConfig.getDefaultTopicDomain())
-                .thenCompose(topics -> {
-                    int packetId = message.variableHeader().messageId();
-                    if (CollectionUtils.isEmpty(topics)) {
-                        MqttAck subAck = MqttSubAck.successBuilder(connection.getProtocolVersion())
-                                .packetId(packetId)
-                                .grantedQos(new ArrayList<>(message.payload().topicSubscriptions().stream()
-                                        .map(MqttTopicSubscription::qualityOfService)
-                                        .collect(Collectors.toSet())))
-                                .build();
-                        connection.sendAck(subAck);
-                        return CompletableFuture.completedFuture(null);
-                    }
-                    List<CompletableFuture<Void>> subscribeFutures = topics.stream()
-                            .map(topic -> {
-                                CompletableFuture<Void> future = writeToBroker(topic, adapter);
-                                if (incrementCounter) {
-                                    future.thenAccept(__ ->
-                                            increaseSubscribeTopicsCount(packetId, 1));
-                                }
-                                future.thenAccept(__ -> registerAdapterChannelInactiveListener(topic));
-                                return future;
-                            }).collect(Collectors.toList());
-                    return FutureUtil.waitForAll(subscribeFutures);
-                });
+        final int packetId = message.variableHeader().messageId();
+        List<CompletableFuture<Void>> futures = message.payload().topicSubscriptions().stream()
+                .map(subscription -> PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(subscription.topicName(),
+                                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
+                                proxyConfig.getDefaultTopicDomain())
+                        .thenCompose(pulsarTopicNames -> {
+                            if (CollectionUtils.isEmpty(pulsarTopicNames)) {
+                                MqttAck subAck = MqttSubAck.successBuilder(connection.getProtocolVersion())
+                                        .packetId(packetId)
+                                        .grantedQos(new ArrayList<>(message.payload().topicSubscriptions().stream()
+                                                .map(MqttTopicSubscription::qualityOfService)
+                                                .collect(Collectors.toSet())))
+                                        .build();
+                                connection.sendAck(subAck);
+                                return CompletableFuture.completedFuture(null);
+                            }
+                            if (!isAutoSubscribe) {
+                                subscribeAckTracker.increment(packetId, pulsarTopicNames.size());
+                            }
+                            List<CompletableFuture<Void>> writeFutures = pulsarTopicNames.stream()
+                                    .map(encodedPulsarTopicName -> {
+                                        String mqttTopicName = getMqttTopicName(subscription,
+                                                encodedPulsarTopicName);
+                                        MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
+                                                .messageId(message.variableHeader().messageId())
+                                                .addSubscription(subscription.qualityOfService(), mqttTopicName)
+                                                .properties(message.idAndPropertiesVariableHeader().properties())
+                                                .build();
+                                        MqttAdapterMessage mqttAdapterMessage =
+                                                new MqttAdapterMessage(connection.getClientId(), subscribeMessage);
+                                        return writeToBroker(encodedPulsarTopicName, mqttAdapterMessage)
+                                                .thenAccept(__ ->
+                                                        registerAdapterChannelInactiveListener(encodedPulsarTopicName));
+                                    }).collect(Collectors.toList());
+                            return FutureUtil.waitForAll(writeFutures);
+                        })
+                ).collect(Collectors.toList());
+        return FutureUtil.waitForAll(futures);
+    }
+
+    private String getMqttTopicName(MqttTopicSubscription subscription, String encodedPulsarTopicName) {
+        TopicName encodedPulsarTopicNameObj = TopicName.get(encodedPulsarTopicName);
+        boolean isDefaultPulsarEncodedTopicName = PulsarTopicUtils.isDefaultDomainAndNs(
+                encodedPulsarTopicNameObj, proxyConfig.getDefaultTopicDomain(),
+                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace());
+        if (isDefaultPulsarEncodedTopicName) {
+            return MqttUtils.isRegexFilter(subscription.topicName())
+                    ? Codec.decode(encodedPulsarTopicNameObj.getLocalName())
+                    : subscription.topicName();
+        } else {
+            return Codec.decode(encodedPulsarTopicName);
+        }
     }
 
     private void registerAdapterChannelInactiveListener(final String topic) {
@@ -379,16 +385,38 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         if (log.isDebugEnabled()) {
             log.debug("[Proxy UnSubscribe] [{}]", connection.getClientId());
         }
-        List<String> topics = msg.payload().topics();
-        List<CompletableFuture<Void>> futures = new ArrayList<>(topics.size());
-        for (String topic : topics) {
-            futures.add(writeToBroker(topic, adapter));
-        }
-        FutureUtil.waitForAll(Collections.unmodifiableList(futures))
-                .exceptionally(ex -> {
-                    log.error("[Proxy UnSubscribe] Failed to perform lookup request", ex);
-                    channel.close();
-                    return null;
+        msg.payload().topics().stream().map(topic -> {
+            if (MqttUtils.isRegexFilter(topic)) {
+                TopicFilter filter = PulsarTopicUtils.getTopicFilter(topic);
+                autoSubscribeHandler.unregister(filter);
+            }
+            return PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(topic, proxyConfig.getDefaultTenant(),
+                    proxyConfig.getDefaultNamespace(), pulsarService, proxyConfig.getDefaultTopicDomain());
+        }).reduce((pre, curr) -> pre.thenCombine(curr, (l, r) -> {
+            List<String> container = Lists.newArrayListWithCapacity(l.size() + r.size());
+            container.addAll(l);
+            container.addAll(r);
+            return container;
+        })).orElseGet(() -> CompletableFuture.completedFuture(Collections.emptyList()))
+        .thenCompose(pulsarTopics -> {
+            MqttUnsubscribeMessage mqttMessage = (MqttUnsubscribeMessage) adapter.getMqttMessage();
+            unsubscribeAckTracker.increment(mqttMessage.variableHeader().messageId(), pulsarTopics.size());
+            List<CompletableFuture<Void>> writeFutures = pulsarTopics.stream().map(pulsarTopic -> {
+                MqttUnsubscribeMessage unsubscribeMessage = MqttMessageBuilders
+                        .unsubscribe()
+                        .messageId(mqttMessage.variableHeader().messageId())
+                        .addTopicFilter(Codec.decode(pulsarTopic))
+                        .build();
+                MqttAdapterMessage mqttAdapterMessage =
+                        new MqttAdapterMessage(connection.getClientId(), unsubscribeMessage);
+                return writeToBroker(pulsarTopic, mqttAdapterMessage);
+            }).collect(Collectors.toList());
+            return FutureUtil.waitForAll(writeFutures);
+        }).exceptionally(ex -> {
+            log.error("[Proxy UnSubscribe] Failed to perform lookup request", ex);
+            unsubscribeAckTracker.remove(msg.variableHeader().messageId());
+            channel.close();
+            return null;
         });
     }
 
@@ -399,62 +427,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
     private CompletableFuture<AdapterChannel> connectToBroker(final String topic) {
         return topicBrokers.computeIfAbsent(topic,
-                key -> lookupHandler.findBroker(TopicName.get(topic)).thenApply(mqttBroker -> {
-                    return adapterChannels.computeIfAbsent(mqttBroker, key1 -> {
-                        AdapterChannel adapterChannel = proxyAdapter.getAdapterChannel(mqttBroker);
-                        adapterChannel.writeAndFlush(new MqttAdapterMessage(
-                                connection.getClientId(),
-                                connection.getConnectMessage()));
-                        return adapterChannel;
-                    });
-                }));
-    }
-
-    public Channel getChannel() {
-        return this.channel;
-    }
-
-    /**
-     *  MQTT support subscribe many topics in one subscribe request.
-     *  We need to record it's subscribe count.
-     * @param seq
-     * @param count
-     */
-    private void increaseSubscribeTopicsCount(int seq, int count) {
-        AtomicInteger subscribeCount = subscribeTopicsCount.putIfAbsent(seq, new AtomicInteger(count));
-        if (subscribeCount != null) {
-            subscribeCount.addAndGet(count);
-        }
-    }
-
-    private int decreaseSubscribeTopicsCount(int seq) {
-        AtomicInteger subscribeCount = subscribeTopicsCount.get(seq);
-        if (subscribeCount == null) {
-            log.warn("Unexpected subscribe behavior for the proxy, respond seq {} "
-                    + "but but the seq does not tracked by the proxy. ", seq);
-            return -1;
-        } else {
-            int value = subscribeCount.decrementAndGet();
-            if (value == 0) {
-                subscribeTopicsCount.remove(seq);
-            }
-            return value;
-        }
-    }
-
-    /**
-     * If one sub-ack succeed, we need to decrease it's sub-count.
-     * As the sub-count return zero, it means the subscribe action succeed.
-     * @param packetId
-     * @return
-     */
-    public boolean checkIfSendSubAck(int packetId) {
-        // In regex subscription, we don't need to send any ack to client.
-        AtomicInteger counter = subscribeTopicsCount.get(packetId);
-        if (counter == null || 0 == counter.get()) {
-            return false;
-        }
-        return decreaseSubscribeTopicsCount(packetId) == 0;
+                key -> lookupHandler.findBroker(TopicName.get(topic)).thenApply(mqttBroker ->
+                        adapterChannels.computeIfAbsent(mqttBroker, key1 -> {
+                    AdapterChannel adapterChannel = proxyAdapter.getAdapterChannel(mqttBroker);
+                    adapterChannel.writeAndFlush(new MqttAdapterMessage(
+                            connection.getClientId(),
+                            connection.getConnectMessage()));
+                    return adapterChannel;
+                })));
     }
 
     public AtomicBoolean isDisconnected() {
