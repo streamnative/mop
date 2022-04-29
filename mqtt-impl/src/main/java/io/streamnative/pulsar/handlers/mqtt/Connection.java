@@ -32,14 +32,9 @@ import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttConnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
-import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
-import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventListener;
 import io.streamnative.pulsar.handlers.mqtt.utils.FutureUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -81,8 +76,6 @@ public class Connection {
     @Getter
     private final boolean fromProxy;
     private volatile ConnectionState connectionState = DISCONNECTED;
-    private final PulsarEventCenter eventCenter;
-    private final List<PulsarEventListener> listeners;
 
     private static final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
             newUpdater(Connection.class, ConnectionState.class, "connectionState");
@@ -105,10 +98,8 @@ public class Connection {
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
         this.topicSubscriptionManager = new TopicSubscriptionManager();
         this.addIdleStateHandler();
-        this.eventCenter = builder.eventCenter;
         this.processor = builder.processor;
         this.fromProxy = builder.fromProxy;
-        this.listeners = Collections.synchronizedList(new ArrayList<>());
         this.manager.addConnection(this);
     }
 
@@ -175,13 +166,9 @@ public class Connection {
         }
     }
 
-    public CompletableFuture<Void> close() {
+    public CompletableFuture<Void> cleanup() {
         log.info("Closing connection clientId = {}", clientId);
         assignState(ESTABLISHED, DISCONNECTED);
-        // unregister all listener
-        for (PulsarEventListener listener : listeners) {
-            eventCenter.unRegister(listener);
-        }
         if (clientRestrictions.isCleanSession()) {
             return topicSubscriptionManager.removeSubscriptions();
         }
@@ -213,11 +200,6 @@ public class Connection {
                     newState);
         }
         return ret;
-    }
-
-    public void addTopicChangeListener(PulsarEventListener eventListener) {
-        listeners.add(eventListener);
-        eventCenter.register(eventListener);
     }
 
     public ConnectionState getState() {
@@ -281,7 +263,6 @@ public class Connection {
         private MqttConnectMessage connectMessage;
         private ClientRestrictions clientRestrictions;
         private ServerRestrictions serverRestrictions;
-        private PulsarEventCenter eventCenter;
         private ProtocolMethodProcessor processor;
         private boolean fromProxy;
 
@@ -332,11 +313,6 @@ public class Connection {
 
         public ConnectionBuilder connectMessage(MqttConnectMessage connectMessage) {
             this.connectMessage = connectMessage;
-            return this;
-        }
-
-        public ConnectionBuilder eventCenter(PulsarEventCenter eventCenter) {
-            this.eventCenter = eventCenter;
             return this;
         }
 

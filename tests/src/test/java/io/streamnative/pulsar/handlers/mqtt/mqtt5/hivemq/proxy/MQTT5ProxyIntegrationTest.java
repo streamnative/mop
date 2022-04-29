@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.common.policies.data.SubscriptionStats;
 import org.apache.pulsar.common.policies.data.TopicStats;
@@ -43,11 +44,12 @@ public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
         return conf;
     }
 
-    @Test
+    @Test(invocationCount = 2)
     public void testDynamicUpdateSubscribe() throws InterruptedException, PulsarAdminException {
         final String topicFilter = "/a/#";
         final String topic1 = "/a/b/c";
         final String topic2 = "/a/v/c";
+        final String topic3 = "/a/z/c";
         List<String> messages = Collections.unmodifiableList(Lists.newArrayList("msg1", "msg2"));
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(
                 getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
@@ -74,6 +76,15 @@ public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
         Assert.assertTrue(messages.contains(new String(msg1.getPayloadAsBytes())));
         Mqtt5Publish msg2 = publishes.receive();
         Assert.assertTrue(messages.contains(new String(msg2.getPayloadAsBytes())));
+        client.unsubscribeWith()
+                .topicFilter(topicFilter)
+                .send();
+        client2.publishWith()
+                .topic(topic3)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload(messages.get(1).getBytes(StandardCharsets.UTF_8))
+                .send();
+        Assert.assertFalse(publishes.receive(2, TimeUnit.SECONDS).isPresent());
         List<String> topics = Lists.newArrayList(Codec.encode(topic1), Codec.encode(topic2));
         for (String topic : topics) {
             TopicStats stats = admin.topics().getStats(topic);

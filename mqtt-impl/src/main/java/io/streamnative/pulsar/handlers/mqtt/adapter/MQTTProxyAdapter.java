@@ -29,6 +29,7 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
+import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyProtocolMethodProcessor;
@@ -171,6 +172,7 @@ public class MQTTProxyAdapter {
             }
             MQTTProxyProtocolMethodProcessor processor =
                     ((MQTTProxyProtocolMethodProcessor) connection.getProcessor());
+            Channel clientChannel = processor.getChannel();
             try {
                 checkState(msg);
                 MqttMessageType messageType = adapterMsg.getMqttMessage().fixedHeader().messageType();
@@ -180,7 +182,7 @@ public class MQTTProxyAdapter {
                 switch (messageType) {
                     case DISCONNECT:
                         if (MqttUtils.isNotMqtt3(connection.getProtocolVersion())) {
-                            processor.getChannel().writeAndFlush(adapterMsg);
+                            clientChannel.writeAndFlush(adapterMsg);
                         }
                         // When the adapter receives DISCONNECT, we don't need to trigger send disconnect to broker.
                         processor.isDisconnected().set(true);
@@ -191,24 +193,32 @@ public class MQTTProxyAdapter {
                         int packetId = pubMessage.variableHeader().packetId();
                         String topicName = pubMessage.variableHeader().topicName();
                         processor.getPacketIdTopic().put(packetId, topicName);
-                        processor.getChannel().writeAndFlush(adapterMsg);
+                        clientChannel.writeAndFlush(adapterMsg);
                         break;
                     case CONNACK:
                         break;
                     case SUBACK:
                         MqttSubAckMessage subAckMessage = (MqttSubAckMessage) msg;
-                        if (processor.checkIfSendSubAck(subAckMessage.variableHeader().messageId())) {
-                            processor.getChannel().writeAndFlush(adapterMsg);
+                        int subMessageId = subAckMessage.variableHeader().messageId();
+                        if (processor.getSubscribeAckTracker().checkIfSendAck(subMessageId)) {
+                            clientChannel.writeAndFlush(adapterMsg);
+                        }
+                        break;
+                    case UNSUBACK:
+                        MqttUnsubAckMessage unSubAckMessage = (MqttUnsubAckMessage) msg;
+                        int unSubMessageId = unSubAckMessage.variableHeader().messageId();
+                        if (processor.getUnsubscribeAckTracker().checkIfSendAck(unSubMessageId)) {
+                            clientChannel.writeAndFlush(adapterMsg);
                         }
                         break;
                     default:
-                        processor.getChannel().writeAndFlush(adapterMsg);
+                        clientChannel.writeAndFlush(adapterMsg);
                         break;
                 }
             } catch (Throwable ex) {
                 log.error("Exception was caught while processing MQTT broker message", ex);
                 ctx.close();
-                processor.getChannel().close();
+                clientChannel.close();
             }
         }
 
