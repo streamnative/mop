@@ -33,7 +33,7 @@ import org.testng.annotations.DataProvider;
 @Slf4j
 public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
 
-    public static final int TIMEOUT = 60 * 1000;
+    public static final int TIMEOUT = 80 * 1000;
 
     private final Random random = new Random();
 
@@ -113,15 +113,26 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
                 .adminRoles(Sets.newHashSet("appid1", "appid2"))
                 .allowedClusters(Sets.newHashSet("test"))
                 .build();
-        if (!admin.tenants().getTenants().contains("public")) {
+        List<String> tenants = admin.tenants().getTenants();
+        if (!tenants.contains("public")) {
             admin.tenants().createTenant("public", tenantInfo);
         } else {
             admin.tenants().updateTenant("public", tenantInfo);
+        }
+        if (!tenants.contains("pulsar")) {
+            admin.tenants().createTenant("pulsar", tenantInfo);
+        } else {
+            admin.tenants().updateTenant("pulsar", tenantInfo);
         }
 
         if (!admin.namespaces().getNamespaces("public").contains("public/default")) {
             admin.namespaces().createNamespace("public/default");
             admin.namespaces().setRetention("public/default",
+                    new RetentionPolicies(60, 1000));
+        }
+        if (!admin.namespaces().getNamespaces("pulsar").contains("pulsar/system")) {
+            admin.namespaces().createNamespace("pulsar/system");
+            admin.namespaces().setRetention("pulsar/system",
                     new RetentionPolicies(60, 1000));
         }
     }
@@ -151,6 +162,12 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
         List<Integer> mqttProxyPortList = getMqttProxyPortList();
         MQTT mqtt = createMQTTClient();
         mqtt.setHost("127.0.0.1", mqttProxyPortList.get(random.nextInt(mqttProxyPortList.size())));
+        return mqtt;
+    }
+
+    public MQTT createMQTT(int port) throws URISyntaxException {
+        MQTT mqtt = new MQTT();
+        mqtt.setHost("127.0.0.1", port);
         return mqtt;
     }
 

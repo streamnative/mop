@@ -18,11 +18,14 @@ import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttConnectVariableHeader;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
+import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttPublishVariableHeader;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribePayload;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
@@ -217,6 +220,24 @@ public final class MessageBuilder {
     }
 
     /**
+     * Disconnect message builder.
+     */
+    public static class DisconnectBuilder {
+
+        public MqttMessage build() {
+            MqttFixedHeader mqttFixedHeader = new MqttFixedHeader(
+                    MqttMessageType.DISCONNECT,
+                    false,
+                    MqttQoS.AT_MOST_ONCE,
+                    false,
+                    0);
+            MqttReasonCodeAndPropertiesVariableHeader mqttVariableHeader =
+                    new MqttReasonCodeAndPropertiesVariableHeader((byte) 0, MqttProperties.NO_PROPERTIES);
+            return new MqttMessage(mqttFixedHeader, mqttVariableHeader);
+        }
+    }
+
+    /**
      * Unsubscribe message builder.
      */
     public static class UnsubscribeBuilder {
@@ -253,6 +274,10 @@ public final class MessageBuilder {
 
     public static PublishBuilder publish() {
         return new PublishBuilder();
+    }
+
+    public static DisconnectBuilder disconnect() {
+        return new DisconnectBuilder();
     }
 
     public static SubscribeBuilder subscribe() {

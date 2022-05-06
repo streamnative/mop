@@ -16,9 +16,12 @@ package io.streamnative.pulsar.handlers.mqtt;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.common.configuration.Category;
 import org.apache.pulsar.common.configuration.FieldContext;
@@ -60,13 +63,6 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "Whether enable authorization for MQTT."
     )
     private boolean mqttAuthorizationEnabled = false;
-
-    @FieldContext(
-            category = CATEGORY_MQTT,
-            required = true,
-            doc = "The maximum number of channels which can exist concurrently on a connection."
-    )
-    private int maxNoOfChannels = 64;
 
     @FieldContext(
             category = CATEGORY_MQTT,
@@ -173,25 +169,34 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             required = false,
             doc = "Whether broker start mqtt protocol handler with tls psk"
     )
+    private boolean mqttTlsPskEnabled = false;
+
+    @Deprecated
+    @FieldContext(
+            category = CATEGORY_TLS,
+            required = false,
+            deprecated = true,
+            doc = "Whether broker start mqtt protocol handler with tls psk"
+    )
     private boolean tlsPskEnabled = false;
 
     @FieldContext(
             category = CATEGORY_TLS,
             doc = "Tls cert refresh duration in seconds (set 0 to check on every new connection)"
     )
-    private long tlsCertRefreshCheckDurationSec = 300; // 5 mins
+    private long mqttTlsCertRefreshCheckDurationSec = 300; // 5 mins
 
     @FieldContext(
             category = CATEGORY_TLS,
             doc = "Path for the TLS certificate file"
     )
-    private String tlsCertificateFilePath;
+    private String mqttTlsCertificateFilePath;
 
     @FieldContext(
             category = CATEGORY_TLS,
             doc = "Path for the TLS private key file"
     )
-    private String tlsKeyFilePath;
+    private String mqttTlsKeyFilePath;
 
     @FieldContext(
             category = CATEGORY_TLS,
@@ -200,7 +205,7 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
                     + " are signed by a certificate authority. If this verification fails, then the"
                     + " certs are untrusted and the connections are dropped"
     )
-    private String tlsTrustCertsFilePath;
+    private String mqttTlsTrustCertsFilePath;
 
     @FieldContext(
             category = CATEGORY_TLS,
@@ -208,14 +213,14 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
                     + " (a comma-separated list of protocol names).\n\n"
                     + "Examples:- [TLSv1.3, TLSv1.2]"
     )
-    private Set<String> tlsProtocols = Sets.newTreeSet();
+    private Set<String> mqttTlsProtocols = Sets.newTreeSet();
     @FieldContext(
             category = CATEGORY_TLS,
             doc = "Specify the tls cipher the proxy will use to negotiate during TLS Handshake"
                     + " (a comma-separated list of ciphers).\n\n"
                     + "Examples:- [TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256]"
     )
-    private Set<String> tlsCiphers = Sets.newTreeSet();
+    private Set<String> mqttTlsCiphers = Sets.newTreeSet();
 
     @FieldContext(
             category = CATEGORY_TLS,
@@ -224,66 +229,74 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
                     + " cert will be allowed to connect to the server, though the cert will not be used for"
                     + " client authentication"
     )
-    private boolean tlsAllowInsecureConnection = false;
+    private boolean mqttTlsAllowInsecureConnection = false;
 
     @FieldContext(
             category = CATEGORY_TLS,
             doc = "Whether client certificates are required for TLS.\n\n"
                     + " Connections are rejected if the client certificate isn't trusted"
     )
-    private boolean tlsRequireTrustedClientCertOnConnect = false;
+    private boolean mqttTlsRequireTrustedClientCertOnConnect = false;
 
     @FieldContext(
             category = CATEGORY_KEYSTORE_TLS,
             doc = "Enable TLS with KeyStore type configuration for proxy"
     )
-    private boolean tlsEnabledWithKeyStore = false;
+    private boolean mqttTlsEnabledWithKeyStore = false;
 
     @FieldContext(
             category = CATEGORY_KEYSTORE_TLS,
             doc = "TLS Provider"
     )
-    private String tlsProvider = null;
+    private String mqttTlsProvider = null;
 
     @FieldContext(
             category = CATEGORY_KEYSTORE_TLS,
             doc = "TLS KeyStore type configuration for proxy: JKS, PKCS12"
     )
-    private String tlsKeyStoreType = "JKS";
+    private String mqttTlsKeyStoreType = "JKS";
 
     @FieldContext(
             category = CATEGORY_KEYSTORE_TLS,
             doc = "TLS KeyStore path for proxy"
     )
-    private String tlsKeyStore = null;
+    private String mqttTlsKeyStore = null;
 
     @FieldContext(
             category = CATEGORY_KEYSTORE_TLS,
             doc = "TLS KeyStore password for proxy"
     )
-    private String tlsKeyStorePassword = null;
+    private String mqttTlsKeyStorePassword = null;
 
     @FieldContext(
             category = CATEGORY_KEYSTORE_TLS,
             doc = "TLS TrustStore type configuration for proxy: JKS, PKCS12"
     )
-    private String tlsTrustStoreType = "JKS";
+    private String mqttTlsTrustStoreType = "JKS";
 
     @FieldContext(
             category = CATEGORY_KEYSTORE_TLS,
             doc = "TLS TrustStore path for proxy"
     )
-    private String tlsTrustStore = null;
+    private String mqttTlsTrustStore = null;
 
     @FieldContext(
             category = CATEGORY_KEYSTORE_TLS,
             doc = "TLS TrustStore password for proxy"
     )
-    private String tlsTrustStorePassword = null;
+    private String mqttTlsTrustStorePassword = null;
 
     @FieldContext(
             category = CATEGORY_TLS_PSK,
             doc = "TLS psk identity hint"
+    )
+    private String mqttTlsPskIdentityHint = null;
+
+    @Deprecated
+    @FieldContext(
+            category = CATEGORY_TLS_PSK,
+            doc = "TLS psk identity hint",
+            deprecated = true
     )
     private String tlsPskIdentityHint = null;
 
@@ -291,10 +304,26 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             category = CATEGORY_TLS_PSK,
             doc = "TLS psk identity file"
     )
+    private String mqttTlsPskIdentityFile = null;
+
+    @Deprecated
+    @FieldContext(
+            category = CATEGORY_TLS_PSK,
+            doc = "TLS psk identity file",
+            deprecated = true
+    )
     private String tlsPskIdentityFile = null;
 
     @FieldContext(
             category = CATEGORY_TLS_PSK,
+            doc = "TLS psk identity with plain text"
+    )
+    private String mqttTlsPskIdentity = null;
+
+    @Deprecated
+    @FieldContext(
+            category = CATEGORY_TLS_PSK,
+            deprecated = true,
             doc = "TLS psk identity with plain text"
     )
     private String tlsPskIdentity = null;
@@ -304,4 +333,150 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "Max length for per message."
     )
     private int mqttMessageMaxLength = 8092;
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            doc = "Event center callback pool size."
+    )
+    private int eventCenterCallbackPoolThreadNum = 1;
+
+    public long getMqttTlsCertRefreshCheckDurationSec() {
+        if (getTlsCertRefreshCheckDurationSec() != 300) {
+            return getTlsCertRefreshCheckDurationSec();
+        }
+        return mqttTlsCertRefreshCheckDurationSec;
+    }
+
+    public String getMqttTlsCertificateFilePath() {
+        if (StringUtils.isNotBlank(getTlsCertificateFilePath())) {
+            return getTlsCertificateFilePath();
+        }
+        return mqttTlsCertificateFilePath;
+    }
+
+    public String getMqttTlsKeyFilePath() {
+        if (StringUtils.isNotBlank(getTlsKeyFilePath())) {
+            return getTlsKeyFilePath();
+        }
+        return mqttTlsKeyFilePath;
+    }
+
+    public String getMqttTlsTrustCertsFilePath() {
+        if (StringUtils.isNotBlank(getTlsTrustCertsFilePath())) {
+            return getTlsTrustCertsFilePath();
+        }
+        return mqttTlsTrustCertsFilePath;
+    }
+
+    public Set<String> getMqttTlsProtocols() {
+        if (CollectionUtils.isNotEmpty(getTlsProtocols())) {
+            return getTlsProtocols();
+        }
+        return mqttTlsProtocols;
+    }
+
+    public Set<String> getMqttTlsCiphers() {
+        if (CollectionUtils.isNotEmpty(getTlsCiphers())) {
+            return getTlsCiphers();
+        }
+        return mqttTlsCiphers;
+    }
+
+    public boolean isMqttTlsAllowInsecureConnection() {
+        if (isTlsAllowInsecureConnection()) {
+            return isTlsAllowInsecureConnection();
+        }
+        return mqttTlsAllowInsecureConnection;
+    }
+
+    public boolean isMqttTlsRequireTrustedClientCertOnConnect() {
+        if (isTlsRequireTrustedClientCertOnConnect()) {
+            return isTlsRequireTrustedClientCertOnConnect();
+        }
+        return mqttTlsRequireTrustedClientCertOnConnect;
+    }
+
+    public boolean isMqttTlsEnabledWithKeyStore() {
+        if (isTlsEnabledWithKeyStore()) {
+            return isTlsEnabledWithKeyStore();
+        }
+        return mqttTlsEnabledWithKeyStore;
+    }
+
+    public String getMqttTlsProvider() {
+        if (StringUtils.isNotBlank(getTlsProvider())) {
+            return getTlsProvider();
+        }
+        return mqttTlsProvider;
+    }
+
+    public String getMqttTlsKeyStoreType() {
+        if (!Objects.equals(getTlsKeyStoreType(), "JKS")) {
+            return getTlsKeyStoreType();
+        }
+        return mqttTlsKeyStoreType;
+    }
+
+    public String getMqttTlsKeyStore() {
+        if (StringUtils.isNotBlank(getTlsKeyStore())) {
+            return getTlsKeyStore();
+        }
+        return mqttTlsKeyStore;
+    }
+
+    public String getMqttTlsKeyStorePassword() {
+        if (StringUtils.isNotBlank(getTlsKeyStorePassword())) {
+            return getTlsKeyStorePassword();
+        }
+        return mqttTlsKeyStorePassword;
+    }
+
+    public String getMqttTlsTrustStoreType() {
+        if (!Objects.equals(getTlsTrustStoreType(), "JKS")) {
+            return getTlsTrustStoreType();
+        }
+        return mqttTlsTrustStoreType;
+    }
+
+    public String getMqttTlsTrustStore() {
+        if (StringUtils.isNotBlank(getTlsTrustStore())) {
+            return getTlsTrustStore();
+        }
+        return mqttTlsTrustStore;
+    }
+
+    public String getMqttTlsTrustStorePassword() {
+        if (StringUtils.isNotBlank(getTlsTrustStorePassword())) {
+            return getTlsTrustStorePassword();
+        }
+        return mqttTlsTrustStorePassword;
+    }
+
+    public boolean isMqttTlsPskEnabled() {
+        if (tlsPskEnabled) {
+            return true;
+        }
+        return mqttTlsPskEnabled;
+    }
+
+    public String getMqttTlsPskIdentityHint() {
+        if (StringUtils.isNotBlank(tlsPskIdentityHint)) {
+            return tlsPskIdentityHint;
+        }
+        return mqttTlsPskIdentityHint;
+    }
+
+    public String getMqttTlsPskIdentityFile() {
+        if (StringUtils.isNotBlank(tlsPskIdentityFile)) {
+            return tlsPskIdentityFile;
+        }
+        return mqttTlsPskIdentityFile;
+    }
+
+    public String getMqttTlsPskIdentity() {
+        if (StringUtils.isNotBlank(tlsPskIdentity)) {
+            return tlsPskIdentity;
+        }
+        return mqttTlsPskIdentity;
+    }
 }

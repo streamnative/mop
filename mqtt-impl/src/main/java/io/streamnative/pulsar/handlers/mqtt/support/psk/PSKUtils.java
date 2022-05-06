@@ -13,18 +13,22 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.psk;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.net.ssl.SSLEngine;
 import org.conscrypt.OpenSSLProvider;
 
@@ -68,6 +72,18 @@ public class PSKUtils {
             throw new IllegalArgumentException(e);
         }
         return result;
+    }
+
+    public static void write(File file, List<PSKSecretKey> pskKeys) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file, false))) {
+            String identity = Joiner
+                    .on(";")
+                    .skipNulls()
+                    .join(pskKeys.stream().map(key -> key.getPlainText()).collect(Collectors.toList()));
+            writer.write(identity);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException(ex);
+        }
     }
 
     public static List<PSKSecretKey> parse(String identityText) {

@@ -22,6 +22,13 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;
+import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
+import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
+import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.DisabledSystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemTopicBasedSystemEventService;
 import java.io.Closeable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +50,15 @@ public class MQTTProxyService implements Closeable {
     @Getter
     private final MQTTConnectionManager connectionManager;
     @Getter
+    private final SystemEventService eventService;
+    @Getter
     private LookupHandler lookupHandler;
+    @Getter
+    private final PulsarEventCenter eventCenter;
+    @Getter
+    private final PSKConfiguration pskConfiguration;
+    @Getter
+    private final MQTTProxyAdapter proxyAdapter;
 
     private Channel listenChannel;
     private Channel listenChannelTls;
@@ -58,19 +73,29 @@ public class MQTTProxyService implements Closeable {
         configValid(proxyConfig);
         this.pulsarService = mqttService.getPulsarService();
         this.proxyConfig = proxyConfig;
+        this.pskConfiguration = new PSKConfiguration(proxyConfig);
         this.authenticationService = mqttService.getAuthenticationService();
-        this.connectionManager = new MQTTConnectionManager();
+        this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
+        this.eventService = proxyConfig.isSystemEventEnabled()
+                ? new SystemTopicBasedSystemEventService(mqttService.getPulsarService())
+                : new DisabledSystemEventService();
+        this.eventService.addListener(connectionManager.getEventListener());
+        this.eventService.addListener(mqttService.getWillMessageHandler().getEventListener());
+        this.eventService.addListener(mqttService.getRetainedMessageHandler().getEventListener());
+        mqttService.setEventService(eventService);
         this.acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
                 false, acceptorThreadFactory);
         this.workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),
                 false, workerThreadFactory);
+        this.eventCenter = new PulsarEventCenterImpl(mqttService.getBrokerService(),
+                proxyConfig.getEventCenterCallbackPoolThreadNum());
+        this.proxyAdapter = new MQTTProxyAdapter(this);
     }
 
     private void configValid(MQTTProxyConfiguration proxyConfig) {
         checkNotNull(proxyConfig);
         checkArgument(proxyConfig.getMqttProxyPort() > 0);
         checkNotNull(proxyConfig.getDefaultTenant());
-        checkNotNull(proxyConfig.getBrokerServiceURL());
     }
 
     public void start() throws MQTTProxyException {
@@ -99,6 +124,14 @@ public class MQTTProxyService implements Closeable {
         }
 
         if (proxyConfig.isMqttProxyTlsPskEnabled()) {
+            // init psk config
+            pskConfiguration.setIdentityHint(proxyConfig.getTlsPskIdentityHint());
+            pskConfiguration.setIdentity(proxyConfig.getTlsPskIdentity());
+            pskConfiguration.setIdentityFile(proxyConfig.getTlsPskIdentityFile());
+            pskConfiguration.setProtocols(proxyConfig.getTlsProtocols());
+            pskConfiguration.setCiphers(proxyConfig.getTlsCiphers());
+            this.eventService.addListener(pskConfiguration.getEventListener());
+            // Add channel initializer
             ServerBootstrap tlsPskBootstrap = serverBootstrap.clone();
             tlsPskBootstrap.childHandler(new MQTTProxyChannelInitializer(this, proxyConfig, false, true));
             try {
@@ -110,6 +143,7 @@ public class MQTTProxyService implements Closeable {
         }
 
         this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, proxyConfig);
+        this.eventService.start();
     }
 
     @Override
@@ -123,8 +157,13 @@ public class MQTTProxyService implements Closeable {
         if (listenChannelTlsPsk != null) {
             listenChannelTlsPsk.close();
         }
-        lookupHandler.close();
-        acceptorGroup.shutdownGracefully();
-        workerGroup.shutdownGracefully();
+        this.acceptorGroup.shutdownGracefully();
+        this.workerGroup.shutdownGracefully();
+        this.eventService.close();
+        if (lookupHandler != null) {
+            this.lookupHandler.close();
+        }
+        this.proxyAdapter.shutdown();
+        this.connectionManager.close();
     }
 }

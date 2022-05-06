@@ -19,19 +19,19 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.netty.channel.EventLoopGroup;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -44,6 +44,7 @@ import org.apache.bookkeeper.client.PulsarMockBookKeeper;
 import org.apache.bookkeeper.common.util.OrderedExecutor;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.bookkeeper.util.ZkUtils;
+import org.apache.commons.beanutils.BeanUtils;
 import org.apache.pulsar.broker.BookKeeperClientFactory;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.ServiceConfiguration;
@@ -54,12 +55,10 @@ import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.compaction.Compactor;
+import org.apache.pulsar.metadata.api.extended.MetadataStoreExtended;
 import org.apache.pulsar.metadata.impl.ZKMetadataStore;
-import org.apache.pulsar.zookeeper.ZooKeeperClientFactory;
-import org.apache.pulsar.zookeeper.ZookeeperClientFactoryImpl;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.MockZooKeeper;
-import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.ACL;
 import org.mockito.Mockito;
 
@@ -79,10 +78,22 @@ public abstract class MQTTProtocolHandlerTestBase {
     protected URL brokerUrlTls;
     protected URI lookupUrl;
     protected PulsarClient pulsarClient;
+    // broker2
+    protected PulsarAdmin admin2;
+    protected URL brokerUrl2;
+    protected URL brokerUrlTls2;
+    protected URI lookupUrl2;
+    protected PulsarClient pulsarClient2;
+    // broker3
+    protected PulsarAdmin admin3;
+    protected URL brokerUrl3;
+    protected URL brokerUrlTls3;
+    protected URI lookupUrl3;
+    protected PulsarClient pulsarClient3;
+
     protected String defaultTenant = "public";
     protected String defaultNamespace = "default";
     protected TopicDomain defaultTopicDomain = TopicDomain.persistent;
-
 
     @Getter
     protected int mqttBrokerPortTls = PortManager.nextFreePort();
@@ -110,16 +121,20 @@ public abstract class MQTTProtocolHandlerTestBase {
     @Getter
     protected List<Integer> mqttProxyPortTlsPskList = new ArrayList<>();
 
+    protected List<PulsarAdmin> adminList = new ArrayList<>();
+    protected List<PulsarClient> clientList = new ArrayList<>();
+
     protected MockZooKeeper mockZooKeeper;
     protected NonClosableMockBookKeeper mockBookKeeper;
     protected boolean isTcpLookup = false;
     protected final String configClusterName = "test";
+    protected boolean enableTls = false;
 
     private SameThreadOrderedSafeExecutor sameThreadOrderedSafeExecutor;
     private OrderedExecutor bkExecutor;
 
-    protected MQTTServerConfiguration initConfig() throws Exception{
-        MQTTServerConfiguration mqtt = new MQTTServerConfiguration();
+    protected MQTTCommonConfiguration initConfig() throws Exception{
+        MQTTCommonConfiguration mqtt = new MQTTCommonConfiguration();
         mqtt.setAdvertisedAddress("localhost");
         mqtt.setClusterName(configClusterName);
 
@@ -151,10 +166,8 @@ public abstract class MQTTProtocolHandlerTestBase {
             protocolHandlerDir
         );
         mqtt.setMessagingProtocols(Sets.newHashSet("mqtt"));
-        Properties properties = new Properties();
-        properties.setProperty("additionalServlets", "mqtt-servlet");
-        properties.setProperty("additionalServletDirectory", protocolHandlerDir);
-        mqtt.setProperties(properties);
+        mqtt.setAdditionalServlets(Sets.newHashSet("mqtt-servlet"));
+        mqtt.setAdditionalServletDirectory(protocolHandlerDir);
         return mqtt;
     }
 
@@ -180,8 +193,42 @@ public abstract class MQTTProtocolHandlerTestBase {
         if (isTcpLookup) {
             lookupUrl = new URI("broker://localhost:" + brokerPortList.get(0));
         }
+
         pulsarClient = newPulsarClient(lookupUrl.toString(), 0);
         admin = spy(PulsarAdmin.builder().serviceHttpUrl(brokerUrl.toString()).build());
+        adminList.add(admin);
+        clientList.add(pulsarClient);
+        if (pulsarServiceList.size() > 1) {
+            brokerUrl2 = new URL("http://" + pulsarServiceList.get(1).getAdvertisedAddress() + ":"
+                    + pulsarServiceList.get(1).getConfiguration().getWebServicePort().get());
+            brokerUrlTls2 = new URL("https://" + pulsarServiceList.get(1).getAdvertisedAddress() + ":"
+                    + pulsarServiceList.get(1).getConfiguration().getWebServicePortTls().get());
+
+            lookupUrl2 = new URI(brokerUrl2.toString());
+            if (isTcpLookup) {
+                lookupUrl2 = new URI("broker://localhost:" + brokerPortList.get(1));
+            }
+
+            pulsarClient2 = newPulsarClient(lookupUrl2.toString(), 0);
+            admin2 = spy(PulsarAdmin.builder().serviceHttpUrl(brokerUrl2.toString()).build());
+            adminList.add(admin2);
+            clientList.add(pulsarClient2);
+            //
+            brokerUrl3 = new URL("http://" + pulsarServiceList.get(2).getAdvertisedAddress() + ":"
+                    + pulsarServiceList.get(2).getConfiguration().getWebServicePort().get());
+            brokerUrlTls3 = new URL("https://" + pulsarServiceList.get(2).getAdvertisedAddress() + ":"
+                    + pulsarServiceList.get(2).getConfiguration().getWebServicePortTls().get());
+
+            lookupUrl3 = new URI(brokerUrl3.toString());
+            if (isTcpLookup) {
+                lookupUrl3 = new URI("broker://localhost:" + brokerPortList.get(2));
+            }
+
+            pulsarClient3 = newPulsarClient(lookupUrl3.toString(), 0);
+            admin3 = spy(PulsarAdmin.builder().serviceHttpUrl(brokerUrl3.toString()).build());
+            adminList.add(admin3);
+            clientList.add(pulsarClient3);
+        }
 
         afterSetup();
     }
@@ -194,11 +241,9 @@ public abstract class MQTTProtocolHandlerTestBase {
         try {
             // if init fails, some of these could be null, and if so would throw
             // an NPE in shutdown, obscuring the real error
-            if (admin != null) {
-                admin.close();
-            }
-            if (pulsarClient != null) {
-                pulsarClient.close();
+            adminList.forEach(admin -> admin.close());
+            for (PulsarClient client : clientList) {
+                client.close();
             }
             if (pulsarServiceList != null && !pulsarServiceList.isEmpty()) {
                 stopBroker();
@@ -262,16 +307,19 @@ public abstract class MQTTProtocolHandlerTestBase {
     }
 
     protected void startBroker() throws Exception {
-        MQTTServerConfiguration conf = initConfig();
+        MQTTCommonConfiguration conf = initConfig();
         if (conf.isMqttProxyEnabled()) {
             brokerCount = 3;
         }
         for (int i = 0; i < brokerCount; i++) {
-            startBroker(conf);
+            MQTTCommonConfiguration brokerConf = new MQTTCommonConfiguration();
+            BeanUtils.copyProperties(brokerConf, conf);
+            brokerConf.setProperties(conf.getProperties());
+            startBroker(brokerConf);
         }
     }
 
-    protected void startBroker(MQTTServerConfiguration conf) throws Exception {
+    protected void startBroker(MQTTCommonConfiguration conf) throws Exception {
         int brokerPort = PortManager.nextFreePort();
         brokerPortList.add(brokerPort);
 
@@ -288,12 +336,12 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqttBrokerPortList.add(mqttBrokerPort);
 
         int mqttBrokerTlsPort = -1;
-        if (conf.isTlsEnabled()) {
+        if (enableTls) {
             mqttBrokerTlsPort = PortManager.nextFreePort();
             mqttBrokerPortTlsList.add(mqttBrokerTlsPort);
         }
         int mqttBrokerTlsPskPort = -1;
-        if (conf.isTlsPskEnabled()) {
+        if (conf.isMqttTlsPskEnabled()) {
             mqttBrokerTlsPskPort = PortManager.nextFreePort();
             mqttBrokerPortTlsPskList.add(mqttBrokerTlsPskPort);
         }
@@ -324,13 +372,14 @@ public abstract class MQTTProtocolHandlerTestBase {
         String listener = "mqtt://127.0.0.1:" + mqttBrokerPort;
         String tlsListener = null;
         String tlsPskListener = null;
-        if (conf.isTlsEnabled()) {
+        if (enableTls) {
             tlsListener = "mqtt+ssl://127.0.0.1:" + mqttBrokerTlsPort;
         }
-        if (conf.isTlsPskEnabled()) {
+        if (conf.isMqttTlsPskEnabled()) {
             tlsPskListener = "mqtt+ssl+psk://127.0.0.1:" + mqttBrokerTlsPskPort;
         }
-        conf.setMqttListeners(Joiner.on(",").skipNulls().join(listener, tlsListener, tlsPskListener));
+        conf.getProperties().setProperty("mqttListeners",
+                Joiner.on(",").skipNulls().join(listener, tlsListener, tlsPskListener));
 
         log.info("Start broker info, brokerPort: {}, brokerPortTls : {}, "
                         + "brokerWebServicePort : {} , brokerWebServicePortTls : {}, "
@@ -339,6 +388,7 @@ public abstract class MQTTProtocolHandlerTestBase {
                 brokerPort, brokerPortTls, brokerWebServicePort, brokerWebServicePortTls,
                 mqttBrokerPort, mqttBrokerTlsPort, mqttBrokerTlsPskPort,
                 mqttProxyPort, mqttProxyTlsPort, mqttProxyTlsPskPort);
+        ConfigurationUtils.extractFieldToProperties(conf);
         this.pulsarServiceList.add(doStartBroker(conf));
     }
 
@@ -356,7 +406,6 @@ public abstract class MQTTProtocolHandlerTestBase {
 
     protected void setupBrokerMocks(PulsarService pulsar) throws Exception {
         // Override default providers with mocked ones
-        doReturn(mockZooKeeperClientFactory).when(pulsar).getZooKeeperClientFactory();
         doReturn(mockBookKeeperClientFactory).when(pulsar).newBookKeeperClientFactory();
         doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar).createLocalMetadataStore();
         doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar).createConfigurationMetadataStore();
@@ -373,11 +422,11 @@ public abstract class MQTTProtocolHandlerTestBase {
         List<ACL> dummyAclList = new ArrayList<>(0);
 
         ZkUtils.createFullPathOptimistic(zk, "/ledgers/available/192.168.1.1:" + 5000,
-            "".getBytes(ZookeeperClientFactoryImpl.ENCODING_SCHEME), dummyAclList, CreateMode.PERSISTENT);
+            "".getBytes(StandardCharsets.UTF_8), dummyAclList, CreateMode.PERSISTENT);
 
         zk.create(
             "/ledgers/LAYOUT",
-            "1\nflat:1".getBytes(ZookeeperClientFactoryImpl.ENCODING_SCHEME), dummyAclList,
+            "1\nflat:1".getBytes(StandardCharsets.UTF_8), dummyAclList,
             CreateMode.PERSISTENT);
         return zk;
     }
@@ -410,28 +459,17 @@ public abstract class MQTTProtocolHandlerTestBase {
         }
     }
 
-    protected ZooKeeperClientFactory mockZooKeeperClientFactory = new ZooKeeperClientFactory() {
-
-        @Override
-        public CompletableFuture<ZooKeeper> create(String serverList, SessionType sessionType,
-                                                   int zkSessionTimeoutMillis) {
-            // Always return the same instance
-            // (so that we don't loose the mock ZK content on broker restart
-            return CompletableFuture.completedFuture(mockZooKeeper);
-        }
-    };
-
     private BookKeeperClientFactory mockBookKeeperClientFactory = new BookKeeperClientFactory() {
 
         @Override
-        public BookKeeper create(ServiceConfiguration conf, ZooKeeper zkClient, EventLoopGroup eventLoopGroup,
+        public BookKeeper create(ServiceConfiguration conf, MetadataStoreExtended store, EventLoopGroup eventLoopGroup,
                                  Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
                                  Map<String, Object> ensemblePlacementPolicyProperties) throws IOException {
             return mockBookKeeper;
         }
 
         @Override
-        public BookKeeper create(ServiceConfiguration conf, ZooKeeper zkClient, EventLoopGroup eventLoopGroup,
+        public BookKeeper create(ServiceConfiguration conf, MetadataStoreExtended store, EventLoopGroup eventLoopGroup,
                                  Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
                                  Map<String, Object> ensemblePlacementPolicyProperties, StatsLogger statsLogger)
                 throws IOException {

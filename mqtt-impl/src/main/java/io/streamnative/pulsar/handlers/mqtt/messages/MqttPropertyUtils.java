@@ -13,9 +13,17 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.messages;
 
+import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttProperties;
+import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
+import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidReceiveMaximumException;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -24,12 +32,6 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class MqttPropertyUtils {
-
-    // describe by mqtt 5.0 version
-    public static final int MQTT5_DEFAULT_RECEIVE_MAXIMUM = 65535;
-    // For backward compatibility
-    public static final int BEFORE_DEFAULT_RECEIVE_MAXIMUM = 1000;
-
 
     /**
      * Get session expire interval.
@@ -40,7 +42,7 @@ public class MqttPropertyUtils {
     public static Optional<Integer> getExpireInterval(MqttProperties properties) {
         MqttProperties.MqttProperty<Integer> property = properties
                 .getProperty(MqttProperties.MqttPropertyType.SESSION_EXPIRY_INTERVAL.value());
-        if (property == null){
+        if (property == null) {
             return Optional.empty();
         }
         return Optional.ofNullable(property.value());
@@ -52,12 +54,61 @@ public class MqttPropertyUtils {
      * @return Integer - expire interval value
      */
     @SuppressWarnings("unchecked")
-    public static Integer getReceiveMaximum(int protocolVersion, MqttProperties properties) {
+    private static Optional<Integer> getReceiveMaximum(MqttProperties properties) {
         MqttProperties.MqttProperty<Integer> property = properties
                 .getProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value());
         if (property == null) {
-            return MqttUtils.isMqtt5(protocolVersion) ? MQTT5_DEFAULT_RECEIVE_MAXIMUM : BEFORE_DEFAULT_RECEIVE_MAXIMUM;
+            return Optional.empty();
         }
-        return property.value();
+        return Optional.ofNullable(property.value());
+    }
+
+    public static void parsePropertiesToStuffRestriction(
+            ClientRestrictions.ClientRestrictionsBuilder clientRestrictionsBuilder,
+            MqttConnectMessage connectMessage)
+            throws InvalidReceiveMaximumException {
+        MqttProperties properties = connectMessage.variableHeader().properties();
+        // parse expire interval
+        getExpireInterval(properties)
+                .ifPresent(clientRestrictionsBuilder::sessionExpireInterval);
+        // parse receive maximum
+        Optional<Integer> receiveMaximum = getReceiveMaximum(properties);
+        if (receiveMaximum.isPresent() && receiveMaximum.get() == 0) {
+            throw new InvalidReceiveMaximumException("Not Allow Receive maximum property value zero");
+        } else {
+            receiveMaximum.ifPresent(clientRestrictionsBuilder::receiveMaximum);
+        }
+    }
+
+    /**
+     * Stuff reason string to mqtt property.
+     *
+     * @param properties   Mqtt properties
+     * @param reasonString reason string
+     */
+    public static void setReasonString(MqttProperties properties, String reasonString) {
+        MqttProperties.StringProperty reasonStringProperty =
+                new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.REASON_STRING.value(),
+                        reasonString);
+        properties.add(reasonStringProperty);
+    }
+
+    public static Optional<Integer> getUpdateSessionExpireIntervalIfExist(int protocolVersion, MqttMessage msg) {
+        if (MqttUtils.isNotMqtt3(protocolVersion)
+                && msg.variableHeader() instanceof MqttReasonCodeAndPropertiesVariableHeader) {
+            return MqttPropertyUtils
+                    .getExpireInterval(((MqttReasonCodeAndPropertiesVariableHeader)
+                            msg.variableHeader()).properties());
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Map<String, String> getUserProperties(MqttProperties properties) {
+        List<MqttProperties.UserProperty> userProperties = (List<MqttProperties.UserProperty>) properties
+                .getProperties(MqttProperties.MqttPropertyType.USER_PROPERTY.value());
+        return userProperties.stream()
+                .collect(Collectors.toMap(v -> v.value().key, v -> v.value().value));
     }
 }

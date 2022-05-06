@@ -15,7 +15,15 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
+import io.streamnative.pulsar.handlers.mqtt.support.RetainedMessageHandler;
+import io.streamnative.pulsar.handlers.mqtt.support.WillMessageHandler;
+import io.streamnative.pulsar.handlers.mqtt.support.event.DisableEventCenter;
+import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
+import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
+import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
@@ -32,6 +40,9 @@ public class MQTTService {
 
     @Getter
     private final MQTTServerConfiguration serverConfiguration;
+
+    @Getter
+    private final PSKConfiguration pskConfiguration;
 
     @Getter
     private final PulsarService pulsarService;
@@ -54,18 +65,57 @@ public class MQTTService {
     @Getter
     private final MQTTSubscriptionManager subscriptionManager;
 
+    @Getter
+    private final MQTTNamespaceBundleOwnershipListener bundleOwnershipListener;
+
+    @Getter
+    private final PulsarEventCenter eventCenter;
+
+    @Getter
+    private final WillMessageHandler willMessageHandler;
+
+    @Getter
+    private final RetainedMessageHandler retainedMessageHandler;
+
+    @Getter
+    @Setter
+    private SystemEventService eventService;
+
     public MQTTService(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
         this.brokerService = brokerService;
         this.pulsarService = brokerService.pulsar();
         this.serverConfiguration = serverConfiguration;
+        this.pskConfiguration = new PSKConfiguration(serverConfiguration);
         this.authorizationService = brokerService.getAuthorizationService();
+        this.bundleOwnershipListener = new MQTTNamespaceBundleOwnershipListener(pulsarService.getNamespaceService());
         this.metricsCollector = new MQTTMetricsCollector(serverConfiguration);
         this.metricsProvider = new MQTTMetricsProvider(metricsCollector);
         this.pulsarService.addPrometheusRawMetricsProvider(metricsProvider);
         this.authenticationService = serverConfiguration.isMqttAuthenticationEnabled()
             ? new MQTTAuthenticationService(brokerService.getAuthenticationService(),
                 serverConfiguration.getMqttAuthenticationMethods()) : null;
-        this.connectionManager = new MQTTConnectionManager();
+        this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
         this.subscriptionManager = new MQTTSubscriptionManager();
+        if (getServerConfiguration().isMqttProxyEnabled()) {
+            this.eventCenter = new DisableEventCenter();
+        } else {
+            this.eventCenter = new PulsarEventCenterImpl(brokerService,
+                    serverConfiguration.getEventCenterCallbackPoolThreadNum());
+        }
+        this.willMessageHandler = new WillMessageHandler(this);
+        this.retainedMessageHandler = new RetainedMessageHandler(this);
+
+    }
+
+    public boolean isSystemTopicEnabled() {
+        return eventService != null;
+    }
+
+    public void close() {
+        this.connectionManager.close();
+        this.eventCenter.shutdown();
+        if (eventService != null) {
+            eventService.close();
+        }
     }
 }

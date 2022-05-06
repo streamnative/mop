@@ -18,14 +18,22 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 import static org.apache.pulsar.common.util.FieldParser.setEmptyValue;
 import static org.apache.pulsar.common.util.FieldParser.value;
+import com.google.common.base.Joiner;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.pulsar.common.configuration.FieldContext;
 import org.apache.pulsar.common.configuration.PulsarConfiguration;
 
 /**
@@ -38,6 +46,7 @@ public final class ConfigurationUtils {
     public static final String SSL_PREFIX = "mqtt+ssl://";
     public static final String SSL_PSK_PREFIX = "mqtt+ssl+psk://";
     public static final String LISTENER_DEL = ",";
+    public static final String COLON = ":";
     public static final String LISTENER_PATTERN = "^(mqtt)(\\+ssl)?(\\+psk)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
 
     /**
@@ -126,7 +135,7 @@ public final class ConfigurationUtils {
                     f.setAccessible(true);
                     String v = (String) properties.get(f.getName());
                     if (!StringUtils.isBlank(v)) {
-                        f.set(obj, value(v, f));
+                        f.set(obj, value(v.trim(), f));
                     } else {
                         setEmptyValue(v, f, obj);
                     }
@@ -147,5 +156,89 @@ public final class ConfigurationUtils {
     }
 
     private ConfigurationUtils() {}
+
+    /**
+     * Parse PulsarConfiguration fields which with annotation @FieldContext
+     * and put them into PulsarConfiguration's properties field.
+     *
+     * @param configuration
+     * @throws IllegalAccessException
+     */
+    public static <T extends PulsarConfiguration> void extractFieldToProperties(T configuration)
+            throws IllegalAccessException {
+        Class<?> clazz = configuration.getClass();
+        while (clazz != Object.class) {
+            Field[] declaredFields = clazz.getDeclaredFields();
+            for (Field field : declaredFields) {
+                if (field.isAnnotationPresent(FieldContext.class)) {
+                    field.setAccessible(true);
+                    Object fieldValue = field.get(configuration);
+                    String fieldName = field.getName();
+                    if (fieldValue == null) {
+                        // skip null field
+                        continue;
+                    }
+                    String value = toConfigStr(fieldValue, field);
+                    configuration.getProperties().put(fieldName, value);
+                }
+            }
+            clazz = clazz.getSuperclass();
+        }
+    }
+
+    private static String toConfigStr(Object fieldValue, Field field) {
+        Type fieldType = field.getGenericType();
+        // if field is not primitive type
+        if (fieldType instanceof ParameterizedType) {
+            if (field.getType().equals(List.class)) {
+                return listToString(fieldValue);
+            } else if (field.getType().equals(Set.class)) {
+                return setToString(fieldValue);
+            } else if (field.getType().equals(Map.class)) {
+                return mapToString(fieldValue);
+            } else if (field.getType().equals(Optional.class)) {
+                Type typeClazz = ((ParameterizedType) fieldType).getActualTypeArguments()[0];
+                if (typeClazz instanceof ParameterizedType) {
+                    throw new IllegalArgumentException(format("unsupported non-primitive Optional<%s> for %s",
+                            typeClazz.getClass(), field.getName()));
+                } else {
+                    Optional optional = (Optional) fieldValue;
+                    if (optional.isPresent()) {
+                        return optional.get().toString();
+                    } else {
+                        return StringUtils.EMPTY;
+                    }
+                }
+            } else {
+                throw new IllegalArgumentException(format("unsupported field-type %s for %s",
+                        field.getType(), field.getName()));
+            }
+        } else {
+            return fieldValue.toString();
+        }
+    }
+
+    private static String mapToString(Object fieldValue) {
+        Map map = (Map) fieldValue;
+        List<String> kvList = new ArrayList<>(map.size());
+        map.forEach(
+                (k, v) -> {
+                    String key = k.toString();
+                    String value = v.toString();
+                    kvList.add(key + "=" + value);
+                }
+        );
+        return Joiner.on(LISTENER_DEL).join(kvList);
+    }
+
+    private static String setToString(Object fieldValue) {
+        Set set = (Set) fieldValue;
+        return Joiner.on(LISTENER_DEL).join(set);
+    }
+
+    private static String listToString(Object fieldValue) {
+        List list = (List) fieldValue;
+        return Joiner.on(LISTENER_DEL).join(list);
+    }
 
 }

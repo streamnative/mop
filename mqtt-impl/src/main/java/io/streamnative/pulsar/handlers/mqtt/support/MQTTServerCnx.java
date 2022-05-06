@@ -14,12 +14,16 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.ChannelHandlerContext;
+import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.ServerCnx;
 
 /**
  * Server cnx for MQTT server.
  */
+@Slf4j
 public class MQTTServerCnx extends ServerCnx {
 
     public MQTTServerCnx(PulsarService pulsar, ChannelHandlerContext ctx) {
@@ -30,5 +34,32 @@ public class MQTTServerCnx extends ServerCnx {
 
     public ChannelHandlerContext ctx() {
         return this.ctx;
+    }
+
+    @Override
+    protected void close() {
+        super.close();
+    }
+
+    @Override
+    public void closeConsumer(Consumer consumer) {
+        safelyRemoveConsumer(consumer);
+        MQTTConsumer mqttConsumer = (MQTTConsumer) consumer;
+        mqttConsumer.getConnection().disconnect();
+    }
+
+    private void safelyRemoveConsumer(Consumer consumer) {
+        long consumerId = consumer.consumerId();
+        if (log.isDebugEnabled()) {
+            log.debug("[{}] Removed consumer: consumerId={}, consumer={}", remoteAddress, consumerId, consumer);
+        }
+        CompletableFuture<Consumer> future = getConsumers().get(consumerId);
+        if (future != null) {
+            future.whenComplete((consumer2, exception) -> {
+                if (exception != null || consumer2 == consumer) {
+                    getConsumers().remove(consumerId, future);
+                }
+            });
+        }
     }
 }

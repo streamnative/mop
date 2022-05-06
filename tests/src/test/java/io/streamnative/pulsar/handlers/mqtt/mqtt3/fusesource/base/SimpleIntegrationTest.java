@@ -21,7 +21,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.psk.PSKClient;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
@@ -45,6 +45,8 @@ import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.common.naming.TopicDomain;
+import org.apache.pulsar.common.policies.data.BundlesData;
+import org.apache.pulsar.common.policies.data.TopicStats;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
@@ -61,15 +63,15 @@ import org.testng.annotations.Test;
 @Slf4j
 public class SimpleIntegrationTest extends MQTTTestBase {
 
-    private final int numMessages = 1000;
+    private final int numMessages = 1;
 
     @Override
-    protected MQTTServerConfiguration initConfig() throws Exception {
-        MQTTServerConfiguration mqtt = super.initConfig();
+    protected MQTTCommonConfiguration initConfig() throws Exception {
+        MQTTCommonConfiguration mqtt = super.initConfig();
 
-        mqtt.setTlsPskEnabled(true);
-        mqtt.setTlsPskIdentityHint("alpha");
-        mqtt.setTlsPskIdentity("mqtt:mqtt123");
+        mqtt.setMqttTlsPskEnabled(true);
+        mqtt.setMqttTlsPskIdentityHint("alpha");
+        mqtt.setMqttTlsPskIdentity("mqtt:mqtt123");
         return mqtt;
     }
 
@@ -163,16 +165,17 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
         connection.subscribe(topics);
         String message = "Hello MQTT";
-
+        int numMessages = 200;
         for (int i = 0; i < numMessages; i++) {
             connection.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
         }
 
         for (int i = 0; i < numMessages; i++) {
             Message received = connection.receive();
-            Assert.assertEquals(new String(received.getPayload()), (message + i));
+            if (received != null) {
+                Assert.assertEquals(new String(received.getPayload()), (message + i));
+            }
         }
-
         Assert.assertEquals(admin.topics().getStats(topicName).getSubscriptions().size(), 1);
         Assert.assertEquals(admin.topics().getStats(topicName)
                 .getSubscriptions().entrySet().iterator().next().getValue().getMsgBacklog(), 0);
@@ -208,7 +211,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
     @Test(timeOut = TIMEOUT)
     public void testBacklogShouldBeZeroWithQos0AndSendByPulsar() throws Exception {
-        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0AndSendByPulsar-";
+        final String topicName = "persistent://public/default/testBacklogShouldBeZeroWithQos0AndSendByPulsar";
         MQTT mqtt = createMQTTClient();
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
@@ -271,9 +274,11 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
     @Test(timeOut = TIMEOUT)
     public void testSubscribeRejectionWithSameClientId() throws Exception {
-        final String topicName = "persistent://public/default/testSubscribeWithSameClientId";
+        final String topicName = "persistent://public/default/testSubscribeRejectionWithSameClientId";
         MQTT mqtt = createMQTTClient();
         mqtt.setClientId("client-id-0");
+        mqtt.setReconnectDelay(Integer.MAX_VALUE);
+        mqtt.setReconnectAttemptsMax(0);
         BlockingConnection connection1 = mqtt.blockingConnection();
         connection1.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
@@ -282,13 +287,18 @@ public class SimpleIntegrationTest extends MQTTTestBase {
 
         BlockingConnection connection2;
         MQTT mqtt2 = createMQTTClient();
-        mqtt.setClientId("client-id-0");
+        mqtt2.setClientId("client-id-0");
         connection2 = mqtt2.blockingConnection();
         connection2.connect();
         Assert.assertTrue(connection2.isConnected());
-        Awaitility.await().untilAsserted(() -> Assert.assertTrue(connection1.isConnected()));
+        Awaitility.await().untilAsserted(() -> Assert.assertFalse(connection1.isConnected()));
         connection2.subscribe(topics);
+        Assert.assertTrue(connection2.isConnected());
         connection2.disconnect();
+        Awaitility.await().untilAsserted(()-> {
+            TopicStats stats = admin.topics().getStats(topicName);
+            Assert.assertEquals(stats.getSubscriptions().size(), 0);
+        });
         connection1.disconnect();
     }
 
@@ -397,7 +407,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @SneakyThrows
     public void testServlet() {
         HttpClient httpClient = HttpClientBuilder.create().build();
-        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop-stats";
+        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop/stats";
         HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
         InputStream inputStream = response.getEntity().getContent();
         InputStreamReader isReader = new InputStreamReader(inputStream);
@@ -512,7 +522,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         producer2.connect();
         //
         HttpClient httpClient = HttpClientBuilder.create().build();
-        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop-stats";
+        final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop/stats";
         HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
         InputStream inputStream = response.getEntity().getContent();
         InputStreamReader isReader = new InputStreamReader(inputStream);
@@ -589,5 +599,105 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertEquals(receive1.getTopic(), topicName1);
         Assert.assertEquals(new String(receive2.getPayload()), "offline");
         Assert.assertEquals(receive2.getTopic(), "will-message-topic");
+    }
+
+    @Test
+    public void testTopicUnload() throws Exception {
+        MQTT mqttConsumer = createMQTTClient();
+        BlockingConnection consumer = mqttConsumer.blockingConnection();
+        consumer.connect();
+        String topicName1 = "topic-unload-1";
+        Topic[] topic1 = { new Topic(topicName1, QoS.AT_LEAST_ONCE)};
+        consumer.subscribe(topic1);
+        MQTT mqttProducer = createMQTTClient();
+        BlockingConnection producer = mqttProducer.blockingConnection();
+        producer.connect();
+        String msg1 = "hello topic1";
+        producer.publish(topicName1, msg1.getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+        Message receive1 = consumer.receive();
+        Assert.assertEquals(new String(receive1.getPayload()), msg1);
+        Assert.assertEquals(receive1.getTopic(), topicName1);
+        admin.topics().unload(topicName1);
+        Thread.sleep(5000);
+        producer.publish(topicName1, msg1.getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
+        producer.disconnect();
+        Message receive2 = consumer.receive();
+        Assert.assertEquals(new String(receive2.getPayload()), msg1);
+        Assert.assertEquals(receive2.getTopic(), topicName1);
+        consumer.disconnect();
+    }
+
+    @Test
+    public void testNamespaceBundleUnload() throws Exception {
+        MQTT mqttConsumer = createMQTTClient();
+        BlockingConnection consumer = mqttConsumer.blockingConnection();
+        consumer.connect();
+        String topicName1 = "topic-namespace-bundle-unload-1";
+        Topic[] topic1 = { new Topic(topicName1, QoS.AT_LEAST_ONCE)};
+        consumer.subscribe(topic1);
+        MQTT mqttProducer = createMQTTClient();
+        BlockingConnection producer = mqttProducer.blockingConnection();
+        producer.connect();
+        String msg1 = "hello msg1";
+        producer.publish(topicName1, msg1.getBytes(StandardCharsets.UTF_8), QoS.AT_LEAST_ONCE, false);
+        Message receive1 = consumer.receive();
+        Assert.assertEquals(new String(receive1.getPayload()), msg1);
+        Assert.assertEquals(receive1.getTopic(), topicName1);
+        String namespace = "public/default";
+        BundlesData bundlesData = admin.namespaces().getBundles(namespace);
+        bundlesData.getNumBundles();
+        for (int i = 0; i < bundlesData.getBoundaries().size() - 1; i++) {
+            final String bundle = String.format("%s_%s", bundlesData.getBoundaries().get(i),
+                    bundlesData.getBoundaries().get(i + 1));
+            admin.namespaces().unloadNamespaceBundle(namespace, bundle);
+        }
+        Awaitility.await().untilAsserted(() -> Assert.assertTrue(consumer.isConnected()));
+        String msg2 = "hello msg2";
+        producer.publish(topicName1, msg2.getBytes(StandardCharsets.UTF_8), QoS.AT_LEAST_ONCE, false);
+        Message receive2 = consumer.receive();
+        Assert.assertEquals(new String(receive2.getPayload()), msg2);
+        consumer.disconnect();
+        producer.disconnect();
+    }
+
+
+    @Test
+    public void testNonPersistentTopic() throws Exception {
+        String topicName = "non-persistent://public/default/a/b";
+        MQTT mqtt = createMQTTClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        connection.publish(topicName, message.getBytes(), QoS.AT_LEAST_ONCE, false);
+        Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
+        connection.disconnect();
+    }
+
+    @Test
+    public void testRetainedMessage() throws Exception {
+        String topicName = "persistent://public/default/a";
+        MQTT mqtt = createMQTTClient();
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        String message1 = "Retained Message";
+        String message2 = "Hello Message";
+        Topic[] topics = { new Topic(topicName, QoS.AT_LEAST_ONCE) };
+        connection.publish(topicName, message1.getBytes(), QoS.AT_LEAST_ONCE, true);
+        connection.subscribe(topics);
+        connection.publish(topicName, message2.getBytes(), QoS.AT_LEAST_ONCE, false);
+        Message received1 = connection.receive(5, TimeUnit.SECONDS);
+        Assert.assertNotNull(received1);
+        received1.ack();
+        Assert.assertEquals(new String(received1.getPayload()), message1);
+        Message received2 = connection.receive(5, TimeUnit.SECONDS);
+        Assert.assertNotNull(received2);
+        received2.ack();
+        Assert.assertEquals(new String(received2.getPayload()), message2);
+        connection.disconnect();
     }
 }

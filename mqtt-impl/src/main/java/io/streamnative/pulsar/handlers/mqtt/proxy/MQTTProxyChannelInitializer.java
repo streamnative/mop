@@ -17,11 +17,12 @@ import static org.apache.pulsar.client.impl.PulsarChannelInitializer.TLS_HANDLER
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
-import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.adapter.CombineAdapterHandler;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterDecoder;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterEncoder;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
 import lombok.Getter;
 import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
@@ -43,7 +44,6 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
 
     private SslContextAutoRefreshBuilder<SslContext> serverSslCtxRefresher;
     private NettySSLContextAutoRefreshBuilder serverSSLContextAutoRefreshBuilder;
-    private PSKConfiguration pskConfiguration;
 
     public MQTTProxyChannelInitializer(MQTTProxyService proxyService, MQTTProxyConfiguration proxyConfig,
                                        boolean enableTls) {
@@ -56,42 +56,33 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
         this.proxyConfig = proxyConfig;
         this.enableTls = enableTls;
         this.enableTlsPsk = enableTlsPsk;
-        this.tlsEnabledWithKeyStore = proxyConfig.isTlsEnabledWithKeyStore();
+        this.tlsEnabledWithKeyStore = proxyConfig.isMqttTlsEnabledWithKeyStore();
         if (this.enableTls) {
             if (tlsEnabledWithKeyStore) {
                 serverSSLContextAutoRefreshBuilder = new NettySSLContextAutoRefreshBuilder(
-                        proxyConfig.getTlsProvider(),
-                        proxyConfig.getTlsKeyStoreType(),
-                        proxyConfig.getTlsKeyStore(),
-                        proxyConfig.getTlsKeyStorePassword(),
-                        proxyConfig.isTlsAllowInsecureConnection(),
-                        proxyConfig.getTlsTrustStoreType(),
-                        proxyConfig.getTlsTrustStore(),
-                        proxyConfig.getTlsTrustStorePassword(),
-                        proxyConfig.isTlsRequireTrustedClientCertOnConnect(),
-                        proxyConfig.getTlsCiphers(),
-                        proxyConfig.getTlsProtocols(),
-                        proxyConfig.getTlsCertRefreshCheckDurationSec());
+                        proxyConfig.getMqttTlsProvider(),
+                        proxyConfig.getMqttTlsKeyStoreType(),
+                        proxyConfig.getMqttTlsKeyStore(),
+                        proxyConfig.getMqttTlsKeyStorePassword(),
+                        proxyConfig.isMqttTlsAllowInsecureConnection(),
+                        proxyConfig.getMqttTlsTrustStoreType(),
+                        proxyConfig.getMqttTlsTrustStore(),
+                        proxyConfig.getMqttTlsTrustStorePassword(),
+                        proxyConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
+                        proxyConfig.getMqttTlsCiphers(),
+                        proxyConfig.getMqttTlsProtocols(),
+                        proxyConfig.getMqttTlsCertRefreshCheckDurationSec());
             } else {
                 serverSslCtxRefresher = new NettyServerSslContextBuilder(
-                        proxyConfig.isTlsAllowInsecureConnection(),
-                        proxyConfig.getTlsTrustCertsFilePath(),
-                        proxyConfig.getTlsCertificateFilePath(),
-                        proxyConfig.getTlsKeyFilePath(),
-                        proxyConfig.getTlsCiphers(),
-                        proxyConfig.getTlsProtocols(),
-                        proxyConfig.isTlsRequireTrustedClientCertOnConnect(),
-                        proxyConfig.getTlsCertRefreshCheckDurationSec());
+                        proxyConfig.isMqttTlsAllowInsecureConnection(),
+                        proxyConfig.getMqttTlsTrustCertsFilePath(),
+                        proxyConfig.getMqttTlsCertificateFilePath(),
+                        proxyConfig.getMqttTlsKeyFilePath(),
+                        proxyConfig.getMqttTlsCiphers(),
+                        proxyConfig.getMqttTlsProtocols(),
+                        proxyConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
+                        proxyConfig.getMqttTlsCertRefreshCheckDurationSec());
             }
-        } else if (this.enableTlsPsk) {
-            pskConfiguration = new PSKConfiguration();
-            pskConfiguration.setIdentityHint(proxyConfig.getTlsPskIdentityHint());
-            pskConfiguration.setIdentity(proxyConfig.getTlsPskIdentity());
-            pskConfiguration.setIdentityFile(proxyConfig.getTlsPskIdentityFile());
-            pskConfiguration.setProtocols(proxyConfig.getTlsProtocols());
-            pskConfiguration.setCiphers(proxyConfig.getTlsCiphers());
-        } else {
-            this.serverSslCtxRefresher = null;
         }
     }
 
@@ -109,10 +100,15 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
                         new SslHandler(serverSSLContextAutoRefreshBuilder.get().createSSLEngine()));
             }
         } else if (this.enableTlsPsk) {
-            ch.pipeline().addLast(TLS_HANDLER, new SslHandler(PSKUtils.createServerEngine(ch, pskConfiguration)));
+            ch.pipeline().addLast(TLS_HANDLER,
+                    new SslHandler(PSKUtils.createServerEngine(ch, proxyService.getPskConfiguration())));
         }
-        ch.pipeline().addLast("decoder", new MqttDecoder(proxyConfig.getMqttMessageMaxLength()));
-        ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
+        ch.pipeline().addLast(MqttAdapterDecoder.NAME, new MqttAdapterDecoder());
+        ch.pipeline().addLast("mqtt-decoder", new MqttDecoder(proxyConfig.getMqttMessageMaxLength()));
+        // Encoder
+        ch.pipeline().addLast(MqttAdapterEncoder.NAME, MqttAdapterEncoder.INSTANCE);
+        // Handler
+        ch.pipeline().addLast(CombineAdapterHandler.NAME, new CombineAdapterHandler());
         ch.pipeline().addLast("handler", new MQTTProxyInboundHandler(proxyService));
     }
 

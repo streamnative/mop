@@ -14,14 +14,21 @@
 
 package io.streamnative.pulsar.handlers.mqtt.support.psk;
 
+import static io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventType.ADD_PSK_IDENTITY;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
+import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventListener;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.MqttEvent;
+import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.PSKEvent;
 import java.io.File;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -29,6 +36,7 @@ import org.apache.commons.lang3.StringUtils;
  * Psk configuration.
  */
 @Getter
+@Slf4j
 public class PSKConfiguration {
 
     static Set<String> defaultApplicationProtocols = new HashSet<>();
@@ -82,6 +90,29 @@ public class PSKConfiguration {
 
     private ApplicationProtocolConfig protocolConfig = defaultProtocolConfig;
 
+    @Getter
+    private final PSKEventListener eventListener = new PSKEventListener();
+
+    public PSKConfiguration() {
+
+    }
+
+    public PSKConfiguration(MQTTProxyConfiguration config) {
+        setIdentityHint(config.getMqttTlsPskIdentityHint());
+        setIdentity(config.getMqttTlsPskIdentity());
+        setIdentityFile(config.getMqttTlsPskIdentityFile());
+        setProtocols(config.getMqttTlsProtocols());
+        setCiphers(config.getMqttTlsCiphers());
+    }
+
+    public PSKConfiguration(MQTTServerConfiguration config) {
+        setIdentityHint(config.getMqttTlsPskIdentityHint());
+        setIdentity(config.getMqttTlsPskIdentity());
+        setIdentityFile(config.getMqttTlsPskIdentityFile());
+        setProtocols(config.getMqttTlsProtocols());
+        setCiphers(config.getMqttTlsCiphers());
+    }
+
     public void setIdentityFile(String identityFile) {
         if (StringUtils.isNotEmpty(identityFile)) {
             setIdentityFile(new File(identityFile));
@@ -119,6 +150,34 @@ public class PSKConfiguration {
     public void setCiphers(Set<String> ciphers) {
         if (CollectionUtils.isNotEmpty(ciphers)) {
             this.ciphers = ciphers;
+        }
+    }
+
+    private void writeToFile(List<PSKSecretKey> newPskKeys) {
+        if (identityFile != null) {
+            List<PSKSecretKey> pskKeys = PSKUtils.parse(identityFile);
+            pskKeys.addAll(newPskKeys);
+            PSKUtils.write(identityFile, pskKeys);
+        }
+    }
+
+    class PSKEventListener implements EventListener {
+
+        @Override
+        public void onChange(MqttEvent event) {
+            if (event.getEventType() == ADD_PSK_IDENTITY) {
+                PSKEvent pskEvent = (PSKEvent) event.getSourceEvent();
+                if (log.isDebugEnabled()) {
+                    log.debug("add psk identity : {}", pskEvent);
+                }
+                try {
+                    List<PSKSecretKey> identities = PSKUtils.parse(pskEvent.getIdentity());
+                    identities.forEach(keyStore::addPSKSecretKey);
+                    writeToFile(identities);
+                } catch (Throwable ex) {
+                    log.error("refresh identity : {} error", pskEvent.getIdentity(), ex);
+                }
+            }
         }
     }
 }

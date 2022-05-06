@@ -15,6 +15,7 @@
 package io.streamnative.pulsar.handlers.mqtt.support.psk;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import javax.crypto.SecretKey;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -44,5 +45,26 @@ public class PSKSecretKey implements SecretKey {
     @Override
     public byte[] getEncoded() {
         return pwd.getBytes(StandardCharsets.UTF_8);
+    }
+
+    public String getPlainText() {
+        return String.format("%s:%s", identity, pwd);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PSKSecretKey that = (PSKSecretKey) o;
+        return Objects.equals(identity, that.identity) && Objects.equals(pwd, that.pwd);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(identity, pwd);
     }
 }

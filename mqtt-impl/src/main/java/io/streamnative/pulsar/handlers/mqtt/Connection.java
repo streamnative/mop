@@ -13,35 +13,34 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
 import static io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils.ATTR_KEY_CONNECTION;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelException;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttConnectAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.SessionExpireInterval;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttDisConnAckMessageHelper;
-import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandler;
-import io.streamnative.pulsar.handlers.mqtt.support.handler.AckHandlerFactory;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
+import io.streamnative.pulsar.handlers.mqtt.utils.FutureUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
-import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
-import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.pulsar.broker.service.BrokerServiceException;
-import org.apache.pulsar.broker.service.Consumer;
-import org.apache.pulsar.broker.service.Subscription;
-import org.apache.pulsar.broker.service.Topic;
 
 /**
  * Value object to maintain the information of single connection, like ClientID, Channel, and clean
@@ -55,57 +54,53 @@ public class Connection {
     @Getter
     private final Channel channel;
     @Getter
-    private final boolean cleanSession;
-    @Getter
     private final int protocolVersion;
     @Getter
     private final WillMessage willMessage;
     @Getter
-    private volatile int sessionExpireInterval;
-    volatile ConnectionState connectionState = DISCONNECTED;
-    @Getter
-    private int clientReceiveMaximum; // mqtt 5.0 specification.
-    @Getter
-    private int serverReceivePubMaximum;
-    @Getter
-    private volatile int serverCurrentReceiveCounter = 0;
-    @Getter
-    private String userRole;
+    private final String userRole;
     @Getter
     private final MQTTConnectionManager manager;
     @Getter
+    private final TopicSubscriptionManager topicSubscriptionManager;
+    @Getter
     private final MqttConnectMessage connectMessage;
     @Getter
-    private final AckHandler ackHandler;
+    private final ClientRestrictions clientRestrictions;
     @Getter
-    private final int keepAliveTime;
+    private final ServerRestrictions serverRestrictions;
+    @Getter
+    private volatile int serverCurrentReceiveCounter = 0;
+    @Getter
+    private final ProtocolMethodProcessor processor;
+    @Getter
+    private final boolean fromProxy;
+    private volatile ConnectionState connectionState = DISCONNECTED;
 
     private static final AtomicReferenceFieldUpdater<Connection, ConnectionState> channelState =
             newUpdater(Connection.class, ConnectionState.class, "connectionState");
 
-    private static final AtomicIntegerFieldUpdater<Connection> SESSION_EXPIRE_INTERVAL_UPDATER =
-            AtomicIntegerFieldUpdater.newUpdater(Connection.class, "sessionExpireInterval");
-
     private static final AtomicIntegerFieldUpdater<Connection> SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(Connection.class, "serverCurrentReceiveCounter");
+
+    static ChannelException channelInactiveException = new ChannelException("Channel is inactive");
 
     Connection(ConnectionBuilder builder) {
         this.clientId = builder.clientId;
         this.protocolVersion = builder.protocolVersion;
-        this.cleanSession = builder.cleanSession;
         this.willMessage = builder.willMessage;
-        this.sessionExpireInterval = builder.sessionExpireInterval;
-        this.clientReceiveMaximum = builder.clientReceiveMaximum;
-        this.serverReceivePubMaximum = builder.serverReceivePubMaximum;
+        this.clientRestrictions = builder.clientRestrictions;
+        this.serverRestrictions = builder.serverRestrictions;
         this.userRole = builder.userRole;
         this.channel = builder.channel;
         this.manager = builder.connectionManager;
-        this.manager.addConnection(this);
         this.connectMessage = builder.connectMessage;
-        this.keepAliveTime = builder.keepAliveTime;
-        this.ackHandler = AckHandlerFactory.of(protocolVersion).getAckHandler();
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
+        this.topicSubscriptionManager = new TopicSubscriptionManager();
         this.addIdleStateHandler();
+        this.processor = builder.processor;
+        this.fromProxy = builder.fromProxy;
+        this.manager.addConnection(this);
     }
 
     private void addIdleStateHandler() {
@@ -114,109 +109,87 @@ public class Connection {
             pipeline.remove("idleStateHandler");
         }
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(0, 0,
-                Math.round(keepAliveTime * 1.5f)));
+                Math.round(clientRestrictions.getKeepAliveTime() * 1.5f)));
     }
 
-    public void sendConnAck() {
-        ackHandler.sendConnAck(this);
-    }
-
-    public ChannelFuture send(MqttMessage mqttMessage) {
-        return channel.writeAndFlush(mqttMessage).addListener(future -> {
-            if (!future.isSuccess()) {
-                future.cause().printStackTrace();
-                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
-            }
-        });
-    }
-
-    public void sendThenClose(MqttMessage mqttMessage) {
-        channel.writeAndFlush(mqttMessage).addListener(future -> {
-            if (!future.isSuccess()) {
-                log.error("send mqttMessage : {} failed", mqttMessage, future.cause());
-            }
-        });
-        channel.close();
-    }
-
-    public void removeConsumers() {
-        Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
-                .getTopicSubscriptions(channel);
-        // For producer doesn't bind subscriptions
-        if (topicSubscriptions != null) {
-            topicSubscriptions.forEach((k, v) -> {
-                try {
-                    v.getLeft().removeConsumer(v.getRight());
-                } catch (BrokerServiceException ex) {
-                    log.warn("subscription [{}] remove consumer {} error", v.getLeft(), v.getRight(), ex);
-                }
-            });
+    /**
+     * Convert #{MqttMessage} to #{MqttAdapterMessage} and encode type set by connection #{fromProxy} flag.
+     * Then send the message.
+     * @param mqttMessage Mqtt message
+     * @return CompletableFuture
+     */
+    public CompletableFuture<Void> send(MqttMessage mqttMessage) {
+        if (!channel.isActive()) {
+            log.error("send mqttMessage : {} failed due to channel is inactive.", mqttMessage);
+            return FutureUtils.completableFuture(channel.newFailedFuture(channelInactiveException));
         }
+        MqttAdapterMessage mqttAdapterMessage = new MqttAdapterMessage(clientId, mqttMessage, isFromProxy());
+        CompletableFuture<Void> future =
+                FutureUtils.completableFuture(channel.writeAndFlush(mqttAdapterMessage));
+        future.exceptionally(ex -> {
+            log.error("send mqttMessage : {} failed", mqttAdapterMessage, ex);
+            return null;
+        });
+        return future;
     }
 
-    private void doRemoveSubscriptions() {
-        Map<Topic, Pair<Subscription, Consumer>> topicSubscriptions = NettyUtils
-                .getTopicSubscriptions(channel);
-        // For producer doesn't bind subscriptions
-        if (topicSubscriptions != null) {
-            topicSubscriptions.forEach((k, v) -> {
-                k.unsubscribe(this.clientId);
-                v.getLeft().delete();
-            });
-        }
+    public CompletableFuture<Void> sendAck(MqttAck mqttAck) {
+        return mqttAck.isProtocolSupported()
+                ? send(mqttAck.getMqttMessage())
+                : CompletableFuture.completedFuture(null);
     }
 
-    public void removeSubscriptions() {
-        removeConsumers();
-        if (cleanSession) {
-            doRemoveSubscriptions();
-            // when mqtt client support session expire interval variable
+    public CompletableFuture<Void> sendAckThenClose(MqttAck mqttAck) {
+        return sendAck(mqttAck)
+                .whenComplete((result, error) -> {
+                    disconnect();
+                });
+    }
+
+    /**
+     * Disconnect the current connection and send a disconnect MqttMessage if needed.
+     */
+    public void disconnect() {
+        if (this.isFromProxy() || MqttUtils.isNotMqtt3(protocolVersion)) {
+            MqttMessage mqttMessage = MqttMessageBuilders
+                    .disconnect()
+                    .reasonCode(Mqtt5DisConnReasonCode.SESSION_TAKEN_OVER.byteValue())
+                    .build();
+            send(mqttMessage);
+            if (this.isFromProxy()) {
+                processor.processConnectionLost();
+            } else {
+                channel.close();
+            }
         } else {
-            // when use mqtt5.0 we need to use session expire interval to remove session.
-            // but mqtt protocol version lower than 5.0 we don't do that.
-            if (MqttUtils.isMqtt5(protocolVersion)
-                    && SESSION_EXPIRE_INTERVAL_UPDATER.get(this)
-                    != SessionExpireInterval.NEVER_EXPIRE.getSecondTime()) {
-                if (sessionExpireInterval == SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime()) {
-                    doRemoveSubscriptions();
-                } else {
-                    manager.newSessionExpireInterval(__ ->
-                            doRemoveSubscriptions(), clientId, SESSION_EXPIRE_INTERVAL_UPDATER.get(this));
-                }
+            channel.close();
+        }
+    }
+
+    public CompletableFuture<Void> cleanup() {
+        log.info("Closing connection clientId = {}", clientId);
+        assignState(ESTABLISHED, DISCONNECTED);
+        if (clientRestrictions.isCleanSession()) {
+            return topicSubscriptionManager.removeSubscriptions();
+        }
+        // when use mqtt5.0 we need to use session expire interval to remove session.
+        // but mqtt protocol version lower than 5.0 we don't do that.
+        if (MqttUtils.isNotMqtt3(protocolVersion) && !clientRestrictions.isSessionNeverExpire()) {
+            if (clientRestrictions.isSessionExpireImmediately()) {
+                return topicSubscriptionManager.removeSubscriptions();
+            } else {
+                manager.newSessionExpireInterval(__ -> topicSubscriptionManager.removeSubscriptions(),
+                        clientId, clientRestrictions.getSessionExpireInterval());
+                return CompletableFuture.completedFuture(null);
             }
+        } else {
+            // remove subscription consumer if we don't need to clean session.
+            topicSubscriptionManager.removeSubscriptionConsumers();
+            return CompletableFuture.completedFuture(null);
         }
     }
 
-    public void close() {
-        close(false);
-    }
-
-    public void close(boolean force) {
-        if (log.isInfoEnabled()) {
-            log.info("Closing connection. clientId = {}.", clientId);
-        }
-        if (!force) {
-            assignState(ESTABLISHED, DISCONNECTED);
-        }
-        // Support mqtt 5
-        if (MqttUtils.isMqtt5(protocolVersion)) {
-            MqttMessage mqttDisconnectionAckMessage =
-                    MqttDisConnAckMessageHelper.createMqtt5(Mqtt5DisConnReasonCode.NORMAL);
-            channel.writeAndFlush(mqttDisconnectionAckMessage);
-        }
-        this.channel.close();
-    }
-
-    public boolean assignState(ConnectionState expected, ConnectionState newState) {
-        if (log.isDebugEnabled()) {
-            log.debug(
-                    "Updating state of connection = {}, currentState = {}, "
-                            + "expectedState = {}, newState = {}.",
-                    this,
-                    channelState.get(this),
-                    expected,
-                    newState);
-        }
+    private boolean assignState(ConnectionState expected, ConnectionState newState) {
         boolean ret = channelState.compareAndSet(this, expected, newState);
         if (!ret) {
             log.error(
@@ -229,48 +202,12 @@ public class Connection {
         return ret;
     }
 
-    public ConnectionState getConnectionState(Connection connection) {
-        return channelState.get(connection);
+    public ConnectionState getState() {
+        return channelState.get(this);
     }
 
-    public void updateSessionExpireInterval(int newSessionInterval) {
-        SESSION_EXPIRE_INTERVAL_UPDATER.set(this, newSessionInterval);
-    }
-
-    @Override
-    public String toString() {
-        return "Connection{" + "clientId=" + clientId + ", channel=" + channel
-                + ", cleanSession=" + cleanSession + ", state="
-                + channelState.get(this) + '}';
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Connection that = (Connection) o;
-        return Objects.equals(clientId, that.clientId) && Objects.equals(channel, that.channel);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(clientId, channel);
-    }
-
-    /**
-     * Check the session expire interval is valid.
-     *
-     * @param sessionExpireInterval session expire interval second time
-     * @return whether param is valid.
-     */
-    public boolean checkIsLegalExpireInterval(Integer sessionExpireInterval) {
-        int sei = SESSION_EXPIRE_INTERVAL_UPDATER.get(this);
-        int zeroSecond = SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
-        return sei > zeroSecond && sessionExpireInterval >= zeroSecond;
+    public void updateSessionExpireInterval(int newSessionInterval) throws InvalidSessionExpireIntervalException {
+       clientRestrictions.updateExpireInterval(newSessionInterval);
     }
 
     public void incrementServerReceivePubMessage() {
@@ -285,9 +222,27 @@ public class Connection {
         return SERVER_CURRENT_RECEIVE_PUB_MAXIMUM_UPDATER.get(this);
     }
 
-    /**
-     * Connection state.
-     */
+    public void sendConnAck() {
+        if (!assignState(DISCONNECTED, CONNECT_ACK)) {
+            MqttAck connAck = MqttConnectAck.errorBuilder()
+                    .serverUnavailable(protocolVersion)
+                    .reasonString(String.format("Unable to assign the server state from : %s to : %s",
+                            DISCONNECTED, CONNECT_ACK))
+                    .build();
+            sendAckThenClose(connAck);
+            return;
+        }
+        MqttAck connAck = MqttConnectAck.successBuilder(protocolVersion)
+                .receiveMaximum(getServerRestrictions().getReceiveMaximum())
+                .cleanSession(clientRestrictions.isCleanSession())
+                .build();
+        sendAck(connAck).thenAccept(__ -> assignState(CONNECT_ACK, ESTABLISHED));
+        if (log.isDebugEnabled()) {
+            log.debug("The CONNECT message has been processed. CId={}", clientId);
+        }
+    }
+
+
     public enum ConnectionState {
         DISCONNECTED,
         CONNECT_ACK,
@@ -302,15 +257,14 @@ public class Connection {
         private int protocolVersion;
         private String clientId;
         private String userRole;
-        private boolean cleanSession;
         private WillMessage willMessage;
-        private int clientReceiveMaximum;
-        private int serverReceivePubMaximum;
-        private int sessionExpireInterval;
         private Channel channel;
         private MQTTConnectionManager connectionManager;
         private MqttConnectMessage connectMessage;
-        private int keepAliveTime;
+        private ClientRestrictions clientRestrictions;
+        private ServerRestrictions serverRestrictions;
+        private ProtocolMethodProcessor processor;
+        private boolean fromProxy;
 
         public ConnectionBuilder protocolVersion(int protocolVersion) {
             this.protocolVersion = protocolVersion;
@@ -332,23 +286,13 @@ public class Connection {
             return this;
         }
 
-        public ConnectionBuilder cleanSession(boolean cleanSession) {
-            this.cleanSession = cleanSession;
+        public ConnectionBuilder clientRestrictions(ClientRestrictions clientRestrictions){
+            this.clientRestrictions = clientRestrictions;
             return this;
         }
 
-        public ConnectionBuilder clientReceiveMaximum(int clientReceiveMaximum) {
-            this.clientReceiveMaximum = clientReceiveMaximum;
-            return this;
-        }
-
-        public ConnectionBuilder serverReceivePubMaximum(int serverReceivePubMaximum) {
-            this.serverReceivePubMaximum = serverReceivePubMaximum;
-            return this;
-        }
-
-        public ConnectionBuilder sessionExpireInterval(int sessionExpireInterval) {
-            this.sessionExpireInterval = sessionExpireInterval;
+        public ConnectionBuilder serverRestrictions(ServerRestrictions serverRestrictions){
+            this.serverRestrictions = serverRestrictions;
             return this;
         }
 
@@ -362,18 +306,47 @@ public class Connection {
             return this;
         }
 
+        public ConnectionBuilder processor(ProtocolMethodProcessor processor) {
+            this.processor = processor;
+            return this;
+        }
+
         public ConnectionBuilder connectMessage(MqttConnectMessage connectMessage) {
             this.connectMessage = connectMessage;
             return this;
         }
 
-        public ConnectionBuilder keepAliveTime(int keepAliveTime) {
-            this.keepAliveTime = keepAliveTime;
+        public ConnectionBuilder fromProxy(boolean fromProxy) {
+            this.fromProxy =  fromProxy;
             return this;
         }
 
         public Connection build() {
             return new Connection(this);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Connection{" + "clientId=" + clientId + ", channel=" + channel
+                + ", cleanSession=" + clientRestrictions.isCleanSession() + ", state="
+                + channelState.get(this) + '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Connection that = (Connection) o;
+        return Objects.equals(clientId, that.clientId) && Objects.equals(channel, that.channel);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(clientId, channel);
     }
 }

@@ -18,13 +18,17 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
-import io.streamnative.pulsar.handlers.mqtt.messages.factory.MqttConnectAckHelper;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidReceiveMaximumException;
+import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
+import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttConnectAck;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -34,6 +38,8 @@ import org.apache.commons.lang3.StringUtils;
 @Slf4j
 public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolMethodProcessor {
 
+    protected final ChannelHandlerContext ctx;
+    @Getter
     protected final Channel channel;
 
     protected final MQTTAuthenticationService authenticationService;
@@ -45,86 +51,123 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                                                  ChannelHandlerContext ctx) {
         this.authenticationService = authenticationService;
         this.authenticationEnabled = authenticationEnabled;
+        this.ctx = ctx;
         this.channel = ctx.channel();
     }
 
-    public abstract void doProcessConnect(MqttConnectMessage msg, String userRole);
+    public abstract void doProcessConnect(MqttAdapterMessage msg, String userRole, ClientRestrictions restrictions);
 
     @Override
-    public void processConnect(MqttConnectMessage msg) {
+    public void processConnect(MqttAdapterMessage adapter) {
+        MqttConnectMessage msg = (MqttConnectMessage) adapter.getMqttMessage();
         MqttConnectPayload payload = msg.payload();
         MqttConnectMessage connectMessage = msg;
         final int protocolVersion = msg.variableHeader().version();
         final String username = payload.userName();
         String clientId = payload.clientIdentifier();
         if (log.isDebugEnabled()) {
-            log.debug("process CONNECT message. CId={}, username={}", clientId, username);
+            log.debug("[CONNECT] process CONNECT message. CId={}, username={}", clientId, username);
         }
         // Check MQTT protocol version.
         if (!MqttUtils.isSupportedVersion(protocolVersion)) {
-            log.error("MQTT protocol version is not valid. CId={}", clientId);
-            channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().unsupportedVersion());
-            channel.close();
+            log.error("[CONNECT] MQTT protocol version is not valid. CId={}", clientId);
+            MqttMessage mqttMessage = MqttConnectAck.errorBuilder().unsupportedVersion();
+            adapter.setMqttMessage(mqttMessage);
+            channel.writeAndFlush(mqttMessage);
+            if (!adapter.fromProxy()) {
+                channel.close();
+            }
             return;
         }
         if (!MqttUtils.isQosSupported(msg)) {
-            channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().willQosNotSupport(protocolVersion));
-            channel.close();
+            MqttMessage mqttMessage = MqttConnectAck.errorBuilder().willQosNotSupport(protocolVersion);
+            adapter.setMqttMessage(mqttMessage);
+            channel.writeAndFlush(adapter);
+            if (!adapter.fromProxy()) {
+                channel.close();
+            }
             return;
         }
         // Client must specify the client ID except enable clean session on the connection.
         if (StringUtils.isEmpty(clientId)) {
             if (!msg.variableHeader().isCleanSession()) {
-                channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().identifierInvalid(protocolVersion));
-                channel.close();
-                log.error("The MQTT client ID cannot be empty. Username={}", username);
+                MqttMessage mqttMessage = MqttConnectAck.errorBuilder().identifierInvalid(protocolVersion);
+                log.error("[CONNECT] The MQTT client ID cannot be empty. Username={}", username);
+                adapter.setMqttMessage(mqttMessage);
+                channel.writeAndFlush(adapter);
+                if (!adapter.fromProxy()) {
+                    channel.close();
+                }
                 return;
             }
             clientId = MqttMessageUtils.createClientIdentifier(channel);
             connectMessage = MqttMessageUtils.stuffClientIdToConnectMessage(msg, clientId);
             if (log.isDebugEnabled()) {
-                log.debug("Client has connected with generated identifier. CId={}", clientId);
+                log.debug("[CONNECT] Client has connected with generated identifier. CId={}", clientId);
             }
         }
         String userRole = null;
         if (!authenticationEnabled) {
-            log.info("Authentication is disabled, allowing client. CId={}, username={}", clientId, username);
+            if (log.isDebugEnabled()) {
+                log.debug("[CONNECT] Authentication is disabled, allowing client. CId={}, username={}",
+                        clientId, username);
+            }
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
             if (authResult.isFailed()) {
-                channel.writeAndFlush(MqttConnectAckHelper.errorBuilder().authFail(protocolVersion));
-                channel.close();
-                log.error("Invalid or incorrect authentication. CId={}, username={}", clientId, username);
+                MqttMessage mqttMessage = MqttConnectAck.errorBuilder().authFail(protocolVersion);
+                log.error("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
+                adapter.setMqttMessage(mqttMessage);
+                channel.writeAndFlush(adapter);
+                if (!adapter.fromProxy()) {
+                    channel.close();
+                }
                 return;
             }
             userRole = authResult.getUserRole();
         }
-        doProcessConnect(connectMessage, userRole);
+        try {
+            ClientRestrictions.ClientRestrictionsBuilder clientRestrictionsBuilder = ClientRestrictions.builder();
+            MqttPropertyUtils.parsePropertiesToStuffRestriction(clientRestrictionsBuilder, msg);
+            clientRestrictionsBuilder
+                    .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
+                    .cleanSession(msg.variableHeader().isCleanSession());
+            adapter.setMqttMessage(connectMessage);
+            doProcessConnect(adapter, userRole, clientRestrictionsBuilder.build());
+        } catch (InvalidReceiveMaximumException invalidReceiveMaximumException) {
+            log.error("[CONNECT] Fail to parse receive maximum because of zero value, CId={}", clientId);
+            MqttMessage mqttMessage = MqttConnectAck.errorBuilder().protocolError(protocolVersion);
+            adapter.setMqttMessage(mqttMessage);
+            channel.writeAndFlush(adapter);
+            if (!adapter.fromProxy()) {
+                channel.close();
+            }
+        }
     }
 
     @Override
-    public void processPubAck(MqttPubAckMessage msg) {
+    public void processPubAck(MqttAdapterMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[PubAck] [{}]", NettyUtils.getConnection(channel).getClientId());
         }
     }
 
     @Override
-    public void processPubRel(MqttMessage msg) {
+    public void processPubRel(MqttAdapterMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[PubRel] [{}]", NettyUtils.getConnection(channel).getClientId());
         }
     }
 
     @Override
-    public void processPubRec(MqttMessage msg) {
+    public void processPubRec(MqttAdapterMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[PubRec] [{}]", NettyUtils.getConnection(channel).getClientId());
         }
     }
 
     @Override
-    public void processPubComp(MqttMessage msg) {
+    public void processPubComp(MqttAdapterMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[PubComp] [{}]", NettyUtils.getConnection(channel).getClientId());
         }

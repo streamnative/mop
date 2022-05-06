@@ -17,15 +17,19 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Entry;
 import org.apache.pulsar.broker.service.Consumer;
@@ -36,6 +40,7 @@ import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
+import org.apache.pulsar.common.protocol.Commands;
 
 /**
  * MQTT consumer.
@@ -57,14 +62,16 @@ public class MQTTConsumer extends Consumer {
     private static final AtomicIntegerFieldUpdater<MQTTConsumer> ADD_PERMITS_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "addPermits");
     private volatile int addPermits = 0;
-    private final int maxPermits;
+    private final ClientRestrictions clientRestrictions;
+    @Getter
+    private final Connection connection;
 
-    public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, String consumerName,
+    public MQTTConsumer(Subscription subscription, String mqttTopicName, String pulsarTopicName, Connection connection,
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
-                        OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector,
-                        int clientReceiveMaximum) {
-        super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0, consumerName, 0, cnx,
-                "", null, false, CommandSubscribe.InitialPosition.Latest, null, MessageId.latest);
+                        OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector) {
+        super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0,
+                connection.getClientId(), true, cnx, "", null, false,
+                CommandSubscribe.InitialPosition.Latest, null, MessageId.latest, Commands.DEFAULT_CONSUMER_EPOCH);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
         this.cnx = cnx;
@@ -72,7 +79,8 @@ public class MQTTConsumer extends Consumer {
         this.packetIdGenerator = packetIdGenerator;
         this.outstandingPacketContainer = outstandingPacketContainer;
         this.metricsCollector = metricsCollector;
-        this.maxPermits = clientReceiveMaximum;
+        this.clientRestrictions = connection.getClientRestrictions();
+        this.connection = connection;
     }
 
     @Override
@@ -97,7 +105,8 @@ public class MQTTConsumer extends Consumer {
                             mqttTopicName, super.getSubscription().getName(), msg);
                 }
                 metricsCollector.addReceived(msg.payload().readableBytes());
-                cnx.ctx().channel().write(msg);
+                cnx.ctx().channel().write(new MqttAdapterMessage(connection.getClientId(), msg,
+                        connection.isFromProxy()));
             }
         }
         if (MqttQoS.AT_MOST_ONCE == qos) {
@@ -128,7 +137,7 @@ public class MQTTConsumer extends Consumer {
 
     public void incrementPermits(int permits) {
         int var = ADD_PERMITS_UPDATER.addAndGet(this, permits);
-        if (var > maxPermits / 2) {
+        if (var > clientRestrictions.getReceiveMaximum() / 2) {
             MESSAGE_PERMITS_UPDATER.addAndGet(this, var);
             this.getSubscription().consumerFlow(this, availablePermits);
             ADD_PERMITS_UPDATER.set(this, 0);
@@ -136,7 +145,7 @@ public class MQTTConsumer extends Consumer {
     }
 
     public void addAllPermits() {
-        this.availablePermits = maxPermits;
+        this.availablePermits = clientRestrictions.getReceiveMaximum();
         this.getSubscription().consumerFlow(this, availablePermits);
     }
 

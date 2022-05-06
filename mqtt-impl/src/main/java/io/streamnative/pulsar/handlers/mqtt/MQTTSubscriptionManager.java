@@ -15,12 +15,15 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 /**
@@ -31,11 +34,34 @@ public class MQTTSubscriptionManager {
 
     private ConcurrentMap<String, List<MqttTopicSubscription>> subscriptions = new ConcurrentHashMap<>(2048);
 
-    public void addSubscriptions(String clientId, List<MqttTopicSubscription> topicSubscriptions) {
-        this.subscriptions.computeIfAbsent(clientId, k -> new ArrayList<>()).addAll(topicSubscriptions);
+    public boolean addSubscriptions(String clientId, List<MqttTopicSubscription> topicSubscriptions) {
+        boolean duplicated = false;
+        List<MqttTopicSubscription> preSubscriptions = this.subscriptions.putIfAbsent(clientId, topicSubscriptions);
+        if (preSubscriptions != null) {
+            synchronized (clientId.intern()) {
+                List<String> preTopicNameList = preSubscriptions.stream().map(MqttTopicSubscription::topicName)
+                        .collect(Collectors.toList());
+                List<String> curTopicNameList = topicSubscriptions.stream().map(MqttTopicSubscription::topicName)
+                        .collect(Collectors.toList());
+                Collection<String> interTopicNameList = CollectionUtils
+                        .intersection(preTopicNameList, curTopicNameList);
+                if (interTopicNameList.isEmpty()) {
+                    preSubscriptions.addAll(topicSubscriptions);
+                } else {
+                    log.error("duplicate subscribe topic filter : {}", interTopicNameList);
+                    duplicated = true;
+                }
+            }
+        }
+        return duplicated;
     }
 
-    public List<Pair<String, String>> findMatchTopic(String topic) {
+    /**
+     *  Find the matched topic from the subscriptions.
+     * @param topic
+     * @return Pair with clientId, topicName.
+     */
+    public List<Pair<String, String>> findMatchedTopic(String topic) {
         List<Pair<String, String>> result = new ArrayList<>();
         Set<Map.Entry<String, List<MqttTopicSubscription>>> entries = subscriptions.entrySet();
         for (Map.Entry<String, List<MqttTopicSubscription>> entry : entries) {

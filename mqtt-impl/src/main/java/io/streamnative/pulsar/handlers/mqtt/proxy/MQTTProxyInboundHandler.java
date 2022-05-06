@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static io.streamnative.pulsar.handlers.mqtt.Constants.DEFAULT_CLIENT_ID;
 import io.netty.channel.ChannelHandlerContext;
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonInboundHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -32,12 +33,6 @@ public class MQTTProxyInboundHandler extends MQTTCommonInboundHandler {
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-        this.processor = new MQTTProxyProtocolMethodProcessor(proxyService, ctx);
-    }
-
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        super.channelInactive(ctx);
-        this.processor.processConnectionLost();
+        processors.put(DEFAULT_CLIENT_ID, new MQTTProxyProtocolMethodProcessor(proxyService, ctx));
     }
 }

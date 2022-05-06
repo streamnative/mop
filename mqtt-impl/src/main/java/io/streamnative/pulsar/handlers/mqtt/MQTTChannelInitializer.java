@@ -17,11 +17,12 @@ import static org.apache.pulsar.client.impl.PulsarChannelInitializer.TLS_HANDLER
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
-import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.adapter.CombineAdapterHandler;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterDecoder;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterEncoder;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
 import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
 import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
@@ -40,7 +41,6 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private SslContextAutoRefreshBuilder<SslContext> sslCtxRefresher;
     private NettySSLContextAutoRefreshBuilder nettySSLContextAutoRefreshBuilder;
-    private PSKConfiguration pskConfiguration;
 
     public MQTTChannelInitializer(MQTTService mqttService, boolean enableTls) {
         this(mqttService, enableTls, false);
@@ -52,42 +52,33 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         this.mqttConfig = mqttService.getServerConfiguration();
         this.enableTls = enableTls;
         this.enableTlsPsk = enableTlsPsk;
-        this.tlsEnabledWithKeyStore = mqttConfig.isTlsEnabledWithKeyStore();
+        this.tlsEnabledWithKeyStore = mqttConfig.isMqttTlsEnabledWithKeyStore();
         if (this.enableTls) {
             if (tlsEnabledWithKeyStore) {
                 nettySSLContextAutoRefreshBuilder = new NettySSLContextAutoRefreshBuilder(
-                        mqttConfig.getTlsProvider(),
-                        mqttConfig.getTlsKeyStoreType(),
-                        mqttConfig.getTlsKeyStore(),
-                        mqttConfig.getTlsKeyStorePassword(),
-                        mqttConfig.isTlsAllowInsecureConnection(),
-                        mqttConfig.getTlsTrustStoreType(),
-                        mqttConfig.getTlsTrustStore(),
-                        mqttConfig.getTlsTrustStorePassword(),
-                        mqttConfig.isTlsRequireTrustedClientCertOnConnect(),
-                        mqttConfig.getTlsCiphers(),
-                        mqttConfig.getTlsProtocols(),
-                        mqttConfig.getTlsCertRefreshCheckDurationSec());
+                        mqttConfig.getMqttTlsProvider(),
+                        mqttConfig.getMqttTlsKeyStoreType(),
+                        mqttConfig.getMqttTlsKeyStore(),
+                        mqttConfig.getMqttTlsKeyStorePassword(),
+                        mqttConfig.isMqttTlsAllowInsecureConnection(),
+                        mqttConfig.getMqttTlsTrustStoreType(),
+                        mqttConfig.getMqttTlsTrustStore(),
+                        mqttConfig.getMqttTlsTrustStorePassword(),
+                        mqttConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
+                        mqttConfig.getMqttTlsCiphers(),
+                        mqttConfig.getMqttTlsProtocols(),
+                        mqttConfig.getMqttTlsCertRefreshCheckDurationSec());
             } else {
                 sslCtxRefresher = new NettyServerSslContextBuilder(
-                        mqttConfig.isTlsAllowInsecureConnection(),
-                        mqttConfig.getTlsTrustCertsFilePath(),
-                        mqttConfig.getTlsCertificateFilePath(),
-                        mqttConfig.getTlsKeyFilePath(),
-                        mqttConfig.getTlsCiphers(),
-                        mqttConfig.getTlsProtocols(),
-                        mqttConfig.isTlsRequireTrustedClientCertOnConnect(),
-                        mqttConfig.getTlsCertRefreshCheckDurationSec());
+                        mqttConfig.isMqttTlsAllowInsecureConnection(),
+                        mqttConfig.getMqttTlsTrustCertsFilePath(),
+                        mqttConfig.getMqttTlsCertificateFilePath(),
+                        mqttConfig.getMqttTlsKeyFilePath(),
+                        mqttConfig.getMqttTlsCiphers(),
+                        mqttConfig.getMqttTlsProtocols(),
+                        mqttConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
+                        mqttConfig.getMqttTlsCertRefreshCheckDurationSec());
             }
-        } else if (this.enableTlsPsk) {
-            pskConfiguration = new PSKConfiguration();
-            pskConfiguration.setIdentityHint(mqttConfig.getTlsPskIdentityHint());
-            pskConfiguration.setIdentity(mqttConfig.getTlsPskIdentity());
-            pskConfiguration.setIdentityFile(mqttConfig.getTlsPskIdentityFile());
-            pskConfiguration.setProtocols(mqttConfig.getTlsProtocols());
-            pskConfiguration.setCiphers(mqttConfig.getTlsCiphers());
-        } else {
-            this.sslCtxRefresher = null;
         }
     }
 
@@ -102,10 +93,16 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
                 ch.pipeline().addLast(TLS_HANDLER, sslCtxRefresher.get().newHandler(ch.alloc()));
             }
         } else if (this.enableTlsPsk) {
-            ch.pipeline().addLast(TLS_HANDLER, new SslHandler(PSKUtils.createServerEngine(ch, pskConfiguration)));
+            ch.pipeline().addLast(TLS_HANDLER,
+                    new SslHandler(PSKUtils.createServerEngine(ch, mqttService.getPskConfiguration())));
         }
-        ch.pipeline().addLast("decoder", new MqttDecoder(mqttConfig.getMqttMessageMaxLength()));
-        ch.pipeline().addLast("encoder", MqttEncoder.INSTANCE);
-        ch.pipeline().addLast("handler", new MQTTInboundHandler(mqttService));
+        // Decoder
+        ch.pipeline().addLast(MqttAdapterDecoder.NAME, new MqttAdapterDecoder());
+        ch.pipeline().addLast("mqtt-decoder", new MqttDecoder(mqttConfig.getMqttMessageMaxLength()));
+        // Encoder
+        ch.pipeline().addLast(MqttAdapterEncoder.NAME, MqttAdapterEncoder.INSTANCE);
+        // Handler
+        ch.pipeline().addLast(CombineAdapterHandler.NAME, new CombineAdapterHandler());
+        ch.pipeline().addLast(MQTTInboundHandler.NAME, new MQTTInboundHandler(mqttService));
     }
 }

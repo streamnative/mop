@@ -13,12 +13,13 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Interface for Qos publish handler.
  */
 public interface QosPublishHandler {
 
-    void publish(MqttPublishMessage msg);
+    CompletableFuture<Void> publish(MqttAdapterMessage msg);
 }
