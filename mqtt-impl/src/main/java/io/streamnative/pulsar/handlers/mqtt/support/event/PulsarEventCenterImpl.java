@@ -13,9 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support.event;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -29,7 +28,7 @@ public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEven
 
     @SuppressWarnings("UnstableApiUsage")
     public PulsarEventCenterImpl(BrokerService brokerService, int poolThreadNum) {
-        this.listeners = Collections.synchronizedList(new ArrayList<>());
+        this.listeners = new CopyOnWriteArrayList<>();
         this.callbackExecutor =
                 Executors.newFixedThreadPool(poolThreadNum);
         brokerService.getPulsar()
@@ -58,7 +57,7 @@ public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEven
         List<PulsarEventListener> needNotifyListener =
                 listeners.stream().filter(listeners -> listeners.matchPath(path)).collect(Collectors.toList());
         callbackExecutor.execute(() -> needNotifyListener.parallelStream()
-                .forEach(listener -> callbackExecutor.execute(() -> {
+                .forEach(listener -> {
                     switch (notification.getType()) {
                         case Created:
                             listener.onNodeCreated(path);
@@ -69,6 +68,6 @@ public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEven
                         default:
                             break;
                     }
-                })));
+                }));
     }
 }
