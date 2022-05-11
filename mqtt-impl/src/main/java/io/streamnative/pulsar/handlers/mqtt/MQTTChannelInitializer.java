@@ -75,6 +75,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
                     sslProvider = SslProvider.valueOf(mqttConfig.getTlsProvider());
                 }
                 sslCtxRefresher = new NettyServerSslContextBuilder(
+                        sslProvider,
                         mqttConfig.isMqttTlsAllowInsecureConnection(),
                         mqttConfig.getMqttTlsTrustCertsFilePath(),
                         mqttConfig.getMqttTlsCertificateFilePath(),
