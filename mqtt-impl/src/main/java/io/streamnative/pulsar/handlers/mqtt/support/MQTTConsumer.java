@@ -109,6 +109,8 @@ public class MQTTConsumer extends Consumer {
                 if (clientRestrictions.exceedMaximumPacketSize(readableBytes)) {
                     log.warn("discard msg {}, because it exceeds maximum packet size : {}, msg size {}", msg,
                             clientRestrictions.getMaximumPacketSize(), readableBytes);
+                    getSubscription().acknowledgeMessage(Collections.singletonList(entry.getPosition()),
+                            CommandAck.AckType.Individual, Collections.emptyMap());
                     continue;
                 }
                 cnx.ctx().channel().write(new MqttAdapterMessage(connection.getClientId(), msg,
