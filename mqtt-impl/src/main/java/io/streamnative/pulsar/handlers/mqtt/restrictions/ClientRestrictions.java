@@ -33,6 +33,7 @@ public class ClientRestrictions {
     private Integer keepAliveTime;
     @Getter
     private boolean cleanSession;
+    private Integer maximumPacketSize;
 
     public int getSessionExpireInterval() {
         return Optional.ofNullable(sessionExpireInterval)
@@ -45,6 +46,14 @@ public class ClientRestrictions {
 
     public int getKeepAliveTime() {
         return Optional.ofNullable(keepAliveTime).orElse(0);
+    }
+
+    public int getMaximumPacketSize() {
+        return Optional.ofNullable(maximumPacketSize).orElse(0);
+    }
+
+    public boolean exceedMaximumPacketSize(int readableBytes) {
+        return getMaximumPacketSize() != 0 ? readableBytes > maximumPacketSize : false;
     }
 
     public void updateExpireInterval(int newExpireInterval) throws InvalidSessionExpireIntervalException {
