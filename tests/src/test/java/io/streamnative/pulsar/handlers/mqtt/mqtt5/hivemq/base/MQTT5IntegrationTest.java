@@ -18,11 +18,14 @@ import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.datatypes.MqttTopic;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
+import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
+import com.hivemq.client.mqtt.mqtt5.message.connect.Mqtt5ConnectRestrictions;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.admin.PulsarAdminException;
@@ -139,4 +142,36 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
         client2.disconnect();
     }
 
+    @Test(timeOut = TIMEOUT)
+    public void testMaximumPacketSize() throws Exception {
+        final String topic = "maximumPacketSize";
+        final String identifier = "maximum-packet-size";
+        Mqtt5BlockingClient client = Mqtt5Client.builder()
+                .identifier(identifier)
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        client.connectWith()
+                .restrictions(
+                Mqtt5ConnectRestrictions.builder().maximumPacketSize(20).build())
+                .send();
+        client.subscribeWith()
+                .topicFilter(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        byte[] msg = "payload_123456789_123456789".getBytes();
+        client.publishWith()
+                .topic(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload(msg)
+                .send();
+
+        try (Mqtt5BlockingClient.Mqtt5Publishes publishes = client.publishes(MqttGlobalPublishFilter.ALL)) {
+            Optional<Mqtt5Publish> received = publishes.receive(3, TimeUnit.SECONDS);
+            Assert.assertFalse(received.isPresent());
+        }
+        Assert.assertEquals(admin.topics().getStats(topic).getSubscriptions().get(identifier).getUnackedMessages(), 0);
+        client.unsubscribeWith().topicFilter(topic).send();
+        client.disconnect();
+    }
 }

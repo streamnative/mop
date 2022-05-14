@@ -104,7 +104,15 @@ public class MQTTConsumer extends Consumer {
                     log.debug("[{}] [{}] [{}] Send MQTT message {} to subscriber", pulsarTopicName,
                             mqttTopicName, super.getSubscription().getName(), msg);
                 }
-                metricsCollector.addReceived(msg.payload().readableBytes());
+                int readableBytes = msg.payload().readableBytes();
+                metricsCollector.addReceived(readableBytes);
+                if (clientRestrictions.exceedMaximumPacketSize(readableBytes)) {
+                    log.warn("discard msg {}, because it exceeds maximum packet size : {}, msg size {}", msg,
+                            clientRestrictions.getMaximumPacketSize(), readableBytes);
+                    getSubscription().acknowledgeMessage(Collections.singletonList(entry.getPosition()),
+                            CommandAck.AckType.Individual, Collections.emptyMap());
+                    continue;
+                }
                 cnx.ctx().channel().write(new MqttAdapterMessage(connection.getClientId(), msg,
                         connection.isFromProxy()));
             }

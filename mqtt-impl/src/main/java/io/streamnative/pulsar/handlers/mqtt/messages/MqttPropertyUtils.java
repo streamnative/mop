@@ -63,6 +63,15 @@ public class MqttPropertyUtils {
         return Optional.ofNullable(property.value());
     }
 
+    public static Optional<Integer> getMaximumPacketSize(MqttProperties properties) {
+        MqttProperties.MqttProperty<Integer> property = properties
+                .getProperty(MqttProperties.MqttPropertyType.MAXIMUM_PACKET_SIZE.value());
+        if (property == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(property.value());
+    }
+
     public static void parsePropertiesToStuffRestriction(
             ClientRestrictions.ClientRestrictionsBuilder clientRestrictionsBuilder,
             MqttConnectMessage connectMessage)
@@ -78,6 +87,9 @@ public class MqttPropertyUtils {
         } else {
             receiveMaximum.ifPresent(clientRestrictionsBuilder::receiveMaximum);
         }
+        // parse maximum packet size
+        Optional<Integer> maximumPacketSize = getMaximumPacketSize(properties);
+        maximumPacketSize.ifPresent(clientRestrictionsBuilder::maximumPacketSize);
     }
 
     /**

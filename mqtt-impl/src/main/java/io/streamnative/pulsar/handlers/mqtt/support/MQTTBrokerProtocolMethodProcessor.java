@@ -463,8 +463,8 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
 
     private CompletableFuture<Void> createAndSubConsumer(Subscription sub,
                                                          MqttTopicSubscription subTopic,
-                                                         String changedTopicName) {
-        MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(), changedTopicName, connection, serverCnx,
+                                                         String pulsarTopicName) {
+        MQTTConsumer consumer = new MQTTConsumer(sub, subTopic.topicName(), pulsarTopicName, connection, serverCnx,
                 subTopic.qualityOfService(), packetIdGenerator, outstandingPacketContainer, metricsCollector);
         return sub.addConsumer(consumer).thenAccept(__ -> {
             consumer.addAllPermits();
