@@ -22,6 +22,7 @@ import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
@@ -31,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.commons.codec.binary.Hex;
 
 /**
@@ -96,7 +98,10 @@ public class MqttMessageUtils {
         final String willTopic = msg.payload().willTopic();
         final boolean retained = msg.variableHeader().isWillRetain();
         final MqttQoS qos = MqttQoS.valueOf(msg.variableHeader().willQos());
-        return new WillMessage(willTopic, willMessage, qos, retained);
+        final List<MqttProperties.StringPair> userProperty = msg.payload().willProperties()
+                .getProperties(MqttProperties.MqttPropertyType.USER_PROPERTY.value())
+                .stream().map(up -> (MqttProperties.StringPair) up.value()).collect(Collectors.toList());
+        return new WillMessage(willTopic, willMessage, qos, retained, userProperty);
     }
 
     public static RetainedMessage createRetainedMessage(MqttPublishMessage msg) {
@@ -122,13 +127,18 @@ public class MqttMessageUtils {
     }
 
     public static MqttPublishMessage createMqttWillMessage(WillMessage willMessage) {
-        return MessageBuilder.publish()
+        MessageBuilder.PublishBuilder builder = MessageBuilder.publish()
                 .topicName(willMessage.getTopic())
                 .payload(Unpooled.copiedBuffer(willMessage.getWillMessage()))
                 .qos(willMessage.getQos())
                 .retained(willMessage.isRetained())
-                .messageId(-1)
-                .build();
+                .messageId(-1);
+        if (willMessage.userProperty != null) {
+            MqttProperties properties = new MqttProperties();
+            properties.add(new MqttProperties.UserProperties(willMessage.userProperty));
+            builder.properties(properties);
+        }
+        return builder.build();
     }
 
     public static MqttMessage createMqttDisconnectMessage() {

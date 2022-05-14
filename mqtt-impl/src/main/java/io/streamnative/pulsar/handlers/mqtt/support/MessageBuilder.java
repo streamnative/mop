@@ -50,6 +50,7 @@ public final class MessageBuilder {
         private MqttQoS qos;
         private ByteBuf payload;
         private int messageId;
+        private MqttProperties properties;
 
         public PublishBuilder topicName(String topic) {
             this.topic = topic;
@@ -76,9 +77,14 @@ public final class MessageBuilder {
             return this;
         }
 
+        public PublishBuilder properties(MqttProperties properties) {
+            this.properties = properties;
+            return this;
+        }
+
         public MqttPublishMessage build() {
             MqttFixedHeader mqttFixedHeader = new MqttFixedHeader(MqttMessageType.PUBLISH, false, qos, retained, 0);
-            MqttPublishVariableHeader mqttVariableHeader = new MqttPublishVariableHeader(topic, messageId);
+            MqttPublishVariableHeader mqttVariableHeader = new MqttPublishVariableHeader(topic, messageId, properties);
             return new MqttPublishMessage(mqttFixedHeader, mqttVariableHeader, payload);
         }
     }
