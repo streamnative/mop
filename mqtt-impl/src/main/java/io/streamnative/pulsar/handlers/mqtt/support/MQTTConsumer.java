@@ -90,15 +90,14 @@ public class MQTTConsumer extends Consumer {
         ChannelPromise promise = cnx.ctx().newPromise();
         MESSAGE_PERMITS_UPDATER.addAndGet(this, -totalMessages);
         for (Entry entry : entries) {
-            int packetId = 0;
-            if (MqttQoS.AT_MOST_ONCE != qos) {
-                packetId = packetIdGenerator.nextPacketId();
-                outstandingPacketContainer.add(new OutstandingPacket(this, packetId, entry.getLedgerId(),
-                        entry.getEntryId()));
-            }
             String toConsumerTopicName = PulsarTopicUtils.getToConsumerTopicName(mqttTopicName, pulsarTopicName);
             List<MqttPublishMessage> messages = PulsarMessageConverter.toMqttMessages(toConsumerTopicName, entry,
-                    packetId, qos);
+                    packetIdGenerator, qos);
+            if (MqttQoS.AT_MOST_ONCE != qos) {
+                messages.stream().map(message -> new OutstandingPacket(this,
+                        message.variableHeader().packetId(), entry.getLedgerId(),
+                        entry.getEntryId())).forEach(outstandingPacketContainer::add);
+            }
             for (MqttPublishMessage msg : messages) {
                 if (log.isDebugEnabled()) {
                     log.debug("[{}] [{}] [{}] Send MQTT message {} to subscriber", pulsarTopicName,

@@ -18,6 +18,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.util.concurrent.FastThreadLocal;
+import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -67,7 +68,8 @@ public class PulsarMessageConverter {
         return MessageImpl.create(metadata, mqttMsg.payload().nioBuffer(), SCHEMA, topic.getName());
     }
 
-    public static List<MqttPublishMessage> toMqttMessages(String topicName, Entry entry, int messageId, MqttQoS qos) {
+    public static List<MqttPublishMessage> toMqttMessages(String topicName, Entry entry,
+                                                          PacketIdGenerator packetIdGenerator, MqttQoS qos) {
         ByteBuf metadataAndPayload = entry.getDataBuffer();
         MessageMetadata metadata = Commands.parseMessageMetadata(metadataAndPayload);
         if (metadata.hasNumMessagesInBatch()) {
@@ -81,7 +83,7 @@ public class PulsarMessageConverter {
                             single,
                             i, batchSize);
                     response.add(MessageBuilder.publish()
-                            .messageId(messageId)
+                            .messageId(packetIdGenerator.nextPacketId())
                             .payload(singleMessagePayload)
                             .topicName(topicName)
                             .qos(qos)
@@ -96,7 +98,7 @@ public class PulsarMessageConverter {
             }
         } else {
             return Collections.singletonList(MessageBuilder.publish()
-                    .messageId(messageId)
+                    .messageId(packetIdGenerator.nextPacketId())
                     .payload(metadataAndPayload)
                     .topicName(topicName)
                     .qos(qos)
