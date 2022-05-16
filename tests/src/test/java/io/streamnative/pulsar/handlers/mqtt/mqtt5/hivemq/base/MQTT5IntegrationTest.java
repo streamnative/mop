@@ -19,6 +19,8 @@ import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.datatypes.MqttTopic;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
+import com.hivemq.client.mqtt.mqtt5.datatypes.Mqtt5UserProperties;
+import com.hivemq.client.mqtt.mqtt5.datatypes.Mqtt5UserProperty;
 import com.hivemq.client.mqtt.mqtt5.message.connect.Mqtt5ConnectRestrictions;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
@@ -173,5 +175,47 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
         Assert.assertEquals(admin.topics().getStats(topic).getSubscriptions().get(identifier).getUnackedMessages(), 0);
         client.unsubscribeWith().topicFilter(topic).send();
         client.disconnect();
+    }
+
+    @Test
+    public void testLastWillMessage() throws Exception {
+        final String topic = "testLastWillMessage";
+        final String identifier = "test-Last-Will-Message";
+        Mqtt5BlockingClient client = Mqtt5Client.builder()
+                .identifier(identifier)
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        Mqtt5UserProperties userProperty = Mqtt5UserProperties.builder()
+                .add("user-1", "value-1")
+                .add("user-2", "value-2")
+                .build();
+        Mqtt5UserProperty userProperty1 = Mqtt5UserProperty.of("user-1", "value-1");
+        Mqtt5UserProperty userProperty2 = Mqtt5UserProperty.of("user-2", "value-2");
+        client.connectWith().willPublish(Mqtt5Publish.builder().topic(topic).userProperties(userProperty)
+                            .asWill().payload("online".getBytes(StandardCharsets.UTF_8)).build())
+                .send();
+        Mqtt5BlockingClient client2 = Mqtt5Client.builder()
+                .identifier(identifier + "-client-2")
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        client2.connectWith().send();
+        client2.subscribeWith()
+                .topicFilter(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        Mqtt5BlockingClient.Mqtt5Publishes publishes = client2.publishes(MqttGlobalPublishFilter.ALL);
+        client.disconnect();
+        Mqtt5Publish message = publishes.receive();
+        Assert.assertNotNull(message);
+        Assert.assertEquals(message.getPayloadAsBytes(), "online".getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(message.getUserProperties().asList().size(), 2);
+        // Validate the user properties order, must be the same with set order.
+        Assert.assertEquals(message.getUserProperties().asList().get(0).compareTo(userProperty1), 0);
+        Assert.assertEquals(message.getUserProperties().asList().get(1).compareTo(userProperty2), 0);
+        publishes.close();
+        client2.unsubscribeWith().topicFilter(topic).send();
+        client2.disconnect();
     }
 }
