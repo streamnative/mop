@@ -14,9 +14,8 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTConsumer;
-import lombok.Getter;
-
 import java.util.Objects;
+import lombok.Getter;
 
 /**
  * Outstanding packet that the broker sent to clients.
