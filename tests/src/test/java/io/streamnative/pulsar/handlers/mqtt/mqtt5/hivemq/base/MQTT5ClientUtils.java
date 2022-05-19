@@ -23,6 +23,7 @@ public class MQTT5ClientUtils {
     public static Mqtt5BlockingClient createMqtt5Client(int port) {
         return Mqtt5Client.builder()
                 .identifier(UUID.randomUUID().toString())
+                .automaticReconnectWithDefaultConfig()
                 .serverHost("127.0.0.1")
                 .serverPort(port)
                 .buildBlocking();
@@ -31,6 +32,7 @@ public class MQTT5ClientUtils {
     public static Mqtt5BlockingClient createMqtt5ProxyClient(int proxyPort) {
         return Mqtt5Client.builder()
                 .identifier(UUID.randomUUID().toString())
+                .automaticReconnectWithDefaultConfig()
                 .serverHost("127.0.0.1")
                 .serverPort(proxyPort)
                 .buildBlocking();
