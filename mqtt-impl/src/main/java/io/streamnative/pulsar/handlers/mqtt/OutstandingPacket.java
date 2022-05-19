@@ -14,38 +14,59 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTConsumer;
+import lombok.Getter;
+
+import java.util.Objects;
 
 /**
  * Outstanding packet that the broker sent to clients.
  */
+
+@Getter
 public class OutstandingPacket {
 
     private final MQTTConsumer consumer;
     private final int packetId;
     private final long ledgerId;
     private final long entryId;
+    private final int batchIndex;
 
+    private final int batchSize;
 
     public OutstandingPacket(MQTTConsumer consumer, int packetId, long ledgerId, long entryId) {
         this.consumer = consumer;
         this.packetId = packetId;
         this.ledgerId = ledgerId;
         this.entryId = entryId;
+        this.batchIndex = -1;
+        this.batchSize = -1;
     }
 
-    public MQTTConsumer getConsumer() {
-        return consumer;
+    public OutstandingPacket(MQTTConsumer consumer, int packetId, long ledgerId,
+                             long entryId, int batchIndex, int batchSize) {
+        this.consumer = consumer;
+        this.packetId = packetId;
+        this.ledgerId = ledgerId;
+        this.entryId = entryId;
+        this.batchIndex = batchIndex;
+        this.batchSize = batchSize;
     }
 
-    public int getPacketId() {
-        return packetId;
+    public boolean isBatch() {
+        return batchIndex != -1;
     }
 
-    public long getLedgerId() {
-        return ledgerId;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        OutstandingPacket that = (OutstandingPacket) o;
+        return packetId == that.packetId && ledgerId == that.ledgerId
+                && entryId == that.entryId && batchIndex == that.batchIndex && batchSize == that.batchSize;
     }
 
-    public long getEntryId() {
-        return entryId;
+    @Override
+    public int hashCode() {
+        return Objects.hash(packetId, ledgerId, entryId, batchIndex, batchSize);
     }
 }

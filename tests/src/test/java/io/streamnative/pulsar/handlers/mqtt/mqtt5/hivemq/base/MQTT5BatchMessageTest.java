@@ -17,12 +17,18 @@ import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
+import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.impl.BatchMessageIdImpl;
 import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 
@@ -61,6 +67,55 @@ public class MQTT5BatchMessageTest extends MQTTTestBase {
             String payload = new String(message.getPayloadAsBytes());
             Assert.assertTrue(payloads.contains(payload));
         }
+        publishes.close();
+        client.disconnect();
+        producer.close();
+    }
+
+
+    @Test
+    public void testAckBatchMessageIndividual() throws Exception {
+        final String topic = "persistent://public/default/test-batch-message-1";
+        final Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        client.connect();
+        client.subscribeWith()
+                .topicFilter(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        final Mqtt5BlockingClient.Mqtt5Publishes publishes = client.publishes(MqttGlobalPublishFilter.ALL, true);
+        Producer<byte[]> producer = pulsarClient.newProducer()
+                .enableBatching(true)
+                .batchingMaxMessages(5)
+                .topic(topic)
+                .create();
+        final List<String> payloads = new ArrayList<>();
+        for (int i = 0; i < 50; i++) {
+            final String payload = UUID.randomUUID().toString();
+            payloads.add(payload);
+            producer.sendAsync(payload.getBytes());
+        }
+        for (int i = 0; i < 50; i++) {
+            Mqtt5Publish message = publishes.receive();
+            if (i % 2 == 0)  {
+                message.acknowledge();
+                String payload = new String(message.getPayloadAsBytes());
+                payloads.remove(payload);
+            }
+
+        }
+        admin.topics().unload(topic);
+
+        Assert.assertFalse(payloads.isEmpty());
+        for (int i = 0; i < 50; i++) {
+            Optional<Mqtt5Publish> receive = publishes.receive(5, TimeUnit.SECONDS);
+            if (receive.isPresent()) {
+                Mqtt5Publish message = receive.get();
+                message.acknowledge();
+                String payload = new String(message.getPayloadAsBytes());
+                payloads.remove(payload);
+            }
+        }
+        Assert.assertTrue(payloads.isEmpty());
         publishes.close();
         client.disconnect();
         producer.close();
