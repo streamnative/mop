@@ -57,8 +57,12 @@ public class OutstandingPacket {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         OutstandingPacket that = (OutstandingPacket) o;
         return packetId == that.packetId && ledgerId == that.ledgerId
                 && entryId == that.entryId && batchIndex == that.batchIndex && batchSize == that.batchSize;
