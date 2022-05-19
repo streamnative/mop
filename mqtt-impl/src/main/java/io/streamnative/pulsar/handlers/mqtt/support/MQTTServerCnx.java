@@ -15,8 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.ChannelHandlerContext;
 import java.util.concurrent.CompletableFuture;
-
-import io.streamnative.pulsar.handlers.mqtt.Connection;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.Consumer;
@@ -47,8 +45,7 @@ public class MQTTServerCnx extends ServerCnx {
     public void closeConsumer(Consumer consumer) {
         safelyRemoveConsumer(consumer);
         MQTTConsumer mqttConsumer = (MQTTConsumer) consumer;
-        Connection connection = mqttConsumer.getConnection();
-        connection.disconnect();
+        mqttConsumer.getConnection().disconnect();
     }
 
     private void safelyRemoveConsumer(Consumer consumer) {
