@@ -68,6 +68,8 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     public void initialize(ServiceConfiguration conf) throws Exception {
         // init config
         mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
+        // We have to enable ack batch message individual.
+        mqttConfig.setAcknowledgmentAtBatchIndexLevelEnabled(true);
         this.bindAddress = ServiceConfigurationUtils.getDefaultOrConfiguredAddress(mqttConfig.getBindAddress());
     }
 

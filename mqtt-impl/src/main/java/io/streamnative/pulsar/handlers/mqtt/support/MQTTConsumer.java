@@ -94,16 +94,26 @@ public class MQTTConsumer extends Consumer {
             List<MqttPublishMessage> messages = PulsarMessageConverter.toMqttMessages(toConsumerTopicName, entry,
                     packetIdGenerator, qos);
             if (MqttQoS.AT_MOST_ONCE != qos) {
-                messages.stream().map(message -> new OutstandingPacket(this,
-                        message.variableHeader().packetId(), entry.getLedgerId(),
-                        entry.getEntryId())).forEach(outstandingPacketContainer::add);
+                final boolean isBatch = messages.size() > 1;
+                if (isBatch) {
+                    for (int i = 0; i < messages.size(); i++) {
+                        int packetId = messages.get(i).variableHeader().packetId();
+                        OutstandingPacket outstandingPacket = new OutstandingPacket(this, packetId, entry.getLedgerId(),
+                                        entry.getEntryId(), i, messages.size());
+                        outstandingPacketContainer.add(outstandingPacket);
+                    }
+                } else {
+                    OutstandingPacket outstandingPacket = new OutstandingPacket(this,
+                            messages.get(0).variableHeader().packetId(), entry.getLedgerId(), entry.getEntryId());
+                    outstandingPacketContainer.add(outstandingPacket);
+                }
             }
             for (MqttPublishMessage msg : messages) {
                 if (log.isDebugEnabled()) {
                     log.debug("[{}] [{}] [{}] Send MQTT message {} to subscriber", pulsarTopicName,
                             mqttTopicName, super.getSubscription().getName(), msg);
                 }
-                int readableBytes = msg.payload().readableBytes();
+                final int readableBytes = msg.payload().readableBytes();
                 metricsCollector.addReceived(readableBytes);
                 if (clientRestrictions.exceedMaximumPacketSize(readableBytes)) {
                     log.warn("discard msg {}, because it exceeds maximum packet size : {}, msg size {}", msg,
