@@ -32,7 +32,6 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class MqttPropertyUtils {
-    private static int TRUE = 1;
 
     /**
      * Get session expire interval.
