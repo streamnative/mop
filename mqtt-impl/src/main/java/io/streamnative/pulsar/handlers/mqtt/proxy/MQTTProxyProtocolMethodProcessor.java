@@ -156,7 +156,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                         Throwable cause = ex.getCause();
                         log.error("[Proxy Publish] Failed to publish for topic : {}, CId : {}",
                                 msg.variableHeader().topicName(), connection.getClientId(), cause);
-                        MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder = MqttPubAck.errorBuilder(connection.getProtocolVersion())
+                        MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder =
+                                MqttPubAck.errorBuilder(connection.getProtocolVersion())
                                 .packetId(packetId)
                                 .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR);
                         if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {

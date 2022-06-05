@@ -428,7 +428,8 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                         subTopics.stream().map(MqttTopicSubscription::topicName)
                                 .collect(Collectors.joining(",")),
                         pulsarService.getConfig().isAllowAutoTopicCreation());
-                MqttSubAck.MqttSubErrorAckBuilder subAckBuilder = MqttSubAck.errorBuilder(connection.getProtocolVersion())
+                MqttSubAck.MqttSubErrorAckBuilder subAckBuilder =
+                        MqttSubAck.errorBuilder(connection.getProtocolVersion())
                         .packetId(messageID)
                         .errorReason(MqttSubAck.ErrorReason.UNSPECIFIED_ERROR);
                 if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
@@ -437,7 +438,8 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                 connection.sendAckThenClose(subAckBuilder.build());
             } else {
                 log.error("[Subscribe] [{}] Failed to process MQTT subscribe.", connection.getClientId(), ex);
-                MqttSubAck.MqttSubErrorAckBuilder subAckBuilder = MqttSubAck.errorBuilder(connection.getProtocolVersion())
+                MqttSubAck.MqttSubErrorAckBuilder subAckBuilder =
+                        MqttSubAck.errorBuilder(connection.getProtocolVersion())
                         .packetId(messageID)
                         .errorReason(MqttSubAck.ErrorReason.UNSPECIFIED_ERROR);
                 if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
@@ -538,8 +540,8 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                         .build();
                 connection.sendAck(unsubAck);
             } else {
-                MqttUnsubAck.MqttUnsubErrorAckBuilder unsubAckBuilder
-                        = MqttUnsubAck.errorBuilder(connection.getProtocolVersion())
+                MqttUnsubAck.MqttUnsubErrorAckBuilder unsubAckBuilder =
+                        MqttUnsubAck.errorBuilder(connection.getProtocolVersion())
                         .packetId(packetId)
                         .reasonCode(Mqtt5UnsubReasonCode.UNSPECIFIED_ERROR);
                 if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
