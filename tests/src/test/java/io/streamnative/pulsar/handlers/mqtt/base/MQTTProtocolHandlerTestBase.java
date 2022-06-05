@@ -149,6 +149,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqtt.setAuthorizationEnabled(false);
         mqtt.setAllowAutoTopicCreation(true);
         mqtt.setBrokerDeleteInactiveTopicsEnabled(false);
+        mqtt.setAcknowledgmentAtBatchIndexLevelEnabled(true);
 
         // set protocol related config
         URL testHandlerUrl = this.getClass().getClassLoader().getResource("test-protocol-handler.nar");
