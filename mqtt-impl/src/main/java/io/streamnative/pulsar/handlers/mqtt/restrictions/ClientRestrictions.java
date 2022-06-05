@@ -35,6 +35,9 @@ public class ClientRestrictions {
     private boolean cleanSession;
     private Integer maximumPacketSize;
 
+    @Getter
+    private boolean allowReasonStrOrUserProperty;
+
     public int getSessionExpireInterval() {
         return Optional.ofNullable(sessionExpireInterval)
                 .orElse(SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime());

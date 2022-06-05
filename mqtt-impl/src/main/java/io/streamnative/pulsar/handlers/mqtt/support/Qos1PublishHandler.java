@@ -84,20 +84,22 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                     } else if (realCause instanceof BrokerServiceException.TopicNotFoundException) {
                         log.warn("Topic [{}] Not found, the configuration [isAllowAutoTopicCreation={}]",
                                 topic, pulsarService.getConfig().isAllowAutoTopicCreation());
-                        MqttAck pubAck = MqttPubAck.errorBuilder(protocolVersion)
+                        MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder = MqttPubAck.errorBuilder(protocolVersion)
                                 .packetId(packetId)
-                                .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
-                                .reasonString("Topic not found")
-                                .build();
-                        connection.sendAckThenClose(pubAck);
+                                .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR);
+                        if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
+                            pubAckBuilder.reasonString("Topic not found");
+                        }
+                        connection.sendAckThenClose(pubAckBuilder.build());
                     } else {
                         log.error("[{}] Publish msg {} fail.", topic, msg, ex);
-                        MqttAck pubAck = MqttPubAck.errorBuilder(protocolVersion)
+                        MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder = MqttPubAck.errorBuilder(protocolVersion)
                                 .packetId(packetId)
-                                .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
-                                .reasonString(realCause.getMessage())
-                                .build();
-                        connection.sendAckThenClose(pubAck);
+                                .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR);
+                        if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
+                            pubAckBuilder.reasonString(realCause.getMessage());
+                        }
+                        connection.sendAckThenClose(pubAckBuilder.build());
                     }
                     return null;
                 });
