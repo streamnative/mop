@@ -19,6 +19,7 @@ import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5ConnAckException;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5PubAckException;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5SubAckException;
+import com.hivemq.client.mqtt.mqtt5.message.connect.Mqtt5ConnectRestrictions;
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck;
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAckReasonCode;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
@@ -105,6 +106,7 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
                 .send();
         try {
             client.subscribeWith().topicFilter("a").qos(MqttQos.AT_LEAST_ONCE).send();
+            Assert.fail();
         } catch (Mqtt5SubAckException ex) {
             for (Mqtt5SubAckReasonCode reasonCode : ex.getMqttMessage().getReasonCodes()) {
                 Assert.assertEquals(reasonCode, Mqtt5SubAckReasonCode.NOT_AUTHORIZED);
@@ -131,9 +133,41 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
                     .qos(MqttQos.AT_LEAST_ONCE)
                     .send();
             client.subscribeWith().topicFilter("a").qos(MqttQos.AT_LEAST_ONCE).send();
+            Assert.fail();
         } catch (Mqtt5PubAckException ex) {
             Mqtt5PubAckReasonCode reasonCode = ex.getMqttMessage().getReasonCode();
             Assert.assertEquals(reasonCode, Mqtt5PubAckReasonCode.NOT_AUTHORIZED);
+            Assert.assertTrue(ex.getMqttMessage().getReasonString().isPresent());
+        }
+        Awaitility.await()
+                .untilAsserted(() -> Assert.assertFalse(client.getState().isConnected()));
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testPublishWithRequestProblemInformation() {
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(getMqttBrokerPortList().get(0));
+        client.connectWith()
+                .simpleAuth()
+                .username("user1")
+                .password("pass1".getBytes(StandardCharsets.UTF_8))
+                .applySimpleAuth()
+                .restrictions(Mqtt5ConnectRestrictions.builder()
+                        .requestProblemInformation(false)
+                        .build())
+                .send();
+        String message = "Hello MQTT Pulsar";
+        try {
+            client.publishWith()
+                    .topic("a")
+                    .payload(message.getBytes(StandardCharsets.UTF_8))
+                    .qos(MqttQos.AT_LEAST_ONCE)
+                    .send();
+            client.subscribeWith().topicFilter("a").qos(MqttQos.AT_LEAST_ONCE).send();
+            Assert.fail();
+        } catch (Mqtt5PubAckException ex) {
+            Mqtt5PubAckReasonCode reasonCode = ex.getMqttMessage().getReasonCode();
+            Assert.assertEquals(reasonCode, Mqtt5PubAckReasonCode.NOT_AUTHORIZED);
+            Assert.assertFalse(ex.getMqttMessage().getReasonString().isPresent());
         }
         Awaitility.await()
                 .untilAsserted(() -> Assert.assertFalse(client.getState().isConnected()));

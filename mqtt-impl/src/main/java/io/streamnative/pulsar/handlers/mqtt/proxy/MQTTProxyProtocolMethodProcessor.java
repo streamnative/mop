@@ -156,13 +156,16 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                         Throwable cause = ex.getCause();
                         log.error("[Proxy Publish] Failed to publish for topic : {}, CId : {}",
                                 msg.variableHeader().topicName(), connection.getClientId(), cause);
-                        MqttAck pubAck = MqttPubAck.errorBuilder(connection.getProtocolVersion())
+                        MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder =
+                                MqttPubAck.errorBuilder(connection.getProtocolVersion())
                                 .packetId(packetId)
-                                .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR)
-                                .reasonString(String.format("Failed to publish for topic, because of look up error %s",
-                                        cause.getMessage()))
-                                .build();
-                        connection.sendAckThenClose(pubAck)
+                                .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR);
+                        if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
+                            pubAckBuilder.reasonString(
+                                            String.format("Failed to publish for topic, because of look up error %s",
+                                            cause.getMessage()));
+                        }
+                        connection.sendAckThenClose(pubAckBuilder.build())
                                 .thenAccept(__ -> connection.decrementServerReceivePubMessage());
                     }
                 });
@@ -273,12 +276,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
                     log.error("[Proxy Subscribe] Failed to process subscribe for {}", clientId, realCause);
-                    MqttAck subAck = MqttSubAck.errorBuilder(connection.getProtocolVersion())
+                    MqttSubAck.MqttSubErrorAckBuilder subAckBuilder =
+                            MqttSubAck.errorBuilder(connection.getProtocolVersion())
                             .packetId(packetId)
-                            .errorReason(MqttSubAck.ErrorReason.UNSPECIFIED_ERROR)
-                            .reasonString("[ MOP ERROR ]" + realCause.getMessage())
-                            .build();
-                    connection.sendAckThenClose(subAck);
+                            .errorReason(MqttSubAck.ErrorReason.UNSPECIFIED_ERROR);
+                    if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
+                        subAckBuilder.reasonString("[ MOP ERROR ]" + realCause.getMessage());
+                    }
+                    connection.sendAckThenClose(subAckBuilder.build());
                     subscribeAckTracker.remove(packetId);
                     return null;
                 });

@@ -109,7 +109,9 @@ public class MqttPubAck {
                 return MqttProperties.NO_PROPERTIES;
             }
             MqttProperties properties = new MqttProperties();
-            MqttPropertyUtils.setReasonString(properties, reasonString);
+            if (reasonString != null) {
+                MqttPropertyUtils.setReasonString(properties, reasonString);
+            }
             return properties;
         }
     }

@@ -48,24 +48,9 @@ public class MqttPropertyUtils {
         return Optional.ofNullable(property.value());
     }
 
-    /**
-     * Get receive maximum.
-     * @param properties - mqtt properties
-     * @return Integer - expire interval value
-     */
     @SuppressWarnings("unchecked")
-    private static Optional<Integer> getReceiveMaximum(MqttProperties properties) {
-        MqttProperties.MqttProperty<Integer> property = properties
-                .getProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value());
-        if (property == null) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(property.value());
-    }
-
-    public static Optional<Integer> getMaximumPacketSize(MqttProperties properties) {
-        MqttProperties.MqttProperty<Integer> property = properties
-                .getProperty(MqttProperties.MqttPropertyType.MAXIMUM_PACKET_SIZE.value());
+    public static Optional<Integer> getIntProperty(MqttProperties properties, MqttProperties.MqttPropertyType type) {
+        MqttProperties.MqttProperty<Integer> property = properties.getProperty(type.value());
         if (property == null) {
             return Optional.empty();
         }
@@ -81,15 +66,21 @@ public class MqttPropertyUtils {
         getExpireInterval(properties)
                 .ifPresent(clientRestrictionsBuilder::sessionExpireInterval);
         // parse receive maximum
-        Optional<Integer> receiveMaximum = getReceiveMaximum(properties);
+        Optional<Integer> receiveMaximum = getIntProperty(properties, MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM);
         if (receiveMaximum.isPresent() && receiveMaximum.get() == 0) {
             throw new InvalidReceiveMaximumException("Not Allow Receive maximum property value zero");
         } else {
             receiveMaximum.ifPresent(clientRestrictionsBuilder::receiveMaximum);
         }
         // parse maximum packet size
-        Optional<Integer> maximumPacketSize = getMaximumPacketSize(properties);
+        Optional<Integer> maximumPacketSize = getIntProperty(properties, MqttProperties
+                .MqttPropertyType.MAXIMUM_PACKET_SIZE);
         maximumPacketSize.ifPresent(clientRestrictionsBuilder::maximumPacketSize);
+        // parse request problem information
+        Optional<Integer> requestProblemInformation =
+                getIntProperty(properties, MqttProperties.MqttPropertyType.REQUEST_PROBLEM_INFORMATION);
+        // the empty option means allowing reason string or user property
+        clientRestrictionsBuilder.allowReasonStrOrUserProperty(!requestProblemInformation.isPresent());
     }
 
     /**
