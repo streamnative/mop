@@ -43,10 +43,11 @@ public class MQTT5PublishRelatedProtocolTest extends MQTTTestBase {
         Mqtt5UserProperty userProperty1 = Mqtt5UserProperty.of("user-1", "value-1");
         Mqtt5UserProperty userProperty2 = Mqtt5UserProperty.of("user-2", "value-2");
         client1.connectWith().send();
-        Mqtt5Publish publishMessage = Mqtt5Publish.builder().topic(topic).qos(MqttQos.AT_LEAST_ONCE).userProperties(userProperty).build();
+        Mqtt5Publish publishMessage = Mqtt5Publish.builder().topic(topic).qos(MqttQos.AT_LEAST_ONCE)
+                .userProperties(userProperty).build();
 
         Mqtt5BlockingClient client2 = Mqtt5Client.builder()
-                .identifier( "ccc")
+                .identifier("ccc")
                 .serverHost("127.0.0.1")
                 .serverPort(getMqttBrokerPortList().get(0))
                 .buildBlocking();
