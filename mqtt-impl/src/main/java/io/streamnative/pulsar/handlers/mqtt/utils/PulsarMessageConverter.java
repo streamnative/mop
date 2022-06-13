@@ -14,6 +14,10 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.CONTENT_TYPE;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.CORRELATION_DATA;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.RESPONSE_TOPIC;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.USER_PROPERTY;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
@@ -22,6 +26,7 @@ import io.netty.util.concurrent.FastThreadLocal;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -73,8 +78,21 @@ public class PulsarMessageConverter {
                 if (MqttProperties.MqttPropertyType.USER_PROPERTY.value() == prop.propertyId()) {
                     MqttProperties.UserProperties userProperties = (MqttProperties.UserProperties) prop;
                     userProperties.value().forEach(pair -> {
-                        metadata.addProperty().setKey(pair.key).setValue(pair.value);
+                        metadata.addProperty().setKey(USER_PROPERTY + pair.key).setValue(pair.value);
                     });
+                }
+                if (MqttProperties.MqttPropertyType.RESPONSE_TOPIC.value() == prop.propertyId()) {
+                    MqttProperties.StringProperty property = (MqttProperties.StringProperty) prop;
+                    metadata.addProperty().setKey(RESPONSE_TOPIC + property.propertyId()).setValue(property.value());
+                }
+                if (MqttProperties.MqttPropertyType.CONTENT_TYPE.value() == prop.propertyId()) {
+                    MqttProperties.StringProperty property = (MqttProperties.StringProperty) prop;
+                    metadata.addProperty().setKey(CONTENT_TYPE + property.propertyId()).setValue(property.value());
+                }
+                if (MqttProperties.MqttPropertyType.CORRELATION_DATA.value() == prop.propertyId()) {
+                    MqttProperties.BinaryProperty property = (MqttProperties.BinaryProperty) prop;
+                    metadata.addProperty().setKey(CORRELATION_DATA + property.propertyId())
+                            .setValue(new String(property.value()));
                 }
             });
         }
@@ -90,7 +108,22 @@ public class PulsarMessageConverter {
             properties = new MqttProperties();
             MqttProperties.UserProperties userProperties = new MqttProperties.UserProperties();
             for (KeyValue kv : metadata.getPropertiesList()) {
-                userProperties.add(kv.getKey(), kv.getValue());
+                if (kv.getKey().startsWith(USER_PROPERTY)) {
+                    userProperties.add(kv.getKey().substring(USER_PROPERTY.length()), kv.getValue());
+                }
+                if (kv.getKey().startsWith(RESPONSE_TOPIC)) {
+                    properties.add(new MqttProperties.StringProperty(Integer.parseInt(kv.getKey()
+                                    .substring(RESPONSE_TOPIC.length())), kv.getValue()));
+                }
+                if (kv.getKey().startsWith(CONTENT_TYPE)) {
+                    properties.add(new MqttProperties.StringProperty(Integer.parseInt(kv.getKey()
+                            .substring(CONTENT_TYPE.length())), kv.getValue()));
+                }
+                if (kv.getKey().startsWith(CORRELATION_DATA)) {
+                    properties.add(new MqttProperties.BinaryProperty(Integer.parseInt(kv.getKey()
+                            .substring(CORRELATION_DATA.length())), kv.getValue().getBytes(StandardCharsets.UTF_8)));
+                }
+
             }
             properties.add(userProperties);
         }
@@ -153,8 +186,8 @@ public class PulsarMessageConverter {
             metadata.setProducerName(FAKE_MQTT_PRODUCER_NAME);
         }
 
-        msg.getProperties().forEach((k, v) -> {
-            metadata.addProperty().setKey(k).setValue(v);
+        msg.getMessageBuilder().getPropertiesList().forEach(item -> {
+            metadata.addProperty().setKey(item.getKey()).setValue(item.getValue());
         });
 
         metadata.setCompression(
