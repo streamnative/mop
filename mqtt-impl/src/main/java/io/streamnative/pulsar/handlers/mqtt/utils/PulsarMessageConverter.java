@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import io.netty.buffer.ByteBuf;
+import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.util.concurrent.FastThreadLocal;
@@ -31,6 +32,7 @@ import org.apache.pulsar.client.api.CompressionType;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.impl.MessageImpl;
+import org.apache.pulsar.common.api.proto.KeyValue;
 import org.apache.pulsar.common.api.proto.MessageMetadata;
 import org.apache.pulsar.common.api.proto.SingleMessageMetadata;
 import org.apache.pulsar.common.compression.CompressionCodecProvider;
@@ -65,6 +67,17 @@ public class PulsarMessageConverter {
     public static MessageImpl<byte[]> toPulsarMsg(Topic topic, MqttPublishMessage mqttMsg) {
         MessageMetadata metadata = LOCAL_MESSAGE_METADATA.get();
         metadata.clear();
+        MqttProperties properties = mqttMsg.variableHeader().properties();
+        if (properties != null) {
+            properties.listAll().forEach(prop -> {
+                if (MqttProperties.MqttPropertyType.USER_PROPERTY.value() == prop.propertyId()) {
+                    MqttProperties.UserProperties userProperties = (MqttProperties.UserProperties) prop;
+                    userProperties.value().forEach(pair -> {
+                        metadata.addProperty().setKey(pair.key).setValue(pair.value);
+                    });
+                }
+            });
+        }
         return MessageImpl.create(metadata, mqttMsg.payload().nioBuffer(), SCHEMA, topic.getName());
     }
 
@@ -72,6 +85,15 @@ public class PulsarMessageConverter {
                                                           PacketIdGenerator packetIdGenerator, MqttQoS qos) {
         ByteBuf metadataAndPayload = entry.getDataBuffer();
         MessageMetadata metadata = Commands.parseMessageMetadata(metadataAndPayload);
+        MqttProperties properties = null;
+        if (metadata.getPropertiesCount() > 0) {
+            properties = new MqttProperties();
+            MqttProperties.UserProperties userProperties = new MqttProperties.UserProperties();
+            for (KeyValue kv : metadata.getPropertiesList()) {
+                userProperties.add(kv.getKey(), kv.getValue());
+            }
+            properties.add(userProperties);
+        }
         if (metadata.hasNumMessagesInBatch()) {
             int batchSize = metadata.getNumMessagesInBatch();
             List<MqttPublishMessage> response = new ArrayList<>(batchSize);
@@ -87,6 +109,7 @@ public class PulsarMessageConverter {
                             .payload(singleMessagePayload)
                             .topicName(topicName)
                             .qos(qos)
+                            .properties(properties)
                             .retained(false)
                             .build());
                 }
@@ -102,6 +125,7 @@ public class PulsarMessageConverter {
                     .payload(metadataAndPayload)
                     .topicName(topicName)
                     .qos(qos)
+                    .properties(properties)
                     .retained(false)
                     .build());
         }
@@ -128,6 +152,10 @@ public class PulsarMessageConverter {
         if (!metadata.hasProducerName()) {
             metadata.setProducerName(FAKE_MQTT_PRODUCER_NAME);
         }
+
+        msg.getProperties().forEach((k, v) -> {
+            metadata.addProperty().setKey(k).setValue(v);
+        });
 
         metadata.setCompression(
                 CompressionCodecProvider.convertToWireProtocol(CompressionType.NONE));
