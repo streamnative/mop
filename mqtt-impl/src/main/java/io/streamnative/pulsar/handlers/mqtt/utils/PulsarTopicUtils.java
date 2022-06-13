@@ -102,7 +102,8 @@ public class PulsarTopicUtils {
                 Topic topic = topicOp.get();
                 Subscription subscription = topic.getSubscription(subscriptionName);
                 if (subscription == null) {
-                    topic.createSubscription(subscriptionName, position, false)
+                    topic.createSubscription(subscriptionName, position, false,
+                                    Collections.emptyMap())
                             .thenAccept(sub -> {
                                 if (topic instanceof NonPersistentTopic) {
                                     ((NonPersistentTopic) topic).getSubscriptions().put(subscriptionName,
