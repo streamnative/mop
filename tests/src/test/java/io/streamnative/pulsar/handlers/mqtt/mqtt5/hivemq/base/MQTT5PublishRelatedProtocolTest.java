@@ -160,30 +160,4 @@ public class MQTT5PublishRelatedProtocolTest extends MQTTTestBase {
         publishes.close();
         client1.disconnect();
     }
-
-    @Test
-    public void testPublishWithSubscriptionIdentifier() throws Exception {
-        final String topic = "testPublishWithSubscriptionIdentifier";
-        Mqtt5BlockingClient client1 = Mqtt5Client.builder()
-                .identifier("abc")
-                .serverHost("127.0.0.1")
-                .serverPort(getMqttBrokerPortList().get(0))
-                .buildBlocking();
-        client1.connectWith().send();
-        Mqtt5Publish publishMessage = Mqtt5Publish.builder().topic(topic)
-                .qos(MqttQos.AT_LEAST_ONCE).build();
-        client1.subscribeWith()
-                .topicFilter(topic)
-                .qos(MqttQos.AT_LEAST_ONCE)
-                .send();
-        Mqtt5BlockingClient.Mqtt5Publishes publishes = client1.publishes(MqttGlobalPublishFilter.ALL);
-        client1.publish(publishMessage);
-        Mqtt5Publish message = publishes.receive();
-        Assert.assertNotNull(message);
-        // Validate the user properties order, must be the same with set order.
-        Assert.assertNotNull(message.getContentType().get());
-        Assert.assertEquals(message.getContentType().get().toString(), "test-content-type");
-        publishes.close();
-        client1.disconnect();
-    }
 }
