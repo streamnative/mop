@@ -131,6 +131,7 @@ public class PulsarMessageConverter {
                             break;
                         default:
                             log.warn("invalid propertyType: {}", propertyType);
+                            break;
                     }
                 }
             }
