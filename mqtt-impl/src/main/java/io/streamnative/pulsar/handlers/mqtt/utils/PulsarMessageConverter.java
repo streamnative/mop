@@ -14,10 +14,9 @@
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.CONTENT_TYPE;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.CORRELATION_DATA;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.RESPONSE_TOPIC;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.USER_PROPERTY;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.MQTT_PROPERTIES;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.MQTT_PROPERTIES_PREFIX;
+import com.google.common.base.Splitter;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
@@ -78,25 +77,29 @@ public class PulsarMessageConverter {
                 if (MqttProperties.MqttPropertyType.USER_PROPERTY.value() == prop.propertyId()) {
                     MqttProperties.UserProperties userProperties = (MqttProperties.UserProperties) prop;
                     userProperties.value().forEach(pair -> {
-                        metadata.addProperty().setKey(USER_PROPERTY + pair.key).setValue(pair.value);
+                        metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()) + pair.key)
+                                .setValue(pair.value);
                     });
-                }
-                if (MqttProperties.MqttPropertyType.RESPONSE_TOPIC.value() == prop.propertyId()) {
+                } else if (MqttProperties.MqttPropertyType.RESPONSE_TOPIC.value() == prop.propertyId()) {
                     MqttProperties.StringProperty property = (MqttProperties.StringProperty) prop;
-                    metadata.addProperty().setKey(RESPONSE_TOPIC + property.propertyId()).setValue(property.value());
-                }
-                if (MqttProperties.MqttPropertyType.CONTENT_TYPE.value() == prop.propertyId()) {
+                    metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()))
+                            .setValue(property.value());
+                } else if (MqttProperties.MqttPropertyType.CONTENT_TYPE.value() == prop.propertyId()) {
                     MqttProperties.StringProperty property = (MqttProperties.StringProperty) prop;
-                    metadata.addProperty().setKey(CONTENT_TYPE + property.propertyId()).setValue(property.value());
-                }
-                if (MqttProperties.MqttPropertyType.CORRELATION_DATA.value() == prop.propertyId()) {
+                    metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()))
+                            .setValue(property.value());
+                } else if (MqttProperties.MqttPropertyType.CORRELATION_DATA.value() == prop.propertyId()) {
                     MqttProperties.BinaryProperty property = (MqttProperties.BinaryProperty) prop;
-                    metadata.addProperty().setKey(CORRELATION_DATA + property.propertyId())
+                    metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()))
                             .setValue(new String(property.value()));
                 }
             });
         }
         return MessageImpl.create(metadata, mqttMsg.payload().nioBuffer(), SCHEMA, topic.getName());
+    }
+
+    private static String getPropertiesPrefix(int propertyId) {
+        return String.format(MQTT_PROPERTIES, propertyId);
     }
 
     public static List<MqttPublishMessage> toMqttMessages(String topicName, Entry entry,
@@ -108,22 +111,28 @@ public class PulsarMessageConverter {
             properties = new MqttProperties();
             MqttProperties.UserProperties userProperties = new MqttProperties.UserProperties();
             for (KeyValue kv : metadata.getPropertiesList()) {
-                if (kv.getKey().startsWith(USER_PROPERTY)) {
-                    userProperties.add(kv.getKey().substring(USER_PROPERTY.length()), kv.getValue());
+                String key = kv.getKey();
+                if (key.startsWith(MQTT_PROPERTIES_PREFIX)) {
+                    List<String> keys = Splitter.on("_").splitToList(key.substring(MQTT_PROPERTIES_PREFIX.length()));
+                    int propertyId = Integer.parseInt(keys.get(0));
+                    MqttProperties.MqttPropertyType propertyType = MqttProperties.MqttPropertyType.valueOf(propertyId);
+                    switch (propertyType) {
+                        case USER_PROPERTY:
+                            userProperties.add(kv.getKey().substring(getPropertiesPrefix(propertyId).length()),
+                                    kv.getValue());
+                            break;
+                        case RESPONSE_TOPIC:
+                        case CONTENT_TYPE:
+                            properties.add(new MqttProperties.StringProperty(propertyId, kv.getValue()));
+                            break;
+                        case CORRELATION_DATA:
+                            properties.add(new MqttProperties.BinaryProperty(propertyId, kv.getValue()
+                                    .getBytes(StandardCharsets.UTF_8)));
+                            break;
+                        default:
+                            throw new RuntimeException("invalid propertyType : " + propertyType);
+                    }
                 }
-                if (kv.getKey().startsWith(RESPONSE_TOPIC)) {
-                    properties.add(new MqttProperties.StringProperty(Integer.parseInt(kv.getKey()
-                                    .substring(RESPONSE_TOPIC.length())), kv.getValue()));
-                }
-                if (kv.getKey().startsWith(CONTENT_TYPE)) {
-                    properties.add(new MqttProperties.StringProperty(Integer.parseInt(kv.getKey()
-                            .substring(CONTENT_TYPE.length())), kv.getValue()));
-                }
-                if (kv.getKey().startsWith(CORRELATION_DATA)) {
-                    properties.add(new MqttProperties.BinaryProperty(Integer.parseInt(kv.getKey()
-                            .substring(CORRELATION_DATA.length())), kv.getValue().getBytes(StandardCharsets.UTF_8)));
-                }
-
             }
             properties.add(userProperties);
         }

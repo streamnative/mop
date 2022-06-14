@@ -13,8 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
-import io.netty.handler.codec.mqtt.MqttProperties;
-
 /**
  * Server constants keeper.
  */
@@ -28,14 +26,9 @@ public final class Constants {
 
     public static final String ATTR_TOPIC_SUBS = "topicSubs";
 
-    public static final String USER_PROPERTY = MqttProperties.MqttPropertyType.USER_PROPERTY.name() + "_";
+    public static final String MQTT_PROPERTIES = "MQTT_PROPERTIES_%d_";
 
-    public static final String RESPONSE_TOPIC = MqttProperties.MqttPropertyType.RESPONSE_TOPIC.name() + "_";
-
-    public static final String CONTENT_TYPE = MqttProperties.MqttPropertyType.CONTENT_TYPE.name() + "_";
-
-    public static final String CORRELATION_DATA = MqttProperties.MqttPropertyType.CORRELATION_DATA.name() + "_";
-
+    public static final String MQTT_PROPERTIES_PREFIX = "MQTT_PROPERTIES_";
 
     private Constants() {
     }
