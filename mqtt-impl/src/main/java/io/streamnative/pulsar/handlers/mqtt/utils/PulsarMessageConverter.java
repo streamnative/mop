@@ -130,7 +130,7 @@ public class PulsarMessageConverter {
                                     .getBytes(StandardCharsets.UTF_8)));
                             break;
                         default:
-                            throw new RuntimeException("invalid propertyType : " + propertyType);
+                            log.warn("invalid propertyType: {}", propertyType);
                     }
                 }
             }
