@@ -26,6 +26,10 @@ public final class Constants {
 
     public static final String ATTR_TOPIC_SUBS = "topicSubs";
 
+    public static final String MQTT_PROPERTIES = "MQTT_PROPERTIES_%d_";
+
+    public static final String MQTT_PROPERTIES_PREFIX = "MQTT_PROPERTIES_";
+
     private Constants() {
     }
 }
