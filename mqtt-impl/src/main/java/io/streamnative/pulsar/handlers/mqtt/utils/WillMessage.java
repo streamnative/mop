@@ -32,6 +32,15 @@ public class WillMessage {
     boolean retained;
     List<MqttProperties.StringPair> userProperty;
 
+    String contentType;
+
+    String responseTopic;
+
+    String correlationData;
+
+    int payloadFormatIndicator;
+
+
     public WillMessage() {
     }
 
@@ -39,11 +48,19 @@ public class WillMessage {
                        final byte[] willMessage,
                        final MqttQoS qos,
                        final boolean retained,
-                       final List<MqttProperties.StringPair> userProperty) {
+                       final List<MqttProperties.StringPair> userProperty,
+                       final String contentType,
+                       final String responseTopic,
+                       final String correlationData,
+                       final int payloadFormatIndicator) {
         this.topic = topic;
         this.willMessage = willMessage;
         this.qos = qos;
         this.retained = retained;
         this.userProperty = userProperty;
+        this.contentType = contentType;
+        this.responseTopic = responseTopic;
+        this.correlationData = correlationData;
+        this.payloadFormatIndicator = payloadFormatIndicator;
     }
 }

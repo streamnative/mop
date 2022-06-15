@@ -29,6 +29,7 @@ import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -101,7 +102,20 @@ public class MqttMessageUtils {
         final List<MqttProperties.StringPair> userProperty = msg.payload().willProperties()
                 .getProperties(MqttProperties.MqttPropertyType.USER_PROPERTY.value())
                 .stream().map(up -> (MqttProperties.StringPair) up.value()).collect(Collectors.toList());
-        return new WillMessage(willTopic, willMessage, qos, retained, userProperty);
+        String contentType = msg.payload().willProperties()
+                .getProperties(MqttProperties.MqttPropertyType.CONTENT_TYPE.value())
+                .stream().map(up -> ((MqttProperties.StringProperty) up).value()).findFirst().orElse(null);
+        String responseTopic = msg.payload().willProperties()
+                .getProperties(MqttProperties.MqttPropertyType.RESPONSE_TOPIC.value())
+                .stream().map(up -> ((MqttProperties.StringProperty) up).value()).findFirst().orElse(null);
+        String correlationData = msg.payload().willProperties()
+                .getProperties(MqttProperties.MqttPropertyType.CORRELATION_DATA.value())
+                .stream().map(up -> new String(((MqttProperties.BinaryProperty) up).value())).findFirst().orElse(null);
+        int payloadFormatIndicator = msg.payload().willProperties()
+                .getProperties(MqttProperties.MqttPropertyType.PAYLOAD_FORMAT_INDICATOR.value())
+                .stream().map(up -> ((MqttProperties.IntegerProperty) up).value()).findFirst().orElse(0);
+        return new WillMessage(willTopic, willMessage, qos, retained, userProperty,
+                contentType, responseTopic, correlationData, payloadFormatIndicator);
     }
 
     public static RetainedMessage createRetainedMessage(MqttPublishMessage msg) {
@@ -133,11 +147,25 @@ public class MqttMessageUtils {
                 .qos(willMessage.getQos())
                 .retained(willMessage.isRetained())
                 .messageId(-1);
+        MqttProperties properties = new MqttProperties();
+        properties.add(new MqttProperties.IntegerProperty(
+                MqttProperties.MqttPropertyType.PAYLOAD_FORMAT_INDICATOR.value(), willMessage.payloadFormatIndicator));
         if (willMessage.userProperty != null) {
-            MqttProperties properties = new MqttProperties();
             properties.add(new MqttProperties.UserProperties(willMessage.userProperty));
-            builder.properties(properties);
         }
+        if (willMessage.contentType != null) {
+            properties.add(new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.CONTENT_TYPE.value(),
+                    willMessage.contentType));
+        }
+        if (willMessage.responseTopic != null) {
+            properties.add(new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.RESPONSE_TOPIC.value(),
+                    willMessage.responseTopic));
+        }
+        if (willMessage.correlationData != null) {
+            properties.add(new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.CORRELATION_DATA.value(),
+                    willMessage.correlationData.getBytes(StandardCharsets.UTF_8)));
+        }
+        builder.properties(properties);
         return builder.build();
     }
 
