@@ -19,6 +19,7 @@ import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
 import com.hivemq.client.mqtt.mqtt5.datatypes.Mqtt5UserProperties;
 import com.hivemq.client.mqtt.mqtt5.datatypes.Mqtt5UserProperty;
+import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5PayloadFormatIndicator;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.nio.ByteBuffer;
@@ -46,7 +47,8 @@ public class MQTT5PublishRelatedProtocolTest extends MQTTTestBase {
         Mqtt5UserProperty userProperty2 = Mqtt5UserProperty.of("user-2", "value-2");
         client1.connectWith().send();
         Mqtt5Publish publishMessage = Mqtt5Publish.builder().topic(topic).qos(MqttQos.AT_LEAST_ONCE)
-                .userProperties(userProperty).build();
+                .userProperties(userProperty)
+                .asWill().build();
 
         Mqtt5BlockingClient client2 = Mqtt5Client.builder()
                 .identifier("ccc")
@@ -157,6 +159,33 @@ public class MQTT5PublishRelatedProtocolTest extends MQTTTestBase {
         }
         String result = new String(bytes, StandardCharsets.UTF_8);
         Assert.assertEquals(result, "c-d");
+        publishes.close();
+        client1.disconnect();
+    }
+
+    @Test
+    public void testPublishWithPayloadFormatIndicator() throws Exception {
+        final String topic = "testPublishWithPayloadFormatIndicator";
+        Mqtt5BlockingClient client1 = Mqtt5Client.builder()
+                .identifier("abc")
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        client1.connectWith().send();
+        Mqtt5Publish publishMessage = Mqtt5Publish.builder().topic(topic)
+                .payloadFormatIndicator(Mqtt5PayloadFormatIndicator.UTF_8)
+                .qos(MqttQos.AT_LEAST_ONCE).build();
+        client1.subscribeWith()
+                .topicFilter(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        Mqtt5BlockingClient.Mqtt5Publishes publishes = client1.publishes(MqttGlobalPublishFilter.ALL);
+        client1.publish(publishMessage);
+        Mqtt5Publish message = publishes.receive();
+        Assert.assertNotNull(message);
+        // Validate the user properties order, must be the same with set order.
+        Assert.assertNotNull(message.getPayloadFormatIndicator().get());
+        Assert.assertEquals(message.getPayloadFormatIndicator().get(), Mqtt5PayloadFormatIndicator.UTF_8);
         publishes.close();
         client1.disconnect();
     }

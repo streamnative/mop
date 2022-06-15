@@ -92,6 +92,10 @@ public class PulsarMessageConverter {
                     MqttProperties.BinaryProperty property = (MqttProperties.BinaryProperty) prop;
                     metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()))
                             .setValue(new String(property.value()));
+                } else if (MqttProperties.MqttPropertyType.PAYLOAD_FORMAT_INDICATOR.value() == prop.propertyId()) {
+                    MqttProperties.IntegerProperty property = (MqttProperties.IntegerProperty) prop;
+                    metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()))
+                            .setValue(String.valueOf(property.value()));
                 }
             });
         }
@@ -124,6 +128,10 @@ public class PulsarMessageConverter {
                         case RESPONSE_TOPIC:
                         case CONTENT_TYPE:
                             properties.add(new MqttProperties.StringProperty(propertyId, kv.getValue()));
+                            break;
+                        case PAYLOAD_FORMAT_INDICATOR:
+                            properties.add(new MqttProperties.IntegerProperty(propertyId,
+                                    Integer.parseInt(kv.getValue())));
                             break;
                         case CORRELATION_DATA:
                             properties.add(new MqttProperties.BinaryProperty(propertyId, kv.getValue()
