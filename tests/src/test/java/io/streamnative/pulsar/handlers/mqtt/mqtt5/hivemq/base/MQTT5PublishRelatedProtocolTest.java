@@ -24,6 +24,8 @@ import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -93,7 +95,6 @@ public class MQTT5PublishRelatedProtocolTest extends MQTTTestBase {
         client1.publish(publishMessage);
         Mqtt5Publish message = publishes.receive();
         Assert.assertNotNull(message);
-        // Validate the user properties order, must be the same with set order.
         Assert.assertNotNull(message.getResponseTopic().get());
         Assert.assertEquals(message.getResponseTopic().get().toString(), "response-topic-b");
         publishes.close();
@@ -120,7 +121,6 @@ public class MQTT5PublishRelatedProtocolTest extends MQTTTestBase {
         client1.publish(publishMessage);
         Mqtt5Publish message = publishes.receive();
         Assert.assertNotNull(message);
-        // Validate the user properties order, must be the same with set order.
         Assert.assertNotNull(message.getContentType().get());
         Assert.assertEquals(message.getContentType().get().toString(), "test-content-type");
         publishes.close();
@@ -147,7 +147,6 @@ public class MQTT5PublishRelatedProtocolTest extends MQTTTestBase {
         client1.publish(publishMessage);
         Mqtt5Publish message = publishes.receive();
         Assert.assertNotNull(message);
-        // Validate the user properties order, must be the same with set order.
         ByteBuffer byteBuffer = message.getCorrelationData().get();
         Assert.assertNotNull(byteBuffer);
         byte[] bytes;
@@ -183,10 +182,71 @@ public class MQTT5PublishRelatedProtocolTest extends MQTTTestBase {
         client1.publish(publishMessage);
         Mqtt5Publish message = publishes.receive();
         Assert.assertNotNull(message);
-        // Validate the user properties order, must be the same with set order.
         Assert.assertNotNull(message.getPayloadFormatIndicator().get());
         Assert.assertEquals(message.getPayloadFormatIndicator().get(), Mqtt5PayloadFormatIndicator.UTF_8);
         publishes.close();
         client1.disconnect();
+    }
+
+    @Test
+    public void testPublishWithMessageExpiryInterval() throws Exception {
+        final String topic = "testPublishWithMessageExpiryInterval";
+        Mqtt5BlockingClient client1 = Mqtt5Client.builder()
+                .identifier("abc")
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        client1.connectWith().send();
+        Mqtt5Publish publishMessage = Mqtt5Publish.builder().topic(topic)
+                .messageExpiryInterval(10)
+                .qos(MqttQos.AT_LEAST_ONCE).build();
+        client1.subscribeWith()
+                .topicFilter(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        Mqtt5BlockingClient.Mqtt5Publishes publishes = client1.publishes(MqttGlobalPublishFilter.ALL);
+        client1.publish(publishMessage);
+        Mqtt5Publish message = publishes.receive();
+        Assert.assertNotNull(message);
+        long expiryInterval = message.getMessageExpiryInterval().getAsLong();
+        Assert.assertTrue(expiryInterval > 0 && expiryInterval <= 10);
+        publishes.close();
+        client1.disconnect();
+        //
+        final String topic2 = "testPublishWithMessageExpiryInterval2";
+        Mqtt5BlockingClient client2 = Mqtt5Client.builder()
+                .identifier("abc2")
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        client2.connectWith()
+                .cleanStart(false).send();
+        Mqtt5Publish publishMessage2 = Mqtt5Publish.builder().topic(topic2)
+                .messageExpiryInterval(1)
+                .qos(MqttQos.AT_LEAST_ONCE).build();
+
+        client2.subscribeWith()
+                .topicFilter(topic2)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        Mqtt5BlockingClient.Mqtt5Publishes publishes2 = client2.publishes(MqttGlobalPublishFilter.ALL, true);
+        client2.publish(publishMessage2);
+        Optional<Mqtt5Publish> message2 = publishes2.receive(2, TimeUnit.SECONDS);
+        Assert.assertTrue(message2.isPresent());
+        publishes2.close();
+        client2.disconnect();
+        // Wait the msg to be expired.
+        Thread.sleep(2000);
+        long msgBacklog = admin.topics().getStats(topic2).getSubscriptions().get("abc2").getMsgBacklog();
+        Assert.assertEquals(msgBacklog, 1);
+        client2.connectWith().send();
+        client2.subscribeWith()
+                .topicFilter(topic2)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        publishes2 = client2.publishes(MqttGlobalPublishFilter.ALL, true);
+        message2 = publishes2.receive(2, TimeUnit.SECONDS);
+        Assert.assertFalse(message2.isPresent());
+        client2.disconnect();
     }
 }

@@ -71,11 +71,13 @@ public class ClientRestrictions {
     }
 
     public boolean isSessionExpireImmediately() {
-        return sessionExpireInterval == SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
+        return sessionExpireInterval == null
+                || sessionExpireInterval == SessionExpireInterval.EXPIRE_IMMEDIATELY.getSecondTime();
     }
 
     public boolean isSessionNeverExpire() {
-        return sessionExpireInterval == SessionExpireInterval.NEVER_EXPIRE.getSecondTime();
+        return sessionExpireInterval == null
+                || sessionExpireInterval == SessionExpireInterval.NEVER_EXPIRE.getSecondTime();
     }
 
     @Getter
