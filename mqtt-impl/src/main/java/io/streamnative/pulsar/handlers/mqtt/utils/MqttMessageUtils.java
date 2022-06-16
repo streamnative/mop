@@ -114,8 +114,15 @@ public class MqttMessageUtils {
         int payloadFormatIndicator = msg.payload().willProperties()
                 .getProperties(MqttProperties.MqttPropertyType.PAYLOAD_FORMAT_INDICATOR.value())
                 .stream().map(up -> ((MqttProperties.IntegerProperty) up).value()).findFirst().orElse(0);
+        int messageExpiryInterval = msg.payload().willProperties()
+                .getProperties(MqttProperties.MqttPropertyType.PUBLICATION_EXPIRY_INTERVAL.value())
+                .stream().map(up -> ((MqttProperties.IntegerProperty) up).value()).findFirst().orElse(0);
+        int delayInterval = msg.payload().willProperties()
+                .getProperties(MqttProperties.MqttPropertyType.WILL_DELAY_INTERVAL.value())
+                .stream().map(up -> ((MqttProperties.IntegerProperty) up).value()).findFirst().orElse(0);
         return new WillMessage(willTopic, willMessage, qos, retained, userProperty,
-                contentType, responseTopic, correlationData, payloadFormatIndicator);
+                contentType, responseTopic, correlationData, payloadFormatIndicator,
+                messageExpiryInterval, delayInterval);
     }
 
     public static RetainedMessage createRetainedMessage(MqttPublishMessage msg) {
@@ -165,6 +172,12 @@ public class MqttMessageUtils {
             properties.add(new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.CORRELATION_DATA.value(),
                     willMessage.correlationData.getBytes(StandardCharsets.UTF_8)));
         }
+        if (willMessage.messageExpiryInterval > 0) {
+            properties.add(new MqttProperties.IntegerProperty(
+                    MqttProperties.MqttPropertyType.PUBLICATION_EXPIRY_INTERVAL.value(),
+                    willMessage.messageExpiryInterval));
+        }
+        // No need to add delayInterval to the properties, it will cause client close the connection.
         builder.properties(properties);
         return builder.build();
     }

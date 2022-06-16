@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 import static io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventType.LAST_WILL_MESSAGE;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttWillMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
@@ -25,6 +26,9 @@ import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.LastWillMessageE
 import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.MqttEvent;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -42,6 +46,8 @@ public class WillMessageHandler {
     private final EventListener eventListener;
     private final MQTTService mqttService;
 
+    private final ScheduledExecutorService executor;
+
     public WillMessageHandler(MQTTService mqttService) {
         this.mqttService = mqttService;
         this.pulsarService = mqttService.getPulsarService();
@@ -49,6 +55,8 @@ public class WillMessageHandler {
         this.connectionManager = mqttService.getConnectionManager();
         this.advertisedAddress = mqttService.getPulsarService().getAdvertisedAddress();
         this.eventListener = new LastWillMessageEventListener();
+        this.executor = Executors.newSingleThreadScheduledExecutor(
+                new DefaultThreadFactory("will-message-executor"));
     }
 
     public void fireWillMessage(String clientId, WillMessage willMessage) {
@@ -61,6 +69,14 @@ public class WillMessageHandler {
                     .build();
             mqttService.getEventService().sendLWTEvent(lwt);
         }
+        if (willMessage.getDelayInterval() > 0) {
+            executor.schedule(() -> sendWillMessage(willMessage), willMessage.getDelayInterval(), TimeUnit.SECONDS);
+        } else {
+            sendWillMessage(willMessage);
+        }
+    }
+
+    private void sendWillMessage(WillMessage willMessage) {
         List<Pair<String, String>> subscriptions = mqttSubscriptionManager.findMatchedTopic(willMessage.getTopic());
         MqttPublishMessage msg = createMqttWillMessage(willMessage);
         for (Pair<String, String> entry : subscriptions) {
@@ -71,6 +87,10 @@ public class WillMessageHandler {
                 log.warn("Not find connection for empty : {}", entry.getLeft());
             }
         }
+    }
+
+    public void close() {
+        this.executor.shutdown();
     }
 
     class LastWillMessageEventListener implements EventListener {

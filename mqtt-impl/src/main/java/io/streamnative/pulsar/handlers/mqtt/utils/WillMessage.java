@@ -40,6 +40,9 @@ public class WillMessage {
 
     int payloadFormatIndicator;
 
+    int messageExpiryInterval;
+
+    int delayInterval;
 
     public WillMessage() {
     }
@@ -52,7 +55,9 @@ public class WillMessage {
                        final String contentType,
                        final String responseTopic,
                        final String correlationData,
-                       final int payloadFormatIndicator) {
+                       final int payloadFormatIndicator,
+                       final int messageExpiryInterval,
+                       final int delayInterval) {
         this.topic = topic;
         this.willMessage = willMessage;
         this.qos = qos;
@@ -62,5 +67,7 @@ public class WillMessage {
         this.responseTopic = responseTopic;
         this.correlationData = correlationData;
         this.payloadFormatIndicator = payloadFormatIndicator;
+        this.messageExpiryInterval = messageExpiryInterval;
+        this.delayInterval = delayInterval;
     }
 }
