@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.MQTT_PROPERTIES;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.MQTT_PROPERTIES_PREFIX;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
@@ -96,6 +97,10 @@ public class PulsarMessageConverter {
                     MqttProperties.IntegerProperty property = (MqttProperties.IntegerProperty) prop;
                     metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()))
                             .setValue(String.valueOf(property.value()));
+                } else if (MqttProperties.MqttPropertyType.PUBLICATION_EXPIRY_INTERVAL.value() == prop.propertyId()) {
+                    MqttProperties.IntegerProperty property = (MqttProperties.IntegerProperty) prop;
+                    metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()))
+                            .setValue(String.valueOf(System.currentTimeMillis() / 1000 + property.value()));
                 }
             });
         }
@@ -137,6 +142,11 @@ public class PulsarMessageConverter {
                             properties.add(new MqttProperties.BinaryProperty(propertyId, kv.getValue()
                                     .getBytes(StandardCharsets.UTF_8)));
                             break;
+                        case PUBLICATION_EXPIRY_INTERVAL:
+                            // calculate first to avoid reset msg properties.
+                            int end = Integer.valueOf(kv.getValue()) - (int) (System.currentTimeMillis() / 1000);
+                            properties.add(new MqttProperties.IntegerProperty(propertyId, end));
+                            break;
                         default:
                             log.warn("invalid propertyType: {}", propertyType);
                             break;
@@ -171,7 +181,7 @@ public class PulsarMessageConverter {
                 return Collections.emptyList();
             }
         } else {
-            return Collections.singletonList(MessageBuilder.publish()
+            return Lists.newArrayList(MessageBuilder.publish()
                     .messageId(packetIdGenerator.nextPacketId())
                     .payload(metadataAndPayload)
                     .topicName(topicName)

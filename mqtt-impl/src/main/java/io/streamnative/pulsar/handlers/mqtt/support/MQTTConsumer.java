@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getMessageExpiryInterval;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
@@ -103,9 +104,22 @@ public class MQTTConsumer extends Consumer {
                         outstandingPacketContainer.add(outstandingPacket);
                     }
                 } else {
-                    OutstandingPacket outstandingPacket = new OutstandingPacket(this,
-                            messages.get(0).variableHeader().packetId(), entry.getLedgerId(), entry.getEntryId());
-                    outstandingPacketContainer.add(outstandingPacket);
+                    // Because batch msg is sent from Pulsar client, so only individual msg may have mqtt-5 properties.
+                    MqttPublishMessage firstMessage = messages.get(0);
+                    long messageExpiry = getMessageExpiryInterval(firstMessage);
+                    boolean addToOutstandingPacketContainer = messageExpiry >= 0;
+                    if (messageExpiry < 0) {
+                        log.warn("mqtt msg has expired : {}", firstMessage);
+                        messages.remove(0);
+                        getSubscription().acknowledgeMessage(
+                                Collections.singletonList(entry.getPosition()),
+                                CommandAck.AckType.Individual, Collections.emptyMap());
+                    }
+                    if (addToOutstandingPacketContainer) {
+                        OutstandingPacket outstandingPacket = new OutstandingPacket(this,
+                                messages.get(0).variableHeader().packetId(), entry.getLedgerId(), entry.getEntryId());
+                        outstandingPacketContainer.add(outstandingPacket);
+                    }
                 }
             }
             for (MqttPublishMessage msg : messages) {

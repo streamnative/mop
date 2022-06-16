@@ -172,4 +172,10 @@ public class MqttMessageUtils {
     public static MqttMessage createMqttDisconnectMessage() {
         return MessageBuilder.disconnect().build();
     }
+
+    public static long getMessageExpiryInterval(MqttPublishMessage msg) {
+        return msg.variableHeader().properties().getProperties(
+                        MqttProperties.MqttPropertyType.PUBLICATION_EXPIRY_INTERVAL.value())
+                .stream().map(prop -> ((MqttProperties.IntegerProperty) prop).value()).findFirst().orElse(0);
+    }
 }
