@@ -117,5 +117,6 @@ public class MQTTService {
         if (eventService != null) {
             eventService.close();
         }
+        this.willMessageHandler.close();
     }
 }

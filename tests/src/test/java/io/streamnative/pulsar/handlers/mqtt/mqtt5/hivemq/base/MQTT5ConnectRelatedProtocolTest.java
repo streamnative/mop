@@ -22,6 +22,8 @@ import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -59,13 +61,16 @@ public class MQTT5ConnectRelatedProtocolTest extends MQTTTestBase {
                 .payloadFormatIndicator(Mqtt5PayloadFormatIndicator.UTF_8)
                 .correlationData("cd".getBytes(StandardCharsets.UTF_8))
                 .responseTopic("will-response-topic")
+                .messageExpiryInterval(10)
+                .delayInterval(2)
                 .payloadFormatIndicator(Mqtt5PayloadFormatIndicator.fromCode(1))
                 .applyWillPublish()
                 .send();
         client2.disconnect();
         //
-        Mqtt5Publish message = publishes.receive();
-        Assert.assertNotNull(message);
+        Optional<Mqtt5Publish> optMessage = publishes.receive(5, TimeUnit.SECONDS);
+        Assert.assertTrue(optMessage.isPresent());
+        Mqtt5Publish message = optMessage.get();
         Assert.assertEquals(new String(message.getPayloadAsBytes()), "will-message");
         // Validate the user properties order, must be the same with set order.
         ByteBuffer byteBuffer = message.getCorrelationData().get();
@@ -86,6 +91,8 @@ public class MQTT5ConnectRelatedProtocolTest extends MQTTTestBase {
         Assert.assertEquals(message.getContentType().get().toString(), "will-content-type");
         Assert.assertNotNull(message.getPayloadFormatIndicator().get());
         Assert.assertEquals(message.getPayloadFormatIndicator().get(), Mqtt5PayloadFormatIndicator.UTF_8);
+        Assert.assertNotNull(message.getMessageExpiryInterval());
+        Assert.assertEquals(message.getMessageExpiryInterval().getAsLong(), 10);
 
         publishes.close();
         client1.disconnect();
