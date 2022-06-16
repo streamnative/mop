@@ -106,9 +106,9 @@ public class MQTTConsumer extends Consumer {
                 } else {
                     // Because batch msg is sent from Pulsar client, so only individual msg may have mqtt-5 properties.
                     MqttPublishMessage firstMessage = messages.get(0);
-                    long messageExpiry = getMessageExpiryInterval(firstMessage);
-                    boolean addToOutstandingPacketContainer = messageExpiry >= 0;
-                    if (messageExpiry < 0) {
+                    long expiryInterval = getMessageExpiryInterval(firstMessage);
+                    boolean addToOutstandingPacketContainer = expiryInterval >= 0;
+                    if (expiryInterval < 0) {
                         log.warn("mqtt msg has expired : {}", firstMessage);
                         messages.remove(0);
                         getSubscription().acknowledgeMessage(
