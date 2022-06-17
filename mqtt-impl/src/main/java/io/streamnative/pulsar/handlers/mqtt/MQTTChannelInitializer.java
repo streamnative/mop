@@ -84,7 +84,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     @Override
     public void initChannel(SocketChannel ch) throws Exception {
-        ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(30, 0, 0));
+        ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(0, 0, 120));
         if (this.enableTls) {
             if (this.tlsEnabledWithKeyStore) {
                 ch.pipeline().addLast(TLS_HANDLER,

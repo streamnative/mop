@@ -104,12 +104,14 @@ public class Connection {
     }
 
     private void addIdleStateHandler() {
-        ChannelPipeline pipeline = channel.pipeline();
-        if (pipeline.names().contains("idleStateHandler")) {
-            pipeline.remove("idleStateHandler");
+        if (!isFromProxy()) {
+            ChannelPipeline pipeline = channel.pipeline();
+            if (pipeline.names().contains("idleStateHandler")) {
+                pipeline.remove("idleStateHandler");
+            }
+            pipeline.addFirst("idleStateHandler", new IdleStateHandler(0, 0,
+                    Math.round(clientRestrictions.getKeepAliveTime() * 1.5f)));
         }
-        pipeline.addFirst("idleStateHandler", new IdleStateHandler(0, 0,
-                Math.round(clientRestrictions.getKeepAliveTime() * 1.5f)));
     }
 
     /**
