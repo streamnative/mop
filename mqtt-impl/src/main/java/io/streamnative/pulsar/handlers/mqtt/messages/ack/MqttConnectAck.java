@@ -90,7 +90,7 @@ public class MqttConnectAck {
                             maximumQos);
             properties.add(receiveMaximumProperty);
             properties.add(maximumQosProperty);
-            if (StringUtils.isEmpty(responseInformation)) {
+            if (StringUtils.isNotEmpty(responseInformation)) {
                 MqttProperties.StringProperty responseInformationProperty =
                         new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.RESPONSE_INFORMATION.value(),
                                 responseInformation);
