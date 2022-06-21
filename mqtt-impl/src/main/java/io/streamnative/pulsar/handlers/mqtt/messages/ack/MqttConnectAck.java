@@ -21,6 +21,7 @@ import io.netty.handler.codec.mqtt.MqttProperties;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt3.Mqtt3ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5ConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Enhance mqtt connect ack message builder.
@@ -46,6 +47,8 @@ public class MqttConnectAck {
 
         private int maximumQos;
 
+        private String responseInformation;
+
         public MqttConnectSuccessAckBuilder(int protocolVersion) {
             this.protocolVersion = protocolVersion;
         }
@@ -62,6 +65,11 @@ public class MqttConnectAck {
 
         public MqttConnectSuccessAckBuilder maximumQos(int maximumQos) {
             this.maximumQos = maximumQos;
+            return this;
+        }
+
+        public MqttConnectSuccessAckBuilder responseInformation(String responseInformation) {
+            this.responseInformation = responseInformation;
             return this;
         }
 
@@ -82,6 +90,12 @@ public class MqttConnectAck {
                             maximumQos);
             properties.add(receiveMaximumProperty);
             properties.add(maximumQosProperty);
+            if (StringUtils.isEmpty(responseInformation)) {
+                MqttProperties.StringProperty responseInformationProperty =
+                        new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.RESPONSE_INFORMATION.value(),
+                                responseInformation);
+                properties.add(responseInformationProperty);
+            }
             return MqttAck.createSupportedAck(
                     commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.toConnectionReasonCode())
                     .properties(properties)
