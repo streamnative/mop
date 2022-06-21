@@ -44,6 +44,8 @@ public class MqttConnectAck {
         private boolean cleanSession;
         private int receiveMaximum;
 
+        private int maximumQos;
+
         public MqttConnectSuccessAckBuilder(int protocolVersion) {
             this.protocolVersion = protocolVersion;
         }
@@ -58,6 +60,11 @@ public class MqttConnectAck {
             return this;
         }
 
+        public MqttConnectSuccessAckBuilder maximumQos(int maximumQos) {
+            this.maximumQos = maximumQos;
+            return this;
+        }
+
         public MqttAck build() {
             MqttMessageBuilders.ConnAckBuilder commonBuilder = MqttMessageBuilders.connAck()
                     .sessionPresent(!cleanSession);
@@ -67,10 +74,14 @@ public class MqttConnectAck {
                         .build());
             }
             MqttProperties properties = new MqttProperties();
-            MqttProperties.IntegerProperty property =
+            MqttProperties.IntegerProperty receiveMaximumProperty =
                     new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM.value(),
                             receiveMaximum);
-            properties.add(property);
+            MqttProperties.IntegerProperty maximumQosProperty =
+                    new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.MAXIMUM_QOS.value(),
+                            maximumQos);
+            properties.add(receiveMaximumProperty);
+            properties.add(maximumQosProperty);
             return MqttAck.createSupportedAck(
                     commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.toConnectionReasonCode())
                     .properties(properties)
@@ -104,6 +115,12 @@ public class MqttConnectAck {
         public MqttMessage authFail(int protocolVersion) {
             this.protocolVersion = protocolVersion;
             this.errorReason = ErrorReason.AUTH_FAILED;
+            return build().getMqttMessage();
+        }
+
+        public MqttMessage qosNotSupport(int protocolVersion) {
+            this.protocolVersion = protocolVersion;
+            this.errorReason = ErrorReason.QOS_NOT_SUPPORT;
             return build().getMqttMessage();
         }
 
@@ -150,6 +167,9 @@ public class MqttConnectAck {
         UNSUPPORTED_VERSION(Mqtt3ConnReasonCode.CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION,
                 Mqtt5ConnReasonCode.UNSUPPORTED_PROTOCOL_VERSION
         ),
+        QOS_NOT_SUPPORT(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE,
+                Mqtt5ConnReasonCode.QOS_NOT_SUPPORTED),
+
         WILL_QOS_NOT_SUPPORT(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE,
                 Mqtt5ConnReasonCode.QOS_NOT_SUPPORTED),
         SERVER_UNAVAILABLE(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE,

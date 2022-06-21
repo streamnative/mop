@@ -24,6 +24,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
+import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
@@ -237,6 +238,7 @@ public class Connection {
         MqttAck connAck = MqttConnectAck.successBuilder(protocolVersion)
                 .receiveMaximum(getServerRestrictions().getReceiveMaximum())
                 .cleanSession(clientRestrictions.isCleanSession())
+                .maximumQos(MqttQoS.AT_LEAST_ONCE.value())
                 .build();
         sendAck(connAck).thenAccept(__ -> assignState(CONNECT_ACK, ESTABLISHED));
         if (log.isDebugEnabled()) {

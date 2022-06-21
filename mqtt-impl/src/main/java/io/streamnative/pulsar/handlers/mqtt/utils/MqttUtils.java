@@ -43,8 +43,19 @@ public class MqttUtils {
         return !isMqtt3(version);
     }
     public static boolean isQosSupported(MqttConnectMessage msg) {
-        int willQos = msg.variableHeader().willQos();
-        MqttQoS mqttQoS = MqttQoS.valueOf(willQos);
+        return isQosSupported(msg.fixedHeader().qosLevel());
+    }
+
+    public static boolean isWillQosSupported(MqttConnectMessage msg) {
+        boolean willFlag = msg.variableHeader().isWillFlag();
+        if (willFlag) {
+            return isQosSupported(MqttQoS.valueOf(msg.variableHeader().willQos()));
+        } else {
+            return true;
+        }
+    }
+
+    private static boolean isQosSupported(MqttQoS mqttQoS) {
         return mqttQoS == MqttQoS.AT_LEAST_ONCE || mqttQoS == MqttQoS.AT_MOST_ONCE;
     }
 

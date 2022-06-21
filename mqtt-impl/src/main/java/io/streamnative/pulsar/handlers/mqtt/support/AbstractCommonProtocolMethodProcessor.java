@@ -79,7 +79,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
             }
             return;
         }
-        if (!MqttUtils.isQosSupported(msg)) {
+        if (!MqttUtils.isWillQosSupported(msg)) {
             MqttMessage mqttMessage = MqttConnectAck.errorBuilder().willQosNotSupport(protocolVersion);
             adapter.setMqttMessage(mqttMessage);
             channel.writeAndFlush(adapter);
