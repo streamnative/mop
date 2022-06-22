@@ -24,6 +24,8 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
+import io.netty.handler.codec.mqtt.MqttProperties;
+import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
@@ -234,10 +236,16 @@ public class Connection {
             sendAckThenClose(connAck);
             return;
         }
-        MqttAck connAck = MqttConnectAck.successBuilder(protocolVersion)
+        MqttConnectAck.MqttConnectSuccessAckBuilder builder = MqttConnectAck.successBuilder(protocolVersion)
                 .receiveMaximum(getServerRestrictions().getReceiveMaximum())
                 .cleanSession(clientRestrictions.isCleanSession())
-                .build();
+                .maximumQos(MqttQoS.AT_LEAST_ONCE.value());
+        MqttProperties.StringProperty resInformation = (MqttProperties.StringProperty) connectMessage.variableHeader()
+                .properties().getProperty(MqttProperties.MqttPropertyType.RESPONSE_INFORMATION.value());
+        if (resInformation != null) {
+            builder.responseInformation(resInformation.value());
+        }
+        MqttAck connAck = builder.build();
         sendAck(connAck).thenAccept(__ -> assignState(CONNECT_ACK, ESTABLISHED));
         if (log.isDebugEnabled()) {
             log.debug("The CONNECT message has been processed. CId={}", clientId);

@@ -136,6 +136,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                 .clientRestrictions(clientRestrictions)
                 .serverRestrictions(serverRestrictions)
                 .channel(channel)
+                .connectMessage(msg)
                 .connectionManager(connectionManager)
                 .fromProxy(adapterMsg.fromProxy())
                 .processor(this)
