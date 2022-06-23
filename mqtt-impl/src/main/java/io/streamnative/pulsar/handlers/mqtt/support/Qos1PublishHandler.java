@@ -42,9 +42,8 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
     }
 
     @Override
-    public CompletableFuture<Void> publish(MqttAdapterMessage adapter) {
+    public CompletableFuture<Void> publish(MqttAdapterMessage adapter, Connection connection) {
         final MqttPublishMessage msg = (MqttPublishMessage) adapter.getMqttMessage();
-        final Connection connection = NettyUtils.getConnection(channel);
         final int protocolVersion = connection.getProtocolVersion();
         final int packetId = msg.variableHeader().packetId();
         final String topic = msg.variableHeader().topicName();

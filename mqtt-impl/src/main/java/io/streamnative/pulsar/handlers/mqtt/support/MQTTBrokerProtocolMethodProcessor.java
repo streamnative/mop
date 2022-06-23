@@ -221,13 +221,13 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         metricsCollector.addSend(msg.payload().readableBytes());
         switch (qos) {
             case AT_MOST_ONCE:
-                return this.qosPublishHandlers.qos0().publish(adapter);
+                return this.qosPublishHandlers.qos0().publish(adapter, connection);
             case AT_LEAST_ONCE:
                 checkServerReceivePubMessageAndIncrementCounterIfNeeded(adapter);
-                return this.qosPublishHandlers.qos1().publish(adapter);
+                return this.qosPublishHandlers.qos1().publish(adapter, connection);
             case EXACTLY_ONCE:
                 checkServerReceivePubMessageAndIncrementCounterIfNeeded(adapter);
-                return this.qosPublishHandlers.qos2().publish(adapter);
+                return this.qosPublishHandlers.qos2().publish(adapter, connection);
             default:
                 log.error("[Publish] Unknown QoS-Type:{}", qos);
                 connection.getChannel().close();
