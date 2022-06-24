@@ -115,6 +115,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         final MqttConnectMessage msg = (MqttConnectMessage) adapter.getMqttMessage();
         final ServerRestrictions serverRestrictions = ServerRestrictions.builder()
                 .receiveMaximum(proxyConfig.getReceiveMaximum())
+                .maximumPacketSize(proxyConfig.getMqttMessageMaxLength())
                 .build();
         connection = Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
