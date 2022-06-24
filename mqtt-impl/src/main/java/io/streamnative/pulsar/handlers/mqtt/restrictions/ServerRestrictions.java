@@ -24,4 +24,7 @@ import lombok.ToString;
 public class ServerRestrictions {
     @Getter
     private int receiveMaximum;
+
+    @Getter
+    private int maximumPacketSize;
 }

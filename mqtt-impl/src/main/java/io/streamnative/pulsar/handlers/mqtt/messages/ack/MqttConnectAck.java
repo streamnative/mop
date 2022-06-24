@@ -49,6 +49,8 @@ public class MqttConnectAck {
 
         private String responseInformation;
 
+        private int maximumPacketSize;
+
         public MqttConnectSuccessAckBuilder(int protocolVersion) {
             this.protocolVersion = protocolVersion;
         }
@@ -73,6 +75,11 @@ public class MqttConnectAck {
             return this;
         }
 
+        public MqttConnectSuccessAckBuilder maximumPacketSize(int maximumPacketSize) {
+            this.maximumPacketSize = maximumPacketSize;
+            return this;
+        }
+
         public MqttAck build() {
             MqttMessageBuilders.ConnAckBuilder commonBuilder = MqttMessageBuilders.connAck()
                     .sessionPresent(!cleanSession);
@@ -88,8 +95,17 @@ public class MqttConnectAck {
             MqttProperties.IntegerProperty maximumQosProperty =
                     new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.MAXIMUM_QOS.value(),
                             maximumQos);
+            // Set Subscription Identifiers Available = 0 now.
+            MqttProperties.IntegerProperty subscriptionIdentifiersAvailableProperty =
+                    new MqttProperties.IntegerProperty(
+                            MqttProperties.MqttPropertyType.SUBSCRIPTION_IDENTIFIER_AVAILABLE.value(), 0);
+            MqttProperties.IntegerProperty maximumPacketSizeProperty =
+                    new MqttProperties.IntegerProperty(
+                            MqttProperties.MqttPropertyType.MAXIMUM_PACKET_SIZE.value(), maximumPacketSize);
             properties.add(receiveMaximumProperty);
             properties.add(maximumQosProperty);
+            properties.add(subscriptionIdentifiersAvailableProperty);
+            properties.add(maximumPacketSizeProperty);
             if (StringUtils.isNotEmpty(responseInformation)) {
                 MqttProperties.StringProperty responseInformationProperty =
                         new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.RESPONSE_INFORMATION.value(),
