@@ -127,6 +127,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         final MqttConnectMessage msg = (MqttConnectMessage) adapterMsg.getMqttMessage();
         ServerRestrictions serverRestrictions = ServerRestrictions.builder()
                 .receiveMaximum(configuration.getReceiveMaximum())
+                .maximumPacketSize(configuration.getMqttMessageMaxLength())
                 .build();
         connection = Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
