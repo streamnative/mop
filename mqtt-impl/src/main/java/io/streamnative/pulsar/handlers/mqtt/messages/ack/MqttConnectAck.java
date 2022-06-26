@@ -45,6 +45,8 @@ public class MqttConnectAck {
         private boolean cleanSession;
         private int receiveMaximum;
 
+        private int topicAliasMaximum;
+
         private int maximumQos;
 
         private String responseInformation;
@@ -59,6 +61,12 @@ public class MqttConnectAck {
             this.cleanSession = cleanSession;
             return this;
         }
+
+        public MqttConnectSuccessAckBuilder topicAliasMaximum(int topicAliasMaximum) {
+            this.topicAliasMaximum = topicAliasMaximum;
+            return this;
+        }
+
 
         public MqttConnectSuccessAckBuilder receiveMaximum(int receiveMaximum) {
             this.receiveMaximum = receiveMaximum;
@@ -102,10 +110,14 @@ public class MqttConnectAck {
             MqttProperties.IntegerProperty maximumPacketSizeProperty =
                     new MqttProperties.IntegerProperty(
                             MqttProperties.MqttPropertyType.MAXIMUM_PACKET_SIZE.value(), maximumPacketSize);
+            MqttProperties.IntegerProperty topicAliasProperty =
+                    new MqttProperties.IntegerProperty(MqttProperties.MqttPropertyType.TOPIC_ALIAS_MAXIMUM.value(),
+                            topicAliasMaximum);
             properties.add(receiveMaximumProperty);
             properties.add(maximumQosProperty);
             properties.add(subscriptionIdentifiersAvailableProperty);
             properties.add(maximumPacketSizeProperty);
+            properties.add(topicAliasProperty);
             if (StringUtils.isNotEmpty(responseInformation)) {
                 MqttProperties.StringProperty responseInformationProperty =
                         new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.RESPONSE_INFORMATION.value(),
@@ -199,7 +211,6 @@ public class MqttConnectAck {
         ),
         QOS_NOT_SUPPORT(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE,
                 Mqtt5ConnReasonCode.QOS_NOT_SUPPORTED),
-
         WILL_QOS_NOT_SUPPORT(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE,
                 Mqtt5ConnReasonCode.QOS_NOT_SUPPORTED),
         SERVER_UNAVAILABLE(Mqtt3ConnReasonCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE,

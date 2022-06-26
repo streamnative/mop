@@ -35,6 +35,7 @@ public class ClientRestrictions {
     private boolean cleanSession;
     private Integer maximumPacketSize;
 
+    private Integer topicAliasMaximum;
     @Getter
     private boolean allowReasonStrOrUserProperty;
 
@@ -57,6 +58,10 @@ public class ClientRestrictions {
 
     public boolean exceedMaximumPacketSize(int readableBytes) {
         return getMaximumPacketSize() != 0 ? readableBytes > maximumPacketSize : false;
+    }
+
+    public int getTopicAliasMaximum() {
+        return Optional.ofNullable(topicAliasMaximum).orElse(0);
     }
 
     public void updateExpireInterval(int newExpireInterval) throws InvalidSessionExpireIntervalException {

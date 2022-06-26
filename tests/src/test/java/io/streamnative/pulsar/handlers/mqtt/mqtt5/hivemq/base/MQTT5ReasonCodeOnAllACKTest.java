@@ -199,4 +199,16 @@ public class MQTT5ReasonCodeOnAllACKTest extends MQTTTestBase {
         Assert.assertEquals(reasonCode, Mqtt5ConnAckReasonCode.SUCCESS);
         client.disconnect();
     }
+
+    @Test(timeOut = TIMEOUT)
+    public void testTopicAliasMaximum() {
+        final int aliasMaximum = 2000;
+        Mqtt5BlockingClient mqtt5Client = MQTT5ClientUtils.createMqtt5Client(getMqttBrokerPortList().get(0));
+        Mqtt5ConnAck ack = mqtt5Client.connectWith()
+                .restrictions()
+                .topicAliasMaximum(aliasMaximum)
+                .applyRestrictions()
+                .send();
+        Assert.assertEquals(ack.getRestrictions().getTopicAliasMaximum(), 2000);
+    }
 }
