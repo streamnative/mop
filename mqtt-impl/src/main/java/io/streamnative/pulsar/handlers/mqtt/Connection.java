@@ -37,8 +37,11 @@ import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.FutureUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
+
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Getter;
@@ -75,6 +78,8 @@ public class Connection {
     private volatile int serverCurrentReceiveCounter = 0;
     @Getter
     private final ProtocolMethodProcessor processor;
+
+    private final Map<String, String> topicAlias;
     @Getter
     private final boolean fromProxy;
     private volatile ConnectionState connectionState = DISCONNECTED;
@@ -103,6 +108,7 @@ public class Connection {
         this.processor = builder.processor;
         this.fromProxy = builder.fromProxy;
         this.manager.addConnection(this);
+        this.topicAlias = new ConcurrentHashMap<>();
     }
 
     private void addIdleStateHandler() {
@@ -336,6 +342,14 @@ public class Connection {
         public Connection build() {
             return new Connection(this);
         }
+    }
+
+    public void addTopicAlias(String topic, String alias) {
+        topicAlias.put(topic, alias);
+    }
+
+    public String findTopicIfAlias(String maybeAlias) {
+        return topicAlias.getOrDefault(maybeAlias, maybeAlias);
     }
 
     @Override

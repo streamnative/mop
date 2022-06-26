@@ -43,14 +43,14 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
         this.configuration = mqttService.getServerConfiguration();
     }
 
-    protected CompletableFuture<Optional<Topic>> getTopicReference(MqttPublishMessage msg) {
-        return PulsarTopicUtils.getTopicReference(pulsarService, msg.variableHeader().topicName(),
+    protected CompletableFuture<Optional<Topic>> getTopicReference(String mqttTopicName) {
+        return PulsarTopicUtils.getTopicReference(pulsarService, mqttTopicName,
                 configuration.getDefaultTenant(), configuration.getDefaultNamespace(), true
                 , configuration.getDefaultTopicDomain());
     }
 
-    protected CompletableFuture<PositionImpl> writeToPulsarTopic(MqttPublishMessage msg) {
-        return writeToPulsarTopic(msg, false);
+    protected CompletableFuture<PositionImpl> writeToPulsarTopic(Connection connection, MqttPublishMessage msg) {
+        return writeToPulsarTopic(connection, msg, false);
     }
 
     /**
@@ -59,19 +59,22 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
      * @param checkSubscription Check if the subscription exists, throw #{MQTTNoMatchingSubscriberException}
      *                              if the subscription does not exist;
      */
-    protected CompletableFuture<PositionImpl> writeToPulsarTopic(MqttPublishMessage msg,
+    protected CompletableFuture<PositionImpl> writeToPulsarTopic(Connection connection, MqttPublishMessage msg,
                                                                  boolean checkSubscription) {
-        return getTopicReference(msg).thenCompose(topicOp -> topicOp.map(topic -> {
-            MessageImpl<byte[]> message = toPulsarMsg(topic, msg);
+        String maybeTopicAlias = msg.variableHeader().topicName();
+        String mqttTopicName = connection.findTopicIfAlias(maybeTopicAlias);
+        return getTopicReference(maybeTopicAlias).thenCompose(topicOp -> topicOp.map(topic -> {
+            MessageImpl<byte[]> message = toPulsarMsg(topic, msg.variableHeader().properties(),
+                    msg.payload().nioBuffer());
             CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
             message.recycle();
             return ret.thenApply(position -> {
                 if (checkSubscription && topic.getSubscriptions().isEmpty()) {
-                    throw new MQTTNoMatchingSubscriberException(msg.variableHeader().topicName());
+                    throw new MQTTNoMatchingSubscriberException(mqttTopicName);
                 }
                 return position;
             });
         }).orElseGet(() -> FutureUtil.failedFuture(
-                new BrokerServiceException.TopicNotFoundException(msg.variableHeader().topicName()))));
+                new BrokerServiceException.TopicNotFoundException(mqttTopicName))));
     }
 }
