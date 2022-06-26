@@ -239,7 +239,8 @@ public class Connection {
         MqttConnectAck.MqttConnectSuccessAckBuilder builder = MqttConnectAck.successBuilder(protocolVersion)
                 .receiveMaximum(getServerRestrictions().getReceiveMaximum())
                 .cleanSession(clientRestrictions.isCleanSession())
-                .maximumQos(MqttQoS.AT_LEAST_ONCE.value());
+                .maximumQos(MqttQoS.AT_LEAST_ONCE.value())
+                .maximumPacketSize(getServerRestrictions().getMaximumPacketSize());
         MqttProperties.StringProperty resInformation = (MqttProperties.StringProperty) connectMessage.variableHeader()
                 .properties().getProperty(MqttProperties.MqttPropertyType.RESPONSE_INFORMATION.value());
         if (resInformation != null) {
