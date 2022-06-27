@@ -238,6 +238,7 @@ public class Connection {
         }
         MqttConnectAck.MqttConnectSuccessAckBuilder builder = MqttConnectAck.successBuilder(protocolVersion)
                 .receiveMaximum(getServerRestrictions().getReceiveMaximum())
+                .topicAliasMaximum(clientRestrictions.getTopicAliasMaximum())
                 .cleanSession(clientRestrictions.isCleanSession())
                 .maximumQos(MqttQoS.AT_LEAST_ONCE.value())
                 .maximumPacketSize(getServerRestrictions().getMaximumPacketSize());
