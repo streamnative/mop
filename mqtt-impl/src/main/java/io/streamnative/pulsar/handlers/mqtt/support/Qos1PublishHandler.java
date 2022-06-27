@@ -25,7 +25,6 @@ import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttPubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
-import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -42,9 +41,8 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
     }
 
     @Override
-    public CompletableFuture<Void> publish(MqttAdapterMessage adapter) {
+    public CompletableFuture<Void> publish(MqttAdapterMessage adapter, Connection connection) {
         final MqttPublishMessage msg = (MqttPublishMessage) adapter.getMqttMessage();
-        final Connection connection = NettyUtils.getConnection(channel);
         final int protocolVersion = connection.getProtocolVersion();
         final int packetId = msg.variableHeader().packetId();
         final String topic = msg.variableHeader().topicName();
