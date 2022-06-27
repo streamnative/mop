@@ -81,6 +81,9 @@ public class MqttPropertyUtils {
                 getIntProperty(properties, MqttProperties.MqttPropertyType.REQUEST_PROBLEM_INFORMATION);
         // the empty option means allowing reason string or user property
         clientRestrictionsBuilder.allowReasonStrOrUserProperty(!requestProblemInformation.isPresent());
+        Optional<Integer> topicAliasMaximum =
+                getIntProperty(properties, MqttProperties.MqttPropertyType.TOPIC_ALIAS_MAXIMUM);
+        topicAliasMaximum.ifPresent(clientRestrictionsBuilder::topicAliasMaximum);
     }
 
     /**
