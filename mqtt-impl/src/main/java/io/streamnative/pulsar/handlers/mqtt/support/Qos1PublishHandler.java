@@ -13,11 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
-import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
@@ -36,12 +34,12 @@ import org.apache.pulsar.common.util.FutureUtil;
 @Slf4j
 public class Qos1PublishHandler extends AbstractQosPublishHandler {
 
-    public Qos1PublishHandler(MQTTService mqttService, MQTTServerConfiguration configuration, Channel channel) {
-        super(mqttService, configuration, channel);
+    public Qos1PublishHandler(MQTTService mqttService) {
+        super(mqttService);
     }
 
     @Override
-    public CompletableFuture<Void> publish(MqttAdapterMessage adapter, Connection connection) {
+    public CompletableFuture<Void> publish(Connection connection, MqttAdapterMessage adapter) {
         final MqttPublishMessage msg = (MqttPublishMessage) adapter.getMqttMessage();
         final int protocolVersion = connection.getProtocolVersion();
         final int packetId = msg.variableHeader().packetId();
