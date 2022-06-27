@@ -49,8 +49,8 @@ public class MqttPropertyUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static Optional<Integer> getIntProperty(MqttProperties properties, MqttProperties.MqttPropertyType type) {
-        MqttProperties.MqttProperty<Integer> property = properties.getProperty(type.value());
+    public static <T> Optional<T> getProperty(MqttProperties properties, MqttProperties.MqttPropertyType type) {
+        MqttProperties.MqttProperty<T> property = properties.getProperty(type.value());
         if (property == null) {
             return Optional.empty();
         }
@@ -66,23 +66,23 @@ public class MqttPropertyUtils {
         getExpireInterval(properties)
                 .ifPresent(clientRestrictionsBuilder::sessionExpireInterval);
         // parse receive maximum
-        Optional<Integer> receiveMaximum = getIntProperty(properties, MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM);
+        Optional<Integer> receiveMaximum = getProperty(properties, MqttProperties.MqttPropertyType.RECEIVE_MAXIMUM);
         if (receiveMaximum.isPresent() && receiveMaximum.get() == 0) {
             throw new InvalidReceiveMaximumException("Not Allow Receive maximum property value zero");
         } else {
             receiveMaximum.ifPresent(clientRestrictionsBuilder::receiveMaximum);
         }
         // parse maximum packet size
-        Optional<Integer> maximumPacketSize = getIntProperty(properties, MqttProperties
+        Optional<Integer> maximumPacketSize = getProperty(properties, MqttProperties
                 .MqttPropertyType.MAXIMUM_PACKET_SIZE);
         maximumPacketSize.ifPresent(clientRestrictionsBuilder::maximumPacketSize);
         // parse request problem information
         Optional<Integer> requestProblemInformation =
-                getIntProperty(properties, MqttProperties.MqttPropertyType.REQUEST_PROBLEM_INFORMATION);
+                getProperty(properties, MqttProperties.MqttPropertyType.REQUEST_PROBLEM_INFORMATION);
         // the empty option means allowing reason string or user property
         clientRestrictionsBuilder.allowReasonStrOrUserProperty(!requestProblemInformation.isPresent());
         Optional<Integer> topicAliasMaximum =
-                getIntProperty(properties, MqttProperties.MqttPropertyType.TOPIC_ALIAS_MAXIMUM);
+                getProperty(properties, MqttProperties.MqttPropertyType.TOPIC_ALIAS_MAXIMUM);
         topicAliasMaximum.ifPresent(clientRestrictionsBuilder::topicAliasMaximum);
     }
 
