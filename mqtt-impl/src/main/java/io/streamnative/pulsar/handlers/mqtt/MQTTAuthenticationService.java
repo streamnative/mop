@@ -94,7 +94,7 @@ public class MQTTAuthenticationService {
         return new AuthenticationResult(authenticated, userRole);
     }
 
-    private AuthenticationResult authenticate(String clientIdentifier,
+    public AuthenticationResult authenticate(String clientIdentifier,
                                               String authMethod,
                                               AuthenticationDataCommand command) {
         AuthenticationProvider authenticationProvider = authenticationProviders.get(authMethod);

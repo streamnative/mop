@@ -18,12 +18,16 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageBuilders;
+import io.netty.handler.codec.mqtt.MqttProperties;
+import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidReceiveMaximumException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttConnectAck;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
@@ -31,6 +35,7 @@ import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 
 /**
  * Common protocol method processor.
@@ -171,6 +176,45 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
     public void processPubComp(MqttAdapterMessage msg) {
         if (log.isDebugEnabled()) {
             log.debug("[PubComp] [{}]", NettyUtils.getConnection(channel).getClientId());
+        }
+    }
+
+    @Override
+    public void processAuthReq(MqttAdapterMessage adapter) {
+        if (log.isDebugEnabled()) {
+            log.debug("[AUTH] [{}]", NettyUtils.getConnection(channel).getClientId());
+        }
+        MqttMessage mqttMessage = adapter.getMqttMessage();
+        MqttProperties properties = ((MqttReasonCodeAndPropertiesVariableHeader) mqttMessage.variableHeader())
+                .properties();
+        MqttProperties.StringProperty authMethodProperty = (MqttProperties.StringProperty) properties
+                .getProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
+        MqttProperties.BinaryProperty authDataProperty = (MqttProperties.BinaryProperty) properties
+                .getProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
+        MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(
+                adapter.getClientId(), authMethodProperty.value(),
+                new AuthenticationDataCommand(new String(authDataProperty.value())));
+        if (authResult.isFailed()) {
+            log.error("[AUTH] auth failed. CId={}", adapter.getClientId());
+            MqttMessage mqttAuthSFailure = MqttMessageBuilders.auth()
+                    .properties(properties)
+                    .reasonCode(Mqtt5DisConnReasonCode.CONTINUE_AUTHENTICATION.byteValue()).build();
+            adapter.setMqttMessage(mqttAuthSFailure);
+            channel.writeAndFlush(adapter).addListener(future -> {
+                if (!future.isSuccess()) {
+                    log.warn("send auth result failed", future.cause());
+                }
+            });
+        } else {
+            MqttMessage mqttAuthSuccess = MqttMessageBuilders.auth()
+                    .properties(properties)
+                    .reasonCode(Mqtt5DisConnReasonCode.NORMAL.byteValue()).build();
+            adapter.setMqttMessage(mqttAuthSuccess);
+            channel.writeAndFlush(adapter).addListener(future -> {
+                if (!future.isSuccess()) {
+                    log.warn("send auth result failed", future.cause());
+                }
+            });
         }
     }
 }

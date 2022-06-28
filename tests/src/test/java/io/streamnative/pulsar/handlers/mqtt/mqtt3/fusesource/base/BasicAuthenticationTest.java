@@ -65,8 +65,8 @@ public class BasicAuthenticationTest extends BasicAuthenticationConfig {
     }
 
     @Test(timeOut = TIMEOUT)
-    public void testAuthenticateWithAuthMethod() throws Exception {
-        String topic = "persistent://public/default/testAuthenticateWithAuthMethod";
+    public void testAuthenticateWithConnAuthMethod() throws Exception {
+        String topic = "persistent://public/default/testAuthenticateWithConnAuthMethod";
         Mqtt5BlockingClient client1 = Mqtt5Client.builder()
                 .identifier("abc")
                 .serverHost("127.0.0.1")
@@ -113,7 +113,7 @@ public class BasicAuthenticationTest extends BasicAuthenticationConfig {
             @Override
             public @NotNull CompletableFuture<Boolean> onReAuthSuccess(@NotNull Mqtt5ClientConfig clientConfig,
                                                                        @NotNull Mqtt5Auth auth) {
-                return null;
+                return CompletableFuture.completedFuture(true);
             }
 
             @Override
@@ -136,6 +136,97 @@ public class BasicAuthenticationTest extends BasicAuthenticationConfig {
                 //NOP
             }
         }).send();
+        Mqtt5Publish publishMessage = Mqtt5Publish.builder().topic(topic)
+                .qos(MqttQos.AT_LEAST_ONCE).build();
+        client1.subscribeWith()
+                .topicFilter(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        Mqtt5BlockingClient.Mqtt5Publishes publishes = client1.publishes(MqttGlobalPublishFilter.ALL);
+        client1.publish(publishMessage);
+        Mqtt5Publish message = publishes.receive();
+        Assert.assertNotNull(message);
+        publishes.close();
+        client1.disconnect();
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testAuthenticateWithReAuthMethod() throws Exception {
+        String topic = "persistent://public/default/testAuthenticateWithReAuthMethod";
+        Mqtt5BlockingClient client1 = Mqtt5Client.builder()
+                .identifier("abc")
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        client1.connectWith().enhancedAuth(new Mqtt5EnhancedAuthMechanism() {
+            @Override
+            public @NotNull MqttUtf8String getMethod() {
+                return MqttUtf8String.of("basic");
+            }
+
+            @Override
+            public int getTimeout() {
+                return 20;
+            }
+
+            @Override
+            public @NotNull CompletableFuture<Void> onAuth(@NotNull Mqtt5ClientConfig clientConfig,
+                                                           @NotNull Mqtt5Connect connect,
+                                                           @NotNull Mqtt5EnhancedAuthBuilder authBuilder) {
+                authBuilder.data("superUser:supepass".getBytes(StandardCharsets.UTF_8));
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public @NotNull CompletableFuture<Void> onReAuth(@NotNull Mqtt5ClientConfig clientConfig,
+                                                             @NotNull Mqtt5AuthBuilder authBuilder) {
+                authBuilder.data("superUser:Xsupepass".getBytes(StandardCharsets.UTF_8));
+                authBuilder.userProperties().add("key1", "value1").applyUserProperties();
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public @NotNull CompletableFuture<Boolean> onContinue(@NotNull Mqtt5ClientConfig clientConfig,
+                                                                  @NotNull Mqtt5Auth auth,
+                                                                  @NotNull Mqtt5AuthBuilder authBuilder) {
+                authBuilder.data("superUser:supepass".getBytes(StandardCharsets.UTF_8));
+                authBuilder.userProperties().add("key1", "value1").applyUserProperties();
+                return CompletableFuture.completedFuture(true);
+            }
+
+            @Override
+            public @NotNull CompletableFuture<Boolean> onAuthSuccess(@NotNull Mqtt5ClientConfig clientConfig,
+                                                                     @NotNull Mqtt5ConnAck connAck) {
+                return CompletableFuture.completedFuture(true);
+            }
+
+            @Override
+            public @NotNull CompletableFuture<Boolean> onReAuthSuccess(@NotNull Mqtt5ClientConfig clientConfig,
+                                                                       @NotNull Mqtt5Auth auth) {
+                return CompletableFuture.completedFuture(true);
+            }
+
+            @Override
+            public void onAuthRejected(@NotNull Mqtt5ClientConfig clientConfig, @NotNull Mqtt5ConnAck connAck) {
+                // NOP
+            }
+
+            @Override
+            public void onReAuthRejected(@NotNull Mqtt5ClientConfig clientConfig, @NotNull Mqtt5Disconnect disconnect) {
+                // NOP
+            }
+
+            @Override
+            public void onAuthError(@NotNull Mqtt5ClientConfig clientConfig, @NotNull Throwable cause) {
+                // NOP
+            }
+
+            @Override
+            public void onReAuthError(@NotNull Mqtt5ClientConfig clientConfig, @NotNull Throwable cause) {
+                // NOP
+            }
+        }).send();
+        client1.reauth();
         Mqtt5Publish publishMessage = Mqtt5Publish.builder().topic(topic)
                 .qos(MqttQos.AT_LEAST_ONCE).build();
         client1.subscribeWith()

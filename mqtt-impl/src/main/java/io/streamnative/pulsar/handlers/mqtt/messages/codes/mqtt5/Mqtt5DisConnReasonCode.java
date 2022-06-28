@@ -23,6 +23,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.MqttReasonCode;
 public enum Mqtt5DisConnReasonCode implements MqttReasonCode {
     NORMAL(0x0),
     WITH_WILL_MESSAGE(0x04),
+    CONTINUE_AUTHENTICATION(0x18),
     UNSPECIFIED_ERROR(0x80),
     MALFORMED_PACKET(0x81),
     PROTOCOL_ERROR(0x82),

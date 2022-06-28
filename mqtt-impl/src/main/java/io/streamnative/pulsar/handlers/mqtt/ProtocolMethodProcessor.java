@@ -41,4 +41,6 @@ public interface ProtocolMethodProcessor {
     void processUnSubscribe(MqttAdapterMessage msg);
 
     void processPingReq(MqttAdapterMessage msg);
+
+    void processAuthReq(MqttAdapterMessage msg);
 }
