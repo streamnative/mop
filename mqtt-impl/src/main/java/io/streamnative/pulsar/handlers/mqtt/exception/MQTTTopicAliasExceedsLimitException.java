@@ -15,12 +15,15 @@ package io.streamnative.pulsar.handlers.mqtt.exception;
 
 import lombok.Getter;
 
-public class MQTTTopicAliasNotFoundException extends RuntimeException {
-   @Getter
-   private final int alias;
+public class MQTTTopicAliasExceedsLimitException extends RuntimeException {
+    @Getter
+    private final int alias;
+    @Getter
+    private final int topicAliasMaximum;
 
-   public MQTTTopicAliasNotFoundException(int alias) {
-      super(String.format("The topic alias %s is not found.", alias));
-      this.alias = alias;
-   }
+    public MQTTTopicAliasExceedsLimitException(int alias, int topicAliasMaximum) {
+        super(String.format("The topic alias %s is exceed topic alias maximum %s.", alias, topicAliasMaximum));
+        this.alias = alias;
+        this.topicAliasMaximum = topicAliasMaximum;
+    }
 }

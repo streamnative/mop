@@ -17,6 +17,7 @@ import static io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter.
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicAliasExceedsLimitException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicAliasNotFoundException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.support.RetainedMessageHandler;
@@ -74,7 +75,11 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
             String tpName = msg.variableHeader().topicName();
             if (StringUtils.isNoneBlank(tpName)) {
                 // update alias
-                topicAliasManager.updateTopicAlias(tpName, alias);
+                boolean updateSuccess = topicAliasManager.updateTopicAlias(tpName, alias);
+                if (!updateSuccess) {
+                    throw new MQTTTopicAliasExceedsLimitException(alias,
+                            topicAliasManager.getTopicMaximumAlias());
+                }
             }
             Optional<String> realName = topicAliasManager.getTopicByAlias(alias);
             if (!realName.isPresent()) {

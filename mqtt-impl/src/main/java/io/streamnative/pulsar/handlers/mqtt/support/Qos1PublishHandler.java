@@ -19,6 +19,8 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoMatchingSubscriberException;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicAliasExceedsLimitException;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicAliasNotFoundException;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttPubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
@@ -86,6 +88,28 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                                 .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR);
                         if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
                             pubAckBuilder.reasonString("Topic not found");
+                        }
+                        connection.sendAckThenClose(pubAckBuilder.build());
+                    } else if (realCause instanceof MQTTTopicAliasNotFoundException) {
+                        log.error("[{}] Publish message fail {}, because the topic alias {} not found.", topic, msg,
+                                ((MQTTTopicAliasNotFoundException) realCause).getAlias(), ex);
+                        MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder = MqttPubAck.errorBuilder(protocolVersion)
+                                .packetId(packetId)
+                                .reasonCode(Mqtt5PubReasonCode.TOPIC_NAME_INVALID);
+                        if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
+                            pubAckBuilder.reasonString(ex.getMessage());
+                        }
+                        connection.sendAckThenClose(pubAckBuilder.build());
+                    } else if (realCause instanceof MQTTTopicAliasExceedsLimitException) {
+                        log.error("[{}] Publish message fail {},"
+                                        + " because the topic alias {} is exceed topic alias maximum {}.", topic, msg,
+                                ((MQTTTopicAliasExceedsLimitException) realCause).getAlias(),
+                                ((MQTTTopicAliasExceedsLimitException) realCause).getTopicAliasMaximum(), ex);
+                        MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder = MqttPubAck.errorBuilder(protocolVersion)
+                                .packetId(packetId)
+                                .reasonCode(Mqtt5PubReasonCode.QUOTA_EXCEEDED);
+                        if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
+                            pubAckBuilder.reasonString(ex.getMessage());
                         }
                         connection.sendAckThenClose(pubAckBuilder.build());
                     } else {

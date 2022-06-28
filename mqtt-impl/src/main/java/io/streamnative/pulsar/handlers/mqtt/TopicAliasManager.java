@@ -30,6 +30,7 @@ public class TopicAliasManager {
     private final Map<String, TopicAliasInfo> brokerSideAlias;
 
     private final PacketIdGenerator idGenerator;
+    @Getter
     private final int topicMaximumAlias;
 
     public TopicAliasManager(int topicMaximumAlias) {
