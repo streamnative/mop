@@ -22,12 +22,15 @@ import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
 import com.hivemq.client.mqtt.mqtt5.datatypes.Mqtt5UserProperties;
 import com.hivemq.client.mqtt.mqtt5.datatypes.Mqtt5UserProperty;
 import com.hivemq.client.mqtt.mqtt5.message.connect.Mqtt5ConnectRestrictions;
+import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.admin.PulsarAdminException;
@@ -217,5 +220,52 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
         publishes.close();
         client2.unsubscribeWith().topicFilter(topic).send();
         client2.disconnect();
+    }
+
+    @Test
+    public void testTopicAlias() throws InterruptedException {
+        Mqtt5BlockingClient client = Mqtt5Client.builder()
+                .identifier(UUID.randomUUID().toString())
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        Mqtt5ConnAck connAck = client.connectWith()
+                .restrictions()
+                .topicAliasMaximum(10)
+                .sendTopicAliasMaximum(10)
+                .applyRestrictions()
+                .send();
+        Assert.assertEquals(connAck.getRestrictions().getTopicAliasMaximum(), 10);
+        final String topicName = "a/b/c";
+        client.subscribeWith()
+                .topicFilter(topicName)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        List<String> contents = new ArrayList<>();
+        client.toAsync().publishes(MqttGlobalPublishFilter.ALL, (msg) -> {
+            contents.add(new String(msg.getPayloadAsBytes()));
+        });
+        client.publishWith()
+                .topic(topicName)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload("hihihi1".getBytes(StandardCharsets.UTF_8))
+                .send();
+        client.publishWith()
+                .topic(topicName)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload("hihihi2".getBytes(StandardCharsets.UTF_8))
+                .send();
+        client.publishWith()
+                .topic(topicName)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload("hihihi3".getBytes(StandardCharsets.UTF_8))
+                .send();
+        Awaitility.await()
+                .untilAsserted(() -> {
+                    Assert.assertEquals(contents.size(), 3);
+                    Assert.assertTrue(contents.contains("hihihi1"));
+                    Assert.assertTrue(contents.contains("hihihi2"));
+                    Assert.assertTrue(contents.contains("hihihi3"));
+                });
     }
 }

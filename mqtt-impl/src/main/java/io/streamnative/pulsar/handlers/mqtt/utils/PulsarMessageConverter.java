@@ -26,6 +26,7 @@ import io.netty.util.concurrent.FastThreadLocal;
 import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -69,10 +70,9 @@ public class PulsarMessageConverter {
             };
 
     // Convert MQTT message to Pulsar message.
-    public static MessageImpl<byte[]> toPulsarMsg(Topic topic, MqttPublishMessage mqttMsg) {
+    public static MessageImpl<byte[]> toPulsarMsg(Topic topic, MqttProperties properties, ByteBuffer payload) {
         MessageMetadata metadata = LOCAL_MESSAGE_METADATA.get();
         metadata.clear();
-        MqttProperties properties = mqttMsg.variableHeader().properties();
         if (properties != null) {
             properties.listAll().forEach(prop -> {
                 if (MqttProperties.MqttPropertyType.USER_PROPERTY.value() == prop.propertyId()) {
@@ -104,7 +104,7 @@ public class PulsarMessageConverter {
                 }
             });
         }
-        return MessageImpl.create(metadata, mqttMsg.payload().nioBuffer(), SCHEMA, topic.getName());
+        return MessageImpl.create(metadata, payload, SCHEMA, topic.getName());
     }
 
     private static String getPropertiesPrefix(int propertyId) {

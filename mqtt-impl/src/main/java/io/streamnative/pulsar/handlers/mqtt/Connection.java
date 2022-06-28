@@ -75,6 +75,10 @@ public class Connection {
     private volatile int serverCurrentReceiveCounter = 0;
     @Getter
     private final ProtocolMethodProcessor processor;
+
+    @Getter
+    private final TopicAliasManager topicAliasManager;
+
     @Getter
     private final boolean fromProxy;
     private volatile ConnectionState connectionState = DISCONNECTED;
@@ -103,6 +107,7 @@ public class Connection {
         this.processor = builder.processor;
         this.fromProxy = builder.fromProxy;
         this.manager.addConnection(this);
+        this.topicAliasManager = new TopicAliasManager(clientRestrictions.getTopicAliasMaximum());
     }
 
     private void addIdleStateHandler() {
