@@ -53,6 +53,10 @@ public class MqttConnectAck {
 
         private int maximumPacketSize;
 
+        private String authMethod;
+
+        private byte[] authData;
+
         public MqttConnectSuccessAckBuilder(int protocolVersion) {
             this.protocolVersion = protocolVersion;
         }
@@ -85,6 +89,16 @@ public class MqttConnectAck {
 
         public MqttConnectSuccessAckBuilder maximumPacketSize(int maximumPacketSize) {
             this.maximumPacketSize = maximumPacketSize;
+            return this;
+        }
+
+        public MqttConnectSuccessAckBuilder authMethod(String authMethod) {
+            this.authMethod = authMethod;
+            return this;
+        }
+
+        public MqttConnectSuccessAckBuilder authData(byte[] authData) {
+            this.authData = authData;
             return this;
         }
 
@@ -123,6 +137,17 @@ public class MqttConnectAck {
                         new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.RESPONSE_INFORMATION.value(),
                                 responseInformation);
                 properties.add(responseInformationProperty);
+            }
+            if (StringUtils.isNotEmpty(authMethod)) {
+                MqttProperties.StringProperty authMethodProperty =
+                        new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value(),
+                                authMethod);
+                properties.add(authMethodProperty);
+
+                MqttProperties.BinaryProperty authDataProperty =
+                        new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value(),
+                                authData);
+                properties.add(authDataProperty);
             }
             return MqttAck.createSupportedAck(
                     commonBuilder.returnCode(Mqtt5ConnReasonCode.SUCCESS.toConnectionReasonCode())

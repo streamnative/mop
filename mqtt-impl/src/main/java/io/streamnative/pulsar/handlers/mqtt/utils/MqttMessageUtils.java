@@ -191,4 +191,18 @@ public class MqttMessageUtils {
                         MqttProperties.MqttPropertyType.PUBLICATION_EXPIRY_INTERVAL.value())
                 .stream().map(prop -> ((MqttProperties.IntegerProperty) prop).value()).findFirst().orElse(0);
     }
+
+    public static String getAuthMethod(MqttConnectMessage connectMessage) {
+        MqttProperties properties = connectMessage.variableHeader().properties();
+        MqttProperties.StringProperty authMethodProperty = (MqttProperties.StringProperty) properties
+                .getProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
+        return authMethodProperty != null ? authMethodProperty.value() : null;
+    }
+
+    public static byte[] getAuthData(MqttConnectMessage connectMessage) {
+        MqttProperties properties = connectMessage.variableHeader().properties();
+        MqttProperties.BinaryProperty authDataProperty = (MqttProperties.BinaryProperty) properties
+                .getProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
+        return authDataProperty != null ? authDataProperty.value() : null;
+    }
 }
