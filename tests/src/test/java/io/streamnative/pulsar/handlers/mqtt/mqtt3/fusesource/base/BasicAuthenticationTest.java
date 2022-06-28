@@ -118,18 +118,22 @@ public class BasicAuthenticationTest extends BasicAuthenticationConfig {
 
             @Override
             public void onAuthRejected(@NotNull Mqtt5ClientConfig clientConfig, @NotNull Mqtt5ConnAck connAck) {
+                //NOP
             }
 
             @Override
             public void onReAuthRejected(@NotNull Mqtt5ClientConfig clientConfig, @NotNull Mqtt5Disconnect disconnect) {
+                //NOP
             }
 
             @Override
             public void onAuthError(@NotNull Mqtt5ClientConfig clientConfig, @NotNull Throwable cause) {
+                //NOP
             }
 
             @Override
             public void onReAuthError(@NotNull Mqtt5ClientConfig clientConfig, @NotNull Throwable cause) {
+                //NOP
             }
         }).send();
         Mqtt5Publish publishMessage = Mqtt5Publish.builder().topic(topic)
