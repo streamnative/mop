@@ -16,6 +16,8 @@ package io.streamnative.pulsar.handlers.mqtt;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getAuthData;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getAuthMethod;
 import static io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils.ATTR_KEY_CONNECTION;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 import io.netty.channel.Channel;
@@ -246,6 +248,8 @@ public class Connection {
                 .topicAliasMaximum(clientRestrictions.getTopicAliasMaximum())
                 .cleanSession(clientRestrictions.isCleanSession())
                 .maximumQos(MqttQoS.AT_LEAST_ONCE.value())
+                .authMethod(getAuthMethod(connectMessage))
+                .authData(getAuthData(connectMessage))
                 .maximumPacketSize(getServerRestrictions().getMaximumPacketSize());
         MqttProperties.StringProperty resInformation = (MqttProperties.StringProperty) connectMessage.variableHeader()
                 .properties().getProperty(MqttProperties.MqttPropertyType.RESPONSE_INFORMATION.value());
@@ -258,7 +262,6 @@ public class Connection {
             log.debug("The CONNECT message has been processed. CId={}", clientId);
         }
     }
-
 
     public enum ConnectionState {
         DISCONNECTED,

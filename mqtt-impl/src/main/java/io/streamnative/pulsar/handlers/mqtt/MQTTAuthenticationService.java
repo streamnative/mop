@@ -15,7 +15,9 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_BASIC;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_TOKEN;
+import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +64,19 @@ public class MQTTAuthenticationService {
         return providers;
     }
 
+    public AuthenticationResult authenticate(MqttConnectMessage connectMessage) {
+        String authMethod = MqttMessageUtils.getAuthMethod(connectMessage);
+        if (authMethod != null) {
+            byte[] authData = MqttMessageUtils.getAuthData(connectMessage);
+            if (authData == null) {
+                return AuthenticationResult.FAILED;
+            }
+            return authenticate(connectMessage.payload().clientIdentifier(), authMethod,
+                    new AuthenticationDataCommand(new String(authData)));
+        }
+        return authenticate(connectMessage.payload());
+    }
+
     public AuthenticationResult authenticate(MqttConnectPayload payload) {
         String userRole = null;
         boolean authenticated = false;
@@ -75,6 +90,25 @@ public class MQTTAuthenticationService {
                 log.warn("Authentication failed with method: {}. CId={}, username={}",
                         authMethod, payload.clientIdentifier(), payload.userName());
             }
+        }
+        return new AuthenticationResult(authenticated, userRole);
+    }
+
+    private AuthenticationResult authenticate(String clientIdentifier,
+                                              String authMethod,
+                                              AuthenticationDataCommand command) {
+        AuthenticationProvider authenticationProvider = authenticationProviders.get(authMethod);
+        if (authenticationProvider == null) {
+            log.warn("Authentication failed, no authMethod : {} for CId={}", clientIdentifier, authMethod);
+            return AuthenticationResult.FAILED;
+        }
+        String userRole = null;
+        boolean authenticated = false;
+        try {
+            userRole = authenticationProvider.authenticate(command);
+            authenticated = true;
+        } catch (AuthenticationException e) {
+            log.warn("Authentication failed for CId={}", clientIdentifier);
         }
         return new AuthenticationResult(authenticated, userRole);
     }
@@ -94,6 +128,8 @@ public class MQTTAuthenticationService {
     @Getter
     @RequiredArgsConstructor
     public static class AuthenticationResult {
+
+        public static final AuthenticationResult FAILED = new AuthenticationResult(false, null);
         private final boolean authenticated;
         private final String userRole;
 

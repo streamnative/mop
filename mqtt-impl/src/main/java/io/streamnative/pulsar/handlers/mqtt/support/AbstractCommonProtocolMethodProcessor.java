@@ -113,7 +113,8 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                         clientId, username);
             }
         } else {
-            MQTTAuthenticationService.AuthenticationResult authResult = authenticationService.authenticate(payload);
+            MQTTAuthenticationService.AuthenticationResult authResult = authenticationService
+                    .authenticate(connectMessage);
             if (authResult.isFailed()) {
                 MqttMessage mqttMessage = MqttConnectAck.errorBuilder().authFail(protocolVersion);
                 log.error("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
