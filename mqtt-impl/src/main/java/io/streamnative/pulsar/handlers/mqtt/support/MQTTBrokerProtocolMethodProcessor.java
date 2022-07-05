@@ -70,7 +70,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -188,7 +187,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             result = doPublish(adapter);
         } else {
             result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
-                            connection.getUserRole(), new AuthenticationDataCommand(connection.getUserRole()))
+                            connection.getUserRole(), connection.getAuthData())
                     .thenCompose(authorized -> authorized ? doPublish(adapter) : doUnauthorized(adapter));
         }
         result.thenAccept(__ -> msg.release())
@@ -341,7 +340,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             AtomicBoolean authorizedFlag = new AtomicBoolean(true);
             for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
                 authorizationFutures.add(this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
-                        userRole, new AuthenticationDataCommand(userRole), userRole).thenAccept((authorized) -> {
+                        userRole, connection.getAuthData(), userRole).thenAccept((authorized) -> {
                             if (!authorized) {
                                 authorizedFlag.set(false);
                                 log.warn("[Subscribe] no authorization to sub topic={}, userRole={}, CId= {}",
