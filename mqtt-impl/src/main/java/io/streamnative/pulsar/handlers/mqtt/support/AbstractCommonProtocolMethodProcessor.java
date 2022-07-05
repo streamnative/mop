@@ -21,6 +21,7 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
+import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
@@ -36,6 +37,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
+import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 
 /**
  * Common protocol method processor.
@@ -46,10 +48,11 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
     protected final ChannelHandlerContext ctx;
     @Getter
     protected final Channel channel;
-
     protected final MQTTAuthenticationService authenticationService;
 
     private final boolean authenticationEnabled;
+
+    protected Connection connection;
 
     public AbstractCommonProtocolMethodProcessor(MQTTAuthenticationService authenticationService,
                                                  boolean authenticationEnabled,
@@ -60,7 +63,8 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
         this.channel = ctx.channel();
     }
 
-    public abstract void doProcessConnect(MqttAdapterMessage msg, String userRole, ClientRestrictions restrictions);
+    public abstract void doProcessConnect(MqttAdapterMessage msg, String userRole,
+                                          AuthenticationDataSource authData, ClientRestrictions restrictions);
 
     @Override
     public void processConnect(MqttAdapterMessage adapter) {
@@ -112,6 +116,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
             }
         }
         String userRole = null;
+        AuthenticationDataSource authData = null;
         if (!authenticationEnabled) {
             if (log.isDebugEnabled()) {
                 log.debug("[CONNECT] Authentication is disabled, allowing client. CId={}, username={}",
@@ -131,6 +136,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                 return;
             }
             userRole = authResult.getUserRole();
+            authData = authResult.getAuthData();
         }
         try {
             ClientRestrictions.ClientRestrictionsBuilder clientRestrictionsBuilder = ClientRestrictions.builder();
@@ -139,7 +145,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                     .keepAliveTime(msg.variableHeader().keepAliveTimeSeconds())
                     .cleanSession(msg.variableHeader().isCleanSession());
             adapter.setMqttMessage(connectMessage);
-            doProcessConnect(adapter, userRole, clientRestrictionsBuilder.build());
+            doProcessConnect(adapter, userRole, authData, clientRestrictionsBuilder.build());
         } catch (InvalidReceiveMaximumException invalidReceiveMaximumException) {
             log.error("[CONNECT] Fail to parse receive maximum because of zero value, CId={}", clientId);
             MqttMessage mqttMessage = MqttConnectAck.errorBuilder().protocolError(protocolVersion);
@@ -210,6 +216,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                     .properties(properties)
                     .reasonCode(Mqtt5DisConnReasonCode.NORMAL.byteValue()).build();
             adapter.setMqttMessage(mqttAuthSuccess);
+            connection.updateAuthData(authResult.getAuthData());
             channel.writeAndFlush(adapter).addListener(future -> {
                 if (!future.isSuccess()) {
                     log.warn("send auth result failed", future.cause());

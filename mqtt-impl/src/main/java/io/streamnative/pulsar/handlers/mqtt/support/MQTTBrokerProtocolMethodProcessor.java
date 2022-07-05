@@ -70,7 +70,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
+import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Consumer;
@@ -99,7 +99,6 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     private final WillMessageHandler willMessageHandler;
     private final RetainedMessageHandler retainedMessageHandler;
     private final AutoSubscribeHandler autoSubscribeHandler;
-    private Connection connection;
     @Getter
     private final CompletableFuture<Void> inactiveFuture = new CompletableFuture<>();
 
@@ -123,7 +122,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
 
     @Override
     public void doProcessConnect(MqttAdapterMessage adapterMsg, String userRole,
-                                 ClientRestrictions clientRestrictions) {
+                                 AuthenticationDataSource authData, ClientRestrictions clientRestrictions) {
         final MqttConnectMessage msg = (MqttConnectMessage) adapterMsg.getMqttMessage();
         ServerRestrictions serverRestrictions = ServerRestrictions.builder()
                 .receiveMaximum(configuration.getReceiveMaximum())
@@ -136,6 +135,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                 .willMessage(createWillMessage(msg))
                 .clientRestrictions(clientRestrictions)
                 .serverRestrictions(serverRestrictions)
+                .authData(authData)
                 .channel(channel)
                 .connectMessage(msg)
                 .connectionManager(connectionManager)
@@ -187,7 +187,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             result = doPublish(adapter);
         } else {
             result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
-                            connection.getUserRole(), new AuthenticationDataCommand(connection.getUserRole()))
+                            connection.getUserRole(), connection.getAuthData())
                     .thenCompose(authorized -> authorized ? doPublish(adapter) : doUnauthorized(adapter));
         }
         result.thenAccept(__ -> msg.release())
@@ -340,7 +340,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             AtomicBoolean authorizedFlag = new AtomicBoolean(true);
             for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
                 authorizationFutures.add(this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
-                        userRole, new AuthenticationDataCommand(userRole), userRole).thenAccept((authorized) -> {
+                        userRole, connection.getAuthData(), userRole).thenAccept((authorized) -> {
                             if (!authorized) {
                                 authorizedFlag.set(false);
                                 log.warn("[Subscribe] no authorization to sub topic={}, userRole={}, CId= {}",

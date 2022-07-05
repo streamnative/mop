@@ -80,18 +80,21 @@ public class MQTTAuthenticationService {
     public AuthenticationResult authenticate(MqttConnectPayload payload) {
         String userRole = null;
         boolean authenticated = false;
+        AuthenticationDataSource authenticationDataSource = null;
         for (Map.Entry<String, AuthenticationProvider> entry : authenticationProviders.entrySet()) {
             String authMethod = entry.getKey();
             try {
-                userRole = entry.getValue().authenticate(getAuthData(authMethod, payload));
+                AuthenticationDataSource authData = getAuthData(authMethod, payload);
+                userRole = entry.getValue().authenticate(authData);
                 authenticated = true;
+                authenticationDataSource = authData;
                 break;
             } catch (AuthenticationException e) {
                 log.warn("Authentication failed with method: {}. CId={}, username={}",
                         authMethod, payload.clientIdentifier(), payload.userName());
             }
         }
-        return new AuthenticationResult(authenticated, userRole);
+        return new AuthenticationResult(authenticated, userRole, authenticationDataSource);
     }
 
     public AuthenticationResult authenticate(String clientIdentifier,
@@ -110,7 +113,7 @@ public class MQTTAuthenticationService {
         } catch (AuthenticationException e) {
             log.warn("Authentication failed for CId={}", clientIdentifier);
         }
-        return new AuthenticationResult(authenticated, userRole);
+        return new AuthenticationResult(authenticated, userRole, command);
     }
 
     public AuthenticationDataSource getAuthData(String authMethod, MqttConnectPayload payload) {
@@ -129,9 +132,10 @@ public class MQTTAuthenticationService {
     @RequiredArgsConstructor
     public static class AuthenticationResult {
 
-        public static final AuthenticationResult FAILED = new AuthenticationResult(false, null);
+        public static final AuthenticationResult FAILED = new AuthenticationResult(false, null, null);
         private final boolean authenticated;
         private final String userRole;
+        private final AuthenticationDataSource authData;
 
         public boolean isFailed() {
             return !authenticated;

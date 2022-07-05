@@ -16,7 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getAuthData;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getAuthMethod;
 import static io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils.ATTR_KEY_CONNECTION;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
@@ -37,6 +36,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnRea
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.FutureUtils;
+import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
 import java.util.Objects;
@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 
 /**
  * Value object to maintain the information of single connection, like ClientID, Channel, and clean
@@ -82,6 +83,9 @@ public class Connection {
     private final TopicAliasManager topicAliasManager;
 
     @Getter
+    private AuthenticationDataSource authData;
+
+    @Getter
     private final boolean fromProxy;
     private volatile ConnectionState connectionState = DISCONNECTED;
 
@@ -108,6 +112,7 @@ public class Connection {
         this.addIdleStateHandler();
         this.processor = builder.processor;
         this.fromProxy = builder.fromProxy;
+        this.authData = builder.authData;
         this.manager.addConnection(this);
         this.topicAliasManager = new TopicAliasManager(clientRestrictions.getTopicAliasMaximum());
     }
@@ -148,6 +153,10 @@ public class Connection {
         return mqttAck.isProtocolSupported()
                 ? send(mqttAck.getMqttMessage())
                 : CompletableFuture.completedFuture(null);
+    }
+
+    public void updateAuthData(AuthenticationDataSource authData) {
+        this.authData = authData;
     }
 
     public CompletableFuture<Void> sendAckThenClose(MqttAck mqttAck) {
@@ -249,7 +258,7 @@ public class Connection {
                 .cleanSession(clientRestrictions.isCleanSession())
                 .maximumQos(MqttQoS.AT_LEAST_ONCE.value())
                 .authMethod(getAuthMethod(connectMessage))
-                .authData(getAuthData(connectMessage))
+                .authData(MqttMessageUtils.getAuthData(connectMessage))
                 .maximumPacketSize(getServerRestrictions().getMaximumPacketSize());
         MqttProperties.StringProperty resInformation = (MqttProperties.StringProperty) connectMessage.variableHeader()
                 .properties().getProperty(MqttProperties.MqttPropertyType.RESPONSE_INFORMATION.value());
@@ -285,6 +294,8 @@ public class Connection {
         private ServerRestrictions serverRestrictions;
         private ProtocolMethodProcessor processor;
         private boolean fromProxy;
+
+        private AuthenticationDataSource authData;
 
         public ConnectionBuilder protocolVersion(int protocolVersion) {
             this.protocolVersion = protocolVersion;
@@ -338,6 +349,11 @@ public class Connection {
 
         public ConnectionBuilder fromProxy(boolean fromProxy) {
             this.fromProxy =  fromProxy;
+            return this;
+        }
+
+        public ConnectionBuilder authData(AuthenticationDataSource authData) {
+            this.authData = authData;
             return this;
         }
 
