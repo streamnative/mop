@@ -57,6 +57,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
@@ -111,7 +112,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     }
 
     @Override
-    public void doProcessConnect(MqttAdapterMessage adapter, String userRole, ClientRestrictions clientRestrictions) {
+    public void doProcessConnect(MqttAdapterMessage adapter, String userRole, AuthenticationDataSource authData, ClientRestrictions clientRestrictions) {
         final MqttConnectMessage msg = (MqttConnectMessage) adapter.getMqttMessage();
         final ServerRestrictions serverRestrictions = ServerRestrictions.builder()
                 .receiveMaximum(proxyConfig.getReceiveMaximum())
@@ -125,6 +126,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .clientRestrictions(clientRestrictions)
                 .serverRestrictions(serverRestrictions)
                 .channel(channel)
+                .authData(authData)
                 .connectionManager(connectionManager)
                 .processor(this)
                 .build();
