@@ -16,7 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.Connection.ConnectionState.ESTABLISHED;
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getAuthData;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getAuthMethod;
 import static io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils.ATTR_KEY_CONNECTION;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
