@@ -105,21 +105,21 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             required = false,
             doc = "The mqtt proxy port"
     )
-    private int mqttProxyPort = 5682;
+    private int mqttProxyPort = 5678;
 
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
             required = false,
             doc = "The mqtt proxy tls port"
     )
-    private int mqttProxyTlsPort = 5683;
+    private int mqttProxyTlsPort = 5679;
 
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
             required = false,
             doc = "The mqtt proxy tls psk port"
     )
-    private int mqttProxyTlsPskPort = 5684;
+    private int mqttProxyTlsPskPort = 5680;
 
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
