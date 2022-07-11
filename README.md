@@ -109,7 +109,7 @@ To use the proxy, follow the following steps. For detailed steps, refer to [Depl
     advertisedAddress=127.0.0.1
     
     mqttProxyEnabled=true
-    mqttProxyPort=5682
+    mqttProxyPort=5678
     ```
 
 ### Verify MoP protocol handler
@@ -245,7 +245,7 @@ openssl req -new -x509 -nodes -sha256 -days 365 -key server.key -out server.crt
    ```java
    MQTT mqtt = new MQTT();
    // default proxy tls port
-   mqtt.setHost(URI.create("ssl://127.0.0.1:5683")); 
+   mqtt.setHost(URI.create("ssl://127.0.0.1:5679")); 
    File crtFile = new File("server.crt");
    Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(new FileInputStream(crtFile));
    KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -302,7 +302,7 @@ Please reference [here](https://en.wikipedia.org/wiki/TLS-PSK) to learn more abo
    mqttProxyEnable=true
    mqttProxyTlsPskEnabled=true
    // default tls psk port
-   mqttProxyTlsPskPort=5684
+   mqttProxyTlsPskPort=5680
    // any string can be specified
    mqttTlsPskIdentityHint=alpha
    // identity is semicolon list of string with identity:secret format
@@ -311,7 +311,7 @@ Please reference [here](https://en.wikipedia.org/wiki/TLS-PSK) to learn more abo
 
 2. Test with `mosquitto cli`
    ```
-   mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5684 -t "/a/b/c" -m "hello mqtt"
+   mosquitto_pub --psk-identity mqtt --psk 6d717474313233 -p 5680 -t "/a/b/c" -m "hello mqtt"
    ```
 
 3. Add PSK identities dynamically.
