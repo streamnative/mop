@@ -19,12 +19,12 @@
 ## MoP Proxy
 
 | Property | Default value | Comment
-|----------|---------------| --------
-|mqttProxyEnabled | false         | Enable MoP proxy |
-|mqttProxyPort | 5678          | Default MoP proxy port |
-|mqttProxyTlsEnabled | false         | Enable MoP proxy TLS or not |
-|mqttProxyTlsPort | 5679          | Default mqtt TLS port
-|mqttProxyTlsPskPort | 5680          | Default mqtt proxy tls psk port |
+|----------| --------------| --------
+|mqttProxyEnabled | false | Enable MoP proxy |
+|mqttProxyPort | 5682 | Default MoP proxy port |
+|mqttProxyTlsEnabled | false | Enable MoP proxy TLS or not |
+|mqttProxyTlsPort | 5683 | Default mqtt TLS port
+|mqttProxyTlsPskPort | 5684 | Default mqtt proxy tls psk port |
 
 
 ## TLS
