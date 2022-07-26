@@ -69,6 +69,17 @@
         <maven-jacoco-plugin.version>0.8.7</maven-jacoco-plugin.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.streamnative</groupId>
+                <artifactId>pulsar</artifactId>
+                <version>${pulsar.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>io.streamnative</groupId>
