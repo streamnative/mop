@@ -19,7 +19,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import org.apache.pulsar.common.util.SimpleTextOutputStream;
-import org.junit.Assert;
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
