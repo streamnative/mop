@@ -72,6 +72,13 @@
     <dependencies>
         <dependency>
             <groupId>io.streamnative</groupId>
+            <artifactId>pulsar</artifactId>
+            <version>${pulsar.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.streamnative</groupId>
             <artifactId>pulsar-broker</artifactId>
             <version>${pulsar.version}</version>
             <scope>provided</scope>
