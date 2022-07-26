@@ -16,7 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.untils;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import lombok.SneakyThrows;
-import org.junit.Assert;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 /**
  * Unit test for the ConfigurationUtils.
