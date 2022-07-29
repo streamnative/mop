@@ -73,4 +73,19 @@ public class MessageConverTest extends MQTTTestBase{
         Assert.assertEquals(eventtime,message.getEventTime());
     }
 
+    @Test
+    public void testFillMessageKeyFromProp(){
+        String messageKey = "msgKey";
+        serverConfiguration.setMqttMessageKeyFromProp(messageKey);
+
+        List<MqttProperties.StringPair> list = Lists.newArrayList();
+        list.add(new MqttProperties.StringPair(messageKey,messageKey));
+
+        MqttProperties mp = new MqttProperties();
+        mp.add(new MqttProperties.UserProperties(list));
+
+        MessageImpl<byte[]> message = PulsarMessageConverter.toPulsarMsg(serverConfiguration, topic, mp, ByteBuffer.wrap("world".getBytes()));
+        Assert.assertEquals(messageKey,message.getKey());
+    }
+
 }

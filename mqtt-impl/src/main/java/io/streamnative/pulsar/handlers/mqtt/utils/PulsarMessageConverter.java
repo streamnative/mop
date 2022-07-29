@@ -83,6 +83,7 @@ public class PulsarMessageConverter {
                 if (MqttProperties.MqttPropertyType.USER_PROPERTY.value() == prop.propertyId()) {
                     MqttProperties.UserProperties userProperties = (MqttProperties.UserProperties) prop;
                     boolean fillEventTimeFromProp = StringUtils.isNotBlank(configuration.getMqttEventTimeFromProp());
+                    boolean fillMessageKeyFromProp = StringUtils.isNoneBlank(configuration.getMqttMessageKeyFromProp());
                     userProperties.value().forEach(pair -> {
                         if (fillEventTimeFromProp
                                 && pair.key.equals(configuration.getMqttEventTimeFromProp())
@@ -92,6 +93,11 @@ public class PulsarMessageConverter {
                             }catch (Exception e){
                                 log.error("fill eventtime from prop failed:",e);
                             }
+                        }
+                        if(fillMessageKeyFromProp
+                        && pair.key.equals(configuration.getMqttMessageKeyFromProp())){
+                            metadata.setPartitionKey(pair.value);
+                            metadata.setPartitionKeyB64Encoded(false);
                         }
                         metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()) + pair.key)
                                 .setValue(pair.value);
@@ -219,6 +225,10 @@ public class PulsarMessageConverter {
         ByteBuf payload = msg.getDataBuffer();
 
         metadata.setEventTime(msg.getEventTime());
+        if(StringUtils.isNotBlank(msg.getKey())){
+            metadata.setPartitionKey(msg.getKey());
+            metadata.setPartitionKeyB64Encoded(false);
+        }
         // filled in required fields
         if (!metadata.hasSequenceId()) {
             metadata.setSequenceId(-1);

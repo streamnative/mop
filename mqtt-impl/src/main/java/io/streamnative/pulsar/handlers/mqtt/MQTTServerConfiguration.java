@@ -45,4 +45,11 @@ public class MQTTServerConfiguration extends MQTTCommonConfiguration {
     )
     private String mqttEventTimeFromProp = "";
 
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            required = false,
+            doc = "Fill message key from mqtt user properties."
+    )
+    private String mqttMessageKeyFromProp = "";
+
 }
