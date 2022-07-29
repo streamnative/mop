@@ -72,10 +72,11 @@ public class PulsarMessageConverter {
             };
 
     // Convert MQTT message to Pulsar message.
-    public static MessageImpl<byte[]> toPulsarMsg(MQTTServerConfiguration configuration,Topic topic, MqttProperties properties, ByteBuffer payload) {
+    public static MessageImpl<byte[]> toPulsarMsg(MQTTServerConfiguration configuration, Topic topic,
+                                                  MqttProperties properties, ByteBuffer payload) {
         MessageMetadata metadata = LOCAL_MESSAGE_METADATA.get();
         metadata.clear();
-        if(configuration.isMqttAutoEventTime()){
+        if (configuration.isMqttAutoEventTime()) {
             metadata.setEventTime(System.currentTimeMillis());
         }
         if (properties != null) {
@@ -90,12 +91,12 @@ public class PulsarMessageConverter {
                         ) {
                             try {
                                 metadata.setEventTime(Long.valueOf(pair.value));
-                            }catch (Exception e){
-                                log.error("fill eventtime from prop failed:",e);
+                            } catch (Exception e){
+                                log.error("fill eventtime from prop failed:", e);
                             }
                         }
-                        if(fillMessageKeyFromProp
-                        && pair.key.equals(configuration.getMqttMessageKeyFromProp())){
+                        if (fillMessageKeyFromProp
+                        && pair.key.equals(configuration.getMqttMessageKeyFromProp())) {
                             metadata.setPartitionKey(pair.value);
                             metadata.setPartitionKeyB64Encoded(false);
                         }
@@ -225,7 +226,7 @@ public class PulsarMessageConverter {
         ByteBuf payload = msg.getDataBuffer();
 
         metadata.setEventTime(msg.getEventTime());
-        if(StringUtils.isNotBlank(msg.getKey())){
+        if (StringUtils.isNotBlank(msg.getKey())) {
             metadata.setPartitionKey(msg.getKey());
             metadata.setPartitionKeyB64Encoded(false);
         }

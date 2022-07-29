@@ -14,11 +14,15 @@
 
 package io.streamnative.pulsar.handlers.mqtt.base;
 
-import com.google.api.client.util.Lists;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.client.impl.MessageImpl;
@@ -27,10 +31,7 @@ import org.junit.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+
 
 public class MessageConverTest extends MQTTTestBase{
 
@@ -53,7 +54,9 @@ public class MessageConverTest extends MQTTTestBase{
         List<PulsarService> pulsarServiceList = getPulsarServiceList();
         pulsarService = pulsarServiceList.get(0);
 
-        String encodedPulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(mqttTopic, serverConfiguration.getDefaultTenant(), serverConfiguration.getDefaultNamespace(), TopicDomain.persistent);
+        String encodedPulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(
+                mqttTopic, serverConfiguration.getDefaultTenant(),
+                serverConfiguration.getDefaultNamespace(), TopicDomain.persistent);
         pulsarService.getAdminClient().topics().createNonPartitionedTopic(encodedPulsarTopicName);
 
         CompletableFuture<Optional<Topic>> topicReference = PulsarTopicUtils.getTopicReference(pulsarService, mqttTopic,
@@ -65,26 +68,29 @@ public class MessageConverTest extends MQTTTestBase{
 
     @Test
     public void testAutoEventTime(){
-        MessageImpl<byte[]> message = PulsarMessageConverter.toPulsarMsg(serverConfiguration, topic, new MqttProperties(), ByteBuffer.wrap("world".getBytes()));
-        Assert.assertEquals(true,message.getEventTime()>0);
+        MessageImpl<byte[]> message = PulsarMessageConverter.toPulsarMsg(
+                serverConfiguration, topic, new MqttProperties(), ByteBuffer.wrap("world".getBytes()));
+        Assert.assertEquals(true, message.getEventTime() > 0);
         serverConfiguration.setMqttAutoEventTime(false);
-        MessageImpl<byte[]> notEventTimeMessage = PulsarMessageConverter.toPulsarMsg(serverConfiguration, topic, new MqttProperties(), ByteBuffer.wrap("world".getBytes()));
-        Assert.assertEquals(true,notEventTimeMessage.getEventTime()==0);
+        MessageImpl<byte[]> notEventTimeMessage = PulsarMessageConverter.toPulsarMsg(
+                serverConfiguration, topic, new MqttProperties(), ByteBuffer.wrap("world".getBytes()));
+        Assert.assertEquals(true, notEventTimeMessage.getEventTime() == 0);
     }
 
     @Test
     public void testFillEventTimeFromProp(){
         serverConfiguration.setMqttEventTimeFromProp(mqttEventTimeFromProp);
 
-        List<MqttProperties.StringPair> list = Lists.newArrayList();
+        List<MqttProperties.StringPair> list = new ArrayList<>();
         long eventtime = System.currentTimeMillis();
-        list.add(new MqttProperties.StringPair(mqttEventTimeFromProp,eventtime+""));
+        list.add(new MqttProperties.StringPair(mqttEventTimeFromProp, eventtime + ""));
 
         MqttProperties mp = new MqttProperties();
         mp.add(new MqttProperties.UserProperties(list));
 
-        MessageImpl<byte[]> message = PulsarMessageConverter.toPulsarMsg(serverConfiguration, topic, mp, ByteBuffer.wrap("world".getBytes()));
-        Assert.assertEquals(eventtime,message.getEventTime());
+        MessageImpl<byte[]> message = PulsarMessageConverter.toPulsarMsg(
+                serverConfiguration, topic, mp, ByteBuffer.wrap("world".getBytes()));
+        Assert.assertEquals(eventtime, message.getEventTime());
     }
 
     @Test
@@ -92,14 +98,15 @@ public class MessageConverTest extends MQTTTestBase{
         String messageKey = "msgKey";
         serverConfiguration.setMqttMessageKeyFromProp(messageKey);
 
-        List<MqttProperties.StringPair> list = Lists.newArrayList();
-        list.add(new MqttProperties.StringPair(messageKey,messageKey));
+        List<MqttProperties.StringPair> list = new ArrayList<>();
+        list.add(new MqttProperties.StringPair(messageKey, messageKey));
 
         MqttProperties mp = new MqttProperties();
         mp.add(new MqttProperties.UserProperties(list));
 
-        MessageImpl<byte[]> message = PulsarMessageConverter.toPulsarMsg(serverConfiguration, topic, mp, ByteBuffer.wrap("world".getBytes()));
-        Assert.assertEquals(messageKey,message.getKey());
+        MessageImpl<byte[]> message = PulsarMessageConverter.toPulsarMsg(
+                serverConfiguration, topic, mp, ByteBuffer.wrap("world".getBytes()));
+        Assert.assertEquals(messageKey, message.getKey());
     }
 
 }
