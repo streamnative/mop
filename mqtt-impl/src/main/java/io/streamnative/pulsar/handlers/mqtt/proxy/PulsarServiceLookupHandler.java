@@ -59,13 +59,16 @@ public class PulsarServiceLookupHandler implements LookupHandler {
     public PulsarServiceLookupHandler(PulsarService pulsarService, MQTTProxyConfiguration proxyConfig) {
         this.pulsarService = pulsarService;
         this.proxyConfig = proxyConfig;
-        this.executorProvider = new ExecutorProvider(proxyConfig.getLookupThreadPoolNum(), "pulsar-lookup-thread");
+        this.executorProvider = new ExecutorProvider(proxyConfig.getLookupThreadPoolNum(), "mop-lookup-thread");
         this.localBrokerDataCache = pulsarService
                 .getLocalMetadataStore().getMetadataCache(LocalBrokerData.class);
         this.pulsarClient = getClient(proxyConfig);
     }
 
-    private void findBroker(TopicName topicName, Backoff backoff, AtomicLong remainingTime, CompletableFuture<InetSocketAddress> future) {
+    private void findBroker(TopicName topicName,
+                            Backoff backoff,
+                            AtomicLong remainingTime,
+                            CompletableFuture<InetSocketAddress> future) {
         pulsarClient.getLookup().getBroker(topicName)
                 .thenCompose(lookupPair ->
                         localBrokerDataCache.getChildren(LoadManager.LOADBALANCE_BROKERS_ROOT).thenCompose(brokers -> {
@@ -90,7 +93,8 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                                                     "The broker does not enabled the mqtt protocol handler."));
                                         }
                                         // Get MQTT protocol listeners
-                                        Optional<String> protocol = specificBrokerData.get().getProtocol(protocolHandlerName);
+                                        Optional<String> protocol = specificBrokerData.get()
+                                                .getProtocol(protocolHandlerName);
                                         assert protocol.isPresent();
                                         String mqttBrokerUrls = protocol.get();
                                         String[] brokerUrls = mqttBrokerUrls.split(ConfigurationUtils.LISTENER_DEL);
@@ -112,7 +116,7 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                 .thenAccept(future::complete)
                 .exceptionally(e -> {
                     long nextDelay = Math.min(backoff.next(), remainingTime.get());
-                    // skip retry scheduler when set lookup throttle in client or server side which will lead to `TooManyRequestsException`
+                    // skip retry scheduler when `TooManyRequestsException`
                     boolean isLookupThrottling = !PulsarClientException.isRetriableError(e.getCause())
                             || e.getCause() instanceof PulsarClientException.TooManyRequestsException
                             || e.getCause() instanceof PulsarClientException.AuthenticationException;
@@ -122,7 +126,8 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                     }
 
                     ((ScheduledExecutorService) executorProvider.getExecutor()).schedule(() -> {
-                        log.warn("[topic: {}] Could not get topic lookup result -- Will try again in {} ms", topicName, nextDelay);
+                        log.warn("[topic: {}] Could not get topic lookup result -- Will try again in {} ms",
+                                topicName, nextDelay);
                         remainingTime.addAndGet(-nextDelay);
                         findBroker(topicName, backoff, remainingTime, future);
                     }, nextDelay, TimeUnit.MILLISECONDS);
