@@ -74,4 +74,21 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
     )
     private int connectTimeoutMs = 10;
 
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "The number of schedule thread pools for Proxy lookup topic owner broker"
+    )
+    private int lookupThreadPoolNum = 1;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "The max operation time for looking up"
+    )
+    private int lookupOperationTimeoutMs = 20000;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "The maximum interval for performing lookup"
+    )
+    private int maxLookupIntervalMs = 5000;
 }
