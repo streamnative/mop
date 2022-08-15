@@ -30,4 +30,26 @@ public class MQTTServerConfiguration extends MQTTCommonConfiguration {
             doc = "Listener for the MQTT Server."
     )
     private String mqttListeners = "mqtt://127.0.0.1:1883";
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            required = false,
+            doc = "Auto Set EventTime for pulsar message."
+    )
+    private boolean mqttAutoEventTime;
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            required = false,
+            doc = "Fill eventtime from mqtt user properties."
+    )
+    private String mqttEventTimeFromProp = "";
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
+            required = false,
+            doc = "Fill message key from mqtt user properties."
+    )
+    private String mqttMessageKeyFromProp = "";
+
 }
