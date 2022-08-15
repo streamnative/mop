@@ -90,7 +90,7 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
             mqttTopicName = msg.variableHeader().topicName();
         }
         return getTopicReference(mqttTopicName).thenCompose(topicOp -> topicOp.map(topic -> {
-            MessageImpl<byte[]> message = toPulsarMsg(topic, msg.variableHeader().properties(),
+            MessageImpl<byte[]> message = toPulsarMsg(configuration, topic, msg.variableHeader().properties(),
                     msg.payload().nioBuffer());
             CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(message, topic);
             message.recycle();
