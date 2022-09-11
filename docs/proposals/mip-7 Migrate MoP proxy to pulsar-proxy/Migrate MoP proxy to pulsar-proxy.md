@@ -50,13 +50,10 @@ Since the MQTT protocol is designed to support large numbers of connections, the
 
 However, the MQTT protocol is not supported re-use sockets (don’t have an identifier), So we have to expand the existing protocol to support it.
 
-The following section will introduce this approach.
 
 ### Enhancement MQTT protocol between proxy and broker
 
 In the current implementation we define simple protocol to support it, for compatibility I want to reuse this logic until we need more protocol features and we can switch to using `protobuf`.
-
-The current protocol details you can check here:
 
 ### Configuration
 
