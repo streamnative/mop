@@ -15,22 +15,25 @@ package io.streamnative.pulsar.handlers.mqtt.support.event;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.bookkeeper.common.util.OrderedExecutor;
+import org.apache.bookkeeper.common.util.OrderedScheduler;
 import org.apache.pulsar.broker.service.BrokerService;
 import org.apache.pulsar.metadata.api.Notification;
 
+@Slf4j
 public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEventCenter {
     private final List<PulsarEventListener> listeners;
-    private final ExecutorService callbackExecutor;
+    private final OrderedExecutor callbackExecutor;
 
     @SuppressWarnings("UnstableApiUsage")
     public PulsarEventCenterImpl(BrokerService brokerService, int poolThreadNum) {
         this.listeners = new CopyOnWriteArrayList<>();
-        this.callbackExecutor =
-                Executors.newFixedThreadPool(poolThreadNum);
+        this.callbackExecutor = OrderedScheduler.newSchedulerBuilder()
+                .numThreads(poolThreadNum)
+                .name("mqtt-notification-workers").build();
         brokerService.getPulsar()
                 .getConfigurationMetadataStore().registerListener(this);
     }
@@ -53,11 +56,15 @@ public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEven
 
     @Override
     public void accept(Notification notification) {
-        String path = notification.getPath();
-        List<PulsarEventListener> needNotifyListener =
-                listeners.stream().filter(listeners -> listeners.matchPath(path)).collect(Collectors.toList());
-        callbackExecutor.execute(() -> needNotifyListener.parallelStream()
-                .forEach(listener -> {
+        if (listeners.isEmpty()) {
+            return;
+        }
+        final String path = notification.getPath();
+        // give the task to another thread to avoid blocking metadata
+        callbackExecutor.executeOrdered(path, () -> {
+            for (PulsarEventListener listener : listeners.stream().filter(listeners ->
+                    listeners.matchPath(path)).collect(Collectors.toList())) {
+                try {
                     switch (notification.getType()) {
                         case Created:
                             listener.onNodeCreated(path);
@@ -68,6 +75,10 @@ public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEven
                         default:
                             break;
                     }
-                }));
+                } catch (Throwable ex) {
+                    log.warn("notify change {} {} failed.", notification.getType(), notification.getPath(), ex);
+                }
+            }
+        });
     }
 }
