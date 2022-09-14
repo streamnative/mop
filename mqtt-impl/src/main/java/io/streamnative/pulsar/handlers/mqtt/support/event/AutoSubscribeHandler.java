@@ -30,16 +30,20 @@ import org.apache.pulsar.common.util.Codec;
 
 @Slf4j
 public class AutoSubscribeHandler implements PulsarTopicChangeListener {
+
+    private volatile boolean registered = false;
     private final PulsarEventCenter eventCenter;
     private final Map<TopicFilter, List<Consumer<String>>> filterToCallback = new ConcurrentHashMap<>();
     private final Map<TopicFilter, CompletableFuture<Void>> unregisterFutures = new ConcurrentHashMap<>();
 
     public AutoSubscribeHandler(PulsarEventCenter eventCenter) {
         this.eventCenter = eventCenter;
-        eventCenter.register(this);
     }
 
     public void register(TopicFilter topicFilter, Consumer<String> callback) {
+        if (!registered) {
+            registerToEventCenter();
+        }
         filterToCallback.compute(topicFilter, (k, consumers) -> {
            if (consumers == null) {
                return Lists.newArrayList(callback);
@@ -58,6 +62,13 @@ public class AutoSubscribeHandler implements PulsarTopicChangeListener {
                return v;
            });
         });
+    }
+
+    private synchronized void registerToEventCenter() {
+        if (!registered) {
+            eventCenter.register(this);
+            registered = true;
+        }
     }
 
     public void unregister(TopicFilter filter) {
