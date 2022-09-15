@@ -18,6 +18,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.util.concurrent.Future;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
@@ -72,7 +73,7 @@ public class MQTTConsumer extends Consumer {
                         OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector) {
         super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0,
                 connection.getClientId(), true, cnx, "", null, false,
-                CommandSubscribe.InitialPosition.Latest, null, MessageId.latest, Commands.DEFAULT_CONSUMER_EPOCH);
+                null, MessageId.latest, Commands.DEFAULT_CONSUMER_EPOCH);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
         this.cnx = cnx;
@@ -85,9 +86,9 @@ public class MQTTConsumer extends Consumer {
     }
 
     @Override
-    public ChannelPromise sendMessages(List<Entry> entries, EntryBatchSizes batchSizes,
-           EntryBatchIndexesAcks batchIndexesAcks, int totalMessages, long totalBytes, long totalChunkedMessages,
-           RedeliveryTracker redeliveryTracker) {
+    public Future<Void> sendMessages(List<? extends Entry> entries, EntryBatchSizes batchSizes,
+                                     EntryBatchIndexesAcks batchIndexesAcks, int totalMessages, long totalBytes,
+                                     long totalChunkedMessages, RedeliveryTracker redeliveryTracker) {
         ChannelPromise promise = cnx.ctx().newPromise();
         MESSAGE_PERMITS_UPDATER.addAndGet(this, -totalMessages);
         for (Entry entry : entries) {
