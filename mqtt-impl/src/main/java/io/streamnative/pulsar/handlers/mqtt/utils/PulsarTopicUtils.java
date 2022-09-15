@@ -20,6 +20,7 @@ import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -102,7 +103,7 @@ public class PulsarTopicUtils {
                 Topic topic = topicOp.get();
                 Subscription subscription = topic.getSubscription(subscriptionName);
                 if (subscription == null) {
-                    topic.createSubscription(subscriptionName, position, false)
+                    topic.createSubscription(subscriptionName, position, false, new HashMap<>())
                             .thenAccept(sub -> {
                                 if (topic instanceof NonPersistentTopic) {
                                     ((NonPersistentTopic) topic).getSubscriptions().put(subscriptionName,
