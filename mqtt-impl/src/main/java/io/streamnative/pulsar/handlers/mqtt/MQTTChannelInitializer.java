@@ -70,6 +70,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
                         mqttConfig.getMqttTlsCertRefreshCheckDurationSec());
             } else {
                 sslCtxRefresher = new NettyServerSslContextBuilder(
+                        null,
                         mqttConfig.isMqttTlsAllowInsecureConnection(),
                         mqttConfig.getMqttTlsTrustCertsFilePath(),
                         mqttConfig.getMqttTlsCertificateFilePath(),
