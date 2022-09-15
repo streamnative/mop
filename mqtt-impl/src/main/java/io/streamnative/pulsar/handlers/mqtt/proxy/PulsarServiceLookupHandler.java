@@ -151,9 +151,11 @@ public class PulsarServiceLookupHandler implements LookupHandler {
 
     private boolean isLookupMQTTBroker(Pair<InetSocketAddress, InetSocketAddress> pair,
                                        LocalBrokerData localBrokerData) {
-        return (localBrokerData.getPulsarServiceUrl().equals("pulsar://" + pair.getLeft().toString())
-                || localBrokerData.getPulsarServiceUrlTls().equals("pulsar+ssl://" + pair.getLeft().toString()))
-                && localBrokerData.getProtocol(protocolHandlerName).isPresent();
+        String pulsar = String.format("pulsar://%s:%d", pair.getLeft().getHostName(), pair.getLeft().getPort());
+        String pulsarSsl = String.format("pulsar+ssl://%s:%d", pair.getLeft().getHostName(), pair.getLeft().getPort());
+        return (localBrokerData.getPulsarServiceUrl().equals(pulsar)
+                || localBrokerData.getPulsarServiceUrlTls().equals(pulsarSsl)
+                && localBrokerData.getProtocol(protocolHandlerName).isPresent());
     }
 
     @Override
