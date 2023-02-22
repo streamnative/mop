@@ -359,7 +359,7 @@
 
     <repositories>
         <repository>
-            <id>ossrh</id>
+            <id>ossrh01</id>
             <url>https://s01.oss.sonatype.org/service/local/repositories/iostreamnative-2022/content</url>
         </repository>
         <repository>
