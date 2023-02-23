@@ -25,12 +25,14 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.testng.Assert;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 @Slf4j
 public class CleanSessionTest extends MQTTTestBase {
 
-//    @Test(timeOut = TIMEOUT)
+    @Test(timeOut = TIMEOUT)
+    @Ignore
     public void testCleanSession() throws Exception {
         final String topic = "clean-session-test-1";
         Mqtt3BlockingClient client = Mqtt3Client.builder()
@@ -55,7 +57,8 @@ public class CleanSessionTest extends MQTTTestBase {
         Assert.assertTrue(CollectionUtils.isEmpty(afterDisconnectionSubscriptions));
     }
 
-//    @Test(timeOut = TIMEOUT)
+    @Test(timeOut = TIMEOUT)
+    @Ignore
     public void testNotCleanSession() throws Exception {
         final String topic = "clean-session-test-2";
         Mqtt3BlockingClient client = Mqtt3Client.builder()
