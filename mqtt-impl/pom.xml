@@ -19,7 +19,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>
-        <groupId>io.streamnative.pulsar.handlers</groupId>
+        <groupId>co.macrometa.c8streams.handlers</groupId>
         <version>2.8.1.1</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
