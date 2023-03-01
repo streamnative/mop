@@ -18,13 +18,13 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>
+        <artifactId>mop-parent</artifactId>
         <groupId>co.macrometa.c8streams.handlers</groupId>
         <version>2.8.1.1</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>pulsar-protocol-handler-mqtt-tests</artifactId>
-    <name>StreamNative :: Pulsar Protocol Handler :: MQTT Tests</name>
+    <name>Macrometa :: Pulsar Protocol Handler :: MQTT Tests</name>
     <description>Tests for MQTT on Pulsar</description>
 
     <dependencies>
