@@ -115,7 +115,7 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
         CompletableFuture<SystemTopicClient.Writer<MqttEvent>> writerFuture = systemTopicClient.newWriterAsync();
         return writerFuture.thenCompose(writer -> {
             CompletableFuture<MessageId> writeFuture = ActionType.DELETE.equals(event.getActionType())
-                    ? writer.deleteAsync(event) : writer.writeAsync(event);
+                    ? writer.deleteAsync(event.getKey(), event) : writer.writeAsync(event.getKey(), event);
             writeFuture.whenComplete((__, ex) -> {
                 if (ex != null) {
                     log.error("[{}] send event error.", SYSTEM_EVENT_TOPIC, ex);
