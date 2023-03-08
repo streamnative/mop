@@ -75,25 +75,25 @@ public class MQTTEventSystemTopicClient extends SystemTopicClientBase<MqttEvent>
         }
 
         @Override
-        public MessageId write(MqttEvent event) throws PulsarClientException {
+        public MessageId write(String key, MqttEvent event) throws PulsarClientException {
             TypedMessageBuilder<MqttEvent> builder = producer.newMessage().key(event.getKey()).value(event);
             return builder.send();
         }
 
         @Override
-        public CompletableFuture<MessageId> writeAsync(MqttEvent event) {
+        public CompletableFuture<MessageId> writeAsync(String key, MqttEvent event) {
             TypedMessageBuilder<MqttEvent> builder = producer.newMessage().key(event.getKey()).value(event);
             return builder.sendAsync();
         }
 
         @Override
-        public MessageId delete(MqttEvent event) throws PulsarClientException {
+        public MessageId delete(String key, MqttEvent event) throws PulsarClientException {
             TypedMessageBuilder<MqttEvent> builder = producer.newMessage().key(event.getKey()).value(event);
             return builder.send();
         }
 
         @Override
-        public CompletableFuture<MessageId> deleteAsync(MqttEvent event) {
+        public CompletableFuture<MessageId> deleteAsync(String key, MqttEvent event) {
             TypedMessageBuilder<MqttEvent> builder = producer.newMessage().key(event.getKey()).value(event);
             return builder.sendAsync();
         }
