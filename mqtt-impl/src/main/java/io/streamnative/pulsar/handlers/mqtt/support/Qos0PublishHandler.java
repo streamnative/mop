@@ -35,7 +35,8 @@ public class Qos0PublishHandler extends AbstractQosPublishHandler {
     public CompletableFuture<Void> publish(Connection connection, MqttAdapterMessage adapter) {
         final MqttPublishMessage msg = (MqttPublishMessage) adapter.getMqttMessage();
         if (MqttUtils.isRetainedMessage(msg)) {
-            return retainedMessageHandler.addRetainedMessage(msg);
+            return retainedMessageHandler.addRetainedMessage(msg)
+                .thenCompose(__ -> writeToPulsarTopic(connection.getTopicAliasManager(), msg).thenAccept(___ -> {}));
         }
         return writeToPulsarTopic(connection.getTopicAliasManager(), msg).thenAccept(__ -> {});
     }
