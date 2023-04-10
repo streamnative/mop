@@ -173,12 +173,22 @@ public class PulsarTopicUtils {
     public static CompletableFuture<List<String>> asyncGetTopicsForSubscribeMsg(MqttSubscribeMessage msg,
                  String defaultTenant, String defaultNamespace, PulsarService pulsarService,
                                                                                 String defaultTopicDomain) {
-        List<CompletableFuture<List<String>>> topicListFuture =
-                new ArrayList<>(msg.payload().topicSubscriptions().size());
 
-        for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
-            topicListFuture.add(asyncGetTopicListFromTopicSubscription(req.topicName(), defaultTenant, defaultNamespace,
-                    pulsarService, defaultTopicDomain));
+        List<String> topicNames = msg.payload().topicSubscriptions().stream()
+            .map(MqttTopicSubscription::topicName)
+            .collect(Collectors.toList());
+        return asyncGetTopicsForSubscribeMsg(topicNames, defaultTenant, defaultNamespace, pulsarService, defaultTopicDomain);
+    }
+
+    public static CompletableFuture<List<String>> asyncGetTopicsForSubscribeMsg(List<String> topicNames,
+                 String defaultTenant, String defaultNamespace, PulsarService pulsarService,
+                                                                                String defaultTopicDomain) {
+        List<CompletableFuture<List<String>>> topicListFuture =
+            new ArrayList<>(topicNames.size());
+
+        for (String topicName : topicNames) {
+            topicListFuture.add(asyncGetTopicListFromTopicSubscription(topicName, defaultTenant, defaultNamespace,
+                pulsarService, defaultTopicDomain));
         }
 
         CompletableFuture<List<String>> completeTopicListFuture = null;

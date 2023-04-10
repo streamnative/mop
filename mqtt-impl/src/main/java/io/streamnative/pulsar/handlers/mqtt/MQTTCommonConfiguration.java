@@ -290,4 +290,13 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "TLS psk identity with plain text"
     )
     private String tlsPskIdentity = null;
+
+    @FieldContext(
+        category = CATEGORY_MQTT,
+        doc = "Convert to a single topic if it is set"
+    )
+    private String singleTopic = null;
+
+
+
 }

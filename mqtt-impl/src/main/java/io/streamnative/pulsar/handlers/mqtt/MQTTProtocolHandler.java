@@ -132,6 +132,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setTlsKeyStoreType(mqttConfig.getTlsKeyStoreType());
             proxyConfig.setTlsKeyStorePassword(mqttConfig.getTlsTrustStorePassword());
             proxyConfig.setTlsKeyFilePath(mqttConfig.getTlsKeyFilePath());
+            proxyConfig.setSingleTopic(mqttConfig.getSingleTopic());
             log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
             proxyService = new MQTTProxyService(mqttService, proxyConfig);
             try {

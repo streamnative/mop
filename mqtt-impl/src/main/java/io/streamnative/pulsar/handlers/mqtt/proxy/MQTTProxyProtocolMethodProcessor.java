@@ -34,6 +34,8 @@ import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -132,10 +134,16 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processPublish(Channel channel, MqttPublishMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy Publish] publish to topic = {}, CId={}",
-                    msg.variableHeader().topicName(), NettyUtils.getClientId(channel));
+            log.debug("[Proxy Publish] publish to single topic = {} from origin topic = {}, CId={}",
+                    proxyConfig.getSingleTopic(), msg.variableHeader().topicName(), NettyUtils.getClientId(channel));
         }
-        String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(msg.variableHeader().topicName(),
+        final String topic;
+        if (StringUtils.isNotEmpty(proxyConfig.getSingleTopic())) {
+            topic = proxyConfig.getSingleTopic();
+        } else {
+            topic = msg.variableHeader().topicName();
+        }
+        String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(topic,
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
                 TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
         CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(
@@ -143,7 +151,7 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         lookupResult.whenComplete((brokerAddress, throwable) -> {
             if (null != throwable) {
                 log.error("[Proxy Publish] Failed to perform lookup request for topic : {}, CId : {}",
-                        msg.variableHeader().topicName(), NettyUtils.getClientId(channel), throwable);
+                        topic, NettyUtils.getClientId(channel), throwable);
                 channel.close();
                 return;
             }
@@ -220,9 +228,18 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
-        CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg,
+        CompletableFuture<List<String>> topicListFuture;
+        if (StringUtils.isNotEmpty(proxyConfig.getSingleTopic())) {
+            // TODO: if use multiple brokers then single topics(real topics) should be at least on each broker.
+            //  Needs to implement CHash virtual topic -> realTopic
+            topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(Collections.singletonList(proxyConfig.getSingleTopic()),
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
                 proxyConfig.getDefaultTopicDomain());
+        } else {
+            topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg,
+                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
+                proxyConfig.getDefaultTopicDomain());
+        }
 
         if (topicListFuture == null) {
             channel.close();
@@ -251,7 +268,12 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
         if (log.isDebugEnabled()) {
             log.debug("[Proxy UnSubscribe] [{}]", NettyUtils.getClientId(channel));
         }
-        List<String> topics = msg.payload().topics();
+        List<String> topics;
+        if (StringUtils.isNotEmpty(proxyConfig.getSingleTopic())) {
+            topics = Collections.singletonList(proxyConfig.getSingleTopic());
+        } else {
+            topics = msg.payload().topics();
+        }
         for (String topic : topics) {
             CompletableFuture<InetSocketAddress> lookupResult = lookupHandler.findBroker(TopicName.get(topic));
             lookupResult.whenComplete((brokerAddress, throwable) -> {
