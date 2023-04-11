@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import java.util.List;
 import java.util.Set;
+
+import io.streamnative.pulsar.handlers.mqtt.sharding.Sharder;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.pulsar.broker.ServiceConfiguration;
@@ -293,10 +295,19 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
 
     @FieldContext(
         category = CATEGORY_MQTT,
-        doc = "Convert to a single topic if it is set"
+        doc = "Count `real topics` in all brokers. If it is set to `0` then it doesn't redirect to a `real topic`."
     )
-    private String singleTopic = null;
+    private int mqttRealTopicCount = 0;
 
+    @FieldContext(
+        category = CATEGORY_MQTT,
+        doc = "Add prefix to `real topic` name. Example of the name `topic_0` if mqttRealTopicNamePrefix = 'topic'."
+    )
+    private String mqttRealTopicNamePrefix = null;
 
+    /**
+     * Sharder to select the correct shard for the given topics
+     */
+    private Sharder sharder;
 
 }

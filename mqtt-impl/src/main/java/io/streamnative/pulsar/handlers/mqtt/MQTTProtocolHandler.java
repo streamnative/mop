@@ -25,9 +25,15 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
+import io.streamnative.pulsar.handlers.mqtt.sharding.ConsistentHashSharder;
+import io.streamnative.pulsar.handlers.mqtt.sharding.Sharder;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.ServiceConfiguration;
@@ -132,7 +138,10 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             proxyConfig.setTlsKeyStoreType(mqttConfig.getTlsKeyStoreType());
             proxyConfig.setTlsKeyStorePassword(mqttConfig.getTlsTrustStorePassword());
             proxyConfig.setTlsKeyFilePath(mqttConfig.getTlsKeyFilePath());
-            proxyConfig.setSingleTopic(mqttConfig.getSingleTopic());
+
+            proxyConfig.setMqttRealTopicCount(mqttConfig.getMqttRealTopicCount());
+            proxyConfig.setMqttRealTopicNamePrefix(mqttConfig.getMqttRealTopicNamePrefix());
+            proxyConfig.setSharder(initSharder(proxyConfig.getMqttRealTopicNamePrefix(), proxyConfig.getMqttRealTopicCount()));
             log.info("proxyConfig broker service URL: {}", proxyConfig.getBrokerServiceURL());
             proxyService = new MQTTProxyService(mqttService, proxyConfig);
             try {
@@ -149,6 +158,17 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                 MopVersion.getBuildUser(),
                 MopVersion.getBuildHost(),
                 MopVersion.getBuildTime());
+    }
+
+    private static Sharder initSharder(String mqttRealTopicNamePrefix, int mqttRealTopicCount) {
+        if (mqttRealTopicCount < 1) {
+            return null;
+        }
+        List<String> shardIds = IntStream.range(0, mqttRealTopicCount)
+            .mapToObj(i -> String.format("%s_%d", mqttRealTopicNamePrefix, i))
+            .collect(Collectors.toList());
+        log.info("List of real topics: {}", String.join(", ", shardIds));
+        return new ConsistentHashSharder(100, shardIds);
     }
 
     @Override

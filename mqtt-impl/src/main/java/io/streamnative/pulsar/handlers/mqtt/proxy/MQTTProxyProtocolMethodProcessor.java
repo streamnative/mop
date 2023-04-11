@@ -24,6 +24,7 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
+import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
@@ -41,6 +42,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
@@ -134,12 +137,16 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
     @Override
     public void processPublish(Channel channel, MqttPublishMessage msg) {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy Publish] publish to single topic = {} from origin topic = {}, CId={}",
-                    proxyConfig.getSingleTopic(), msg.variableHeader().topicName(), NettyUtils.getClientId(channel));
+            log.debug("[Proxy Publish] publish to topic = {}, CId={}",
+                    msg.variableHeader().topicName(), NettyUtils.getClientId(channel));
         }
         final String topic;
-        if (StringUtils.isNotEmpty(proxyConfig.getSingleTopic())) {
-            topic = proxyConfig.getSingleTopic();
+        if (proxyConfig.getSharder() != null) {
+            topic = proxyConfig.getSharder().getShardId(msg.variableHeader().topicName());
+            if (log.isDebugEnabled()) {
+                log.debug("[Proxy Publish] send topic = {} to real topic = {}, CId={}",
+                    msg.variableHeader().topicName(), topic, NettyUtils.getClientId(channel));
+            }
         } else {
             topic = msg.variableHeader().topicName();
         }
@@ -229,12 +236,22 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
         CompletableFuture<List<String>> topicListFuture;
-        if (StringUtils.isNotEmpty(proxyConfig.getSingleTopic())) {
-            // TODO: if use multiple brokers then single topics(real topics) should be at least on each broker.
-            //  Needs to implement CHash virtual topic -> realTopic
-            topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(Collections.singletonList(proxyConfig.getSingleTopic()),
+        if (proxyConfig.getSharder() != null) {
+            List<String> topicNames = msg.payload().topicSubscriptions().stream()
+                .map(s -> {
+                    String topic = proxyConfig.getSharder().getShardId(s.topicName());
+                    if (log.isDebugEnabled()) {
+                        log.debug("[Proxy Subscribe] send topic = {} to real topic = {}, CId={}",
+                            s.topicName(), topic, NettyUtils.getClientId(channel));
+                    }
+                    return topic;
+                })
+                .collect(Collectors.toList());
+
+            topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(topicNames,
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
                 proxyConfig.getDefaultTopicDomain());
+
         } else {
             topicListFuture = PulsarTopicUtils.asyncGetTopicsForSubscribeMsg(msg,
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
@@ -269,8 +286,18 @@ public class MQTTProxyProtocolMethodProcessor implements ProtocolMethodProcessor
             log.debug("[Proxy UnSubscribe] [{}]", NettyUtils.getClientId(channel));
         }
         List<String> topics;
-        if (StringUtils.isNotEmpty(proxyConfig.getSingleTopic())) {
-            topics = Collections.singletonList(proxyConfig.getSingleTopic());
+        if (proxyConfig.getSharder() != null) {
+            topics = msg.payload().topics().stream()
+                .map(t -> {
+                    String topic = proxyConfig.getSharder().getShardId(t);
+                    if (log.isDebugEnabled()) {
+                        log.debug("[Proxy UnSubscribe] send topic = {} to real topic = {}, CId={}",
+                            t, topic, NettyUtils.getClientId(channel));
+                    }
+                    return topic;
+                })
+                .collect(Collectors.toList());
+
         } else {
             topics = msg.payload().topics();
         }
