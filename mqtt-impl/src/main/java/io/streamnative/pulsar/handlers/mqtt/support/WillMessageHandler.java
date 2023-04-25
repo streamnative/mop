@@ -60,20 +60,22 @@ public class WillMessageHandler {
 
     private Executor delayedExecutor(long delay, TimeUnit unit) {
         // this allows CompleteableFuture to be executed with a specified delay into a scheduled executor service
-        return r -> executor.schedule( r, delay, unit );
+        return r -> executor.schedule(r, delay, unit);
     }
 
     public CompletableFuture<Void> fireWillMessage(Connection connection, WillMessage willMessage) {
         if (willMessage.getDelayInterval() > 0) {
             final Executor delayed = delayedExecutor(willMessage.getDelayInterval(), TimeUnit.SECONDS);
-            return CompletableFuture.supplyAsync(() -> sendWillMessageToPulsarTopic(connection, willMessage).join(), delayed);
+            return CompletableFuture.supplyAsync(() -> sendWillMessageToPulsarTopic(connection, willMessage).join(),
+                                                 delayed);
         }
         return sendWillMessageToPulsarTopic(connection, willMessage);
     }
 
     private CompletableFuture<Void> sendWillMessageToPulsarTopic(Connection connection, WillMessage willMessage) {
         final MqttPublishMessage msg = createMqttWillMessage(willMessage);
-        final MqttAdapterMessage adapter = new MqttAdapterMessage(connection.getClientId(), msg, connection.isFromProxy());
+        final MqttAdapterMessage adapter = new MqttAdapterMessage(connection.getClientId(),
+                                                                  msg, connection.isFromProxy());
         final MqttQoS qos = msg.fixedHeader().qosLevel();
         metricsCollector.addSend(msg.payload().readableBytes());
         switch (qos) {

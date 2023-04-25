@@ -310,7 +310,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                 try {
                     // wait to will message to fire before continuing cleanup
                     willMessageHandler.fireWillMessage(connection, willMessage).get();
-                } catch ( ExecutionException | InterruptedException e) {
+                } catch (ExecutionException | InterruptedException e) {
                     log.error("[Connection Lost] [{}] Failed to fire will message: {}", clientId, e);
                 }
             }
