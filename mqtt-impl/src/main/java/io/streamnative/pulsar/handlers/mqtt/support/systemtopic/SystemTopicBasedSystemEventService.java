@@ -78,17 +78,6 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     }
 
     @Override
-    public CompletableFuture<Void> sendLWTEvent(LastWillMessageEvent event) {
-        checkReader();
-        return sendEvent(getMqttEvent(event, ActionType.INSERT))
-                .thenRun(() -> {
-                    if (log.isDebugEnabled()) {
-                        log.debug("send LWT event : {}", event);
-                    }
-                });
-    }
-
-    @Override
     public CompletableFuture<Void> sendRetainedEvent(RetainedMessageEvent event) {
         checkReader();
         return sendEvent(getMqttEvent(event, ActionType.INSERT))

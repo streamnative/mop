@@ -13,27 +13,25 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
-import static io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventType.LAST_WILL_MESSAGE;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttWillMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTSubscriptionManager;
-import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.EventListener;
-import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.LastWillMessageEvent;
-import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.MqttEvent;
+import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
+import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.utils.WillMessage;
-import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.common.util.FutureUtil;
 
 @Slf4j
 public class WillMessageHandler {
@@ -42,9 +40,9 @@ public class WillMessageHandler {
     private final MQTTSubscriptionManager mqttSubscriptionManager;
     private final MQTTConnectionManager connectionManager;
     private final String advertisedAddress;
-    @Getter
-    private final EventListener eventListener;
     private final MQTTService mqttService;
+    private final QosPublishHandlers qosPublishHandlers;
+    private final MQTTMetricsCollector metricsCollector;
 
     private final ScheduledExecutorService executor;
 
@@ -54,58 +52,44 @@ public class WillMessageHandler {
         this.mqttSubscriptionManager = mqttService.getSubscriptionManager();
         this.connectionManager = mqttService.getConnectionManager();
         this.advertisedAddress = mqttService.getPulsarService().getAdvertisedAddress();
-        this.eventListener = new LastWillMessageEventListener();
+        this.qosPublishHandlers = mqttService.getQosPublishHandlers();
+        this.metricsCollector = mqttService.getMetricsCollector();
         this.executor = Executors.newSingleThreadScheduledExecutor(
                 new DefaultThreadFactory("will-message-executor"));
     }
 
-    public void fireWillMessage(String clientId, WillMessage willMessage) {
-        if (StringUtils.isNotBlank(clientId) && mqttService.isSystemTopicEnabled()) {
-            LastWillMessageEvent lwt = LastWillMessageEvent
-                    .builder()
-                    .clientId(clientId)
-                    .willMessage(willMessage)
-                    .address(pulsarService.getAdvertisedAddress())
-                    .build();
-            mqttService.getEventService().sendLWTEvent(lwt);
-        }
-        if (willMessage.getDelayInterval() > 0) {
-            executor.schedule(() -> sendWillMessage(willMessage), willMessage.getDelayInterval(), TimeUnit.SECONDS);
-        } else {
-            sendWillMessage(willMessage);
-        }
+    private Executor delayedExecutor(long delay, TimeUnit unit) {
+        // this allows CompleteableFuture to be executed with a specified delay into a scheduled executor service
+        return r -> executor.schedule( r, delay, unit );
     }
 
-    private void sendWillMessage(WillMessage willMessage) {
-        List<Pair<String, String>> subscriptions = mqttSubscriptionManager.findMatchedTopic(willMessage.getTopic());
-        MqttPublishMessage msg = createMqttWillMessage(willMessage);
-        for (Pair<String, String> entry : subscriptions) {
-            Connection connection = connectionManager.getConnection(entry.getLeft());
-            if (connection != null) {
-                connection.send(msg);
-            } else {
-                log.warn("Not find connection for empty : {}", entry.getLeft());
-            }
+    public CompletableFuture<Void> fireWillMessage(Connection connection, WillMessage willMessage) {
+        if (willMessage.getDelayInterval() > 0) {
+            final Executor delayed = delayedExecutor(willMessage.getDelayInterval(), TimeUnit.SECONDS);
+            return CompletableFuture.supplyAsync(() -> sendWillMessageToPulsarTopic(connection, willMessage).join(), delayed);
+        }
+        return sendWillMessageToPulsarTopic(connection, willMessage);
+    }
+
+    private CompletableFuture<Void> sendWillMessageToPulsarTopic(Connection connection, WillMessage willMessage) {
+        final MqttPublishMessage msg = createMqttWillMessage(willMessage);
+        final MqttAdapterMessage adapter = new MqttAdapterMessage(connection.getClientId(), msg, connection.isFromProxy());
+        final MqttQoS qos = msg.fixedHeader().qosLevel();
+        metricsCollector.addSend(msg.payload().readableBytes());
+        switch (qos) {
+            case AT_MOST_ONCE:
+                return this.qosPublishHandlers.qos0().publish(connection, adapter);
+            case AT_LEAST_ONCE:
+                return this.qosPublishHandlers.qos1().publish(connection, adapter);
+            case EXACTLY_ONCE:
+                return this.qosPublishHandlers.qos2().publish(connection, adapter);
+            default:
+                log.error("[Publish] Unknown QoS-Type:{}", qos);
+                return FutureUtil.failedFuture(new IllegalArgumentException("Unknown QoS-Type:" + qos));
         }
     }
 
     public void close() {
         this.executor.shutdown();
-    }
-
-    class LastWillMessageEventListener implements EventListener {
-
-        @Override
-        public void onChange(MqttEvent event) {
-            if (event.getEventType() == LAST_WILL_MESSAGE) {
-                LastWillMessageEvent lwtEvent = (LastWillMessageEvent) event.getSourceEvent();
-                if (!lwtEvent.getAddress().equals(advertisedAddress)) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("fire will message : {}", lwtEvent.getWillMessage());
-                    }
-                    fireWillMessage("", lwtEvent.getWillMessage());
-                }
-            }
-        }
     }
 }
