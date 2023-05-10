@@ -500,6 +500,11 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         final List<String> topicFilters = msg.payload().topics();
         final List<CompletableFuture<Void>> futureList = new ArrayList<>(topicFilters.size());
         for (String topicFilter : topicFilters) {
+            final boolean removed = mqttSubscriptionManager.removeSubscriptionForTopic(clientId, topicFilter);
+            if (!removed) {
+                throw new MQTTTopicNotExistedException(
+                    String.format("Can not found topic when %s unsubscribe.", clientId));
+            }
             metricsCollector.removeSub(topicFilter);
             CompletableFuture<List<String>> topicListFuture = PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(
                     topicFilter, configuration.getDefaultTenant(), configuration.getDefaultNamespace(), pulsarService,
