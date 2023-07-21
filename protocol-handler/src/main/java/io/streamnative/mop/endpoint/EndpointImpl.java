@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Builder
-class EndpointImpl implements Endpoint {
+final class EndpointImpl implements Endpoint {
     private final ChannelHandlerContext ctx;
 
     @Override
