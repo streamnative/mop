@@ -1,0 +1,5 @@
+rootProject.name = 'mop'
+include(
+        "protocol-handler",
+        "integration",
+)

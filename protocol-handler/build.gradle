@@ -1,0 +1,17 @@
+plugins {
+    id "java-library"
+}
+
+
+dependencies {
+    // apache pulsar dependencies
+    implementation 'io.streamnative:pulsar-broker:3.0.0.4'
+    // netty dependencies
+    implementation 'io.netty:netty-codec-mqtt:4.1.94.Final'
+
+    // Lombok dependencies list
+    compileOnly 'org.projectlombok:lombok:1.18.28'
+    annotationProcessor 'org.projectlombok:lombok:1.18.28'
+    testCompileOnly 'org.projectlombok:lombok:1.18.28'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.28'
+}

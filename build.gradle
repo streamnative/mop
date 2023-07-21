@@ -1,0 +1,22 @@
+plugins {
+    id "java"
+}
+
+group = "io.streamnative.mop"
+version = "3.1.0"
+
+allprojects {
+    sourceCompatibility = 17
+    targetCompatibility = 17
+}
+
+subprojects {
+    repositories {
+        mavenCentral()
+    }
+
+    test {
+        useTestNG()
+    }
+}
+
