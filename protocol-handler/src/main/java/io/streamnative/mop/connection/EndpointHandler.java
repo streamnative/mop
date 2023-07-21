@@ -1,7 +1,7 @@
-package io.github.nmop.connection;
+package io.streamnative.mop.connection;
 
-import io.github.nmop.HandlerContext;
-import io.github.nmop.endpoint.Endpoint;
+import io.streamnative.mop.HandlerContext;
+import io.streamnative.mop.endpoint.Endpoint;
 import io.github.nmop.endpoint.EndpointImpl;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;

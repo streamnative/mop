@@ -1,4 +1,4 @@
-package io.github.nmop.endpoint;
+package io.streamnative.mop.endpoint;
 
 import io.netty.channel.ChannelHandlerContext;
 import lombok.Builder;

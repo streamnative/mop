@@ -1,4 +1,4 @@
-package io.github.nmop.endpoint;
+package io.streamnative.mop.endpoint;
 
 public class RejectOnlyEndpointImpl implements Endpoint {
     @Override

@@ -1,4 +1,4 @@
-package io.github.nmop.configuration;
+package io.streamnative.mop.configuration;
 
 import lombok.Builder;
 import lombok.EqualsAndHashCode;

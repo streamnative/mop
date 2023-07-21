@@ -1,4 +1,4 @@
-package io.github.nmop.connection;
+package io.streamnative.mop.connection;
 
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;

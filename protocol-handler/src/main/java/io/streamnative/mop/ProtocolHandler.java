@@ -1,10 +1,10 @@
-package io.github.nmop;
+package io.streamnative.mop;
 
-import static io.github.nmop.Envs.MQTT_PROTOCOL_NAME;
+import static io.streamnative.mop.Envs.MQTT_PROTOCOL_NAME;
 import static java.util.Objects.*;
 
-import io.github.nmop.configuration.Configuration;
-import io.github.nmop.configuration.Configurations;
+import io.streamnative.mop.configuration.Configuration;
+import io.streamnative.mop.configuration.Configurations;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import org.apache.pulsar.broker.ServiceConfiguration;

@@ -1,6 +1,6 @@
-package io.github.nmop;
+package io.streamnative.mop;
 
-import io.github.nmop.configuration.Configuration;
+import io.streamnative.mop.configuration.Configuration;
 import lombok.Builder;
 import lombok.Getter;
 import org.apache.pulsar.broker.service.BrokerService;
