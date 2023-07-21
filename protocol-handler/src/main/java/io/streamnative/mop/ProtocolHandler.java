@@ -1,15 +1,13 @@
 package io.streamnative.mop;
 
 import static io.streamnative.mop.Envs.MQTT_PROTOCOL_NAME;
-import static java.util.Objects.*;
-
+import static java.util.Objects.requireNonNull;
 import io.streamnative.mop.configuration.Configuration;
 import io.streamnative.mop.configuration.Configurations;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.service.BrokerService;
-
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
