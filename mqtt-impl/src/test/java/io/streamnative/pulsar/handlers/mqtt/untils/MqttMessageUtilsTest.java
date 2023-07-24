@@ -25,8 +25,8 @@ import io.netty.handler.codec.mqtt.MqttQoS;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import org.testng.Assert;
 import org.mockito.Mockito;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /**
