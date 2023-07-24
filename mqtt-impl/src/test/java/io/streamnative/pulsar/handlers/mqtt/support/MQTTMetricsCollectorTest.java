@@ -16,7 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
-import org.junit.Assert;
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
