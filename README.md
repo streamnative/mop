@@ -412,3 +412,11 @@ Please refer [here](docs/mop-configuration.md)
 - [@Technoboy-](https://github.com/Technoboy-)
 - [@mattisonchao](https://github.com/mattisonchao)
 - [@codelipenghui](https://github.com/codelipenghui)
+
+## License
+
+This library is licensed under the terms of the [Apache License 2.0](LICENSE) and may include packages written by third parties which carry their own copyright notices and license terms.
+
+### About StreamNative
+
+Founded in 2019 by the original creators of Apache Pulsar, [StreamNative](https://streamnative.io/) is one of the leading contributors to the open-source Apache Pulsar project. We have helped engineering teams worldwide make the move to Pulsar with [StreamNative Cloud](https://streamnative.io/product), a fully managed service to help teams accelerate time-to-production.
