@@ -73,7 +73,7 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                 }).exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
                     if (realCause instanceof MQTTNoMatchingSubscriberException) {
-                        log.warn("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
+                        log.debug("[{}] Write {} to Pulsar topic succeed. But do not have subscriber.", topic, msg);
                         MqttAck mqttAck = MqttPubAck.successBuilder(protocolVersion)
                                 .packetId(packetId)
                                 .isNoMatchingSubscription()
