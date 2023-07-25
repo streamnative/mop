@@ -400,9 +400,6 @@ public abstract class MQTTProtocolHandlerTestBase {
         setupBrokerMocks(pulsar);
         pulsar.start();
 
-        Compactor spiedCompactor = spy(pulsar.getCompactor());
-        doReturn(spiedCompactor).when(pulsar).getCompactor();
-
         return pulsar;
     }
 
