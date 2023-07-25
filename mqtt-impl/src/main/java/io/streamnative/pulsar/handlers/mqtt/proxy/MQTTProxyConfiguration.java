@@ -72,7 +72,7 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
             category = CATEGORY_MQTT,
             doc = "Proxy connect to broker timeout (ms)"
     )
-    private int connectTimeoutMs = 10;
+    private int connectTimeoutMs = 10000;
 
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
