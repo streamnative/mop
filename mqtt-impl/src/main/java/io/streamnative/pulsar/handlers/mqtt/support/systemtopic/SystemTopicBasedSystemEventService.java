@@ -14,6 +14,8 @@
 package io.streamnative.pulsar.handlers.mqtt.support.systemtopic;
 
 import static io.streamnative.pulsar.handlers.mqtt.support.systemtopic.MqttEventUtils.getMqttEvent;
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.Beta;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,13 +45,18 @@ import org.apache.pulsar.common.util.FutureUtil;
 public class SystemTopicBasedSystemEventService implements SystemEventService {
 
     public static final TopicName SYSTEM_EVENT_TOPIC = TopicName.get("pulsar/system/__mqtt_event");
+
+    private static final long CACHE_REFRESH_TIME_MILLIS = TimeUnit.MINUTES.toMillis(10);
+
+    private static final String PRODUCER_KEY = "producer";
     private final PulsarService pulsarService;
     private final SystemTopicClient<MqttEvent> systemTopicClient;
     private final List<EventListener> listeners;
-
     private volatile SystemTopicClient.Reader<MqttEvent> reader;
     private final AtomicBoolean initReader = new AtomicBoolean(false);
     private final AtomicInteger maxRetry = new AtomicInteger(0);
+
+    private final AsyncLoadingCache<String, SystemTopicClient.Writer<MqttEvent>> producerCaches;
 
     public SystemTopicBasedSystemEventService(PulsarService pulsarService) {
         this.pulsarService = pulsarService;
@@ -59,6 +66,12 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
             throw new IllegalStateException(e);
         }
         this.listeners = new ArrayList<>();
+        producerCaches = Caffeine.newBuilder()
+                .expireAfterAccess(CACHE_REFRESH_TIME_MILLIS, TimeUnit.MILLISECONDS)
+                .removalListener((k, v, c) -> {
+                    ((SystemTopicClient.Writer<MqttEvent>) v).closeAsync();
+                })
+                .buildAsync((key, executor) -> systemTopicClient.newWriterAsync());
     }
 
     @Override
@@ -112,7 +125,7 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
 
     @Override
     public CompletableFuture<Void> sendEvent(MqttEvent event) {
-        CompletableFuture<SystemTopicClient.Writer<MqttEvent>> writerFuture = systemTopicClient.newWriterAsync();
+        CompletableFuture<SystemTopicClient.Writer<MqttEvent>> writerFuture = producerCaches.get(PRODUCER_KEY);
         return writerFuture.thenCompose(writer -> {
             CompletableFuture<MessageId> writeFuture = ActionType.DELETE.equals(event.getActionType())
                     ? writer.deleteAsync(event.getKey(), event) : writer.writeAsync(event.getKey(), event);
@@ -120,7 +133,6 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                 if (ex != null) {
                     log.error("[{}] send event error.", SYSTEM_EVENT_TOPIC, ex);
                 }
-                writer.closeAsync();
             });
             return writeFuture.thenAccept(__ -> {});
         }).exceptionally(ex -> {
@@ -236,7 +248,7 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                     break;
             }
             listeners.forEach(listener -> listener.onChange(value));
-        } catch (Exception ex) {
+        } catch (Throwable ex) {
             log.error("refresh cache error", ex);
         }
     }
