@@ -46,9 +46,9 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
 
     public static final TopicName SYSTEM_EVENT_TOPIC = TopicName.get("pulsar/system/__mqtt_event");
 
-    private static final long CACHE_REFRESH_TIME_MILLIS = TimeUnit.MINUTES.toMillis(10);
+    private static final long CACHE_EXPIRE_TIME_MILLIS = TimeUnit.MINUTES.toMillis(10);
 
-    private static final String PRODUCER_KEY = "producer";
+    private static final String WRITER_KEY = "writer";
     private final PulsarService pulsarService;
     private final SystemTopicClient<MqttEvent> systemTopicClient;
     private final List<EventListener> listeners;
@@ -56,7 +56,7 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     private final AtomicBoolean initReader = new AtomicBoolean(false);
     private final AtomicInteger maxRetry = new AtomicInteger(0);
 
-    private final AsyncLoadingCache<String, SystemTopicClient.Writer<MqttEvent>> producerCaches;
+    private final AsyncLoadingCache<String, SystemTopicClient.Writer<MqttEvent>> writerCaches;
 
     public SystemTopicBasedSystemEventService(PulsarService pulsarService) {
         this.pulsarService = pulsarService;
@@ -66,8 +66,8 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
             throw new IllegalStateException(e);
         }
         this.listeners = new ArrayList<>();
-        producerCaches = Caffeine.newBuilder()
-                .expireAfterAccess(CACHE_REFRESH_TIME_MILLIS, TimeUnit.MILLISECONDS)
+        writerCaches = Caffeine.newBuilder()
+                .expireAfterAccess(CACHE_EXPIRE_TIME_MILLIS, TimeUnit.MILLISECONDS)
                 .removalListener((k, v, c) -> {
                     ((SystemTopicClient.Writer<MqttEvent>) v).closeAsync();
                 })
@@ -125,7 +125,7 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
 
     @Override
     public CompletableFuture<Void> sendEvent(MqttEvent event) {
-        CompletableFuture<SystemTopicClient.Writer<MqttEvent>> writerFuture = producerCaches.get(PRODUCER_KEY);
+        CompletableFuture<SystemTopicClient.Writer<MqttEvent>> writerFuture = writerCaches.get(WRITER_KEY);
         return writerFuture.thenCompose(writer -> {
             CompletableFuture<MessageId> writeFuture = ActionType.DELETE.equals(event.getActionType())
                     ? writer.deleteAsync(event.getKey(), event) : writer.writeAsync(event.getKey(), event);
