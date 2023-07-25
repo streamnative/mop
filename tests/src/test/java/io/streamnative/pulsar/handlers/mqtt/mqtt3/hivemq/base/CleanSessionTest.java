@@ -22,8 +22,10 @@ import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -51,8 +53,10 @@ public class CleanSessionTest extends MQTTTestBase {
         String clientId = Objects.requireNonNull(client.getConfig().getClientIdentifier().orElse(null)).toString();
         Assert.assertTrue(subscriptions.contains(clientId));
         client.disconnect();
-        List<String> afterDisconnectionSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
-        Assert.assertTrue(CollectionUtils.isEmpty(afterDisconnectionSubscriptions));
+        Awaitility.await().pollInterval(1, TimeUnit.SECONDS).untilAsserted(() -> {
+            List<String> afterDisconnectionSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
+            Assert.assertTrue(CollectionUtils.isEmpty(afterDisconnectionSubscriptions));
+        });
     }
 
     @Test(timeOut = TIMEOUT)
