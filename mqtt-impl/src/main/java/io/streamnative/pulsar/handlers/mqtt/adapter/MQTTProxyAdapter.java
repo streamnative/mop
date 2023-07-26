@@ -51,7 +51,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.common.util.netty.ChannelFutures;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
 
@@ -226,16 +225,14 @@ public class MQTTProxyAdapter {
                                     (MqttPubReplyMessageVariableHeader) variableHeader;
                             byte reasonCode = header.reasonCode();
                             if (Mqtt5PubReasonCode.UNSPECIFIED_ERROR.byteValue() == reasonCode) {
-                                String sourceTopicName = processor.getPacketIdTopic().get(variableHeader.messageId());
-                                if (StringUtils.isEmpty(sourceTopicName)) {
-                                    MqttProperties.UserProperties property =
-                                            (MqttProperties.UserProperties) header.properties()
-                                                    .getProperty(MqttProperties.MqttPropertyType.USER_PROPERTY.value());
-                                    if (property != null) {
-                                        List<MqttProperties.StringPair> pairs = property.value();
-                                        sourceTopicName = pairs.stream().filter(p -> p.key.equals("topicName"))
-                                                .map(p -> p.value).findFirst().orElse("");
-                                    }
+                                String sourceTopicName = null;
+                                MqttProperties.UserProperties property =
+                                        (MqttProperties.UserProperties) header.properties()
+                                                .getProperty(MqttProperties.MqttPropertyType.USER_PROPERTY.value());
+                                if (property != null) {
+                                    List<MqttProperties.StringPair> pairs = property.value();
+                                    sourceTopicName = pairs.stream().filter(p -> p.key.equals("topicName"))
+                                            .map(p -> p.value).findFirst().orElse(null);
                                 }
                                 processor.removeTopicBroker(sourceTopicName);
                             }
