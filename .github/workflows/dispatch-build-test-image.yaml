@@ -48,4 +48,4 @@ jobs:
           tags: ${{ github.event.inputs.publish_image }}:${{ github.event.inputs.pulsar_tag }}-mop
           build-args: |
             PULSAR_FQ_IMAGE=${{ github.event.inputs.pulsar_image }}:${{ github.event.inputs.pulsar_tag }}
-            PULSAR_FQ_TAG=${{ github.event.inputs.pulsar_tag }}
+            MOP_VERSION=${{ steps.version.outputs.version }}
