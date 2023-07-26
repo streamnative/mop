@@ -251,6 +251,7 @@
                         <exclude>**/ahc.properties</exclude>
                         <exclude>**/.idea/**</exclude>
                         <exclude>**/.github/**</exclude>
+                        <exlude>**/.ci/**</exlude>
                     </excludes>
                     <mapping>
                         <proto>JAVADOC_STYLE</proto>
