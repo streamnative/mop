@@ -47,7 +47,7 @@ public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
         return conf;
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testBrokerThrowServiceNotReadyException() throws Exception {
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(
                 getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
