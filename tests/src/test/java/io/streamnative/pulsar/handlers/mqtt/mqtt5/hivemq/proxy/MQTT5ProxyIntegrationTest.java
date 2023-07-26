@@ -82,6 +82,7 @@ public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
                 .payload("msg1".getBytes(StandardCharsets.UTF_8))
                 .send();
         Assert.assertFalse(r3.getError().isPresent());
+        client.disconnect();
     }
 
     @Test(invocationCount = 2)
