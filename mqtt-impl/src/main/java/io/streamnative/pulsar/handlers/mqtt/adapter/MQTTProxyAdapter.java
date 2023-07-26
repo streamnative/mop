@@ -26,17 +26,23 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttProperties;
+import io.netty.handler.codec.mqtt.MqttPubAckMessage;
+import io.netty.handler.codec.mqtt.MqttPubReplyMessageVariableHeader;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.net.InetSocketAddress;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -45,6 +51,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.common.util.netty.ChannelFutures;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
 
@@ -210,6 +217,30 @@ public class MQTTProxyAdapter {
                         if (processor.getUnsubscribeAckTracker().checkIfSendAck(unSubMessageId)) {
                             clientChannel.writeAndFlush(adapterMsg);
                         }
+                        break;
+                    case PUBACK:
+                        MqttPubAckMessage pubAckMessage = (MqttPubAckMessage) msg;
+                        MqttMessageIdVariableHeader variableHeader = pubAckMessage.variableHeader();
+                        if (variableHeader instanceof MqttPubReplyMessageVariableHeader) {
+                            MqttPubReplyMessageVariableHeader header =
+                                    (MqttPubReplyMessageVariableHeader) variableHeader;
+                            byte reasonCode = header.reasonCode();
+                            if (Mqtt5PubReasonCode.UNSPECIFIED_ERROR.byteValue() == reasonCode) {
+                                String sourceTopicName = processor.getPacketIdTopic().get(variableHeader.messageId());
+                                if (StringUtils.isEmpty(sourceTopicName)) {
+                                    MqttProperties.UserProperties property =
+                                            (MqttProperties.UserProperties) header.properties()
+                                                    .getProperty(MqttProperties.MqttPropertyType.USER_PROPERTY.value());
+                                    if (property != null) {
+                                        List<MqttProperties.StringPair> pairs = property.value();
+                                        sourceTopicName = pairs.stream().filter(p -> p.key.equals("topicName"))
+                                                .map(p -> p.value).findFirst().orElse("");
+                                    }
+                                }
+                                processor.removeTopicBroker(sourceTopicName);
+                            }
+                        }
+                        clientChannel.writeAndFlush(adapterMsg);
                         break;
                     default:
                         clientChannel.writeAndFlush(adapterMsg);

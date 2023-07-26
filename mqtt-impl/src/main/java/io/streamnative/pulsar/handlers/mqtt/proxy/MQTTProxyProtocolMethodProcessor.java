@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
@@ -438,12 +439,28 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         return topicBrokers.computeIfAbsent(topic,
                 key -> lookupHandler.findBroker(TopicName.get(topic)).thenApply(mqttBroker ->
                         adapterChannels.computeIfAbsent(mqttBroker, key1 -> {
-                    AdapterChannel adapterChannel = proxyAdapter.getAdapterChannel(mqttBroker);
-                    adapterChannel.writeAndFlush(new MqttAdapterMessage(
-                            connection.getClientId(),
-                            connection.getConnectMessage()));
-                    return adapterChannel;
-                })));
+                            AdapterChannel adapterChannel = proxyAdapter.getAdapterChannel(mqttBroker);
+                            adapterChannel.writeAndFlush(new MqttAdapterMessage(connection.getClientId(),
+                                connection.getConnectMessage()));
+                            return adapterChannel;
+                        })
+                )
+        );
+    }
+
+    public void removeTopicBroker(String topic) {
+        if (StringUtils.isNotEmpty(topic)) {
+            String pulsarTopicName = PulsarTopicUtils.getEncodedPulsarTopicName(topic,
+                    proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
+                    TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
+            final CompletableFuture<AdapterChannel> brokerChannel = topicBrokers.remove(pulsarTopicName);
+            if (brokerChannel != null) {
+                final InetSocketAddress broker = brokerChannel.join().getBroker();
+                if (log.isDebugEnabled()) {
+                    log.debug("remove topic : {} from broker : {}", topic, broker);
+                }
+            }
+        }
     }
 
     public AtomicBoolean isDisconnected() {
