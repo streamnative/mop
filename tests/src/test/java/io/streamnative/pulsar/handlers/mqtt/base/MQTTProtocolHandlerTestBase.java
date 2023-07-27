@@ -499,7 +499,7 @@ public abstract class MQTTProtocolHandlerTestBase {
 
     public void setPulsarServiceState() {
         for (PulsarService pulsarService : pulsarServiceList) {
-            Mockito.when(pulsarService.getState()).thenReturn(PulsarService.State.Started);
+            doReturn(PulsarService.State.Started).when(pulsarService).getState();
         }
     }
 
