@@ -51,7 +51,16 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     protected CompletableFuture<Optional<Topic>> getTopicReference(String mqttTopicName) {
         return PulsarTopicUtils.getTopicReference(pulsarService, mqttTopicName,
                 configuration.getDefaultTenant(), configuration.getDefaultNamespace(), true
-                , configuration.getDefaultTopicDomain());
+                , configuration.getDefaultTopicDomain())
+                .exceptionally(ex -> {
+                    final Throwable rc = FutureUtil.unwrapCompletionException(ex);
+                    if (rc instanceof IllegalStateException) {
+                        // convert namespace bundle is being unloaded exception to service unit not ready.
+                        throw FutureUtil.wrapToCompletionException(
+                                new BrokerServiceException.ServiceUnitNotReadyException(rc.getMessage()));
+                    }
+                    throw FutureUtil.wrapToCompletionException(rc);
+                });
     }
 
     protected CompletableFuture<PositionImpl> writeToPulsarTopic(TopicAliasManager topicAliasManager,
