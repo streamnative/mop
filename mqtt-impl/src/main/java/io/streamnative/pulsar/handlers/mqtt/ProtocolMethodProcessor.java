@@ -43,4 +43,6 @@ public interface ProtocolMethodProcessor {
     void processPingReq(MqttAdapterMessage msg);
 
     void processAuthReq(MqttAdapterMessage msg);
+
+    boolean connectionEstablished();
 }
