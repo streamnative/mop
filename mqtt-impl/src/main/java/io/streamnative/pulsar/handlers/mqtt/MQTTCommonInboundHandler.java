@@ -50,7 +50,7 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
         checkArgument(message instanceof MqttAdapterMessage);
         MqttAdapterMessage adapterMsg = (MqttAdapterMessage) message;
         MqttMessage mqttMessage = adapterMsg.getMqttMessage();
-        ProtocolMethodProcessor processor = processors.computeIfAbsent(adapterMsg.getClientId(), key -> {
+        final ProtocolMethodProcessor processor = processors.computeIfAbsent(adapterMsg.getClientId(), key -> {
             MQTTBrokerProtocolMethodProcessor p = new MQTTBrokerProtocolMethodProcessor(mqttService, ctx);
             CompletableFuture<Void> inactiveFuture = p.getInactiveFuture();
             inactiveFuture.whenComplete((id, ex) -> {
@@ -64,6 +64,21 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
             if (log.isDebugEnabled()) {
                 log.debug("Inbound handler read message : type={}, clientId : {} adapter encodeType : {}", messageType,
                         adapterMsg.getClientId(), adapterMsg.getEncodeType());
+            }
+            if (messageType != MqttMessageType.CONNECT && !processor.connectionEstablished()) {
+                if (adapterMsg.fromProxy()) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("[{}] Ignore inflating message from proxy. message:{}",
+                                ctx.channel().remoteAddress(), mqttMessage);
+                    }
+                    ReferenceCountUtil.safeRelease(mqttMessage); // release publish packet
+                    return;
+                } else {
+                    log.warn("[{}] Receive message before connect. message:{}",
+                            ctx.channel().remoteAddress(), mqttMessage);
+                    ReferenceCountUtil.safeRelease(mqttMessage); // release publish packet
+                    ctx.channel().close();
+                }
             }
             switch (messageType) {
                 case CONNECT:

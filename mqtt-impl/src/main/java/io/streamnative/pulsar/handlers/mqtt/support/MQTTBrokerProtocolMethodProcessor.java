@@ -322,6 +322,11 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     }
 
     @Override
+    public boolean connectionEstablished() {
+        return connection != null && connection.getState() == Connection.ConnectionState.ESTABLISHED;
+    }
+
+    @Override
     public void processSubscribe(MqttAdapterMessage adapter) {
         MqttSubscribeMessage msg = (MqttSubscribeMessage) adapter.getMqttMessage();
         final String clientId = connection.getClientId();
