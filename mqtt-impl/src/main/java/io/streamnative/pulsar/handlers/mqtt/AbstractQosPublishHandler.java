@@ -25,6 +25,8 @@ import io.streamnative.pulsar.handlers.mqtt.utils.MessagePublishContext;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
@@ -51,7 +53,16 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     protected CompletableFuture<Optional<Topic>> getTopicReference(String mqttTopicName) {
         return PulsarTopicUtils.getTopicReference(pulsarService, mqttTopicName,
                 configuration.getDefaultTenant(), configuration.getDefaultNamespace(), true
-                , configuration.getDefaultTopicDomain());
+                , configuration.getDefaultTopicDomain())
+                .exceptionally(ex -> {
+                    final Throwable rc = FutureUtil.unwrapCompletionException(ex);
+                    if (rc instanceof IllegalStateException) {
+                        // convert namespace bundle is being unloaded exception to service unit not ready.
+                        throw FutureUtil.wrapToCompletionException(
+                                new BrokerServiceException.ServiceUnitNotReadyException(rc.getMessage()));
+                    }
+                    throw FutureUtil.wrapToCompletionException(rc);
+                });
     }
 
     protected CompletableFuture<PositionImpl> writeToPulsarTopic(TopicAliasManager topicAliasManager,
