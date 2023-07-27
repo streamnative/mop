@@ -40,6 +40,7 @@ public class AdapterChannel {
 
     public CompletableFuture<Void> writeAndFlush(final MqttAdapterMessage adapterMsg) {
         checkArgument(StringUtils.isNotBlank(adapterMsg.getClientId()), "clientId is blank");
+        final String clientId = adapterMsg.getClientId();
         adapterMsg.setEncodeType(MqttAdapterMessage.EncodeType.ADAPTER_MESSAGE);
         CompletableFuture<Void> future = channelFuture.thenCompose(channel -> {
             if (!channel.isActive()) {
@@ -49,7 +50,8 @@ public class AdapterChannel {
             return FutureUtils.completableFuture(channel.writeAndFlush(adapterMsg));
         });
         future.exceptionally(ex -> {
-            log.error("[AdapterChannel] Proxy write to broker {} message {} failed.", broker, adapterMsg, ex);
+            log.warn("[AdapterChannel][{}] Proxy write to broker {} failed."
+                    + " error message: {}", clientId, broker, ex.getMessage());
             return null;
         });
         return future;
