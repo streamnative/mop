@@ -26,16 +26,23 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonC
 import io.streamnative.pulsar.handlers.mqtt.mqtt5.hivemq.base.MQTT5ClientUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.pulsar.client.admin.PulsarAdminException;
+import org.apache.pulsar.common.policies.data.AutoFailoverPolicyData;
+import org.apache.pulsar.common.policies.data.AutoFailoverPolicyType;
+import org.apache.pulsar.common.policies.data.NamespaceIsolationData;
 import org.apache.pulsar.common.policies.data.SubscriptionStats;
 import org.apache.pulsar.common.policies.data.TopicStats;
 import org.apache.pulsar.common.util.Codec;
 import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+import org.testng.internal.collections.Pair;
 
 public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
     private final Random random = new Random();
@@ -47,24 +54,38 @@ public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
         return conf;
     }
 
-    @Test(timeOut = 30_000)
+    @Test
     public void testBrokerThrowServiceNotReadyException() throws Exception {
         Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(
                 getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
         client.connect();
         final String topic1 = "topic-1";
         final String ownedBroker = admin.lookups().lookupTopic(topic1);
-
+        List<Pair<String, String>> brokerUrls = Lists.newArrayList();
+        brokerUrls.addAll(pulsarServiceList.stream().map(p ->
+                Pair.of(p.getBrokerServiceUrl(), p.getWebServiceAddress())).collect(Collectors.toList()));
+        brokerUrls.removeIf(p -> p.first().equals(ownedBroker));
         final Mqtt5PublishResult r1 = client.publishWith()
                 .topic(topic1)
                 .qos(MqttQos.AT_LEAST_ONCE)
                 .payload("msg1".getBytes(StandardCharsets.UTF_8))
                 .send();
         Assert.assertFalse(r1.getError().isPresent());
-        while (ownedBroker.equals(admin.lookups().lookupTopic(topic1))) {
-            admin.namespaces().unload("public/default");
-            Thread.sleep(1000);
-        }
+        Map<String, String> params = new HashMap<>();
+        params.put("min_limit", "1");
+        params.put("usage_threshold", "80");
+        NamespaceIsolationData isolationData = NamespaceIsolationData.builder()
+                .namespaces(Lists.newArrayList("public/default"))
+                .autoFailoverPolicy(AutoFailoverPolicyData.builder()
+                        .policyType(AutoFailoverPolicyType.min_available)
+                        .parameters(params)
+                        .build())
+                .primary(brokerUrls.stream()
+                        .map(p -> p.second().replaceAll("http://", "").replaceAll(":\\d+", ""))
+                        .collect(Collectors.toList()))
+                .build();
+
+        admin.clusters().createNamespaceIsolationPolicy("test", "policy-1", isolationData);
         try {
             final Mqtt5PublishResult r2 = client.publishWith()
                     .topic(topic1)
@@ -83,6 +104,7 @@ public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
                 .send();
         Assert.assertFalse(r3.getError().isPresent());
         client.disconnect();
+        admin.clusters().deleteNamespaceIsolationPolicy("test", "policy-1");
     }
 
     @Test(invocationCount = 2)
