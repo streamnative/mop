@@ -61,7 +61,6 @@ import org.apache.pulsar.metadata.impl.ZKMetadataStore;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.MockZooKeeper;
 import org.apache.zookeeper.data.ACL;
-import org.mockito.Mockito;
 
 /**
  * Unit test to test MoP handler.
@@ -503,7 +502,7 @@ public abstract class MQTTProtocolHandlerTestBase {
 
     public void setPulsarServiceState() {
         for (PulsarService pulsarService : pulsarServiceList) {
-            Mockito.when(pulsarService.getState()).thenReturn(PulsarService.State.Started);
+            doReturn(PulsarService.State.Started).when(pulsarService).getState();
         }
     }
 
