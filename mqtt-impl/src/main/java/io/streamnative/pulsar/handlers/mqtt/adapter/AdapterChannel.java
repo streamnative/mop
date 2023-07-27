@@ -14,8 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.adapter;
 
 import static com.google.common.base.Preconditions.checkArgument;
-
-import com.google.common.base.Throwables;
 import io.netty.channel.Channel;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.utils.FutureUtils;
