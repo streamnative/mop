@@ -455,10 +455,11 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
             final CompletableFuture<AdapterChannel> brokerChannel = topicBrokers.remove(pulsarTopicName);
             if (brokerChannel != null) {
-                final InetSocketAddress broker = brokerChannel.join().getBroker();
-                if (log.isDebugEnabled()) {
-                    log.debug("remove topic : {} from broker : {}", topic, broker);
-                }
+                brokerChannel.thenAccept(channel -> {
+                    if (log.isDebugEnabled()) {
+                        log.debug("remove topic : {} from broker : {}", topic, channel.getBroker());
+                    }
+                });
             }
         }
     }
