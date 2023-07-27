@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -63,6 +64,7 @@ import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.Codec;
 import org.apache.pulsar.common.util.FutureUtil;
+
 /**
  * Proxy inbound handler is the bridge between proxy and MoP.
  */
@@ -217,13 +219,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
     @Override
     public void processPingReq(final MqttAdapterMessage msg) {
-        String clientId = connection.getClientId();
-        topicBrokers.values().forEach(adapterChannel -> {
-            adapterChannel.thenAccept(channel -> {
-                msg.setClientId(clientId);
-                channel.writeAndFlush(msg);
-            });
-        });
+        connection.send(pingResp());
     }
 
     @Override
