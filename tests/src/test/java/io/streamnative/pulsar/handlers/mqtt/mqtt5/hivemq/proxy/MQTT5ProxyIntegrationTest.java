@@ -17,9 +17,12 @@ import com.google.common.collect.Lists;
 import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
+import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5PubAckException;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
+import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5PublishResult;
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.mqtt5.hivemq.base.MQTT5ClientUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -42,6 +45,44 @@ public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
         MQTTCommonConfiguration conf = super.initConfig();
         conf.setMqttProxyEnabled(true);
         return conf;
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBrokerThrowServiceNotReadyException() throws Exception {
+        Mqtt5BlockingClient client = MQTT5ClientUtils.createMqtt5ProxyClient(
+                getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
+        client.connect();
+        final String topic1 = "topic-1";
+        final String ownedBroker = admin.lookups().lookupTopic(topic1);
+
+        final Mqtt5PublishResult r1 = client.publishWith()
+                .topic(topic1)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload("msg1".getBytes(StandardCharsets.UTF_8))
+                .send();
+        Assert.assertFalse(r1.getError().isPresent());
+        while (ownedBroker.equals(admin.lookups().lookupTopic(topic1))) {
+            admin.namespaces().unload("public/default");
+            Thread.sleep(1000);
+        }
+        try {
+            final Mqtt5PublishResult r2 = client.publishWith()
+                    .topic(topic1)
+                    .qos(MqttQos.AT_LEAST_ONCE)
+                    .payload("msg1".getBytes(StandardCharsets.UTF_8))
+                    .send();
+        } catch (Exception ex) {
+            Assert.assertTrue(ex instanceof Mqtt5PubAckException);
+            Assert.assertEquals(((Mqtt5PubAckException) ex).getMqttMessage().getReasonCode().getCode()
+                    , Mqtt5PubReasonCode.UNSPECIFIED_ERROR.value());
+        }
+        final Mqtt5PublishResult r3 = client.publishWith()
+                .topic(topic1)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .payload("msg1".getBytes(StandardCharsets.UTF_8))
+                .send();
+        Assert.assertFalse(r3.getError().isPresent());
+        client.disconnect();
     }
 
     @Test(invocationCount = 2)

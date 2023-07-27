@@ -141,7 +141,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqtt.setManagedLedgerCacheSizeMB(8);
         mqtt.setActiveConsumerFailoverDelayTimeMillis(0);
         mqtt.setDefaultRetentionTimeInMinutes(7);
-        mqtt.setDefaultNumberOfNamespaceBundles(1);
+        mqtt.setDefaultNumberOfNamespaceBundles(4);
         mqtt.setZookeeperServers("localhost:2181");
         mqtt.setConfigurationStoreServers("localhost:3181");
 
