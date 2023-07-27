@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.support;
 
+import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.AbstractQosPublishHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
@@ -94,6 +95,18 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
                             pubAckBuilder.reasonString("Topic not found");
                         }
                         connection.sendAckThenClose(pubAckBuilder.build());
+                    } else if (realCause instanceof BrokerServiceException.ServiceUnitNotReadyException) {
+                        String errorMsg = String.format("[%s] Publish message fail,"
+                                        + " because the topic is not served by this broker", topic);
+                        log.error(errorMsg);
+                        MqttProperties.UserProperties userProperties = new MqttProperties.UserProperties();
+                        userProperties.add("topicName", topic);
+                        MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder = MqttPubAck.errorBuilder(protocolVersion)
+                                .packetId(packetId)
+                                .reasonString(errorMsg)
+                                .userProperties(userProperties)
+                                .reasonCode(Mqtt5PubReasonCode.UNSPECIFIED_ERROR);
+                        connection.sendAck(pubAckBuilder.build());
                     } else if (realCause instanceof MQTTTopicAliasNotFoundException) {
                         log.error("[{}] Publish message fail {}, because the topic alias {} not found.", topic, msg,
                                 ((MQTTTopicAliasNotFoundException) realCause).getAlias(), ex);

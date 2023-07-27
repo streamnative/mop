@@ -72,12 +72,19 @@ public class MqttPubAck {
         private Mqtt5PubReasonCode reasonCode;
         private String reasonString;
 
+        private MqttProperties.UserProperties userProperties;
+
         public MqttPubErrorAckBuilder(int protocolVersion) {
             this.protocolVersion = protocolVersion;
         }
 
         public MqttPubAck.MqttPubErrorAckBuilder reasonString(String reasonStr) {
             this.reasonString = reasonStr;
+            return this;
+        }
+
+        public MqttPubAck.MqttPubErrorAckBuilder userProperties(MqttProperties.UserProperties userProperties) {
+            this.userProperties = userProperties;
             return this;
         }
 
@@ -111,6 +118,9 @@ public class MqttPubAck {
             MqttProperties properties = new MqttProperties();
             if (reasonString != null) {
                 MqttPropertyUtils.setReasonString(properties, reasonString);
+            }
+            if (userProperties != null) {
+                properties.add(userProperties);
             }
             return properties;
         }
