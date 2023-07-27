@@ -257,7 +257,11 @@ public class Connection {
             builder.responseInformation(resInformation.value());
         }
         MqttAck connAck = builder.build();
-        sendAck(connAck).thenAccept(__ -> assignState(CONNECT_ACK, ESTABLISHED));
+        assignState(CONNECT_ACK, ESTABLISHED);
+        sendAck(connAck).exceptionally(ex -> {
+           assignState(ESTABLISHED, DISCONNECTED);
+           return null;
+        });
         if (log.isDebugEnabled()) {
             log.debug("The CONNECT message has been processed. CId={}", clientId);
         }
