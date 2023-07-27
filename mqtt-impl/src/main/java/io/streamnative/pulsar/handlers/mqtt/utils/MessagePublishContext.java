@@ -48,7 +48,7 @@ public final class MessagePublishContext implements PublishContext {
                 log.debug("Success write topic: {}, ledgerId: {}, entryId: {}. triggered send callback.",
                         topic.getName(), ledgerId, entryId);
             }
-            topic.recordAddLatency(System.nanoTime() - startTimeNs, TimeUnit.MICROSECONDS);
+            topic.recordAddLatency(System.nanoTime() - startTimeNs, TimeUnit.NANOSECONDS);
             positionFuture.complete(PositionImpl.get(ledgerId, entryId));
         }
         recycle();
