@@ -99,7 +99,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     private final WillMessageHandler willMessageHandler;
     private final RetainedMessageHandler retainedMessageHandler;
     private final AutoSubscribeHandler autoSubscribeHandler;
-    private volatile Connection connection;
+    private Connection connection;
     @Getter
     private final CompletableFuture<Void> inactiveFuture = new CompletableFuture<>();
 
@@ -319,6 +319,11 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     @Override
     public void processPingReq(MqttAdapterMessage adapter) {
         connection.send(pingResp());
+    }
+
+    @Override
+    public boolean connectionEstablished() {
+        return connection != null && connection.getState() == Connection.ConnectionState.CONNECT_ACK;
     }
 
     @Override

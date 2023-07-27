@@ -226,6 +226,11 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     }
 
     @Override
+    public boolean connectionEstablished() {
+        return connection != null && connection.getState() == Connection.ConnectionState.CONNECT_ACK;
+    }
+
+    @Override
     public void processDisconnect(final MqttAdapterMessage msg) {
         if (isDisconnected.compareAndSet(false, true)) {
             String clientId = connection.getClientId();
