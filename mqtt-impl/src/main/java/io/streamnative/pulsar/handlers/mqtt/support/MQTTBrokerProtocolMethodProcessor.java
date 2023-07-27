@@ -323,7 +323,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
 
     @Override
     public boolean connectionEstablished() {
-        return connection != null && connection.getState() == Connection.ConnectionState.CONNECT_ACK;
+        return connection != null && connection.getState() == Connection.ConnectionState.ESTABLISHED;
     }
 
     @Override
