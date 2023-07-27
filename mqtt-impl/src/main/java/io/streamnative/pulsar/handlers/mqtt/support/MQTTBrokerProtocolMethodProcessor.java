@@ -99,7 +99,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     private final WillMessageHandler willMessageHandler;
     private final RetainedMessageHandler retainedMessageHandler;
     private final AutoSubscribeHandler autoSubscribeHandler;
-    private Connection connection;
+    private volatile Connection connection;
     @Getter
     private final CompletableFuture<Void> inactiveFuture = new CompletableFuture<>();
 
