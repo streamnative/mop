@@ -35,12 +35,10 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
 import io.netty.util.concurrent.DefaultThreadFactory;
-import io.netty.util.concurrent.ScheduledFuture;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.net.InetSocketAddress;
 import java.util.Collections;
@@ -50,7 +48,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -72,8 +69,6 @@ public class MQTTProxyAdapter {
     private final ConcurrentMap<InetSocketAddress, Map<Integer, CompletableFuture<Channel>>> pool;
     private final int workerThread = Runtime.getRuntime().availableProcessors();
     private final int maxNoOfChannels;
-
-    private ScheduledFuture<?> scheduledFuture;
 
     public MQTTProxyAdapter(MQTTProxyService proxyService) {
         this.proxyService = proxyService;
@@ -97,7 +92,6 @@ public class MQTTProxyAdapter {
                         ch.pipeline().addLast(AdapterHandler.NAME, new AdapterHandler());
                     }
                 });
-        this.scheduledFuture = eventLoopGroup.scheduleWithFixedDelay(new HeartbeatTask(), 30, 60, TimeUnit.SECONDS);
     }
 
     public AdapterChannel getAdapterChannel(InetSocketAddress broker) {
@@ -139,7 +133,6 @@ public class MQTTProxyAdapter {
     public void shutdown() {
         try {
             closeChannels();
-            this.scheduledFuture.cancel(true);
             this.eventLoopGroup.shutdownGracefully();
         } catch (Exception e) {
             log.error("NettyRemotingClient shutdown exception", e);
@@ -154,20 +147,6 @@ public class MQTTProxyAdapter {
                     }
                 }))
         );
-    }
-
-    private class HeartbeatTask implements Runnable {
-
-        @Override
-        public void run() {
-            pool.values().forEach(p -> p.values().forEach(f -> {
-                f.thenAccept(c -> {
-                    if (c.isActive()) {
-                        c.writeAndFlush(MqttMessageUtils.pingReq());
-                    }
-                });
-            }));
-        }
     }
 
     public class AdapterHandler extends ChannelInboundHandlerAdapter {
