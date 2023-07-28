@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
-@CommandLine.Command(name = "pub")
+@CommandLine.Command(name = "pub", description = "publish messages to the broker")
 public final class CommandPub implements Runnable {
     static final Logger LOG = Logger.getLogger("Publisher");
     static final DecimalFormat DF = new DecimalFormat("0.000");
