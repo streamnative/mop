@@ -5,6 +5,8 @@ import static io.streamnative.mqtt.perf.MqttPerf.MQTT_VERSION_5;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static picocli.CommandLine.*;
+
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.google.common.base.Strings;
@@ -26,44 +28,44 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
-@CommandLine.Command(name = "pub", description = "publish messages to the broker")
+@Command(name = "pub", description = "publish messages to the broker")
 public final class CommandPub implements Runnable {
     static final Logger LOG = Logger.getLogger("Publisher");
     static final DecimalFormat DF = new DecimalFormat("0.000");
     static final DecimalFormat TF = new DecimalFormat("0.0");
-    @CommandLine.Spec
-    CommandLine.Model.CommandSpec spec;
-    @CommandLine.Option(names = {"-h", "--host"}, defaultValue = "127.0.0.1",
+    @Spec
+    Model.CommandSpec spec;
+    @Option(names = {"-h", "--host"}, defaultValue = "127.0.0.1",
             description = "MQTT Server host")
     String host;
-    @CommandLine.Option(names = {"-p", "--port"}, defaultValue = "1883",
+    @Option(names = {"-p", "--port"}, defaultValue = "1883",
             description = "MQTT Server port")
     int port;
-    @CommandLine.Option(names = {"-v", "--version"}, defaultValue = "5",
+    @Option(names = {"-v", "--version"}, defaultValue = "5",
             description = "MQTT Protocol version")
     int version;
-    @CommandLine.Option(names = {"-c", "--connections"}, defaultValue = "1",
+    @Option(names = {"-c", "--connections"}, defaultValue = "1",
             description = "MQTT Connection number")
     int connections;
-    @CommandLine.Option(names = {"-r", "--rate"}, defaultValue = "100",
+    @Option(names = {"-r", "--rate"}, defaultValue = "100",
             description = "MQTT Publish rate per second by connection")
     long rate;
-    @CommandLine.Option(required = true, names = {"-t", "--topic"}, description = "Topic name")
+    @Option(required = true, names = {"-t", "--topic"}, description = "Topic name")
     String topic;
-    @CommandLine.Option(names = {"-q", "--q"}, defaultValue = "1", description = "MQTT publish Qos")
+    @Option(names = {"-q", "--q"}, defaultValue = "1", description = "MQTT publish Qos")
     int qos;
-    @CommandLine.Option(names = {"-n", "--message-number"}, description = "Number of messages per connection")
+    @Option(names = {"-n", "--message-number"}, description = "Number of messages per connection")
     int messageNumber;
-    @CommandLine.Option(names = {"-s", "--message-size"}, defaultValue = "128",
+    @Option(names = {"-s", "--message-size"}, defaultValue = "128",
             description = "MQTT message size")
     int messageSize;
-    @CommandLine.Option(names = {"--auto-reconnect"}, description = "Enable auto reconnect.")
+    @Option(names = {"--auto-reconnect"}, description = "Enable auto reconnect.")
     boolean autoReconnect;
-    @CommandLine.Option(names = {"--ssl-enabled"}, description = "Enable auto reconnect.")
+    @Option(names = {"--ssl-enabled"}, description = "Enable auto reconnect.")
     boolean sslEnabled;
-    @CommandLine.Option(names = {"--username"}, description = "MQTT basic authentication username")
+    @Option(names = {"--username"}, description = "MQTT basic authentication username")
     String username;
-    @CommandLine.Option(names = {"--password"}, description = "MQTT basic authentication UTF-8 encoded password")
+    @Option(names = {"--password"}, description = "MQTT basic authentication UTF-8 encoded password")
     String password;
 
 
@@ -187,7 +189,7 @@ public final class CommandPub implements Runnable {
                 allOf(lastSentFutures.values().toArray(new CompletableFuture[]{})).join();
             }
             default -> {
-                throw new CommandLine.ParameterException(spec.commandLine(), "Unsupported protocol version " + version);
+                throw new ParameterException(spec.commandLine(), "Unsupported protocol version " + version);
             }
         }
 
