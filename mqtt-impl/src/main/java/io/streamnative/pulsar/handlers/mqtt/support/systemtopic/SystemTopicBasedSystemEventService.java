@@ -196,7 +196,9 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
 
     private void closeReader() {
         if (initReader.compareAndSet(true, false)) {
-            reader.closeAsync();
+            if (reader != null) {
+                reader.closeAsync();
+            }
         }
     }
 
