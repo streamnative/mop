@@ -1,11 +1,17 @@
 package io.streamnative.mqtt.perf;
 
+import static io.streamnative.mqtt.perf.MqttPerf.ASYNC_EXECUTOR;
 import static io.streamnative.mqtt.perf.MqttPerf.EXECUTOR;
 import static io.streamnative.mqtt.perf.MqttPerf.MQTT_VERSION_5;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static picocli.CommandLine.*;
+import static picocli.CommandLine.Command;
+import static picocli.CommandLine.Model;
+import static picocli.CommandLine.Option;
+import static picocli.CommandLine.ParameterException;
+import static picocli.CommandLine.Range;
+import static picocli.CommandLine.Spec;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.annotation.JSONField;
@@ -16,7 +22,7 @@ import com.hivemq.client.mqtt.datatypes.MqttQos;
 import lombok.Builder;
 import lombok.Data;
 import org.HdrHistogram.Recorder;
-import picocli.CommandLine;
+
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.util.Optional;
@@ -52,6 +58,8 @@ public final class CommandPub implements Runnable {
     long rate;
     @Option(required = true, names = {"-t", "--topic"}, description = "Topic name")
     String topic;
+    @Option(names = {"--topic-suffix"}, description = "Topic name suffix")
+    Range topicSuffix;
     @Option(names = {"-q", "--q"}, defaultValue = "1", description = "MQTT publish Qos")
     int qos;
     @Option(names = {"-n", "--message-number"}, description = "Number of messages per connection")
@@ -111,6 +119,13 @@ public final class CommandPub implements Runnable {
     @SuppressWarnings({"ResultOfMethodCallIgnored", "UnstableApiUsage"})
     @Override
     public void run() {
+        // arguments validation
+        if (topicSuffix != null) {
+            final var steps = topicSuffix.max() - topicSuffix.min();
+            if (steps != connections) {
+                throw new ParameterException(spec.commandLine(), "connection number must equals to topic suffix ranges");
+            }
+        }
         LOG.info("Preparing the publisher configurations.");
         final var rateLimiters = new ConcurrentHashMap<String, RateLimiter>(connections);
         final var permits = new ConcurrentHashMap<String, AtomicLong>(connections);
@@ -146,38 +161,42 @@ public final class CommandPub implements Runnable {
                 // blocking call and wait for all the client connect successful.
                 allOf(connectFutures.toArray(new CompletableFuture[]{})).join();
                 LOG.info("Preparing publishing messages.");
-                while (true) {
+                while (true) { // control number of messages
                     for (var connect : connectFutures) {
-                        final var mqtt5Client = connect.join();
-                        final var clientIdentifier = mqtt5Client.getConfig().getClientIdentifier();
-                        assert clientIdentifier.isPresent();
-                        if (messageNumber > 0) {
-                            final var permit = permits.computeIfAbsent(clientIdentifier.get().toString(),
-                                    key -> new AtomicLong(messageNumber));
-                            if (permit.decrementAndGet() == 0) {
-                                continue;
+                        ASYNC_EXECUTOR.submit(() -> {
+                            final var mqtt5Client = connect.join();
+                            final var clientIdentifier = mqtt5Client.getConfig().getClientIdentifier();
+                            assert clientIdentifier.isPresent();
+                            if (messageNumber > 0) {
+                                final var permit = permits.computeIfAbsent(clientIdentifier.get().toString(),
+                                        key -> new AtomicLong(messageNumber));
+                                if (permit.decrementAndGet() == 0) {
+                                    return;
+                                }
                             }
-                        }
-                        final var rateLimiter = rateLimiters.computeIfAbsent(clientIdentifier.get().toString(),
-                                key -> RateLimiter.create(rate));
-                        rateLimiter.acquire();
-                        final long publishStartTime = System.nanoTime();
-                        final var future = mqtt5Client.publishWith()
-                                .topic(topic)
-                                .qos(Optional.ofNullable(MqttQos.fromCode(qos)).orElse(MqttQos.AT_LEAST_ONCE))
-                                .payload(payload)
-                                .send().thenAccept(__ -> {
-                                    final long publishEndTime = System.nanoTime();
-                                    final long microsPublishedLatency = NANOSECONDS.toMicros(publishEndTime - publishStartTime);
-                                    totalMessageSent.increment();
-                                    intervalMessageSent.increment();
-                                    intervalBytesSent.add(payload.length);
-                                    recorder.recordValue(microsPublishedLatency);
-                                }).exceptionally(ex -> {
-                                    intervalMessageFailed.increment();
-                                    return null;
-                                });
-                        lastSentFutures.put(clientIdentifier.get().toString(), future);
+                            final var rateLimiter = rateLimiters.computeIfAbsent(clientIdentifier.get().toString(),
+                                    key -> RateLimiter.create(rate));
+                            if (!rateLimiter.tryAcquire()) {
+                                return;
+                            }
+                            final long publishStartTime = System.nanoTime();
+                            final var future = mqtt5Client.publishWith()
+                                    .topic(topic)
+                                    .qos(Optional.ofNullable(MqttQos.fromCode(qos)).orElse(MqttQos.AT_LEAST_ONCE))
+                                    .payload(payload)
+                                    .send().thenAccept(__ -> {
+                                        final long publishEndTime = System.nanoTime();
+                                        final long microsPublishedLatency = NANOSECONDS.toMicros(publishEndTime - publishStartTime);
+                                        totalMessageSent.increment();
+                                        intervalMessageSent.increment();
+                                        intervalBytesSent.add(payload.length);
+                                        recorder.recordValue(microsPublishedLatency);
+                                    }).exceptionally(ex -> {
+                                        intervalMessageFailed.increment();
+                                        return null;
+                                    });
+                            lastSentFutures.put(clientIdentifier.get().toString(), future);
+                        });
                     }
                     // check message number
                     if (messageNumber > 0 && permits.values().stream().mapToLong(AtomicLong::get).sum() == 0) {
