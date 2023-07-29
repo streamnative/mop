@@ -28,11 +28,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Command(name = "pub", description = "publish messages to the broker")
 public final class CommandPub implements Runnable {
+    private static final Logger LOG = Logger.getLogger("Publisher");
     @Spec
     Model.CommandSpec spec;
     @Option(names = {"-h", "--host"}, defaultValue = "127.0.0.1",
@@ -77,42 +79,14 @@ public final class CommandPub implements Runnable {
     private final LongAdder intervalMessageSent = new LongAdder();
     private final LongAdder intervalMessageFailed = new LongAdder();
     private final LongAdder intervalBytesSent = new LongAdder();
+    private final LongAdder connected = new LongAdder();
     private final Recorder recorder = new Recorder(SECONDS.toMicros(120000), 5);
     private final AtomicLong lastPrintTime = new AtomicLong(0);
-
-
-    {
-        EXECUTOR.scheduleWithFixedDelay(() -> {
-            final var printTime = System.nanoTime();
-            final var elapsed = (printTime - lastPrintTime.get()) / 1e9;
-            final var publishRate = intervalMessageSent.sumThenReset() / elapsed;
-            final var publishFailedRate = intervalMessageFailed.sumThenReset() / elapsed;
-            final var throughput = intervalBytesSent.sumThenReset() / elapsed;
-            final var histogram = recorder.getIntervalHistogram();
-            final var latency = PubStats.PublishLatency.builder()
-                    .mean(DF.format(histogram.getMean() / 1000.0))
-                    .pct50(DF.format(histogram.getValueAtPercentile(50) / 1000.0))
-                    .pct95(DF.format(histogram.getValueAtPercentile(95) / 1000.0))
-                    .pct99(DF.format(histogram.getValueAtPercentile(99) / 1000.0))
-                    .pct999(DF.format(histogram.getValueAtPercentile(99.9) / 1000.0))
-                    .pct9999(DF.format(histogram.getValueAtPercentile(99.99) / 1000.0))
-                    .max(DF.format(histogram.getMaxValue() / 1000.0))
-                    .build();
-            final var stats = PubStats.builder()
-                    .total_message_sent(totalMessageSent.sum())
-                    .publish_failed_rate_per_second(TF.format(publishFailedRate))
-                    .publish_rate_per_second(TF.format(publishRate))
-                    .throughput_bytes(TF.format(throughput))
-                    .latency_ms(latency)
-                    .build().toString();
-            LOG.info(stats);
-            lastPrintTime.set(System.nanoTime());
-        }, 10, 10, SECONDS);
-    }
 
     @SuppressWarnings({"ResultOfMethodCallIgnored", "UnstableApiUsage"})
     @Override
     public void run() {
+        printStatsInBackgroundByInterval();
         // arguments validation
         if (topicSuffix != null) {
             final var steps = topicSuffix.max() - topicSuffix.min();
@@ -135,7 +109,7 @@ public final class CommandPub implements Runnable {
         if (sslEnabled) {
             clientBuilder.sslWithDefaultConfig();
         }
-        final var clientId = String.valueOf(System.currentTimeMillis());
+        final var clientId = UUID.randomUUID().toString();
 
         final byte[] payload = new byte[messageSize];
         switch (version) {// blocking call and wait for all the client connect successful.
@@ -153,7 +127,10 @@ public final class CommandPub implements Runnable {
                                 .password(password.getBytes(StandardCharsets.UTF_8))
                                 .applySimpleAuth();
                     }
-                    return connectBuilder.send().thenApply(__ -> mqtt5AsyncClient);
+                    return connectBuilder.send().thenApply(__ -> {
+                        connected.increment();
+                        return mqtt5AsyncClient;
+                    });
                 }).collect(Collectors.toList());
                 allOf(connectFutures.toArray(new CompletableFuture[]{})).join();
                 LOG.info("Preparing publishing messages.");
@@ -208,6 +185,36 @@ public final class CommandPub implements Runnable {
 
     }
 
+    private void printStatsInBackgroundByInterval() {
+        EXECUTOR.scheduleWithFixedDelay(() -> {
+            final var printTime = System.nanoTime();
+            final var elapsed = (printTime - lastPrintTime.get()) / 1e9;
+            final var publishRate = intervalMessageSent.sumThenReset() / elapsed;
+            final var publishFailedRate = intervalMessageFailed.sumThenReset() / elapsed;
+            final var throughput = intervalBytesSent.sumThenReset() / elapsed;
+            final var histogram = recorder.getIntervalHistogram();
+            final var latency = PubStats.PublishLatency.builder()
+                    .mean(DF.format(histogram.getMean() / 1000.0))
+                    .pct50(DF.format(histogram.getValueAtPercentile(50) / 1000.0))
+                    .pct95(DF.format(histogram.getValueAtPercentile(95) / 1000.0))
+                    .pct99(DF.format(histogram.getValueAtPercentile(99) / 1000.0))
+                    .pct999(DF.format(histogram.getValueAtPercentile(99.9) / 1000.0))
+                    .pct9999(DF.format(histogram.getValueAtPercentile(99.99) / 1000.0))
+                    .max(DF.format(histogram.getMaxValue() / 1000.0))
+                    .build();
+            final var stats = PubStats.builder()
+                    .total_message_sent(totalMessageSent.sum())
+                    .publish_failed_rate_per_second(TF.format(publishFailedRate))
+                    .publish_rate_per_second(TF.format(publishRate))
+                    .throughput_bytes(TF.format(throughput))
+                    .connected(connected.longValue())
+                    .latency_ms(latency)
+                    .build().toString();
+            LOG.info(stats);
+            lastPrintTime.set(System.nanoTime());
+        }, 10, 10, SECONDS);
+    }
+
     @Data
     @Builder
     static class PubStats {
@@ -220,6 +227,8 @@ public final class CommandPub implements Runnable {
         @JSONField(ordinal = 4)
         private String publish_failed_rate_per_second;
         @JSONField(ordinal = 5)
+        private long connected;
+        @JSONField(ordinal = 6)
         private PublishLatency latency_ms;
 
         @Data

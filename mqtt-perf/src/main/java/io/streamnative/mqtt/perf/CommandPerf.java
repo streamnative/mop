@@ -2,7 +2,7 @@ package io.streamnative.mqtt.perf;
 
 import picocli.CommandLine;
 
-@CommandLine.Command(name = "perf", version = "1.0.0", mixinStandardHelpOptions = true, subcommands = {CommandPub.class})
+@CommandLine.Command(name = "perf", version = "1.0.0", mixinStandardHelpOptions = true, subcommands = {CommandPub.class, CommandSub.class})
 public final class CommandPerf implements Runnable {
 
     @CommandLine.Spec
