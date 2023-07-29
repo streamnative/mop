@@ -1,8 +1,6 @@
 package io.streamnative.mqtt.perf;
 
-import static io.streamnative.mqtt.perf.MqttPerf.ASYNC_EXECUTOR;
-import static io.streamnative.mqtt.perf.MqttPerf.EXECUTOR;
-import static io.streamnative.mqtt.perf.MqttPerf.MQTT_VERSION_5;
+import static io.streamnative.mqtt.perf.MqttPerf.*;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -24,21 +22,17 @@ import lombok.Data;
 import org.HdrHistogram.Recorder;
 
 import java.nio.charset.StandardCharsets;
-import java.text.DecimalFormat;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Command(name = "pub", description = "publish messages to the broker")
 public final class CommandPub implements Runnable {
-    static final Logger LOG = Logger.getLogger("Publisher");
-    static final DecimalFormat DF = new DecimalFormat("0.000");
-    static final DecimalFormat TF = new DecimalFormat("0.0");
     @Spec
     Model.CommandSpec spec;
     @Option(names = {"-h", "--host"}, defaultValue = "127.0.0.1",
@@ -60,7 +54,7 @@ public final class CommandPub implements Runnable {
     String topic;
     @Option(names = {"--topic-suffix"}, description = "Topic name suffix")
     Range topicSuffix;
-    @Option(names = {"-q", "--q"}, defaultValue = "1", description = "MQTT publish Qos")
+    @Option(names = {"-q", "--qos"}, defaultValue = "1", description = "MQTT publish Qos")
     int qos;
     @Option(names = {"-n", "--message-number"}, description = "Number of messages per connection")
     int messageNumber;
@@ -132,7 +126,6 @@ public final class CommandPub implements Runnable {
         final var lastSentFutures = new ConcurrentHashMap<String, CompletableFuture<Void>>();
 
         final var clientBuilder = MqttClient.builder()
-                .identifier(UUID.randomUUID().toString())
                 .serverHost(host)
                 .serverPort(port)
                 .sslWithDefaultConfig();
@@ -142,12 +135,18 @@ public final class CommandPub implements Runnable {
         if (sslEnabled) {
             clientBuilder.sslWithDefaultConfig();
         }
+        final var clientId = String.valueOf(System.currentTimeMillis());
+
         final byte[] payload = new byte[messageSize];
-        switch (version) {
-            case MQTT_VERSION_5 -> {
+        switch (version) {// blocking call and wait for all the client connect successful.
+            case MQTT_VERSION_5:
                 LOG.info("Preparing the MQTT 5 connection.");
-                final var connectFutures = IntStream.range(0, connections).parallel().mapToObj(id -> {
-                    final var mqtt5AsyncClient = clientBuilder.useMqttVersion5().buildAsync();
+                final var connectFutures = IntStream.range(0, connections).parallel().mapToObj(index -> {
+                    String concat = clientId.concat(String.valueOf(index));
+                    System.out.println(concat);
+                    final var mqtt5AsyncClient = clientBuilder
+                            .identifier(concat)
+                            .useMqttVersion5().buildAsync();
                     final var connectBuilder = mqtt5AsyncClient.connectWith();
                     if (!Strings.isNullOrEmpty(password)) {
                         connectBuilder
@@ -157,8 +156,7 @@ public final class CommandPub implements Runnable {
                                 .applySimpleAuth();
                     }
                     return connectBuilder.send().thenApply(__ -> mqtt5AsyncClient);
-                }).toList();
-                // blocking call and wait for all the client connect successful.
+                }).collect(Collectors.toList());
                 allOf(connectFutures.toArray(new CompletableFuture[]{})).join();
                 LOG.info("Preparing publishing messages.");
                 while (true) { // control number of messages
@@ -204,12 +202,10 @@ public final class CommandPub implements Runnable {
                         break;
                     }
                 }
-                // wait for all the future complete
                 allOf(lastSentFutures.values().toArray(new CompletableFuture[]{})).join();
-            }
-            default -> {
+                break;
+            default:
                 throw new ParameterException(spec.commandLine(), "Unsupported protocol version " + version);
-            }
         }
 
     }

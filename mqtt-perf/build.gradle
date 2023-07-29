@@ -18,11 +18,9 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok:1.18.26'
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-}
+sourceCompatibility = JavaVersion.VERSION_11
+targetCompatibility = JavaVersion.VERSION_11
+
 application {
     mainClass = 'io.streamnative.mqtt.perf.MqttPerf'
 }
