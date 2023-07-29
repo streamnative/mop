@@ -4,3 +4,8 @@
 |  |'.'|  ||  | |  |  |  |      |  |    |  '--' | .-. :|  .--'|  `-,
 |  |   |  |'  '-'  '-.|  |      |  |    |  | --'\   --.|  |   |  .-'
 `--'   `--' `-----'--'`--'      `--'    `--'     `----'`--'   `--'
+
+
+Run command as follows can build the project. :)
+
+python3 <mqtt-perf root path>/build_perf.py
