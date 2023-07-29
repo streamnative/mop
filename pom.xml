@@ -249,6 +249,7 @@
                         <exclude>**/.idea/**</exclude>
                         <exclude>**/.github/**</exclude>
                         <exlude>**/.ci/**</exlude>
+                        <exclude>**/mqtt-perf/**</exclude>
                     </excludes>
                     <mapping>
                         <proto>JAVADOC_STYLE</proto>

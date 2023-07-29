@@ -6,6 +6,7 @@ on:
       - branch-*
       - master
     paths-ignore:
+      - 'mqtt-perf/**'
       - 'docs/**'
       - 'README.md'
   push:
@@ -13,6 +14,7 @@ on:
       - branch-*
       - master
     paths-ignore:
+      - 'mqtt-perf/**'
       - 'docs/**'
       - 'README.md'
 
