@@ -1,6 +1,10 @@
 package io.streamnative.mqtt.perf;
 
-import static io.streamnative.mqtt.perf.MqttPerf.*;
+import static io.streamnative.mqtt.perf.MqttPerf.ASYNC_EXECUTOR;
+import static io.streamnative.mqtt.perf.MqttPerf.DF;
+import static io.streamnative.mqtt.perf.MqttPerf.EXECUTOR;
+import static io.streamnative.mqtt.perf.MqttPerf.MQTT_VERSION_5;
+import static io.streamnative.mqtt.perf.MqttPerf.TF;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -10,7 +14,6 @@ import static picocli.CommandLine.Option;
 import static picocli.CommandLine.ParameterException;
 import static picocli.CommandLine.Range;
 import static picocli.CommandLine.Spec;
-
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.annotation.JSONField;
 import com.google.common.base.Strings;
@@ -20,7 +23,6 @@ import com.hivemq.client.mqtt.datatypes.MqttQos;
 import lombok.Builder;
 import lombok.Data;
 import org.HdrHistogram.Recorder;
-
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
@@ -91,7 +93,8 @@ public final class CommandPub implements Runnable {
         if (topicSuffix != null) {
             final var steps = topicSuffix.max() - topicSuffix.min();
             if (steps != connections) {
-                throw new ParameterException(spec.commandLine(), "connection number must equals to topic suffix ranges");
+                throw new ParameterException(spec.commandLine(),
+                        "connection number must equals to topic suffix ranges");
             }
         }
         LOG.info("Preparing the publisher configurations.");
@@ -159,7 +162,8 @@ public final class CommandPub implements Runnable {
                                     .payload(payload)
                                     .send().thenAccept(__ -> {
                                         final long publishEndTime = System.nanoTime();
-                                        final long microsPublishedLatency = NANOSECONDS.toMicros(publishEndTime - publishStartTime);
+                                        final long microsPublishedLatency = NANOSECONDS
+                                                .toMicros(publishEndTime - publishStartTime);
                                         totalMessageSent.increment();
                                         intervalMessageSent.increment();
                                         intervalBytesSent.add(payload.length);

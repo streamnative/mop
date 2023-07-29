@@ -81,7 +81,8 @@ public final class CommandSub implements Runnable {
         if (topicSuffix != null) {
             final var steps = topicSuffix.max() - topicSuffix.min();
             if (steps != connections) {
-                throw new CommandLine.ParameterException(spec.commandLine(), "connection number must equals to topic suffix ranges");
+                throw new CommandLine.ParameterException(spec.commandLine(),
+                        "connection number must equals to topic suffix ranges");
             }
         }
         LOG.info("Preparing the publisher configurations.");

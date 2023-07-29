@@ -1,10 +1,7 @@
 package io.streamnative.mqtt.perf;
 
 import static java.lang.System.exit;
-
 import picocli.CommandLine;
-
-import java.nio.file.Files;
 import java.text.DecimalFormat;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,12 +26,12 @@ public final class MqttPerf {
     }
 
     public static void printBanner() {
-        final var banner = "\n" +
-                ",--.   ,--. ,-----.,--------.,--------. ,------.               ,---. \n" +
-                "|   `.'   |'  .-.  '--.  .--''--.  .--' |  .--. ',---. ,--.--./  .-' \n" +
-                "|  |'.'|  ||  | |  |  |  |      |  |    |  '--' | .-. :|  .--'|  `-, \n" +
-                "|  |   |  |'  '-'  '-.|  |      |  |    |  | --'\\   --.|  |   |  .-' \n" +
-                "`--'   `--' `-----'--'`--'      `--'    `--'     `----'`--'   `--'   \n";
+        final var banner = "\n"
+                           + ",--.   ,--. ,-----.,--------.,--------. ,------.               ,---. \n"
+                           + "|   `.'   |'  .-.  '--.  .--''--.  .--' |  .--. ',---. ,--.--./  .-' \n"
+                           + "|  |'.'|  ||  | |  |  |  |      |  |    |  '--' | .-. :|  .--'|  `-, \n"
+                           + "|  |   |  |'  '-'  '-.|  |      |  |    |  | --'\\   --.|  |   |  .-' \n"
+                           + "`--'   `--' `-----'--'`--'      `--'    `--'     `----'`--'   `--'   \n";
         LOG.info(banner);
     }
 }
