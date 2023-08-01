@@ -1,4 +1,4 @@
-name: CI Docker Publish MQTT Perf
+name: CI Docker Publish
 
 on:
   # Publish nightly builds
