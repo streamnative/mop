@@ -119,18 +119,18 @@ public final class CommandPub implements Runnable {
             case MQTT_VERSION_5:
                 LOG.info("Preparing the MQTT 5 connection.");
                 final var connectFutures = IntStream.range(0, connections).parallel().mapToObj(index -> {
-                    final var mqtt5AsyncClient = clientBuilder
-                            .identifier(clientId.concat(String.valueOf(index)))
-                            .useMqttVersion5().buildAsync();
-                    final var connectBuilder = mqtt5AsyncClient.connectWith();
+                    final var mqtt5ClientBuilder = clientBuilder
+                            .useMqttVersion5()
+                            .identifier(clientId.concat(String.valueOf(index)));
                     if (!Strings.isNullOrEmpty(password)) {
-                        connectBuilder
+                        mqtt5ClientBuilder
                                 .simpleAuth()
                                 .username(username)
                                 .password(password.getBytes(StandardCharsets.UTF_8))
                                 .applySimpleAuth();
                     }
-                    return connectBuilder.send().thenApply(__ -> {
+                    final var mqtt5AsyncClient = mqtt5ClientBuilder.buildAsync();
+                    return mqtt5AsyncClient.connect().thenApply(__ -> {
                         connected.increment();
                         return mqtt5AsyncClient;
                     });
