@@ -21,11 +21,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
+
+import net.jcip.annotations.ThreadSafe;
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.common.api.proto.CommandAck;
 
+@ThreadSafe
 public class MqttAckTrackerImpl implements MqttAckTracker {
     private List<OutstandingPacket> batchContainer;
     private final Object batchContainerMutex;

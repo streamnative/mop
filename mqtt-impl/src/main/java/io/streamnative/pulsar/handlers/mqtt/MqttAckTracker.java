@@ -13,6 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import net.jcip.annotations.ThreadSafe;
+
+@ThreadSafe
 public interface MqttAckTracker {
 
     /**
