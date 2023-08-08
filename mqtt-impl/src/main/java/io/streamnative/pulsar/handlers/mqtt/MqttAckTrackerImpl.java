@@ -29,7 +29,7 @@ import org.apache.pulsar.common.api.proto.CommandAck;
 
 @ThreadSafe
 public class MqttAckTrackerImpl implements MqttAckTracker {
-    private volatile List<OutstandingPacket> batchContainer;
+    private List<OutstandingPacket> batchContainer;
     private final Object batchContainerMutex;
     private final Semaphore mutex;
 
