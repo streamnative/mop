@@ -152,22 +152,10 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             log.debug("[PubAck] [{}] msg: {}", connection.getClientId(), adapter);
         }
         final MqttPubAckMessage msg = (MqttPubAckMessage) adapter.getMqttMessage();
-        int packetId = msg.variableHeader().messageId();
-        OutstandingPacket packet = outstandingPacketContainer.remove(packetId);
+        final int packetId = msg.variableHeader().messageId();
+        final OutstandingPacket packet = outstandingPacketContainer.remove(packetId);
         if (packet != null) {
-            PositionImpl position;
-            if (packet.isBatch()) {
-                long[] ackSets = new long[packet.getBatchSize()];
-                for (int i = 0; i < packet.getBatchSize(); i++) {
-                    ackSets[i] = packet.getBatchIndex() == i ? 0 : 1;
-                }
-                position = PositionImpl.get(packet.getLedgerId(), packet.getEntryId(), ackSets);
-            } else {
-                position = PositionImpl.get(packet.getLedgerId(), packet.getEntryId());
-            }
-            packet.getConsumer().getSubscription().acknowledgeMessage(Collections.singletonList(position),
-                    CommandAck.AckType.Individual, Collections.emptyMap());
-            packet.getConsumer().getPendingAcks().remove(packet.getLedgerId(), packet.getEntryId());
+            packet.getConsumer().getAckTracker().add(packet);
             packet.getConsumer().incrementPermits();
         }
     }

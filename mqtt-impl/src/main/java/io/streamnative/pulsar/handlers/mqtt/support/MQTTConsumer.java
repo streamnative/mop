@@ -18,10 +18,8 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.OutstandingPacket;
-import io.streamnative.pulsar.handlers.mqtt.OutstandingPacketContainer;
-import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
+import io.netty.util.concurrent.Future;
+import io.streamnative.pulsar.handlers.mqtt.*;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter;
@@ -51,11 +49,15 @@ public class MQTTConsumer extends Consumer {
 
     private final String pulsarTopicName;
     private final String mqttTopicName;
+    @Getter
     private final MQTTServerCnx cnx;
     private final MqttQoS qos;
     private final PacketIdGenerator packetIdGenerator;
     private final OutstandingPacketContainer outstandingPacketContainer;
     private final MQTTMetricsCollector metricsCollector;
+    @Getter
+    private final MqttAckTracker ackTracker;
+
     private static final AtomicIntegerFieldUpdater<MQTTConsumer> MESSAGE_PERMITS_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(MQTTConsumer.class, "availablePermits");
     private volatile int availablePermits;
@@ -82,6 +84,7 @@ public class MQTTConsumer extends Consumer {
         this.metricsCollector = metricsCollector;
         this.clientRestrictions = connection.getClientRestrictions();
         this.connection = connection;
+        this.ackTracker = new MqttAckTrackerImpl();
     }
 
     @Override
