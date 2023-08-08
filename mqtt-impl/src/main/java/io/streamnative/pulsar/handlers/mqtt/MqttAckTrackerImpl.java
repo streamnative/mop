@@ -1,17 +1,17 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
+import static java.util.Objects.requireNonNull;
 import io.netty.util.concurrent.EventExecutor;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTConsumer;
-import org.apache.bookkeeper.mledger.Position;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
-import org.apache.pulsar.broker.service.Subscription;
-import org.apache.pulsar.common.api.proto.CommandAck;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
-import static java.util.Objects.requireNonNull;
+import org.apache.bookkeeper.mledger.Position;
+import org.apache.bookkeeper.mledger.impl.PositionImpl;
+import org.apache.pulsar.broker.service.Subscription;
+import org.apache.pulsar.common.api.proto.CommandAck;
 
 public class MqttAckTrackerImpl implements MqttAckTracker {
     private List<OutstandingPacket> batchContainer;
