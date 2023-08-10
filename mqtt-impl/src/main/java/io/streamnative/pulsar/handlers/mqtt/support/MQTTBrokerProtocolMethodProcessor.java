@@ -68,14 +68,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.Subscription;
-import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.Codec;
@@ -152,22 +150,10 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             log.debug("[PubAck] [{}] msg: {}", connection.getClientId(), adapter);
         }
         final MqttPubAckMessage msg = (MqttPubAckMessage) adapter.getMqttMessage();
-        int packetId = msg.variableHeader().messageId();
-        OutstandingPacket packet = outstandingPacketContainer.remove(packetId);
+        final int packetId = msg.variableHeader().messageId();
+        final OutstandingPacket packet = outstandingPacketContainer.remove(packetId);
         if (packet != null) {
-            PositionImpl position;
-            if (packet.isBatch()) {
-                long[] ackSets = new long[packet.getBatchSize()];
-                for (int i = 0; i < packet.getBatchSize(); i++) {
-                    ackSets[i] = packet.getBatchIndex() == i ? 0 : 1;
-                }
-                position = PositionImpl.get(packet.getLedgerId(), packet.getEntryId(), ackSets);
-            } else {
-                position = PositionImpl.get(packet.getLedgerId(), packet.getEntryId());
-            }
-            packet.getConsumer().getSubscription().acknowledgeMessage(Collections.singletonList(position),
-                    CommandAck.AckType.Individual, Collections.emptyMap());
-            packet.getConsumer().getPendingAcks().remove(packet.getLedgerId(), packet.getEntryId());
+            packet.getConsumer().getAckTracker().add(packet);
             packet.getConsumer().incrementPermits();
         }
     }

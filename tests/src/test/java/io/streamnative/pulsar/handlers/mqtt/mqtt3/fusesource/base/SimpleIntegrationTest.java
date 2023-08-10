@@ -63,7 +63,7 @@ import org.testng.annotations.Test;
 @Slf4j
 public class SimpleIntegrationTest extends MQTTTestBase {
 
-    private final int numMessages = 1;
+    private final int numMessages = 10000;
 
     @Override
     protected MQTTCommonConfiguration initConfig() throws Exception {
