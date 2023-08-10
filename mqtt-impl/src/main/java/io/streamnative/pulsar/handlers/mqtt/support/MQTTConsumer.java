@@ -88,7 +88,7 @@ public class MQTTConsumer extends Consumer {
         this.metricsCollector = metricsCollector;
         this.clientRestrictions = connection.getClientRestrictions();
         this.connection = connection;
-        this.ackTracker = new MqttAckTrackerImpl();
+        this.ackTracker = new MqttAckTrackerImpl(this);
     }
 
     @Override
