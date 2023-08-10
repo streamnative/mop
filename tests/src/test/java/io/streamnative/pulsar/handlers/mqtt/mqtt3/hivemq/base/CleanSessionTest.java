@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -51,8 +52,10 @@ public class CleanSessionTest extends MQTTTestBase {
         String clientId = Objects.requireNonNull(client.getConfig().getClientIdentifier().orElse(null)).toString();
         Assert.assertTrue(subscriptions.contains(clientId));
         client.disconnect();
-        List<String> afterDisconnectionSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
-        Assert.assertTrue(CollectionUtils.isEmpty(afterDisconnectionSubscriptions));
+        Awaitility.await().untilAsserted(() -> {
+            List<String> afterDisconnectionSubscriptions = admin.topics().getSubscriptions(pulsarTopicName);
+            Assert.assertTrue(CollectionUtils.isEmpty(afterDisconnectionSubscriptions));
+        });
     }
 
     @Test(timeOut = TIMEOUT)
