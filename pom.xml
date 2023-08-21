@@ -345,10 +345,6 @@
       <name>bintray</name>
       <url>https://yahoo.bintray.com/maven</url>
     </repository>
-    <repository>
-      <id>nexus-snapshot</id>
-      <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-    </repository>
   </repositories>
   <distributionManagement>
     <snapshotRepository>
