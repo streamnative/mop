@@ -349,6 +349,14 @@
       <id>nexus-snapshot</id>
       <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
     </repository>
+    <repository>
+      <id>ossrh</id>
+      <url>https://s01.oss.sonatype.org/service/local/repositories/iostreamnative-2456/content</url>
+    </repository>
+    <repository>
+      <id>nexus-snapshot</id>
+      <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+    </repository>
   </repositories>
   <distributionManagement>
     <snapshotRepository>
