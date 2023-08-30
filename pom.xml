@@ -350,14 +350,6 @@
       <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
     </repository>
     <repository>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-      <id>bintray-yahoo-maven</id>
-      <name>bintray</name>
-      <url>https://yahoo.bintray.com/maven</url>
-    </repository>
-    <repository>
       <id>ossrh</id>
       <url>https://s01.oss.sonatype.org/service/local/repositories/iostreamnative-2480/content</url>
     </repository>
