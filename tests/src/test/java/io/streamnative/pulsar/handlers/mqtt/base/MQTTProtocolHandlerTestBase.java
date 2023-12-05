@@ -144,6 +144,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqtt.setDefaultNumberOfNamespaceBundles(4);
         mqtt.setZookeeperServers("localhost:2181");
         mqtt.setConfigurationStoreServers("localhost:3181");
+        mqtt.setTopicLevelPoliciesEnabled(false);
 
         mqtt.setAuthenticationEnabled(false);
         mqtt.setAuthorizationEnabled(false);
