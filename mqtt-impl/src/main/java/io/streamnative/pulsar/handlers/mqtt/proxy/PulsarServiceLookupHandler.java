@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.loadbalance.LoadManager;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -34,6 +33,7 @@ import org.apache.pulsar.client.api.AuthenticationFactory;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.impl.Backoff;
 import org.apache.pulsar.client.impl.BackoffBuilder;
+import org.apache.pulsar.client.impl.LookupTopicResult;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
 import org.apache.pulsar.client.util.ExecutorProvider;
@@ -70,7 +70,7 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                             AtomicLong remainingTime,
                             CompletableFuture<InetSocketAddress> future) {
         pulsarClient.getLookup().getBroker(topicName)
-                .thenCompose(lookupPair ->
+                .thenCompose(lookupResult ->
                         localBrokerDataCache.getChildren(LoadManager.LOADBALANCE_BROKERS_ROOT).thenCompose(brokers -> {
                             // Get all broker data by metadata
                             List<CompletableFuture<Optional<LocalBrokerData>>> brokerDataFutures =
@@ -85,7 +85,7 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                                         Optional<LocalBrokerData> specificBrokerData =
                                                 brokerDataFutures.stream().map(CompletableFuture::join)
                                                         .filter(brokerData -> brokerData.isPresent()
-                                                                && isLookupMQTTBroker(lookupPair, brokerData.get()))
+                                                                && isLookupMQTTBroker(lookupResult, brokerData.get()))
                                                         .map(Optional::get)
                                                         .findAny();
                                         if (!specificBrokerData.isPresent()) {
@@ -110,7 +110,7 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                                         String port = splits[splits.length - 1];
                                         int mqttBrokerPort = Integer.parseInt(port);
                                         return CompletableFuture.completedFuture(new InetSocketAddress(
-                                                lookupPair.getLeft().getHostName(), mqttBrokerPort));
+                                                lookupResult.getLogicalAddress().getHostName(), mqttBrokerPort));
                                     });
                         }))
                 .thenAccept(future::complete)
@@ -149,14 +149,16 @@ public class PulsarServiceLookupHandler implements LookupHandler {
         return lookupResult;
     }
 
-    private boolean isLookupMQTTBroker(Pair<InetSocketAddress, InetSocketAddress> pair,
+    private boolean isLookupMQTTBroker(LookupTopicResult result,
                                        LocalBrokerData localBrokerData) {
 
-        String plain = String.format("pulsar://%s:%s", pair.getLeft().getHostName(), pair.getLeft().getPort());
-        String ssl = String.format("pulsar+ssl://%s:%s", pair.getLeft().getHostName(), pair.getLeft().getPort());
+        String plain = String.format("pulsar://%s:%s", result.getLogicalAddress().getHostName(),
+            result.getLogicalAddress().getPort());
+        String ssl = String.format("pulsar+ssl://%s:%s", result.getLogicalAddress().getHostName(),
+            result.getLogicalAddress().getPort());
         return localBrokerData.getProtocol(protocolHandlerName).isPresent()
                 && (localBrokerData.getPulsarServiceUrl().equals(plain)
-                    || localBrokerData.getPulsarServiceUrlTls().equals(ssl));
+            || localBrokerData.getPulsarServiceUrlTls().equals(ssl));
     }
 
     @Override
