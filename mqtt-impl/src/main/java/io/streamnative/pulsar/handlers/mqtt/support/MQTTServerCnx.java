@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
 import io.netty.channel.ChannelHandlerContext;
-
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;

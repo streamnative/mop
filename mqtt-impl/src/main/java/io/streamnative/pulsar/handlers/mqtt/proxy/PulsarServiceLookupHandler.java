@@ -70,8 +70,10 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                             CompletableFuture<InetSocketAddress> future) {
         pulsarClient.getLookup().getBroker(topicName)
                 .thenCompose(lookupResult -> {
-                        final var lookupPair = Pair.of(lookupResult.getLogicalAddress(), lookupResult.getPhysicalAddress());
-                        return localBrokerDataCache.getChildren(LoadManager.LOADBALANCE_BROKERS_ROOT).thenCompose(brokers -> {
+                        final var lookupPair = Pair.of(lookupResult.getLogicalAddress(),
+                                lookupResult.getPhysicalAddress());
+                        return localBrokerDataCache.getChildren(LoadManager.LOADBALANCE_BROKERS_ROOT)
+                                .thenCompose(brokers -> {
                             // Get all broker data by metadata
                             List<CompletableFuture<Optional<LocalBrokerData>>> brokerDataFutures =
                                     Collections.unmodifiableList(brokers.stream()
