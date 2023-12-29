@@ -3,6 +3,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
+ import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -32,7 +33,6 @@ import java.io.BufferedReader;
 import java.io.EOFException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -46,7 +46,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
@@ -56,7 +55,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
-import org.apache.pulsar.broker.lookup.LookupResult;
 import org.apache.pulsar.client.impl.LookupTopicResult;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
@@ -295,7 +293,8 @@ public class ProxyTest extends MQTTTestBase {
         broker.thenAccept(pair -> {
             try {
                 HttpClient httpClient = HttpClientBuilder.create().build();
-                final String mopEndPoint = "http://localhost:" + (pair.getLogicalAddress().getPort() + 2) + "/mop/stats";
+                final String mopEndPoint = "http://localhost:"
+                                           + (pair.getLogicalAddress().getPort() + 2) + "/mop/stats";
                 HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
                 InputStream inputStream = response.getEntity().getContent();
                 InputStreamReader isReader = new InputStreamReader(inputStream);
