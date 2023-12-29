@@ -49,7 +49,6 @@ import org.apache.pulsar.policies.data.loadbalancer.LocalBrokerData;
 public class PulsarServiceLookupHandler implements LookupHandler {
 
     private final String protocolHandlerName = "mqtt";
-
     private final PulsarClientImpl pulsarClient;
     private final MetadataCache<LocalBrokerData> localBrokerDataCache;
     private final PulsarService pulsarService;
@@ -70,8 +69,9 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                             AtomicLong remainingTime,
                             CompletableFuture<InetSocketAddress> future) {
         pulsarClient.getLookup().getBroker(topicName)
-                .thenCompose(lookupPair ->
-                        localBrokerDataCache.getChildren(LoadManager.LOADBALANCE_BROKERS_ROOT).thenCompose(brokers -> {
+                .thenCompose(lookupResult -> {
+                        final var lookupPair = Pair.of(lookupResult.getLogicalAddress(), lookupResult.getPhysicalAddress());
+                        return localBrokerDataCache.getChildren(LoadManager.LOADBALANCE_BROKERS_ROOT).thenCompose(brokers -> {
                             // Get all broker data by metadata
                             List<CompletableFuture<Optional<LocalBrokerData>>> brokerDataFutures =
                                     Collections.unmodifiableList(brokers.stream()
@@ -88,7 +88,7 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                                                                 && isLookupMQTTBroker(lookupPair, brokerData.get()))
                                                         .map(Optional::get)
                                                         .findAny();
-                                        if (!specificBrokerData.isPresent()) {
+                                        if (specificBrokerData.isEmpty()) {
                                             return FutureUtil.failedFuture(new BrokerServiceException(
                                                     "The broker does not enabled the mqtt protocol handler."));
                                         }
@@ -109,10 +109,11 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                                         String[] splits = brokerUrl.get().split(ConfigurationUtils.COLON);
                                         String port = splits[splits.length - 1];
                                         int mqttBrokerPort = Integer.parseInt(port);
-                                        return CompletableFuture.completedFuture(new InetSocketAddress(
-                                                lookupPair.getLeft().getHostName(), mqttBrokerPort));
+                                        return CompletableFuture.completedFuture(new InetSocketAddress(lookupPair
+                                                .getLeft().getHostName(), mqttBrokerPort));
                                     });
-                        }))
+                        });
+                })
                 .thenAccept(future::complete)
                 .exceptionally(e -> {
                     long nextDelay = Math.min(backoff.next(), remainingTime.get());

@@ -56,6 +56,8 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
+import org.apache.pulsar.broker.lookup.LookupResult;
+import org.apache.pulsar.client.impl.LookupTopicResult;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.common.api.proto.CommandGetTopicsOfNamespace;
 import org.apache.pulsar.common.naming.NamespaceName;
@@ -285,7 +287,7 @@ public class ProxyTest extends MQTTTestBase {
         Thread.sleep(4000); // Sleep 2 times of setKeepAlive.
         Assert.assertTrue(producer.isConnected());
         // Check for broker
-        CompletableFuture<Pair<InetSocketAddress, InetSocketAddress>> broker =
+        CompletableFuture<LookupTopicResult> broker =
                 ((PulsarClientImpl) pulsarClient).getLookup().getBroker(TopicName.get(topic));
         AtomicDouble active = new AtomicDouble(0);
         AtomicDouble total = new AtomicDouble(0);
@@ -293,7 +295,7 @@ public class ProxyTest extends MQTTTestBase {
         broker.thenAccept(pair -> {
             try {
                 HttpClient httpClient = HttpClientBuilder.create().build();
-                final String mopEndPoint = "http://localhost:" + (pair.getLeft().getPort() + 2) + "/mop/stats";
+                final String mopEndPoint = "http://localhost:" + (pair.getLogicalAddress().getPort() + 2) + "/mop/stats";
                 HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
                 InputStream inputStream = response.getEntity().getContent();
                 InputStreamReader isReader = new InputStreamReader(inputStream);
