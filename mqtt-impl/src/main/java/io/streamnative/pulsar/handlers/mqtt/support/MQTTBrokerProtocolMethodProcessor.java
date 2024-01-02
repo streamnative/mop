@@ -311,7 +311,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             if (willMessage != null) {
                 try {
                     // wait to will message to fire before continuing cleanup, timeout at 500ms to avoid blocking
-                    willMessageHandler.fireWillMessage(connection, willMessage).get( 500, TimeUnit.MILLISECONDS );
+                    willMessageHandler.fireWillMessage(connection, willMessage).get(500, TimeUnit.MILLISECONDS);
                 } catch (TimeoutException | ExecutionException | InterruptedException e) {
                     log.error("[Connection Lost] [{}] Failed to fire will message: {}", clientId, e);
                 }
