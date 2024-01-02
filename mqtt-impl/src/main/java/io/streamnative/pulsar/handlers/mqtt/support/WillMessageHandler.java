@@ -66,8 +66,7 @@ public class WillMessageHandler {
     public CompletableFuture<Void> fireWillMessage(Connection connection, WillMessage willMessage) {
         if (willMessage.getDelayInterval() > 0) {
             final Executor delayed = delayedExecutor(willMessage.getDelayInterval(), TimeUnit.SECONDS);
-            return CompletableFuture.supplyAsync(() -> sendWillMessageToPulsarTopic(connection, willMessage).join(),
-                                                 delayed);
+            return CompletableFuture.runAsync(() -> sendWillMessageToPulsarTopic(connection, willMessage), delayed);
         }
         return sendWillMessageToPulsarTopic(connection, willMessage);
     }
