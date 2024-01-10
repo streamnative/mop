@@ -64,6 +64,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.Getter;
@@ -306,7 +309,12 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             metricsCollector.removeClient(NettyUtils.getAddress(channel));
             WillMessage willMessage = connection.getWillMessage();
             if (willMessage != null) {
-                willMessageHandler.fireWillMessage(clientId, willMessage);
+                try {
+                    // wait to will message to fire before continuing cleanup, timeout at 500ms to avoid blocking
+                    willMessageHandler.fireWillMessage(connection, willMessage).get(500, TimeUnit.MILLISECONDS);
+                } catch (TimeoutException | ExecutionException | InterruptedException e) {
+                    log.error("[Connection Lost] [{}] Failed to fire will message: {}", clientId, e);
+                }
             }
             connectionManager.removeConnection(connection);
             mqttSubscriptionManager.removeSubscription(clientId);

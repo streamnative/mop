@@ -38,11 +38,6 @@ public class DisabledSystemEventService implements SystemEventService{
     }
 
     @Override
-    public CompletableFuture<Void> sendLWTEvent(LastWillMessageEvent event) {
-        return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
     public CompletableFuture<Void> sendRetainedEvent(RetainedMessageEvent event) {
         return CompletableFuture.completedFuture(null);
     }

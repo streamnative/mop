@@ -25,8 +25,6 @@ public interface SystemEventService {
 
     CompletableFuture<Void> sendConnectEvent(ConnectEvent event);
 
-    CompletableFuture<Void> sendLWTEvent(LastWillMessageEvent event);
-
     CompletableFuture<Void> sendRetainedEvent(RetainedMessageEvent event);
 
     CompletableFuture<Void> sendPSKEvent(PSKEvent event);

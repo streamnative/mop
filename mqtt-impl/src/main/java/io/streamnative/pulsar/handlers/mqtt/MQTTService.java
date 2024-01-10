@@ -106,9 +106,9 @@ public class MQTTService {
             this.eventCenter = new PulsarEventCenterImpl(brokerService,
                     serverConfiguration.getEventCenterCallbackPoolThreadNum());
         }
-        this.willMessageHandler = new WillMessageHandler(this);
         this.retainedMessageHandler = new RetainedMessageHandler(this);
         this.qosPublishHandlers = new QosPublishHandlersImpl(this);
+        this.willMessageHandler = new WillMessageHandler(this);
     }
 
     public boolean isSystemTopicEnabled() {
