@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPubAckMessage;
@@ -47,10 +48,15 @@ import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.Getter;
@@ -64,6 +70,7 @@ import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.Codec;
 import org.apache.pulsar.common.util.FutureUtil;
+
 /**
  * Proxy inbound handler is the bridge between proxy and MoP.
  */
@@ -93,6 +100,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final int maxPendingSendRequest;
     private final int resumeReadThreshold;
 
+    private final ScheduledExecutorService keepAliveExecutor = Executors.newSingleThreadScheduledExecutor();
+
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
         super(proxyService.getAuthenticationService(),
                 proxyService.getProxyConfig().isMqttAuthenticationEnabled(), ctx);
@@ -120,6 +129,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .receiveMaximum(proxyConfig.getReceiveMaximum())
                 .maximumPacketSize(proxyConfig.getMqttMessageMaxLength())
                 .build();
+
+        // setup keep alive executor to ensure proxy maintains heartbeat with all adapters
+        final int keepAliveTimeSeconds = msg.variableHeader().keepAliveTimeSeconds();
+        if (keepAliveTimeSeconds > 0) {
+            keepAliveExecutor.scheduleAtFixedRate(this::pingAdapterChannels, 0, keepAliveTimeSeconds,
+                    TimeUnit.SECONDS);
+        }
+
         connection = Connection.builder()
                 .protocolVersion(msg.variableHeader().version())
                 .clientId(msg.payload().clientIdentifier())
@@ -219,14 +236,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     }
 
     @Override
-    public void processPingReq(final MqttAdapterMessage msg) {
-        String clientId = connection.getClientId();
-        topicBrokers.values().forEach(adapterChannel -> {
-            adapterChannel.thenAccept(channel -> {
-                msg.setClientId(clientId);
-                channel.writeAndFlush(msg);
-            });
-        });
+    public void processPingReq(final MqttAdapterMessage adapter) {
+        connection.send(MqttMessageUtils.pingResp());
     }
 
     @Override
@@ -236,40 +247,48 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
     @Override
     public void processDisconnect(final MqttAdapterMessage msg) {
-        if (isDisconnected.compareAndSet(false, true)) {
-            String clientId = connection.getClientId();
-            if (log.isDebugEnabled()) {
-                log.debug("[Proxy Disconnect] [{}] ", clientId);
+        try {
+            if (isDisconnected.compareAndSet(false, true)) {
+                String clientId = connection.getClientId();
+                if (log.isDebugEnabled()) {
+                    log.debug("[Proxy Disconnect] [{}] ", clientId);
+                }
+                msg.setClientId(clientId);
+                // Deduplicate the channel to avoid sending disconnects many times.
+                CompletableFuture.allOf(topicBrokers.values().toArray(new CompletableFuture[0]))
+                        .whenComplete((result, ex) -> topicBrokers.values().stream()
+                                .filter(future -> !future.isCompletedExceptionally())
+                                .map(CompletableFuture::join)
+                                .collect(Collectors.toSet())
+                                .forEach(channel -> channel.writeAndFlush(msg)));
+            } else {
+                if (log.isDebugEnabled()) {
+                    log.debug("Disconnect is already triggered, ignore");
+                }
             }
-            msg.setClientId(clientId);
-            // Deduplicate the channel to avoid sending disconnects many times.
-            CompletableFuture.allOf(topicBrokers.values().toArray(new CompletableFuture[0]))
-                    .whenComplete((result, ex) -> topicBrokers.values().stream()
-                            .filter(future -> !future.isCompletedExceptionally())
-                            .map(CompletableFuture::join)
-                            .collect(Collectors.toSet())
-                            .forEach(channel -> channel.writeAndFlush(msg)));
-        } else {
-            if (log.isDebugEnabled()) {
-                log.debug("Disconnect is already triggered, ignore");
-            }
+        } finally {
+            keepAliveExecutor.shutdown();
         }
     }
 
     @Override
     public void processConnectionLost() {
-        if (log.isDebugEnabled()) {
-            log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
+        try {
+            if (log.isDebugEnabled()) {
+                log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
+            }
+            autoSubscribeHandler.close();
+            if (connection != null) {
+                // If client close the channel without calling disconnect, then we should call disconnect to notify
+                // broker to clean up the resource.
+                processDisconnect(new MqttAdapterMessage(MqttMessageUtils.createMqttDisconnectMessage()));
+                connectionManager.removeConnection(connection);
+                connection.cleanup();
+            }
+            topicBrokers.clear();
+        } finally {
+            keepAliveExecutor.shutdown();
         }
-        autoSubscribeHandler.close();
-        if (connection != null) {
-            // If client close the channel without calling disconnect, then we should call disconnect to notify broker
-            // to clean up the resource.
-            processDisconnect(new MqttAdapterMessage(MqttMessageUtils.createMqttDisconnectMessage()));
-            connectionManager.removeConnection(connection);
-            connection.cleanup();
-        }
-        topicBrokers.clear();
     }
 
     @Override
@@ -297,6 +316,27 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                     subscribeAckTracker.remove(packetId);
                     return null;
                 });
+    }
+
+    private void pingAdapterChannels() {
+        String clientId = connection.getClientId();
+
+        Set<InetSocketAddress> alreadyPinged = new HashSet<>();
+
+        // NOTE: It seems you need to call `channel.writeAndFlush()` within the context of the CompletableFuture, I
+        // suspect this is because the writeAndFlush must be called on the same thread, though I'm not sure. Trying to
+        // loop through all the adapterChannels directly yields unexpected results.
+        topicBrokers.values().forEach(adapterChannel -> adapterChannel.thenAccept(channel -> {
+            // Add broker address to already pinged set, so we don't ping it again. If already in set then do nothing.
+            if (!alreadyPinged.add(channel.getBroker())) {
+                // if add returns false, we know the address was already in the set, so no need to ping again.
+                return;
+            }
+
+            final MqttMessage pingReq = MqttMessageUtils.pingReq();
+            final MqttAdapterMessage msg = new MqttAdapterMessage(clientId, pingReq);
+            channel.writeAndFlush(msg);
+        }));
     }
 
     private void registerTopicListener(final MqttAdapterMessage adapter) {
@@ -444,7 +484,12 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         return topicBrokers.computeIfAbsent(topic,
                 key -> lookupHandler.findBroker(TopicName.get(topic)).thenApply(mqttBroker ->
                         adapterChannels.computeIfAbsent(mqttBroker, key1 -> {
-                            AdapterChannel adapterChannel = proxyAdapter.getAdapterChannel(mqttBroker);
+                            int keepAliveTimeSeconds = 0;
+                            if (connection != null) {
+                                keepAliveTimeSeconds = connection.getClientRestrictions().getKeepAliveTime();
+                            }
+                            AdapterChannel adapterChannel = proxyAdapter
+                                    .getAdapterChannel(mqttBroker, keepAliveTimeSeconds);
                             adapterChannel.writeAndFlush(new MqttAdapterMessage(connection.getClientId(),
                                 connection.getConnectMessage()));
                             return adapterChannel;

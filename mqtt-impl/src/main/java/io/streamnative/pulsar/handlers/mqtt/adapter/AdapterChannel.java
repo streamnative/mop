@@ -31,10 +31,13 @@ public class AdapterChannel {
     private final InetSocketAddress broker;
     private CompletableFuture<Channel> channelFuture;
 
-    public AdapterChannel(MQTTProxyAdapter adapter,
-                          InetSocketAddress broker, CompletableFuture<Channel> channelFuture) {
+    private final int keepAliveTimeSeconds;
+
+    public AdapterChannel(MQTTProxyAdapter adapter, InetSocketAddress broker,
+                          int keepAliveTimeSeconds, CompletableFuture<Channel> channelFuture) {
         this.adapter = adapter;
         this.broker = broker;
+        this.keepAliveTimeSeconds = keepAliveTimeSeconds;
         this.channelFuture = channelFuture;
     }
 
@@ -44,7 +47,7 @@ public class AdapterChannel {
         adapterMsg.setEncodeType(MqttAdapterMessage.EncodeType.ADAPTER_MESSAGE);
         CompletableFuture<Void> future = channelFuture.thenCompose(channel -> {
             if (!channel.isActive()) {
-                channelFuture = adapter.getChannel(broker);
+                channelFuture = adapter.getChannel(broker, keepAliveTimeSeconds);
                 return writeAndFlush(adapterMsg);
             }
             return FutureUtils.completableFuture(channel.writeAndFlush(adapterMsg));

@@ -22,6 +22,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
@@ -34,6 +35,7 @@ import io.netty.handler.codec.mqtt.MqttPubReplyMessageVariableHeader;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubAckMessage;
 import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
@@ -95,19 +97,30 @@ public class MQTTProxyAdapter {
     }
 
     public AdapterChannel getAdapterChannel(InetSocketAddress broker) {
-        return new AdapterChannel(this, broker, getChannel(broker));
+        // this is just to support backwards compatibility
+        return getAdapterChannel(broker, 0);
     }
 
-    public CompletableFuture<Channel> getChannel(InetSocketAddress broker) {
+    public AdapterChannel getAdapterChannel(InetSocketAddress broker, int keepAliveTimeSeconds) {
+        return new AdapterChannel(this, broker, keepAliveTimeSeconds, getChannel(broker, keepAliveTimeSeconds));
+    }
+
+    public CompletableFuture<Channel> getChannel(InetSocketAddress broker, int keepAliveTimeSeconds) {
         final int channelKey = signSafeMod(counter.incrementAndGet(), maxNoOfChannels);
         return pool.computeIfAbsent(broker, (x) -> new ConcurrentHashMap<>())
-                .computeIfAbsent(channelKey, __-> createChannel(broker, channelKey));
+                .computeIfAbsent(channelKey, __-> createChannel(broker, channelKey, keepAliveTimeSeconds));
     }
 
-    private CompletableFuture<Channel> createChannel(InetSocketAddress host, int channelKey) {
+    private CompletableFuture<Channel> createChannel(InetSocketAddress host, int channelKey, int keepAliveTimeSeconds) {
         CompletableFuture<Channel> channelFuture = ChannelFutures.toCompletableFuture(bootstrap.register())
                 .thenCompose(channel -> ChannelFutures.toCompletableFuture(channel.connect(host)))
                 .thenApply(channel -> {
+                    if (keepAliveTimeSeconds > 0) {
+                        // handle keep alive on channel
+                        ChannelPipeline pipeline = channel.pipeline();
+                        pipeline.addFirst("idleStateHandler", new IdleStateHandler(0, 0,
+                                Math.round(keepAliveTimeSeconds * 1.5f)));
+                    }
                     channel.closeFuture().addListener(v -> {
                         if (log.isDebugEnabled()) {
                             log.debug("[Proxy Adapter] Removing closed channel from pool {}", channel);
@@ -201,6 +214,8 @@ public class MQTTProxyAdapter {
                         processor.getPacketIdTopic().put(packetId, topicName);
                         clientChannel.writeAndFlush(adapterMsg);
                         break;
+                    case PINGRESP:
+                        // don't forward this to the client
                     case CONNACK:
                         break;
                     case SUBACK:
