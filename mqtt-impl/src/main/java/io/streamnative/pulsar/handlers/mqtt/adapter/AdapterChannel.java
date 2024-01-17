@@ -16,9 +16,12 @@ package io.streamnative.pulsar.handlers.mqtt.adapter;
 import static com.google.common.base.Preconditions.checkArgument;
 import io.netty.channel.Channel;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.utils.FutureUtils;
 import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -42,13 +45,20 @@ public class AdapterChannel {
     }
 
     public CompletableFuture<Void> writeAndFlush(final MqttAdapterMessage adapterMsg) {
+        return writeAndFlush(adapterMsg, 1);
+    }
+
+    public CompletableFuture<Void> writeAndFlush(final MqttAdapterMessage adapterMsg, int attempts) {
         checkArgument(StringUtils.isNotBlank(adapterMsg.getClientId()), "clientId is blank");
         final String clientId = adapterMsg.getClientId();
         adapterMsg.setEncodeType(MqttAdapterMessage.EncodeType.ADAPTER_MESSAGE);
         CompletableFuture<Void> future = channelFuture.thenCompose(channel -> {
             if (!channel.isActive()) {
+                if (attempts > 5) {
+                    throw new CompletionException(new MQTTServerException("Failed to reconnect adapter channel."));
+                }
                 channelFuture = adapter.getChannel(broker, keepAliveTimeSeconds);
-                return writeAndFlush(adapterMsg);
+                return writeAndFlush(adapterMsg, attempts + 1);
             }
             return FutureUtils.completableFuture(channel.writeAndFlush(adapterMsg));
         });
