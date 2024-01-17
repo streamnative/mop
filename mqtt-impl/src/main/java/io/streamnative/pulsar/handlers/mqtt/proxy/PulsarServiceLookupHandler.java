@@ -155,8 +155,8 @@ public class PulsarServiceLookupHandler implements LookupHandler {
         String plain = String.format("pulsar://%s:%s", pair.getLeft().getHostName(), pair.getLeft().getPort());
         String ssl = String.format("pulsar+ssl://%s:%s", pair.getLeft().getHostName(), pair.getLeft().getPort());
         return localBrokerData.getProtocol(protocolHandlerName).isPresent()
-                && (localBrokerData.getPulsarServiceUrl().equals(plain)
-                    || localBrokerData.getPulsarServiceUrlTls().equals(ssl));
+                && (plain.equals(localBrokerData.getPulsarServiceUrl())
+                    || ssl.equals(localBrokerData.getPulsarServiceUrlTls()));
     }
 
     @Override
