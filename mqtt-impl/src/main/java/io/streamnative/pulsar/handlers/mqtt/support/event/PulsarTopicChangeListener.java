@@ -16,12 +16,15 @@ package io.streamnative.pulsar.handlers.mqtt.support.event;
 import io.streamnative.pulsar.handlers.mqtt.utils.EventParserUtils;
 import java.util.regex.Pattern;
 import org.apache.commons.lang.StringUtils;
+import org.apache.pulsar.common.naming.SystemTopicNames;
 import org.apache.pulsar.common.naming.TopicName;
 
 public interface PulsarTopicChangeListener extends PulsarEventListener {
     String MANAGED_LEDGER_PATH = "/managed-ledgers";
     String REGEX = MANAGED_LEDGER_PATH + "/" + ".*" + "/persistent/";
     Pattern PATTERN = Pattern.compile(REGEX);
+
+    boolean FILTER_SYSTEM_TOPIC = true;
 
     @Override
     default boolean matchPath(String path) {
@@ -41,6 +44,9 @@ public interface PulsarTopicChangeListener extends PulsarEventListener {
     default void onNodeCreated(String path) {
         try {
             TopicName topicName = EventParserUtils.parseTopicNameFromManagedLedgerEvent(path);
+            if (isFilterSystemTopic() && SystemTopicNames.isSystemTopic(topicName)) {
+                return;
+            }
             onTopicLoad(topicName);
         } catch (IllegalArgumentException ex) {
             // NO-OP don't notify
@@ -51,6 +57,9 @@ public interface PulsarTopicChangeListener extends PulsarEventListener {
     default void onNodeDeleted(String path) {
         try {
             TopicName topicName = EventParserUtils.parseTopicNameFromManagedLedgerEvent(path);
+            if (isFilterSystemTopic() && SystemTopicNames.isSystemTopic(topicName)) {
+                return;
+            }
             onTopicUnload(topicName);
         } catch (IllegalArgumentException ex) {
             // NO-OP don't notify
@@ -60,4 +69,8 @@ public interface PulsarTopicChangeListener extends PulsarEventListener {
     void onTopicLoad(TopicName topicName);
 
     void onTopicUnload(TopicName topicName);
+
+    default boolean isFilterSystemTopic() {
+        return FILTER_SYSTEM_TOPIC;
+    }
 }
