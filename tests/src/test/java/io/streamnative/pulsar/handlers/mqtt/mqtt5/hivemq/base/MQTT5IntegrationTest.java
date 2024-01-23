@@ -268,4 +268,26 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
                     Assert.assertTrue(contents.contains("hihihi3"));
                 });
     }
+
+    @Test
+    public void testResubscribe() throws Exception {
+        final String topic = "testResubscribe";
+        final String identifier = "testResubscribe";
+        Mqtt5BlockingClient client = Mqtt5Client.builder()
+                .identifier(identifier)
+                .serverHost("127.0.0.1")
+                .serverPort(getMqttBrokerPortList().get(0))
+                .buildBlocking();
+        client.connectWith().send();
+        client.subscribeWith()
+                .topicFilter(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+        client.unsubscribeWith().topicFilter(topic).send();
+        client.subscribeWith()
+                .topicFilter(topic)
+                .qos(MqttQos.AT_LEAST_ONCE)
+                .send();
+
+    }
 }
