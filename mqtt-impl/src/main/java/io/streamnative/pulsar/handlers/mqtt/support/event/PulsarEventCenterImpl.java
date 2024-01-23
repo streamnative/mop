@@ -19,6 +19,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.common.util.OrderedExecutor;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.pulsar.broker.service.BrokerService;
 import org.apache.pulsar.metadata.api.Notification;
 
@@ -59,25 +60,28 @@ public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEven
             return;
         }
         final String path = notification.getPath();
-        // give the task to another thread to avoid blocking metadata
-        callbackExecutor.executeOrdered(path, () -> {
-            for (PulsarEventListener listener : listeners.stream().filter(listeners ->
-                    listeners.matchPath(path)).collect(Collectors.toList())) {
-                try {
-                    switch (notification.getType()) {
-                        case Created:
-                            listener.onNodeCreated(path);
-                            break;
-                        case Deleted:
-                            listener.onNodeDeleted(path);
-                            break;
-                        default:
-                            break;
+        final List<PulsarEventListener> matcherListeners = listeners.stream().filter(listeners ->
+                listeners.matchPath(path)).collect(Collectors.toList());
+        if (CollectionUtils.isNotEmpty(matcherListeners)) {
+            // give the task to another thread to avoid blocking metadata
+            callbackExecutor.executeOrdered(path, () -> {
+                for (PulsarEventListener listener : matcherListeners) {
+                    try {
+                        switch (notification.getType()) {
+                            case Created:
+                                listener.onNodeCreated(path);
+                                break;
+                            case Deleted:
+                                listener.onNodeDeleted(path);
+                                break;
+                            default:
+                                break;
+                        }
+                    } catch (Throwable ex) {
+                        log.warn("notify change {} {} failed.", notification.getType(), notification.getPath(), ex);
                     }
-                } catch (Throwable ex) {
-                    log.warn("notify change {} {} failed.", notification.getType(), notification.getPath(), ex);
                 }
-            }
-        });
+            });
+        }
     }
 }
