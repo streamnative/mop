@@ -267,6 +267,7 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
                     Assert.assertTrue(contents.contains("hihihi2"));
                     Assert.assertTrue(contents.contains("hihihi3"));
                 });
+        client.disconnect();
     }
 
     @Test
@@ -288,6 +289,6 @@ public class MQTT5IntegrationTest extends MQTTTestBase {
                 .topicFilter(topic)
                 .qos(MqttQos.AT_LEAST_ONCE)
                 .send();
-
+        client.disconnect();
     }
 }
