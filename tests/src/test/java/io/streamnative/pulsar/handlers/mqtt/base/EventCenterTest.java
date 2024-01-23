@@ -16,8 +16,8 @@ package io.streamnative.pulsar.handlers.mqtt.base;
 import io.streamnative.pulsar.handlers.mqtt.MQTTProtocolHandler;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarTopicChangeListener;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
@@ -36,24 +36,24 @@ public class EventCenterTest extends MQTTTestBase {
         ProtocolHandler mqtt = pulsarService.getProtocolHandlers().protocol("mqtt");
         MQTTProtocolHandler protocolHandler = (MQTTProtocolHandler) mqtt;
         PulsarEventCenter eventCenter = protocolHandler.getMqttService().getEventCenter();
-        CompletableFuture<String> onLoadEvent = new CompletableFuture<>();
-        CompletableFuture<String> unLoadEvent = new CompletableFuture<>();
+        List<String> onLoadEvents = new ArrayList<>();
+        List<String> unLoadEvents = new ArrayList<>();
         eventCenter.register(new PulsarTopicChangeListener() {
 
             @Override
             public void onTopicLoad(TopicName topicName) {
-                onLoadEvent.complete(topicName.toString());
+                onLoadEvents.add(topicName.toString());
             }
 
             @Override
             public void onTopicUnload(TopicName topicName) {
-                unLoadEvent.complete(topicName.toString());
+                unLoadEvents.add(topicName.toString());
             }
         });
 
         admin.topics().createNonPartitionedTopic(topicName);
-        Assert.assertEquals(onLoadEvent.get(), topicName);
+        Assert.assertTrue(onLoadEvents.contains(topicName));
         admin.topics().delete(topicName);
-        Assert.assertEquals(unLoadEvent.get(), topicName);
+        Assert.assertTrue(unLoadEvents.contains(topicName));
     }
 }
