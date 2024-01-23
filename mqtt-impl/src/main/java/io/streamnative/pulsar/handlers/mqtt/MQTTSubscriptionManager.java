@@ -80,11 +80,11 @@ public class MQTTSubscriptionManager {
         subscriptions.remove(clientId);
     }
 
-    public boolean removeSubscriptionForTopic(String clientId, String topic) {
+    public void removeSubscriptionForTopic(String clientId, String topic) {
         List<MqttTopicSubscription> subscriptionsList = this.subscriptions.get(clientId);
         if (subscriptionsList == null) {
             // return false if no subscriptions are found for this client
-            return false;
+            return;
         }
         synchronized (clientId.intern()) {
             List<MqttTopicSubscription> withSubscriptionRemoved = subscriptionsList.stream()
@@ -92,11 +92,10 @@ public class MQTTSubscriptionManager {
                 .collect(Collectors.toList());
             if (withSubscriptionRemoved.size() == subscriptionsList.size()) {
                 // if no subscription is removed, return false
-                return false;
+                return;
             }
             this.subscriptions.put(clientId, withSubscriptionRemoved);
         }
-        return true;
     }
 
     private static boolean matchSubscription(String topic1, String topic2) {
