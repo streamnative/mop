@@ -25,16 +25,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.mqtt.MqttDecoder;
-import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
-import io.netty.handler.codec.mqtt.MqttMessageType;
-import io.netty.handler.codec.mqtt.MqttProperties;
-import io.netty.handler.codec.mqtt.MqttPubAckMessage;
-import io.netty.handler.codec.mqtt.MqttPubReplyMessageVariableHeader;
-import io.netty.handler.codec.mqtt.MqttPublishMessage;
-import io.netty.handler.codec.mqtt.MqttSubAckMessage;
-import io.netty.handler.codec.mqtt.MqttUnsubAckMessage;
+import io.netty.handler.codec.mqtt.*;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
@@ -95,23 +86,23 @@ public class MQTTProxyAdapter {
                     }
                 });
     }
-
     public AdapterChannel getAdapterChannel(InetSocketAddress broker) {
-        // this is just to support backwards compatibility
-        return getAdapterChannel(broker, 0);
+        return new AdapterChannel(this, broker, null, getChannel(broker, null));
     }
 
-    public AdapterChannel getAdapterChannel(InetSocketAddress broker, int keepAliveTimeSeconds) {
-        return new AdapterChannel(this, broker, keepAliveTimeSeconds, getChannel(broker, keepAliveTimeSeconds));
+    public AdapterChannel getAdapterChannel(InetSocketAddress broker, Connection connection) {
+        return new AdapterChannel(this, broker, connection, getChannel(broker, connection));
     }
 
-    public CompletableFuture<Channel> getChannel(InetSocketAddress broker, int keepAliveTimeSeconds) {
+    public CompletableFuture<Channel> getChannel(InetSocketAddress broker, Connection connection) {
         final int channelKey = signSafeMod(counter.incrementAndGet(), maxNoOfChannels);
         return pool.computeIfAbsent(broker, (x) -> new ConcurrentHashMap<>())
-                .computeIfAbsent(channelKey, __-> createChannel(broker, channelKey, keepAliveTimeSeconds));
+                .computeIfAbsent(channelKey, __-> createChannel(broker, channelKey, connection));
     }
 
-    private CompletableFuture<Channel> createChannel(InetSocketAddress host, int channelKey, int keepAliveTimeSeconds) {
+    private CompletableFuture<Channel> createChannel(InetSocketAddress host, int channelKey, Connection connection) {
+        final int keepAliveTimeSeconds = (connection != null)
+                ? connection.getConnectMessage().variableHeader().keepAliveTimeSeconds() : 0;
         CompletableFuture<Channel> channelFuture = ChannelFutures.toCompletableFuture(bootstrap.register())
                 .thenCompose(channel -> ChannelFutures.toCompletableFuture(channel.connect(host)))
                 .thenApply(channel -> {
@@ -120,6 +111,11 @@ public class MQTTProxyAdapter {
                         ChannelPipeline pipeline = channel.pipeline();
                         pipeline.addFirst("idleStateHandler", new IdleStateHandler(0, 0,
                                 Math.round(keepAliveTimeSeconds * 1.5f)));
+                    }
+                    // always send the MQTT connect message when the connection is established
+                    if (connection != null) {
+                        channel.writeAndFlush(new MqttAdapterMessage(connection.getClientId(),
+                                connection.getConnectMessage()));
                     }
                     channel.closeFuture().addListener(v -> {
                         if (log.isDebugEnabled()) {

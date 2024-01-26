@@ -321,22 +321,14 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private void pingAdapterChannels() {
         String clientId = connection.getClientId();
 
-        Set<InetSocketAddress> alreadyPinged = new HashSet<>();
-
-        // NOTE: It seems you need to call `channel.writeAndFlush()` within the context of the CompletableFuture, I
-        // suspect this is because the writeAndFlush must be called on the same thread, though I'm not sure. Trying to
-        // loop through all the adapterChannels directly yields unexpected results.
-        topicBrokers.values().forEach(adapterChannel -> adapterChannel.thenAccept(channel -> {
-            // Add broker address to already pinged set, so we don't ping it again. If already in set then do nothing.
-            if (!alreadyPinged.add(channel.getBroker())) {
-                // if add returns false, we know the address was already in the set, so no need to ping again.
-                return;
-            }
-
-            final MqttMessage pingReq = MqttMessageUtils.pingReq();
-            final MqttAdapterMessage msg = new MqttAdapterMessage(clientId, pingReq);
-            channel.writeAndFlush(msg);
-        }));
+        final MqttMessage pingReq = MqttMessageUtils.pingReq();
+        final MqttAdapterMessage msg = new MqttAdapterMessage(clientId, pingReq);
+        CompletableFuture.allOf(topicBrokers.values().toArray(new CompletableFuture[0]))
+                .whenComplete((result, ex) -> topicBrokers.values().stream()
+                        .filter(future -> !future.isCompletedExceptionally())
+                        .map(CompletableFuture::join)
+                        .collect(Collectors.toSet())
+                        .forEach(channel -> channel.writeAndFlush(msg)));
     }
 
     private void registerTopicListener(final MqttAdapterMessage adapter) {
@@ -483,17 +475,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private CompletableFuture<AdapterChannel> connectToBroker(final String topic) {
         return topicBrokers.computeIfAbsent(topic,
                 key -> lookupHandler.findBroker(TopicName.get(topic)).thenApply(mqttBroker ->
-                        adapterChannels.computeIfAbsent(mqttBroker, key1 -> {
-                            int keepAliveTimeSeconds = 0;
-                            if (connection != null) {
-                                keepAliveTimeSeconds = connection.getClientRestrictions().getKeepAliveTime();
-                            }
-                            AdapterChannel adapterChannel = proxyAdapter
-                                    .getAdapterChannel(mqttBroker, keepAliveTimeSeconds);
-                            adapterChannel.writeAndFlush(new MqttAdapterMessage(connection.getClientId(),
-                                connection.getConnectMessage()));
-                            return adapterChannel;
-                        })
+                        adapterChannels.computeIfAbsent(mqttBroker, key1 -> proxyAdapter
+                                .getAdapterChannel(mqttBroker, connection))
                 )
         );
     }

@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.adapter;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import io.netty.channel.Channel;
+import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.utils.FutureUtils;
@@ -32,15 +33,15 @@ public class AdapterChannel {
     private final MQTTProxyAdapter adapter;
     @Getter
     private final InetSocketAddress broker;
+    private final Connection connection;
     private CompletableFuture<Channel> channelFuture;
 
-    private final int keepAliveTimeSeconds;
 
     public AdapterChannel(MQTTProxyAdapter adapter, InetSocketAddress broker,
-                          int keepAliveTimeSeconds, CompletableFuture<Channel> channelFuture) {
+                          Connection connection, CompletableFuture<Channel> channelFuture) {
         this.adapter = adapter;
         this.broker = broker;
-        this.keepAliveTimeSeconds = keepAliveTimeSeconds;
+        this.connection = connection;
         this.channelFuture = channelFuture;
     }
 
@@ -57,7 +58,7 @@ public class AdapterChannel {
                 if (attempts > 5) {
                     throw new CompletionException(new MQTTServerException("Failed to reconnect adapter channel."));
                 }
-                channelFuture = adapter.getChannel(broker, keepAliveTimeSeconds);
+                channelFuture = adapter.getChannel(broker, connection);
                 return writeAndFlush(adapterMsg, attempts + 1);
             }
             return FutureUtils.completableFuture(channel.writeAndFlush(adapterMsg));
