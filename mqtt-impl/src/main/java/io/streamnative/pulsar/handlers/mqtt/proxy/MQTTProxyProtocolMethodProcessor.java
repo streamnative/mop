@@ -360,7 +360,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                                     .map(encodedPulsarTopicName -> {
                                         String mqttTopicName = getMqttTopicName(subscription,
                                                 encodedPulsarTopicName);
-                                        log.info("proxy subscribe : {}", mqttTopicName);
                                         MqttSubscribeMessage subscribeMessage = MqttMessageBuilders.subscribe()
                                                 .messageId(message.variableHeader().messageId())
                                                 .addSubscription(subscription.qualityOfService(), mqttTopicName)
