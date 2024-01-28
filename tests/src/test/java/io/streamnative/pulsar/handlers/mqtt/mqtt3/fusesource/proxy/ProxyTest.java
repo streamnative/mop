@@ -221,7 +221,7 @@ public class ProxyTest extends MQTTTestBase {
         connection0.disconnect();
     }
 
-    @Test(dataProvider = "mqttTopicNameAndFilter", timeOut = 30000, priority = 1)
+    @Test(dataProvider = "mqttTopicNameAndFilter", timeOut = TIMEOUT, priority = 1)
     @SneakyThrows
     public void testSendAndConsumeWithFilter(String topic, String filter) {
         MQTT mqtt0 = createMQTTProxyClient();
