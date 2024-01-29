@@ -83,18 +83,10 @@ public class MQTTSubscriptionManager {
     public void removeSubscriptionForTopic(String clientId, String topic) {
         List<MqttTopicSubscription> subscriptionsList = this.subscriptions.get(clientId);
         if (subscriptionsList == null) {
-            // return false if no subscriptions are found for this client
             return;
         }
         synchronized (clientId.intern()) {
-            List<MqttTopicSubscription> withSubscriptionRemoved = subscriptionsList.stream()
-                .filter(sub -> !matchSubscription(sub.topicName(), topic))
-                .collect(Collectors.toList());
-            if (withSubscriptionRemoved.size() == subscriptionsList.size()) {
-                // if no subscription is removed, return false
-                return;
-            }
-            this.subscriptions.put(clientId, withSubscriptionRemoved);
+            subscriptionsList.removeIf(sub -> matchSubscription(sub.topicName(), topic));
         }
     }
 
