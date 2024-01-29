@@ -307,6 +307,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 autoSubscribeHandler.register(
                         PulsarTopicUtils.getTopicFilter(topicFilter),
                         (encodedChangedTopic) -> {
+                            String mqttTopicName = getMqttTopicName(subscription,
+                                    encodedChangedTopic);
                             MqttProperties mqttProperties = new MqttProperties();
                             mqttProperties.add(new MqttProperties.UserProperty(
                                     PulsarProperties.InitialPosition.name(),
@@ -314,17 +316,17 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             MqttSubscribeMessage message = MqttMessageBuilders
                                     .subscribe()
                                     .messageId(msg.variableHeader().messageId())
-                                    .addSubscription(subscription.qualityOfService(), Codec.decode(encodedChangedTopic))
+                                    .addSubscription(subscription.qualityOfService(), mqttTopicName)
                                     .properties(mqttProperties)
                                     .build();
                             MqttAdapterMessage adapterMessage =
                                     new MqttAdapterMessage(connection.getClientId(), message);
                             doSubscribe(adapterMessage, true)
                                     .thenRun(() -> log.info("[{}] Subscribe new topic [{}] success",
-                                            connection.getClientId(), Codec.decode(encodedChangedTopic)))
+                                            connection.getClientId(), mqttTopicName))
                                     .exceptionally(ex -> {
                                         log.error("[{}][{}] Subscribe new topic [{}] Fail, the message is {}",
-                                                connection.getClientId(), topicFilter, encodedChangedTopic,
+                                                connection.getClientId(), topicFilter, mqttTopicName,
                                                 ex.getMessage());
                                         return null;
                                     });
