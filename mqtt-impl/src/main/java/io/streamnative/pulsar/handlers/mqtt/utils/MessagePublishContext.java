@@ -31,6 +31,7 @@ import org.apache.pulsar.client.api.Message;
 @Slf4j
 public final class MessagePublishContext implements PublishContext {
 
+    private String producerName;
     private Topic topic;
     private long startTimeNs;
     private CompletableFuture<PositionImpl> positionFuture;
@@ -55,10 +56,11 @@ public final class MessagePublishContext implements PublishContext {
     }
 
     // recycler
-    public static MessagePublishContext get(CompletableFuture<PositionImpl> positionFuture, Topic topic,
-                                                                                 long startTimeNs) {
+    public static MessagePublishContext get(CompletableFuture<PositionImpl> positionFuture, String producerName,
+                                            Topic topic, long startTimeNs) {
         MessagePublishContext callback = RECYCLER.get();
         callback.positionFuture = positionFuture;
+        callback.producerName = producerName;
         callback.topic = topic;
         callback.startTimeNs = startTimeNs;
         return callback;
@@ -68,6 +70,10 @@ public final class MessagePublishContext implements PublishContext {
 
     private MessagePublishContext(Handle<MessagePublishContext> recyclerHandle) {
         this.recyclerHandle = recyclerHandle;
+    }
+
+    public String getProducerName() {
+        return producerName;
     }
 
     private static final Recycler<MessagePublishContext> RECYCLER = new Recycler<MessagePublishContext>() {
@@ -86,12 +92,13 @@ public final class MessagePublishContext implements PublishContext {
     /**
      * publish mqtt message to pulsar topic, no batch.
      */
-    public static CompletableFuture<PositionImpl> publishMessages(Message<byte[]> message, Topic topic) {
+    public static CompletableFuture<PositionImpl> publishMessages(String producerName, Message<byte[]> message,
+                                                                  Topic topic) {
         CompletableFuture<PositionImpl> future = new CompletableFuture<>();
 
         ByteBuf headerAndPayload = messageToByteBuf(message);
         topic.publishMessage(headerAndPayload,
-                MessagePublishContext.get(future, topic, System.nanoTime()));
+                MessagePublishContext.get(future, producerName, topic, System.nanoTime()));
         headerAndPayload.release();
         return future;
     }
