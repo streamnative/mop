@@ -50,11 +50,10 @@ public class Qos1PublishHandler extends AbstractQosPublishHandler {
         final CompletableFuture<Void> ret;
         if (MqttUtils.isRetainedMessage(msg)) {
             ret = retainedMessageHandler.addRetainedMessage(msg)
-                .thenCompose(__ -> writeToPulsarTopic(connection.getTopicAliasManager()
-                    , msg, !MqttUtils.isMqtt3(protocolVersion)).thenApply(___ -> null));
+                .thenCompose(__ -> writeToPulsarTopic(connection,
+                        msg, !MqttUtils.isMqtt3(protocolVersion)).thenApply(___ -> null));
         } else {
-            ret = writeToPulsarTopic(connection.getTopicAliasManager()
-                    , msg, !MqttUtils.isMqtt3(protocolVersion)).thenApply(__ -> null);
+            ret = writeToPulsarTopic(connection, msg, !MqttUtils.isMqtt3(protocolVersion)).thenApply(__ -> null);
         }
         // we need to check if subscription exist when protocol version is mqtt 5.x
         return ret

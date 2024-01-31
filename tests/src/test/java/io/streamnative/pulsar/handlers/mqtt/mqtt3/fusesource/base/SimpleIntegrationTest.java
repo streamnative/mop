@@ -72,6 +72,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         mqtt.setMqttTlsPskEnabled(true);
         mqtt.setMqttTlsPskIdentityHint("alpha");
         mqtt.setMqttTlsPskIdentity("mqtt:mqtt123");
+        mqtt.setBrokerDeduplicationEnabled(true);
         return mqtt;
     }
 
