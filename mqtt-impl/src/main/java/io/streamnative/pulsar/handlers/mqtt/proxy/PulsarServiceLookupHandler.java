@@ -37,6 +37,7 @@ import org.apache.pulsar.client.impl.BackoffBuilder;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
 import org.apache.pulsar.client.util.ExecutorProvider;
+import org.apache.pulsar.client.util.ScheduledExecutorProvider;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.FutureUtil;
 import org.apache.pulsar.metadata.api.MetadataCache;
@@ -59,7 +60,8 @@ public class PulsarServiceLookupHandler implements LookupHandler {
     public PulsarServiceLookupHandler(PulsarService pulsarService, MQTTProxyConfiguration proxyConfig) {
         this.pulsarService = pulsarService;
         this.proxyConfig = proxyConfig;
-        this.executorProvider = new ExecutorProvider(proxyConfig.getLookupThreadPoolNum(), "mop-lookup-thread");
+        this.executorProvider = new ScheduledExecutorProvider(proxyConfig.getLookupThreadPoolNum(),
+                                                              "mop-lookup-thread");
         this.localBrokerDataCache = pulsarService
                 .getLocalMetadataStore().getMetadataCache(LocalBrokerData.class);
         this.pulsarClient = getClient(proxyConfig);
