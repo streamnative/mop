@@ -59,7 +59,8 @@ public class PulsarServiceLookupHandler implements LookupHandler {
     public PulsarServiceLookupHandler(PulsarService pulsarService, MQTTProxyConfiguration proxyConfig) {
         this.pulsarService = pulsarService;
         this.proxyConfig = proxyConfig;
-        this.executorProvider = new ScheduledExecutorProvider(proxyConfig.getLookupThreadPoolNum(), "mop-lookup-thread");
+        this.executorProvider = new ScheduledExecutorProvider(proxyConfig.getLookupThreadPoolNum(),
+                                                              "mop-lookup-thread");
         this.localBrokerDataCache = pulsarService
                 .getLocalMetadataStore().getMetadataCache(LocalBrokerData.class);
         this.pulsarClient = getClient(proxyConfig);
