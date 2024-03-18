@@ -109,10 +109,10 @@ public class Connection {
         this.connectMessage = builder.connectMessage;
         this.channel.attr(ATTR_KEY_CONNECTION).set(this);
         this.topicSubscriptionManager = new TopicSubscriptionManager();
-        this.addIdleStateHandler();
         this.processor = builder.processor;
         this.fromProxy = builder.fromProxy;
         this.authData = builder.authData;
+        this.addIdleStateHandler();
         this.manager.addConnection(this);
         this.topicAliasManager = new TopicAliasManager(clientRestrictions.getTopicAliasMaximum());
     }
