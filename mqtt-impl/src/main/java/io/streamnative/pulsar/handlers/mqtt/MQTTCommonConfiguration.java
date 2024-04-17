@@ -43,6 +43,8 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     public static final String CATEGORY_TLS_PSK = "TLS-PSK";
     @Category
     public static final String CATEGORY_KEYSTORE_TLS = "KeyStoreTLS";
+    @Category
+    public static final String CATEGORY_WS = "MQTT over WebSocket";
 
     @FieldContext(
             category = CATEGORY_MQTT,
@@ -339,6 +341,27 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "Event center callback pool size."
     )
     private int eventCenterCallbackPoolThreadNum = 1;
+
+    @FieldContext(
+            category = CATEGORY_WS,
+            required = true,
+            doc = "The maximum content legnth on a http object."
+    )
+    private int httpMaxContentLength = 65535;
+
+    @FieldContext(
+            category = CATEGORY_WS,
+            required = false,
+            doc = "The maximum frame size on webSocket."
+    )
+    private int webSocketMaxFrameSize = 65535;
+
+    @FieldContext(
+            category = CATEGORY_WS,
+            required = false,
+            doc = "The webSocket access path"
+    )
+    private String webSocketPath = "/mqtt";
 
     public long getMqttTlsCertRefreshCheckDurationSec() {
         if (getTlsCertRefreshCheckDurationSec() != 300) {

@@ -30,6 +30,21 @@ public final class Constants {
 
     public static final String MQTT_PROPERTIES_PREFIX = "MQTT_PROPERTIES_";
 
+    /**
+     * netty handler name constant
+     */
+    public static final String HANDLER_HTTP_CODEC = "httpCodecHandler";
+
+    public static final String HANDLER_HTTP_AGGREGATOR = "httpAggregatorHandler";
+
+    public static final String HANDLER_HTTP_COMPRESSOR = "httpCompressorHandler";
+
+    public static final String HANDLER_WEB_SOCKET_SERVER_PROTOCOL = "webSocketServerProtocolHandler";
+
+    public static final String HANDLER_MQTT_WEB_SOCKET_CODEC = "mqttWebSocketCodecHandler";
+
+    public static final String MQTT_SUB_PROTOCOL_CSV_LIST = "mqtt, mqttv3.1, mqttv3.1.1, mqttv5.0";
+
     private Constants() {
     }
 }
