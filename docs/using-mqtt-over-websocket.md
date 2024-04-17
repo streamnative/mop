@@ -239,7 +239,7 @@ We can use a tool like [MQTTX](https://mqttx.app/), which provides a GUI for MQT
 
 1. New websocket connection
 
-   ![](\mqttx\ws\new_ws_conn.PNG)
+   ![](mqttx\ws\new_ws_conn.PNG)
 
 2. connect websocket
 
