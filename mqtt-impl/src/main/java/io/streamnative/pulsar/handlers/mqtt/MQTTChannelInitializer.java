@@ -119,8 +119,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
     }
 
     /**
-     * Add websocket handler
-     *
+     * Add websocket handler.
      * @param pipeline
      */
     private void addWsHandler(ChannelPipeline pipeline) {

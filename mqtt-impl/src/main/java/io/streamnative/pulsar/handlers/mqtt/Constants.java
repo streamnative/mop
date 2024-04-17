@@ -31,7 +31,7 @@ public final class Constants {
     public static final String MQTT_PROPERTIES_PREFIX = "MQTT_PROPERTIES_";
 
     /**
-     * netty handler name constant
+     * netty handler name constant.
      */
     public static final String HANDLER_HTTP_CODEC = "httpCodecHandler";
 

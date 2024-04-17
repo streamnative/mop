@@ -50,7 +50,8 @@ public final class ConfigurationUtils {
     public static final String LISTENER_DEL = ",";
     public static final String COLON = ":";
     public static final String LISTENER_PATTERN =
-            "^(mqtt)(\\+ssl)?(\\+psk)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]|^(ws)(\\+ssl)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
+            "^(mqtt)(\\+ssl)?(\\+psk)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]"
+                    + "*[-0-9+]|^(ws)(\\+ssl)?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
 
     /**
      * Creates PulsarConfiguration and loads it with populated attribute values loaded from provided property file.
