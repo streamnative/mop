@@ -229,47 +229,47 @@ We can use a tool like [MQTTX](https://mqttx.app/), which provides a GUI for MQT
 
 1. download and install
 
-   ![](mqttx\download.PNG)
+   ![](mqttx/download.PNG)
 
 2. start mqttx
 
-   ![](mqttx\mqttx.png)
+   ![](mqttx/mqttx.png)
 
 ### WS
 
 1. New websocket connection
 
-   ![](mqttx\ws\new_ws_conn.PNG)
+   ![](mqttx/ws/new_ws_conn.PNG)
 
 2. connect websocket
 
-   ![](mqttx\ws\connect_ws.PNG)
+   ![](mqttx/ws/connect_ws.PNG)
 
 3. Add a subscription
 
-   ![](mqttx\ws\add_sub.PNG)
+   ![](mqttx/ws/add_sub.PNG)
 
 4. Publish message
 
-   ![](mqttx\ws\pub_msg.PNG)
+   ![](mqttx/ws/pub_msg.PNG)
 
 ### WSS
 
 1. New websocket connection
 
-   ![](mqttx\wss\new_wss_conn.PNG)
+   ![](mqttx/wss/new_wss_conn.PNG)
 
 2. connect websocket with ssl
 
-   ![](mqttx\wss\connect_wss.PNG)
+   ![](mqttx/wss/connect_wss.PNG)
 
 3. Add a subscription
 
-   ![](mqttx\wss\add_sub.PNG)
+   ![](mqttx/wss/add_sub.PNG)
 
 4. Publish message
 
-   ![](mqttx\wss\pub_msg.PNG)
+   ![](mqttx/wss/pub_msg.PNG)
 
 ## Q&A
 
