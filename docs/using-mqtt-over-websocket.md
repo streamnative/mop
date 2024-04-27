@@ -181,7 +181,7 @@ client.on('message', (topic, message, packet) => {
 
 Secure WebSocket connections can be established using the WSS protocol (WebSocket Secure), essentially a WebSocket over a TLS (previously SSL) connection. TLS is used to encrypt the data that is sent over the connection, ensuring data privacy and integrity, as well as authentication.
 
-To use WebSocket over TLS with MQTT.js, you need to change the protocol in the broker address from `ws` to `wss`. However, you must also ensure that the broker you are connecting to supports WSS connections and that the port number is correct for WSS. For example, EMQX uses port `8084` for WSS connections by default.
+To use WebSocket over TLS with MQTT.js, you need to change the protocol in the broker address from `ws` to `wss`. However, you must also ensure that the broker you are connecting to supports WSS connections and that the port number is correct for WSS. For example, MoP uses port `8084` for WSS connections by default.
 
 Here's an example of how you might establish a secure connection:
 
@@ -211,7 +211,7 @@ const KEY = fs.readFileSync(path.join(__dirname, '/tls-key.pem'))
 const CERT = fs.readFileSync(path.join(__dirname, '/tls-cert.pem'))
 const TRUSTED_CA_LIST = fs.readFileSync(path.join(__dirname, '/crt.ca.cg.pem'))
 
-const host = 'wss://broker.emqx.io:8084/mqtt'
+const host = 'wss://broker.streamnative.io:8084/mqtt'
 const options = {
     ...
   key: KEY,
@@ -290,7 +290,7 @@ Yes, you can use MQTT over WebSocket in non-browser environments. Different prog
 
 ### Why do I need to fill in a path when connecting to MoP?
 
-A path must be filled in when using WebSocket to connect to [MoP](https://www.emqx.io/?__hstc=3614191.cd31d14d6887cb6138feafc20e333f55.1713262331758.1713262331758.1713319978583.2&__hssc=3614191.1.1713319978583&__hsfp=4215947063). This is because EMQX follows the unified path specification of MQTT-WebSocket. This specification requires a specific path to be specified in WebSocket connections to identify and distinguish MQTT over WebSocket traffic. This path routes MQTT over WebSocket traffic to the MQTT Broker for processing.
+A path must be filled in when using WebSocket to connect to [MoP](https://www.streamnative.io). This is because MoP follows the unified path specification of MQTT-WebSocket. This specification requires a specific path to be specified in WebSocket connections to identify and distinguish MQTT over WebSocket traffic. This path routes MQTT over WebSocket traffic to the MQTT Broker for processing.
 
 In MoP, the default path for MQTT over WebSocket is `/mqtt`. This is set according to the specification. Therefore, when connecting to MoP, this path must be included in the WebSocket address to ensure the connection is correctly routed to the MQTT broker.
 
