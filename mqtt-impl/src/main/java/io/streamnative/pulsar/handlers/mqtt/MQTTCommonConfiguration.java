@@ -43,6 +43,8 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     public static final String CATEGORY_TLS_PSK = "TLS-PSK";
     @Category
     public static final String CATEGORY_KEYSTORE_TLS = "KeyStoreTLS";
+    @Category
+    public static final String CATEGORY_WS = "MQTT over WebSocket";
 
     @FieldContext(
             category = CATEGORY_MQTT,
@@ -340,143 +342,164 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     )
     private int eventCenterCallbackPoolThreadNum = 1;
 
+    @FieldContext(
+            category = CATEGORY_WS,
+            required = true,
+            doc = "The maximum content legnth on a http object."
+    )
+    private int httpMaxContentLength = 65535;
+
+    @FieldContext(
+            category = CATEGORY_WS,
+            required = false,
+            doc = "The maximum frame size on webSocket."
+    )
+    private int webSocketMaxFrameSize = 65535;
+
+    @FieldContext(
+            category = CATEGORY_WS,
+            required = false,
+            doc = "The webSocket access path"
+    )
+    private String webSocketPath = "/mqtt";
+
     public long getMqttTlsCertRefreshCheckDurationSec() {
-        if (getTlsCertRefreshCheckDurationSec() != 300) {
-            return getTlsCertRefreshCheckDurationSec();
+        if (mqttTlsCertRefreshCheckDurationSec != 300) {
+            return mqttTlsCertRefreshCheckDurationSec;
         }
-        return mqttTlsCertRefreshCheckDurationSec;
+        return getTlsCertRefreshCheckDurationSec();
     }
 
     public String getMqttTlsCertificateFilePath() {
-        if (StringUtils.isNotBlank(getTlsCertificateFilePath())) {
-            return getTlsCertificateFilePath();
+        if (StringUtils.isNotBlank(mqttTlsCertificateFilePath)) {
+            return mqttTlsCertificateFilePath;
         }
-        return mqttTlsCertificateFilePath;
+        return getTlsCertificateFilePath();
     }
 
     public String getMqttTlsKeyFilePath() {
-        if (StringUtils.isNotBlank(getTlsKeyFilePath())) {
-            return getTlsKeyFilePath();
+        if (StringUtils.isNotBlank(mqttTlsKeyFilePath)) {
+            return mqttTlsKeyFilePath;
         }
-        return mqttTlsKeyFilePath;
+        return getTlsKeyFilePath();
     }
 
     public String getMqttTlsTrustCertsFilePath() {
-        if (StringUtils.isNotBlank(getTlsTrustCertsFilePath())) {
-            return getTlsTrustCertsFilePath();
+        if (StringUtils.isNotBlank(mqttTlsTrustCertsFilePath)) {
+            return mqttTlsTrustCertsFilePath;
         }
-        return mqttTlsTrustCertsFilePath;
+        return getTlsTrustCertsFilePath();
     }
 
     public Set<String> getMqttTlsProtocols() {
-        if (CollectionUtils.isNotEmpty(getTlsProtocols())) {
-            return getTlsProtocols();
+        if (CollectionUtils.isNotEmpty(mqttTlsProtocols)) {
+            return mqttTlsProtocols;
         }
-        return mqttTlsProtocols;
+        return getTlsProtocols();
     }
 
     public Set<String> getMqttTlsCiphers() {
-        if (CollectionUtils.isNotEmpty(getTlsCiphers())) {
-            return getTlsCiphers();
+        if (CollectionUtils.isNotEmpty(mqttTlsCiphers)) {
+            return mqttTlsCiphers;
         }
-        return mqttTlsCiphers;
+        return getTlsCiphers();
     }
 
     public boolean isMqttTlsAllowInsecureConnection() {
-        if (isTlsAllowInsecureConnection()) {
-            return isTlsAllowInsecureConnection();
+        if (mqttTlsAllowInsecureConnection) {
+            return mqttTlsAllowInsecureConnection;
         }
-        return mqttTlsAllowInsecureConnection;
+        return isTlsAllowInsecureConnection();
     }
 
     public boolean isMqttTlsRequireTrustedClientCertOnConnect() {
-        if (isTlsRequireTrustedClientCertOnConnect()) {
-            return isTlsRequireTrustedClientCertOnConnect();
+        if (mqttTlsRequireTrustedClientCertOnConnect) {
+            return mqttTlsRequireTrustedClientCertOnConnect;
         }
-        return mqttTlsRequireTrustedClientCertOnConnect;
+        return isTlsRequireTrustedClientCertOnConnect();
     }
 
     public boolean isMqttTlsEnabledWithKeyStore() {
-        if (isTlsEnabledWithKeyStore()) {
-            return isTlsEnabledWithKeyStore();
+        if (mqttTlsEnabledWithKeyStore) {
+            return mqttTlsEnabledWithKeyStore;
         }
-        return mqttTlsEnabledWithKeyStore;
+        return isTlsEnabledWithKeyStore();
     }
 
     public String getMqttTlsProvider() {
-        if (StringUtils.isNotBlank(getTlsProvider())) {
-            return getTlsProvider();
+        if (StringUtils.isNotBlank(mqttTlsProvider)) {
+            return mqttTlsProvider;
         }
-        return mqttTlsProvider;
+        return getTlsProvider();
     }
 
     public String getMqttTlsKeyStoreType() {
-        if (!Objects.equals(getTlsKeyStoreType(), "JKS")) {
-            return getTlsKeyStoreType();
+        if (!Objects.equals(mqttTlsKeyStoreType, "JKS")) {
+            return mqttTlsKeyStoreType;
         }
-        return mqttTlsKeyStoreType;
+        return getTlsKeyStoreType();
     }
 
     public String getMqttTlsKeyStore() {
-        if (StringUtils.isNotBlank(getTlsKeyStore())) {
-            return getTlsKeyStore();
+        if (StringUtils.isNotBlank(mqttTlsKeyStore)) {
+            return mqttTlsKeyStore;
         }
-        return mqttTlsKeyStore;
+        return getTlsKeyStore();
     }
 
     public String getMqttTlsKeyStorePassword() {
-        if (StringUtils.isNotBlank(getTlsKeyStorePassword())) {
-            return getTlsKeyStorePassword();
+        if (StringUtils.isNotBlank(mqttTlsKeyStorePassword)) {
+            return mqttTlsKeyStorePassword;
         }
-        return mqttTlsKeyStorePassword;
+        return getTlsKeyStorePassword();
     }
 
     public String getMqttTlsTrustStoreType() {
-        if (!Objects.equals(getTlsTrustStoreType(), "JKS")) {
-            return getTlsTrustStoreType();
+        if (!Objects.equals(mqttTlsTrustStoreType, "JKS")) {
+            return mqttTlsTrustStoreType;
         }
-        return mqttTlsTrustStoreType;
+        return getTlsTrustStoreType();
     }
 
     public String getMqttTlsTrustStore() {
-        if (StringUtils.isNotBlank(getTlsTrustStore())) {
-            return getTlsTrustStore();
+        if (StringUtils.isNotBlank(mqttTlsTrustStore)) {
+            return mqttTlsTrustStore;
         }
-        return mqttTlsTrustStore;
+        return getTlsTrustStore();
     }
 
     public String getMqttTlsTrustStorePassword() {
-        if (StringUtils.isNotBlank(getTlsTrustStorePassword())) {
-            return getTlsTrustStorePassword();
+        if (StringUtils.isNotBlank(mqttTlsTrustStorePassword)) {
+            return mqttTlsTrustStorePassword;
         }
-        return mqttTlsTrustStorePassword;
+        return getTlsTrustStorePassword();
     }
 
     public boolean isMqttTlsPskEnabled() {
-        if (tlsPskEnabled) {
+        if (mqttTlsPskEnabled) {
             return true;
         }
-        return mqttTlsPskEnabled;
+        return tlsPskEnabled;
     }
 
     public String getMqttTlsPskIdentityHint() {
-        if (StringUtils.isNotBlank(tlsPskIdentityHint)) {
-            return tlsPskIdentityHint;
+        if (StringUtils.isNotBlank(mqttTlsPskIdentityHint)) {
+            return mqttTlsPskIdentityHint;
         }
-        return mqttTlsPskIdentityHint;
+        return tlsPskIdentityHint;
     }
 
     public String getMqttTlsPskIdentityFile() {
-        if (StringUtils.isNotBlank(tlsPskIdentityFile)) {
-            return tlsPskIdentityFile;
+        if (StringUtils.isNotBlank(mqttTlsPskIdentityFile)) {
+            return mqttTlsPskIdentityFile;
         }
-        return mqttTlsPskIdentityFile;
+        return tlsPskIdentityFile;
     }
 
     public String getMqttTlsPskIdentity() {
-        if (StringUtils.isNotBlank(tlsPskIdentity)) {
-            return tlsPskIdentity;
+        if (StringUtils.isNotBlank(mqttTlsPskIdentity)) {
+            return mqttTlsPskIdentity;
         }
-        return mqttTlsPskIdentity;
+        return tlsPskIdentity;
     }
 }

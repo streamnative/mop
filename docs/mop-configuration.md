@@ -2,18 +2,21 @@
 
 ## Common
 
-| Property | Default value | Comment
-|----------| --------------| --------
-|messagingProtocols | mqtt | available values [mqtt, kafka, amqp]
+| Property | Default value | Comment|
+|----------| --------------| --------|
+|messagingProtocols | mqtt | available values [mqtt, kafka, amqp]|
 |protocolHandlerDirectory | ./protocols | Protocol handler directory |
 |mqttListeners |  | MoP listener address. available listener prefix: [mqtt, mqtt+ssl, mqtt+ssl+psk]|
 |advertisedAddress | | Keep the same as Pulsar broker's `advertisedAddress` |
-|mqttAuthenticationEnabled| false | Enable mqtt authentication
-|mqttAuthenticationMethods | null | Mqtt authentication methods, available values [basic, token]
+|mqttAuthenticationEnabled| false | Enable mqtt authentication|
+|mqttAuthenticationMethods | null | Mqtt authentication methods, available values [basic, token]|
 |defaultTenant | public | Default Pulsar tenant that the MQTT server used |
-|defaultNamespace | default | Default Pulsar namespace that the MQTT server used | 
+|defaultNamespace | default | Default Pulsar namespace that the MQTT server used |
 |defaultTopicDomain | persistent | Default Pulsar topic domain that the MQTT server used |
 |mqttMessageMaxLength | 8092 | Max length for per message. |
+|httpMaxContentLength | 65535 | The maximum content legnth on a http object. |
+|webSocketMaxFrameSize | 65535 | The maximum frame size on webSocket. |
+|webSocketPath | /mqtt | The websocket access path |
 
 
 ## MoP Proxy
@@ -68,5 +71,4 @@
 |maxFrameSize | 4 * 1024 * 1024 | The maximum frame size on a connection |
 |mqttProxyNumAcceptorThreads | 1 | Number of threads to use for Netty Acceptor. Default is set to `1` |
 |mqttProxyNumIOThreads | Runtime.getRuntime().availableProcessors() | Number of threads to use for Netty IO |
-
 

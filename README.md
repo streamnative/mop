@@ -7,9 +7,9 @@
     to you under the Apache License, Version 2.0 (the
     "License"); you may not use this file except in compliance
     with the License.  You may obtain a copy of the License at
-
+    
       http://www.apache.org/licenses/LICENSE-2.0
-
+    
     Unless required by applicable law or agreed to in writing,
     software distributed under the License is distributed on an
     "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -54,7 +54,7 @@ MQTT-on-Pulsar (aka MoP) is developed to support MQTT protocol natively on Apach
 Configure the Pulsar broker to run the MoP protocol handler as a plugin by adding configurations to the Pulsar configuration file, such as `broker.conf` or `standalone.conf`.
 
 1. Set the configuration of the MoP protocol handler.
-    
+   
     Add the following properties and set their values in the Pulsar configuration file, such as `conf/broker.conf` or `conf/standalone.conf`.
 
     | Property | Suggested value | Default value |
@@ -137,10 +137,10 @@ The following example shows how to verify the MoP protocol handler with FuseSour
     connection.connect();
     Topic[] topics = { new Topic("persistent://public/default/my-topic", QoS.AT_LEAST_ONCE) };
     connection.subscribe(topics);
-
+    
     // publish message
     connection.publish("persistent://public/default/my-topic", "Hello MOP!".getBytes(), QoS.AT_LEAST_ONCE, false);
-
+    
     // receive message
     Message received = connection.receive();
     ```
@@ -406,6 +406,10 @@ curl http://pulsar-broker-webservice-address:port/mop/stats
 ## MoP available configurations
 
 Please refer [here](docs/mop-configuration.md)
+
+## Using MQTT over WebSocket
+
+Please refer [here](docs/using-mqtt-over-websocket.md)
 
 ## Project maintainers
 

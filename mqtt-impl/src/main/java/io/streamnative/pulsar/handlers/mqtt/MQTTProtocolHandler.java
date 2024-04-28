@@ -19,6 +19,8 @@ import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.PLAI
 import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.PROTOCOL_NAME;
 import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.SSL_PREFIX;
 import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.SSL_PSK_PREFIX;
+import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.WS_PLAINTEXT_PREFIX;
+import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.WS_SSL_PREFIX;
 import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.getListenerPort;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
@@ -120,17 +122,27 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                 if (listener.startsWith(PLAINTEXT_PREFIX)) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(mqttService, false));
+                            new MQTTChannelInitializer(mqttService, false, false));
 
                 } else if (listener.startsWith(SSL_PREFIX)) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(mqttService, true));
+                            new MQTTChannelInitializer(mqttService, true, false));
 
                 } else if (listener.startsWith(SSL_PSK_PREFIX) && mqttConfig.isMqttTlsPskEnabled()) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
+                            new MQTTChannelInitializer(mqttService, false, true, false));
+
+                } else if (listener.startsWith(WS_PLAINTEXT_PREFIX)) {
+                    builder.put(
+                            new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
                             new MQTTChannelInitializer(mqttService, false, true));
+
+                } else if (listener.startsWith(WS_SSL_PREFIX)) {
+                    builder.put(
+                            new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
+                            new MQTTChannelInitializer(mqttService, true, true));
 
                 } else {
                     log.error("MQTT listener {} not supported. supports {}, {} or {}",
