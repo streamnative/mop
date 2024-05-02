@@ -20,7 +20,7 @@
     <parent>
         <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>
         <groupId>io.streamnative.pulsar.handlers</groupId>
-        <version>2.10.0.0-rc4</version>
+        <version>3.2.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>pulsar-protocol-handler-mqtt-tests</artifactId>
@@ -72,7 +72,7 @@
         <dependency>
             <groupId>org.eclipse.paho</groupId>
             <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
-            <version>1.2.5</version>
+            <version>${paho.mqtt.java.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

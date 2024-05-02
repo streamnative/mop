@@ -19,7 +19,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <groupId>io.streamnative.pulsar.handlers</groupId>
     <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>
-    <version>2.10.0.0-rc4</version>
+    <version>3.2.0-SNAPSHOT</version>
     <name>StreamNative :: Pulsar Protocol Handler :: MoP Parent</name>
     <description>Parent for MQTT on Pulsar implemented using Pulsar Protocol Handler.</description>
 
@@ -45,29 +45,37 @@
     </licenses>
 
     <properties>
-        <lombok.version>1.18.22</lombok.version>
-        <mockito.version>2.22.0</mockito.version>
+        <lombok.version>1.18.30</lombok.version>
+        <mockito.version>4.11.0</mockito.version>
         <testng.version>6.14.3</testng.version>
-        <awaitility.version>4.0.2</awaitility.version>
+        <awaitility.version>4.0.3</awaitility.version>
         <pulsar.version>3.2.0-SNAPSHOT</pulsar.version>
-        <mqtt.codec.version>4.1.94.Final</mqtt.codec.version>
+        <caffeine.version>2.9.1</caffeine.version>
+        <mqtt.codec.version>4.1.105.Final</mqtt.codec.version>
+        <netty.version>4.1.105.Final</netty.version>
         <log4j2.version>2.18.0</log4j2.version>
         <fusesource.client.version>1.16</fusesource.client.version>
-        <hivemq.mqtt.client.version>1.2.2</hivemq.mqtt.client.version>
+        <hivemq.mqtt.client.version>1.3.3</hivemq.mqtt.client.version>
+        <paho.mqtt.java.version>1.2.5</paho.mqtt.java.version>
         <apache.commons.bean-utils.version>1.9.4</apache.commons.bean-utils.version>
-        <grpc.version>1.45.1</grpc.version>
+        <grpc.version>1.55.3</grpc.version>
         <jackson.version>2.14.2</jackson.version>
+        <guava.version>32.1.1-jre</guava.version>
+        <protobuf3.version>3.19.6</protobuf3.version>
+        <proto-google-common-protos.version>2.9.0</proto-google-common-protos.version>
         <!-- plugins -->
         <javac.source>17</javac.source>
         <javac.target>17</javac.target>
         <puppycrawl.checkstyle.version>8.37</puppycrawl.checkstyle.version>
         <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
-        <maven-surefire-plugin.version>3.0.0-M1</maven-surefire-plugin.version>
+        <maven-surefire-plugin.version>3.0.0-M3</maven-surefire-plugin.version>
         <redirectTestOutputToFile>true</redirectTestOutputToFile>
         <license-maven-plugin.version>3.0.rc1</license-maven-plugin.version>
+        <nifi-nar-maven-plugin.version>1.2.0</nifi-nar-maven-plugin.version>
         <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
-        <spotbugs-maven-plugin.version>3.1.8</spotbugs-maven-plugin.version>
-        <maven-jacoco-plugin.version>0.8.7</maven-jacoco-plugin.version>
+        <git-commit-id-plugin.version>4.0.0</git-commit-id-plugin.version>
+        <spotbugs-maven-plugin.version>4.2.2</spotbugs-maven-plugin.version>
+        <maven-jacoco-plugin.version>0.8.8</maven-jacoco-plugin.version>
     </properties>
 
     <dependencies>
@@ -93,27 +101,65 @@
                     <groupId>io.grpc</groupId>
                     <artifactId>grpc-auth</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-all</artifactId>
             <version>${grpc.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-netty-shaded</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-xds</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http2</artifactId>
+            <version>${netty.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler-proxy</artifactId>
+            <version>${netty.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport-native-unix-common</artifactId>
+            <version>${netty.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>${caffeine.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
             <version>${log4j2.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j-impl</artifactId>
             <version>${log4j2.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
@@ -124,6 +170,24 @@
             <groupId>commons-beanutils</groupId>
             <artifactId>commons-beanutils</artifactId>
             <version>${apache.commons.bean-utils.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>${protobuf3.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.api.grpc</groupId>
+            <artifactId>proto-google-common-protos</artifactId>
+            <version>${proto-google-common-protos.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.testng</groupId>
@@ -302,7 +366,7 @@
             <plugin>
                 <groupId>pl.project13.maven</groupId>
                 <artifactId>git-commit-id-plugin</artifactId>
-                <version>4.0.0</version>
+                <version>${git-commit-id-plugin.version}</version>
                 <executions>
                     <execution>
                         <id>get-the-git-infos</id>

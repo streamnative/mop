@@ -20,7 +20,7 @@
     <parent>
         <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>
         <groupId>io.streamnative.pulsar.handlers</groupId>
-        <version>2.10.0.0-rc4</version>
+        <version>3.2.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>pulsar-protocol-handler-mqtt</artifactId>
@@ -32,7 +32,7 @@
             <plugin>
                 <groupId>org.apache.nifi</groupId>
                 <artifactId>nifi-nar-maven-plugin</artifactId>
-                <version>1.2.0</version>
+                <version>${nifi-nar-maven-plugin.version}</version>
                 <extensions>true</extensions>
                 <configuration>
                     <finalName>${project.artifactId}-${project.version}</finalName>
