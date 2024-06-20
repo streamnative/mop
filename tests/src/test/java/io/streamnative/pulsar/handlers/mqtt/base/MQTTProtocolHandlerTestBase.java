@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import io.netty.channel.EventLoopGroup;
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URL;
@@ -460,16 +459,18 @@ public abstract class MQTTProtocolHandlerTestBase {
     private BookKeeperClientFactory mockBookKeeperClientFactory = new BookKeeperClientFactory() {
 
         @Override
-        public CompletableFuture<BookKeeper> create(ServiceConfiguration conf, MetadataStoreExtended store, EventLoopGroup eventLoopGroup,
-                                                   Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
-                                                   Map<String, Object> ensemblePlacementPolicyProperties) {
+        public CompletableFuture<BookKeeper> create(ServiceConfiguration conf, MetadataStoreExtended store,
+                                                    EventLoopGroup eventLoopGroup,
+            Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
+            Map<String, Object> ensemblePlacementPolicyProperties) {
             return CompletableFuture.completedFuture(mockBookKeeper);
         }
 
         @Override
-        public CompletableFuture<BookKeeper> create(ServiceConfiguration conf, MetadataStoreExtended store, EventLoopGroup eventLoopGroup,
-                                 Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
-                                 Map<String, Object> ensemblePlacementPolicyProperties, StatsLogger statsLogger) {
+        public CompletableFuture<BookKeeper> create(ServiceConfiguration conf, MetadataStoreExtended store,
+                                                    EventLoopGroup eventLoopGroup,
+            Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
+            Map<String, Object> ensemblePlacementPolicyProperties, StatsLogger statsLogger) {
             return CompletableFuture.completedFuture(mockBookKeeper);
         }
 
