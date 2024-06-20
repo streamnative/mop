@@ -25,7 +25,7 @@ import io.streamnative.pulsar.handlers.mqtt.utils.MessagePublishContext;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
+import org.apache.bookkeeper.mledger.Position;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -63,7 +63,7 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
                 });
     }
 
-    protected CompletableFuture<PositionImpl> writeToPulsarTopic(Connection connection, MqttPublishMessage msg) {
+    protected CompletableFuture<Position> writeToPulsarTopic(Connection connection, MqttPublishMessage msg) {
         return writeToPulsarTopic(connection, msg, false);
     }
 
@@ -73,7 +73,7 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
      * @param checkSubscription Check if the subscription exists, throw #{MQTTNoMatchingSubscriberException}
      *                              if the subscription does not exist;
      */
-    protected CompletableFuture<PositionImpl> writeToPulsarTopic(Connection connection, MqttPublishMessage msg,
+    protected CompletableFuture<Position> writeToPulsarTopic(Connection connection, MqttPublishMessage msg,
                                                                  boolean checkSubscription) {
         TopicAliasManager topicAliasManager = connection.getTopicAliasManager();
         String producerName = connection.getClientId();
@@ -102,7 +102,7 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
         return getTopicReference(mqttTopicName).thenCompose(topicOp -> topicOp.map(topic -> {
             MessageImpl<byte[]> message = toPulsarMsg(configuration, topic, msg.variableHeader().properties(),
                     msg.payload().nioBuffer());
-            CompletableFuture<PositionImpl> ret = MessagePublishContext.publishMessages(producerName, message, topic);
+            CompletableFuture<Position> ret = MessagePublishContext.publishMessages(producerName, message, topic);
             message.recycle();
             return ret.thenApply(position -> {
                 if (checkSubscription && topic.getSubscriptions().isEmpty()) {

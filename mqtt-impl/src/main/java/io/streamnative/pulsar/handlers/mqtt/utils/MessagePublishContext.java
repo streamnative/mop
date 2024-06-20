@@ -20,7 +20,8 @@ import io.netty.util.Recycler.Handle;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
+import org.apache.bookkeeper.mledger.Position;
+import org.apache.bookkeeper.mledger.PositionFactory;
 import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.broker.service.Topic.PublishContext;
 import org.apache.pulsar.client.api.Message;
@@ -34,7 +35,7 @@ public final class MessagePublishContext implements PublishContext {
     private String producerName;
     private Topic topic;
     private long startTimeNs;
-    private CompletableFuture<PositionImpl> positionFuture;
+    private CompletableFuture<Position> positionFuture;
 
     /**
      * Executed from managed ledger thread when the message is persisted.
@@ -50,13 +51,13 @@ public final class MessagePublishContext implements PublishContext {
                         topic.getName(), ledgerId, entryId);
             }
             topic.recordAddLatency(System.nanoTime() - startTimeNs, TimeUnit.NANOSECONDS);
-            positionFuture.complete(PositionImpl.get(ledgerId, entryId));
+            positionFuture.complete(PositionFactory.create(ledgerId, entryId));
         }
         recycle();
     }
 
     // recycler
-    public static MessagePublishContext get(CompletableFuture<PositionImpl> positionFuture, String producerName,
+    public static MessagePublishContext get(CompletableFuture<Position> positionFuture, String producerName,
                                             Topic topic, long startTimeNs) {
         MessagePublishContext callback = RECYCLER.get();
         callback.positionFuture = positionFuture;
@@ -92,9 +93,9 @@ public final class MessagePublishContext implements PublishContext {
     /**
      * publish mqtt message to pulsar topic, no batch.
      */
-    public static CompletableFuture<PositionImpl> publishMessages(String producerName, Message<byte[]> message,
-                                                                  Topic topic) {
-        CompletableFuture<PositionImpl> future = new CompletableFuture<>();
+    public static CompletableFuture<Position> publishMessages(String producerName, Message<byte[]> message,
+                                                              Topic topic) {
+        CompletableFuture<Position> future = new CompletableFuture<>();
 
         ByteBuf headerAndPayload = messageToByteBuf(message);
         topic.publishMessage(headerAndPayload,

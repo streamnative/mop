@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -459,18 +460,17 @@ public abstract class MQTTProtocolHandlerTestBase {
     private BookKeeperClientFactory mockBookKeeperClientFactory = new BookKeeperClientFactory() {
 
         @Override
-        public BookKeeper create(ServiceConfiguration conf, MetadataStoreExtended store, EventLoopGroup eventLoopGroup,
-                                 Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
-                                 Map<String, Object> ensemblePlacementPolicyProperties) throws IOException {
-            return mockBookKeeper;
+        public CompletableFuture<BookKeeper> create(ServiceConfiguration conf, MetadataStoreExtended store, EventLoopGroup eventLoopGroup,
+                                                   Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
+                                                   Map<String, Object> ensemblePlacementPolicyProperties) {
+            return CompletableFuture.completedFuture(mockBookKeeper);
         }
 
         @Override
-        public BookKeeper create(ServiceConfiguration conf, MetadataStoreExtended store, EventLoopGroup eventLoopGroup,
+        public CompletableFuture<BookKeeper> create(ServiceConfiguration conf, MetadataStoreExtended store, EventLoopGroup eventLoopGroup,
                                  Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
-                                 Map<String, Object> ensemblePlacementPolicyProperties, StatsLogger statsLogger)
-                throws IOException {
-            return mockBookKeeper;
+                                 Map<String, Object> ensemblePlacementPolicyProperties, StatsLogger statsLogger) {
+            return CompletableFuture.completedFuture(mockBookKeeper);
         }
 
         @Override
