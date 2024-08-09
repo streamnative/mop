@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.netty.channel.EventLoopGroup;
+import io.opentelemetry.api.OpenTelemetry;
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.lang.reflect.Field;
@@ -404,8 +405,10 @@ public abstract class MQTTProtocolHandlerTestBase {
     protected void setupBrokerMocks(PulsarService pulsar) throws Exception {
         // Override default providers with mocked ones
         doReturn(mockBookKeeperClientFactory).when(pulsar).newBookKeeperClientFactory();
-        doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar).createLocalMetadataStore(any());
-        doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar).createConfigurationMetadataStore(any());
+        doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar)
+                .createLocalMetadataStore(any(), OpenTelemetry.noop());
+        doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar)
+                .createConfigurationMetadataStore(any(), OpenTelemetry.noop());
 
         Supplier<NamespaceService> namespaceServiceSupplier = () -> spy(new NamespaceService(pulsar));
         doReturn(namespaceServiceSupplier).when(pulsar).getNamespaceServiceProvider();
