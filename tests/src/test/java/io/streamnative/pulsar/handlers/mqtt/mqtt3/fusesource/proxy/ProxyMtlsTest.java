@@ -18,6 +18,7 @@ import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.io.File;
 import java.io.FileInputStream;
 import java.security.KeyStore;
+import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.util.Random;
@@ -25,6 +26,8 @@ import java.util.concurrent.CountDownLatch;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+
+import org.apache.pulsar.common.util.SecurityUtility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.Message;
@@ -46,7 +49,7 @@ public class ProxyMtlsTest extends MQTTTestBase {
 //        mqtt.setMqttProxyEnabled(true);
 //        mqtt.setMqttProxyTlsEnabled(true);
         mqtt.setMqttTlsCertificateFilePath(path + "server.crt");
-        mqtt.setMqttTlsTrustCertsFilePath(path + "client.crt");
+        mqtt.setMqttTlsTrustCertsFilePath(path + "client_combined.pem");
         mqtt.setMqttTlsKeyFilePath(path + "server.key");
 
         return mqtt;
@@ -87,9 +90,28 @@ public class ProxyMtlsTest extends MQTTTestBase {
         return sslContext;
     }
 
+    public SSLContext createSSLContext2() throws Exception {
+        File clientCrt1 = new File(path + "ca.cer");
+        Certificate clientCert1 = CertificateFactory
+                .getInstance("X.509").generateCertificate(new FileInputStream(clientCrt1));
+
+
+        File key = new File(path + "client.crt");
+        Certificate clientKey1 = CertificateFactory
+                .getInstance("X.509").generateCertificate(new FileInputStream(key));
+
+        PrivateKey privateKey = SecurityUtility.loadPrivateKeyFromPemFile(path + "client.crt.pem");
+
+
+        final SSLContext sslContext = SecurityUtility.createSslContext(true, new Certificate[]{clientCert1}, new Certificate[]{clientKey1}, privateKey);
+
+        return sslContext;
+    }
+
+
     @Test
     public void testProduceAndConsume() throws Exception {
-        SSLContext sslContext = createSSLContext();
+        SSLContext sslContext = createSSLContext2();
         MQTT mqtt = createMQTTTlsClient();
         mqtt.setSslContext(sslContext);
 
