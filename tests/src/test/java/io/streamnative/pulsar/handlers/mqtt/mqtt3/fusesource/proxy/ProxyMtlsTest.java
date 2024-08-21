@@ -21,6 +21,7 @@ import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
@@ -36,26 +37,36 @@ public class ProxyMtlsTest extends MQTTTestBase {
 
     String path = "./src/test/resources/mtls/";
 
-    private final Random random = new Random();
-
     @Override
     protected MQTTCommonConfiguration initConfig() throws Exception {
+        System.setProperty("javax.net.debug","ssl");
         enableTls = true;
         MQTTCommonConfiguration mqtt = super.initConfig();
 
-        mqtt.setMqttProxyEnabled(true);
-        mqtt.setMqttProxyTlsEnabled(true);
+//        mqtt.setMqttProxyEnabled(true);
+//        mqtt.setMqttProxyTlsEnabled(true);
         mqtt.setMqttTlsCertificateFilePath(path + "server.crt");
+        mqtt.setMqttTlsTrustCertsFilePath(path + "client.crt");
         mqtt.setMqttTlsKeyFilePath(path + "server.key");
 
         return mqtt;
     }
 
     public SSLContext createSSLContext() throws Exception {
-        KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        try (FileInputStream fis = new FileInputStream(path + "client.p12")) {
-            keyStore.load(fis, "".toCharArray());
-        }
+//        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+//        try (FileInputStream fis = new FileInputStream(path + "client.p12")) {
+//            keyStore.load(fis, "".toCharArray());
+//
+//        }
+
+
+
+        File clientCrt = new File(path + "client.crt");
+        Certificate clientCert = CertificateFactory
+                .getInstance("X.509").generateCertificate(new FileInputStream(clientCrt));
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(null, null);
+        keyStore.setCertificateEntry("client", clientCert);
 
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         kmf.init(keyStore, "".toCharArray());
@@ -79,7 +90,7 @@ public class ProxyMtlsTest extends MQTTTestBase {
     @Test
     public void testProduceAndConsume() throws Exception {
         SSLContext sslContext = createSSLContext();
-        MQTT mqtt = createMQTTProxyTlsClient();
+        MQTT mqtt = createMQTTTlsClient();
         mqtt.setSslContext(sslContext);
 
         String topicName = "testProduceAndConsume";
@@ -94,5 +105,8 @@ public class ProxyMtlsTest extends MQTTTestBase {
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
         connection.disconnect();
+
+        CountDownLatch latch = new CountDownLatch(1);
+        latch.await();
     }
 }
