@@ -25,6 +25,7 @@ import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
+import io.netty.handler.ssl.SslHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
@@ -85,6 +86,9 @@ import org.apache.pulsar.common.api.proto.CommandSubscribe;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.Codec;
 import org.apache.pulsar.common.util.FutureUtil;
+
+import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.net.ssl.SSLSession;
 
 /**
  * Default implementation of protocol method processor.
@@ -181,6 +185,21 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     public void processPublish(MqttAdapterMessage adapter) {
         if (log.isDebugEnabled()) {
             log.debug("[Publish] [{}] msg: {}", connection.getClientId(), adapter);
+        }
+        try {
+            SslHandler sslHandler = ctx.pipeline().get(SslHandler.class);
+            if (sslHandler != null) {
+                SSLSession session = sslHandler.engine().getSession();
+                java.security.cert.Certificate[] clientCerts = session.getPeerCertificates();
+                if (clientCerts.length > 0) {
+                    if (clientCerts[0] instanceof java.security.cert.X509Certificate) {
+                        java.security.cert.X509Certificate clientCert = (java.security.cert.X509Certificate) clientCerts[0];
+                        log.info("Client cert info: " + clientCert.getSubjectDN());
+                    }
+                }
+            }
+        } catch (SSLPeerUnverifiedException ex) {
+            log.warn("get client clientCerts error", ex);
         }
         MqttPublishMessage msg = (MqttPublishMessage) adapter.getMqttMessage();
         CompletableFuture<Void> result;
