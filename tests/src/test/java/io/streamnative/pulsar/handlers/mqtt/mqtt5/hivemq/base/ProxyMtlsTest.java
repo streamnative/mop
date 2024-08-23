@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.mqtt5.hivemq.base;
 
+import static org.mockito.Mockito.spy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -28,6 +29,7 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.io.File;
 import java.io.FileInputStream;
+import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
@@ -40,7 +42,6 @@ import javax.crypto.SecretKey;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
-import java.security.KeyStore;
 import org.apache.pulsar.broker.authentication.AuthenticationProviderToken;
 import org.apache.pulsar.broker.authentication.utils.AuthTokenUtils;
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -54,8 +55,6 @@ import org.fusesource.mqtt.client.Topic;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-
-import static org.mockito.Mockito.spy;
 
 public class ProxyMtlsTest extends MQTTTestBase {
 
@@ -146,7 +145,8 @@ public class ProxyMtlsTest extends MQTTTestBase {
         keyManagerFactory.init(keyStore, "".toCharArray());
 
         // 初始化信任管理器
-        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
+                TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(trustStore);
 
         final SSLContext sslContext = SSLContext.getInstance("TLS");
@@ -191,10 +191,12 @@ public class ProxyMtlsTest extends MQTTTestBase {
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         keyManagerFactory.init(keyStore, "123456".toCharArray());
 
-        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
+                TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(trustStore);
 
-        final MqttClientSslConfig sslConfig = MqttClientSslConfig.builder().keyManagerFactory(keyManagerFactory).trustManagerFactory(trustManagerFactory)
+        final MqttClientSslConfig sslConfig = MqttClientSslConfig.builder().keyManagerFactory(keyManagerFactory)
+                .trustManagerFactory(trustManagerFactory)
                 .build();
 
         Random random = new Random();

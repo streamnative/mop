@@ -14,9 +14,8 @@
 package io.streamnative.pulsar.handlers.mqtt.oidc;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import javax.validation.constraints.NotNull;
 import java.util.Objects;
+import javax.validation.constraints.NotNull;
 
 public record Pool(@JsonProperty(value = "name", required = true) String name,
                    @JsonProperty(value = "description", required = true) @NotNull String description,

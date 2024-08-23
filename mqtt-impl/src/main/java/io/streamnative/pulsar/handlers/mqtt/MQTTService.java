@@ -15,7 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
 import io.streamnative.pulsar.handlers.mqtt.oidc.OIDCService;
-import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyException;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
 import io.streamnative.pulsar.handlers.mqtt.support.QosPublishHandlersImpl;

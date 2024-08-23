@@ -15,16 +15,16 @@ package io.streamnative.pulsar.handlers.mqtt.oidc;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.streamnative.pulsar.handlers.mqtt.utils.Paths;
-import org.apache.pulsar.broker.resources.BaseResources;
-import org.apache.pulsar.common.util.FutureUtil;
-import org.apache.pulsar.metadata.api.MetadataStore;
-import org.apache.pulsar.metadata.api.MetadataStoreException;
-import javax.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.validation.constraints.NotNull;
+import org.apache.pulsar.broker.resources.BaseResources;
+import org.apache.pulsar.common.util.FutureUtil;
+import org.apache.pulsar.metadata.api.MetadataStore;
+import org.apache.pulsar.metadata.api.MetadataStoreException;
 
 @SuppressWarnings("UnstableApiUsage")
 public final class OIDCPoolResources extends BaseResources<Pool> {

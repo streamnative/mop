@@ -11,22 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.utils;
 
-import java.net.URLDecoder;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import javax.validation.constraints.NotNull;
-import lombok.experimental.UtilityClass;
-
-@UtilityClass
-public final class Paths {
-
-    public String getUrlEncodedPath(@NotNull String name) {
-        return URLEncoder.encode(name, StandardCharsets.UTF_8);
-    }
-
-    public String getUrlDecodedPath(@NotNull String name) {
-        return URLDecoder.decode(name, StandardCharsets.UTF_8);
-    }
-}
+/**
+ * Package info.
+ */
+package io.streamnative.pulsar.handlers.mqtt.oidc;
