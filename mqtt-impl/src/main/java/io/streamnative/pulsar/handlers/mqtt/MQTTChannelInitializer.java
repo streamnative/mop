@@ -25,13 +25,11 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.adapter.CombineAdapterHandler;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterDecoder;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterEncoder;
 import io.streamnative.pulsar.handlers.mqtt.codec.MqttWebSocketCodec;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
@@ -49,9 +47,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
     private final boolean enableTls;
     private final boolean enableTlsPsk;
     private final boolean enableWs;
-    private final boolean tlsEnabledWithKeyStore;
     private PulsarSslFactory sslFactory;
-    private ScheduledExecutorService sslContextRefresher;
 
     public MQTTChannelInitializer(MQTTService mqttService, boolean enableTls, boolean enableWs,
                                   ScheduledExecutorService sslContextRefresher) throws Exception {
@@ -67,7 +63,6 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         this.enableTls = enableTls;
         this.enableTlsPsk = enableTlsPsk;
         this.enableWs = enableWs;
-        this.tlsEnabledWithKeyStore = mqttConfig.isMqttTlsEnabledWithKeyStore();
         if (this.enableTls) {
             PulsarSslConfiguration sslConfiguration = buildSslConfiguration(mqttConfig);
             this.sslFactory = (PulsarSslFactory) Class.forName(mqttConfig.getSslFactoryPlugin())

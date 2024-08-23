@@ -93,9 +93,8 @@ public class MQTTProxyService implements Closeable {
         this.eventCenter = new PulsarEventCenterImpl(mqttService.getBrokerService(),
                 proxyConfig.getEventCenterCallbackPoolThreadNum());
         this.proxyAdapter = new MQTTProxyAdapter(this);
-        this.sslContextRefresher = Executors
-                .newSingleThreadScheduledExecutor(
-                        new DefaultThreadFactory("mop-ssl-context-refresher"));
+        this.sslContextRefresher = Executors.newSingleThreadScheduledExecutor(
+                new DefaultThreadFactory("mop-proxy-ssl-context-refresher"));
     }
 
     private void configValid(MQTTProxyConfiguration proxyConfig) {

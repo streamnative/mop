@@ -119,9 +119,8 @@ public class MQTTProtocolHandler implements ProtocolHandler {
         checkArgument(mqttConfig.getMqttListeners() != null);
         checkArgument(brokerService != null);
 
-        this.sslContextRefresher = Executors
-                .newSingleThreadScheduledExecutor(
-                        new DefaultThreadFactory("mop-ssl-context-refresher"));
+        this.sslContextRefresher = Executors.newSingleThreadScheduledExecutor(
+                new DefaultThreadFactory("mop-ssl-context-refresher"));
 
         String listeners = mqttConfig.getMqttListeners();
         String[] parts = listeners.split(LISTENER_DEL);
