@@ -13,6 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt;
 
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTServerException;
+import io.streamnative.pulsar.handlers.mqtt.oidc.OIDCService;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyException;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.support.MQTTMetricsProvider;
 import io.streamnative.pulsar.handlers.mqtt.support.QosPublishHandlersImpl;
@@ -29,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
 import org.apache.pulsar.broker.service.BrokerService;
+import org.apache.pulsar.metadata.api.MetadataStoreException;
 
 /**
  * Main class for mqtt service.
@@ -85,6 +89,9 @@ public class MQTTService {
     @Setter
     private SystemEventService eventService;
 
+    @Getter
+    private OIDCService oidcService;
+
     public MQTTService(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
         this.brokerService = brokerService;
         this.pulsarService = brokerService.pulsar();
@@ -109,6 +116,13 @@ public class MQTTService {
         this.retainedMessageHandler = new RetainedMessageHandler(this);
         this.qosPublishHandlers = new QosPublishHandlersImpl(this);
         this.willMessageHandler = new WillMessageHandler(this);
+        if (serverConfiguration.isMqttMtlsEnabled()) {
+            try {
+                this.oidcService = new OIDCService(pulsarService);
+            } catch (MetadataStoreException ex) {
+                throw new MQTTServerException(ex);
+            }
+        }
     }
 
     public boolean isSystemTopicEnabled() {

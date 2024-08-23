@@ -45,6 +45,8 @@ public final class Constants {
 
     public static final String MQTT_SUB_PROTOCOL_CSV_LIST = "mqtt, mqttv3.1, mqttv3.1.1, mqttv5.0";
 
+    public static final String MTLS = "mTls";
+
     private Constants() {
     }
 }

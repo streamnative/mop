@@ -15,13 +15,19 @@ package io.streamnative.pulsar.handlers.mqtt;
 
 import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_BASIC;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_TOKEN;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.MTLS;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
+import io.netty.handler.ssl.SslHandler;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTAuthException;
+import io.streamnative.pulsar.handlers.mqtt.oidc.OIDCService;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.naming.AuthenticationException;
+import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.net.ssl.SSLSession;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +70,39 @@ public class MQTTAuthenticationService {
         return providers;
     }
 
+    public AuthenticationResult mTlsAuthenticate(SslHandler sslHandler, OIDCService oidcService)
+            throws MQTTAuthException{
+        try {
+            if (sslHandler != null) {
+                SSLSession session = sslHandler.engine().getSession();
+                java.security.cert.Certificate[] clientCerts = session.getPeerCertificates();
+                if (clientCerts.length > 0) {
+                    if (clientCerts[0] instanceof java.security.cert.X509Certificate) {
+                        java.security.cert.X509Certificate clientCert =
+                                (java.security.cert.X509Certificate) clientCerts[0];
+                        log.info("[proxy]-Client cert info: " + clientCert.getSubjectDN());
+                        String[] parts = clientCert.getSubjectDN().toString().split("=");
+                        Map<String, Object> datas = new HashMap<>();
+                        datas.put(parts[0], parts[1]);
+                        final String principal = oidcService.getPrincipal(datas);
+                        log.info("[proxy]-mTls principal : {}", principal);
+                        return new AuthenticationResult(true, principal,
+                                new AuthenticationDataCommand(clientCert.getSubjectDN().toString()));
+                    }
+                }
+            } else {
+                String msg = "mTlsEnabled, but not find SslHandler, disconnect the connection";
+                log.error("mTlsEnabled, but not find SslHandler, disconnect the connection");
+                throw new MQTTAuthException(msg);
+            }
+        } catch (SSLPeerUnverifiedException ex) {
+            log.warn("[proxy]- get client clientCerts error", ex);
+            throw new MQTTAuthException(ex);
+        }
+        String msg = "mTlsEnabled, but not find matched principal";
+        throw new MQTTAuthException(msg);
+    }
+
     public AuthenticationResult authenticate(MqttConnectMessage connectMessage) {
         String authMethod = MqttMessageUtils.getAuthMethod(connectMessage);
         if (authMethod != null) {
@@ -100,6 +139,9 @@ public class MQTTAuthenticationService {
     public AuthenticationResult authenticate(String clientIdentifier,
                                               String authMethod,
                                               AuthenticationDataCommand command) {
+        if (MTLS.equalsIgnoreCase(authMethod)) {
+            return new AuthenticationResult(true, command.getCommandData(), command);
+        }
         AuthenticationProvider authenticationProvider = authenticationProviders.get(authMethod);
         if (authenticationProvider == null) {
             log.warn("Authentication failed, no authMethod : {} for CId={}", clientIdentifier, authMethod);

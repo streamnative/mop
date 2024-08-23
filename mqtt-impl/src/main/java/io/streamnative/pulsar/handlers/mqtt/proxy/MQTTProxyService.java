@@ -23,6 +23,7 @@ import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;
+import io.streamnative.pulsar.handlers.mqtt.oidc.OIDCService;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
 import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
@@ -36,6 +37,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
+import org.apache.pulsar.metadata.api.MetadataStoreException;
 
 /**
  * This service is used for redirecting MQTT client request to proper MQTT protocol handler Broker.
@@ -61,6 +63,9 @@ public class MQTTProxyService implements Closeable {
     private final PSKConfiguration pskConfiguration;
     @Getter
     private final MQTTProxyAdapter proxyAdapter;
+
+    @Getter
+    private OIDCService oidcService;
 
     private Channel listenChannel;
     private Channel listenChannelTls;
@@ -117,7 +122,7 @@ public class MQTTProxyService implements Closeable {
             throw new MQTTProxyException(e);
         }
 
-        if (proxyConfig.isMqttProxyTlsEnabled()) {
+        if (proxyConfig.isMqttProxyTlsEnabled() || proxyConfig.isMqttProxyMtlsEnabled()) {
             ServerBootstrap tlsBootstrap = serverBootstrap.clone();
             tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(
                     this, proxyConfig, true, sslContextRefresher));
@@ -146,6 +151,13 @@ public class MQTTProxyService implements Closeable {
                 log.info("Started MQTT Proxy with TLS-PSK on {}", listenChannelTlsPsk.localAddress());
             } catch (InterruptedException e) {
                 throw new MQTTProxyException(e);
+            }
+        }
+        if (proxyConfig.isMqttProxyMtlsEnabled()) {
+            try {
+                this.oidcService = new OIDCService(pulsarService);
+            } catch (MetadataStoreException ex) {
+                throw new MQTTProxyException(ex);
             }
         }
 

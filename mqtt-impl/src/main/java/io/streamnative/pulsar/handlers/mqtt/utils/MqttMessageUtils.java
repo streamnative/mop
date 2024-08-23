@@ -19,6 +19,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
+import io.netty.handler.codec.mqtt.MqttConnectVariableHeader;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
@@ -180,6 +181,25 @@ public class MqttMessageUtils {
         // No need to add delayInterval to the properties, it will cause client close the connection.
         builder.properties(properties);
         return builder.build();
+    }
+
+    public static MqttConnectMessage createMqttConnectMessage(MqttConnectMessage connectMessage,
+                                                              String authMethod,
+                                                              String authData) {
+        final MqttConnectVariableHeader header = connectMessage.variableHeader();
+        MqttProperties properties = new MqttProperties();
+        properties.add(new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value()
+                , authMethod));
+        properties.add(new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value()
+                , authData.getBytes()));
+        MqttConnectVariableHeader variableHeader = new MqttConnectVariableHeader(
+                header.name(), header.version(), header.hasUserName(), header.hasPassword(), header.isWillRetain(),
+                header.willQos(), header.isWillFlag(), header.isCleanSession(), header.keepAliveTimeSeconds(),
+                properties
+        );
+        MqttConnectMessage newConnectMessage = new MqttConnectMessage(connectMessage.fixedHeader(), variableHeader,
+                connectMessage.payload());
+        return newConnectMessage;
     }
 
     public static MqttMessage createMqttDisconnectMessage() {

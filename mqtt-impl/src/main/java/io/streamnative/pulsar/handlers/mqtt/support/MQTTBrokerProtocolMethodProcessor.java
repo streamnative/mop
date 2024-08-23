@@ -27,6 +27,7 @@ import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import io.netty.handler.ssl.SslHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.MQTTService;
@@ -37,6 +38,7 @@ import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTAuthException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTNoSubscriptionExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.MQTTTopicNotExistedException;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidSessionExpireIntervalException;
@@ -50,6 +52,7 @@ import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5DisConnRea
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.properties.PulsarProperties;
+import io.streamnative.pulsar.handlers.mqtt.oidc.OIDCService;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.event.AutoSubscribeHandler;
@@ -87,14 +90,12 @@ import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.Codec;
 import org.apache.pulsar.common.util.FutureUtil;
 
-import javax.net.ssl.SSLPeerUnverifiedException;
-import javax.net.ssl.SSLSession;
-
 /**
  * Default implementation of protocol method processor.
  */
 @Slf4j
 public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMethodProcessor {
+
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
@@ -108,6 +109,8 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     private final WillMessageHandler willMessageHandler;
     private final RetainedMessageHandler retainedMessageHandler;
     private final AutoSubscribeHandler autoSubscribeHandler;
+
+    private final OIDCService oidcService;
     @Getter
     private final CompletableFuture<Void> inactiveFuture = new CompletableFuture<>();
 
@@ -127,6 +130,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         this.retainedMessageHandler = mqttService.getRetainedMessageHandler();
         this.serverCnx = new MQTTServerCnx(pulsarService, ctx);
         this.autoSubscribeHandler = new AutoSubscribeHandler(mqttService.getEventCenter());
+        this.oidcService = mqttService.getOidcService();
     }
 
     @Override
@@ -153,6 +157,17 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                 .build();
         metricsCollector.addClient(NettyUtils.getAndSetAddress(channel));
         connection.sendConnAck();
+    }
+
+    protected MQTTAuthenticationService.AuthenticationResult mtlsAuth(boolean fromProxy) throws MQTTAuthException {
+        if (fromProxy) {
+            return super.mtlsAuth(fromProxy);
+        }
+        if (configuration.isMqttMtlsEnabled()) {
+            SslHandler sslHandler = ctx.pipeline().get(SslHandler.class);
+            return authenticationService.mTlsAuthenticate(sslHandler, oidcService);
+        }
+        return super.mtlsAuth(fromProxy);
     }
 
     @Override
@@ -185,21 +200,6 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     public void processPublish(MqttAdapterMessage adapter) {
         if (log.isDebugEnabled()) {
             log.debug("[Publish] [{}] msg: {}", connection.getClientId(), adapter);
-        }
-        try {
-            SslHandler sslHandler = ctx.pipeline().get(SslHandler.class);
-            if (sslHandler != null) {
-                SSLSession session = sslHandler.engine().getSession();
-                java.security.cert.Certificate[] clientCerts = session.getPeerCertificates();
-                if (clientCerts.length > 0) {
-                    if (clientCerts[0] instanceof java.security.cert.X509Certificate) {
-                        java.security.cert.X509Certificate clientCert = (java.security.cert.X509Certificate) clientCerts[0];
-                        log.info("Client cert info: " + clientCert.getSubjectDN());
-                    }
-                }
-            }
-        } catch (SSLPeerUnverifiedException ex) {
-            log.warn("get client clientCerts error", ex);
         }
         MqttPublishMessage msg = (MqttPublishMessage) adapter.getMqttMessage();
         CompletableFuture<Void> result;

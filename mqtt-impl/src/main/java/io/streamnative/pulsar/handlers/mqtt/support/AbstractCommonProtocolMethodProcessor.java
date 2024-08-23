@@ -25,6 +25,7 @@ import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTAuthException;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidReceiveMaximumException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttConnectAck;
@@ -123,9 +124,10 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                         clientId, username);
             }
         } else {
-            MQTTAuthenticationService.AuthenticationResult authResult = authenticationService
-                    .authenticate(connectMessage);
-            if (authResult.isFailed()) {
+            MQTTAuthenticationService.AuthenticationResult authResult;
+            try {
+                authResult = mtlsAuth(adapter.fromProxy());
+            } catch (MQTTAuthException e) {
                 MqttMessage mqttMessage = MqttConnectAck.errorBuilder().authFail(protocolVersion);
                 log.error("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
                 adapter.setMqttMessage(mqttMessage);
@@ -134,6 +136,19 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                     channel.close();
                 }
                 return;
+            }
+            if (authResult.isFailed()) {
+                authResult = authenticationService.authenticate(connectMessage);
+                if (authResult.isFailed()) {
+                    MqttMessage mqttMessage = MqttConnectAck.errorBuilder().authFail(protocolVersion);
+                    log.error("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
+                    adapter.setMqttMessage(mqttMessage);
+                    channel.writeAndFlush(adapter);
+                    if (!adapter.fromProxy()) {
+                        channel.close();
+                    }
+                    return;
+                }
             }
             userRole = authResult.getUserRole();
             authData = authResult.getAuthData();
@@ -155,6 +170,10 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                 channel.close();
             }
         }
+    }
+
+    protected MQTTAuthenticationService.AuthenticationResult mtlsAuth(boolean fromProxy) throws MQTTAuthException {
+        return MQTTAuthenticationService.AuthenticationResult.FAILED;
     }
 
     @Override

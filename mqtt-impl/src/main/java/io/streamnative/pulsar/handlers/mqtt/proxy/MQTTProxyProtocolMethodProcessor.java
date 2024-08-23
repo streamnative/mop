@@ -13,6 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static io.streamnative.pulsar.handlers.mqtt.Constants.MTLS;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttConnectMessage;
 import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -23,17 +25,21 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
+import io.netty.handler.ssl.SslHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.AdapterChannel;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTAuthException;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttPubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttSubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.properties.PulsarProperties;
+import io.streamnative.pulsar.handlers.mqtt.oidc.OIDCService;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
@@ -64,17 +70,19 @@ import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.Codec;
 import org.apache.pulsar.common.util.FutureUtil;
+
 /**
  * Proxy inbound handler is the bridge between proxy and MoP.
  */
 @Slf4j
 public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMethodProcessor {
 
+    private final PulsarService pulsarService;
+
     @Getter
     private Connection connection;
     private final LookupHandler lookupHandler;
     private final MQTTProxyConfiguration proxyConfig;
-    private final PulsarService pulsarService;
     private final Map<String, CompletableFuture<AdapterChannel>> topicBrokers;
     private final Map<InetSocketAddress, AdapterChannel> adapterChannels;
     @Getter
@@ -86,6 +94,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final MQTTConnectionManager connectionManager;
     private final SystemEventService eventService;
     private final MQTTProxyAdapter proxyAdapter;
+
+    private final OIDCService oidcService;
     private final AtomicBoolean isDisconnected = new AtomicBoolean(false);
     private final AutoSubscribeHandler autoSubscribeHandler;
 
@@ -95,8 +105,9 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
     public MQTTProxyProtocolMethodProcessor(MQTTProxyService proxyService, ChannelHandlerContext ctx) {
         super(proxyService.getAuthenticationService(),
-                proxyService.getProxyConfig().isMqttAuthenticationEnabled(), ctx);
-        this.pulsarService = proxyService.getPulsarService();
+                proxyService.getProxyConfig().isMqttAuthenticationEnabled(),
+                ctx);
+        pulsarService = proxyService.getPulsarService();
         this.lookupHandler = proxyService.getLookupHandler();
         this.proxyConfig = proxyService.getProxyConfig();
         this.connectionManager = proxyService.getConnectionManager();
@@ -107,6 +118,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.unsubscribeAckTracker = new MessageAckTracker();
         this.packetIdTopic = new ConcurrentHashMap<>();
         this.proxyAdapter = proxyService.getProxyAdapter();
+        this.oidcService = proxyService.getOidcService();
         this.maxPendingSendRequest = proxyConfig.getMaxPendingSendRequest();
         this.resumeReadThreshold = maxPendingSendRequest / 2;
         this.autoSubscribeHandler = new AutoSubscribeHandler(proxyService.getEventCenter());
@@ -115,7 +127,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     @Override
     public void doProcessConnect(MqttAdapterMessage adapter, String userRole,
                                  AuthenticationDataSource authData, ClientRestrictions clientRestrictions) {
-        final MqttConnectMessage msg = (MqttConnectMessage) adapter.getMqttMessage();
+        MqttConnectMessage msg = (MqttConnectMessage) adapter.getMqttMessage();
         final ServerRestrictions serverRestrictions = ServerRestrictions.builder()
                 .receiveMaximum(proxyConfig.getReceiveMaximum())
                 .maximumPacketSize(proxyConfig.getMqttMessageMaxLength())
@@ -133,11 +145,25 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .processor(this)
                 .build();
         connection.sendConnAck();
+        if (proxyConfig.isMqttProxyMtlsEnabled()) {
+            MqttConnectMessage connectMessage = createMqttConnectMessage(msg, MTLS, userRole);
+            msg = connectMessage;
+            connection.setConnectMessage(msg);
+        }
+
         ConnectEvent connectEvent = ConnectEvent.builder()
                 .clientId(connection.getClientId())
                 .address(pulsarService.getAdvertisedAddress())
                 .build();
         eventService.sendConnectEvent(connectEvent);
+    }
+
+    protected MQTTAuthenticationService.AuthenticationResult mtlsAuth(boolean fromProxy) throws MQTTAuthException {
+        if (proxyConfig.isMqttProxyMtlsEnabled()) {
+            SslHandler sslHandler = ctx.pipeline().get(SslHandler.class);
+            return authenticationService.mTlsAuthenticate(sslHandler, oidcService);
+        }
+        return super.mtlsAuth(fromProxy);
     }
 
     @Override
@@ -447,8 +473,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 key -> lookupHandler.findBroker(TopicName.get(topic)).thenApply(mqttBroker ->
                         adapterChannels.computeIfAbsent(mqttBroker, key1 -> {
                             AdapterChannel adapterChannel = proxyAdapter.getAdapterChannel(mqttBroker);
+                            final MqttConnectMessage connectMessage = connection.getConnectMessage();
+
                             adapterChannel.writeAndFlush(new MqttAdapterMessage(connection.getClientId(),
-                                connection.getConnectMessage()));
+                                    connectMessage));
                             return adapterChannel;
                         })
                 )
