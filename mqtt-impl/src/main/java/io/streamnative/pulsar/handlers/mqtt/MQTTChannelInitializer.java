@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static org.apache.pulsar.client.impl.PulsarChannelInitializer.TLS_HANDLER;
-
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;

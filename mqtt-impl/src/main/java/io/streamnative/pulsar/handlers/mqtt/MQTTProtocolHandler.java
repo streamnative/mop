@@ -22,7 +22,6 @@ import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.SSL_
 import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.WS_PLAINTEXT_PREFIX;
 import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.WS_SSL_PREFIX;
 import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.getListenerPort;
-
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
