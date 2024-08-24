@@ -534,6 +534,15 @@ public abstract class MQTTProtocolHandlerTestBase {
         conf.setBrokerClientTrustCertsFilePath(getResourcePath("tls/cacert.pem"));
         conf.setBrokerClientCertificateFilePath(getResourcePath("tls/client-cert.pem"));
         conf.setBrokerClientKeyFilePath(getResourcePath("tls/client-key.pem"));
+        conf.setBrokerClientTlsEnabled(true);
+
+        conf.getProperties().setProperty("tlsTrustCertsFilePath", getResourcePath("tls/cacert.pem"));
+        conf.getProperties().setProperty("tlsCertificateFilePath", getResourcePath("tls/server-cert.pem"));
+        conf.getProperties().setProperty("tlsKeyFilePath", getResourcePath("tls/server-key.pem"));
+        conf.getProperties().setProperty("brokerClientTrustCertsFilePath", getResourcePath("tls/cacert.pem"));
+        conf.getProperties().setProperty("brokerClientCertificateFilePath", getResourcePath("tls/client-cert.pem"));
+        conf.getProperties().setProperty("brokerClientKeyFilePath", getResourcePath("tls/client-key.pem"));
+        conf.getProperties().setProperty("brokerClientTlsEnabled", "true");
     }
 
     private String getResourcePath(String path) {
