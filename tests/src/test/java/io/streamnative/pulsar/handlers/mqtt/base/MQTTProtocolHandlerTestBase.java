@@ -389,6 +389,7 @@ public abstract class MQTTProtocolHandlerTestBase {
                 mqttBrokerPort, mqttBrokerTlsPort, mqttBrokerTlsPskPort,
                 mqttProxyPort, mqttProxyTlsPort, mqttProxyTlsPskPort);
         ConfigurationUtils.extractFieldToProperties(conf);
+        setTLSConf(conf);
         this.pulsarServiceList.add(doStartBroker(conf));
     }
 
@@ -524,6 +525,24 @@ public abstract class MQTTProtocolHandlerTestBase {
             sb.append((char) (ThreadLocalRandom.current().nextInt(26) + 'a'));
         }
         return sb.toString();
+    }
+
+    private void setTLSConf(ServiceConfiguration conf) {
+        conf.setTlsTrustCertsFilePath(getResourcePath("tls/cacert.pem"));
+        conf.setTlsCertificateFilePath(getResourcePath("tls/server-cert.pem"));
+        conf.setTlsKeyFilePath(getResourcePath("tls/server-key.pem"));
+        conf.setBrokerClientTrustCertsFilePath(getResourcePath("tls/cacert.pem"));
+        conf.setBrokerClientCertificateFilePath(getResourcePath("tls/client-cert.pem"));
+        conf.setBrokerClientKeyFilePath(getResourcePath("tls/client-key.pem"));
+    }
+
+    private String getResourcePath(String path) {
+        // get resource directory path
+        URL resource = this.getClass().getClassLoader().getResource(path);
+        if (resource == null) {
+            throw new RuntimeException("Resource not found: " + path);
+        }
+        return resource.getPath();
     }
 
 }
