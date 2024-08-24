@@ -146,7 +146,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         try {
             this.sslFactory.update();
         } catch (Exception e) {
-            log.error("Failed to refresh SSL context for mqtt proxy channel.", e);
+            log.error("Failed to refresh SSL context for mqtt channel.", e);
         }
     }
 
