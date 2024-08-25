@@ -389,6 +389,7 @@ public abstract class MQTTProtocolHandlerTestBase {
                 mqttBrokerPort, mqttBrokerTlsPort, mqttBrokerTlsPskPort,
                 mqttProxyPort, mqttProxyTlsPort, mqttProxyTlsPskPort);
         ConfigurationUtils.extractFieldToProperties(conf);
+        setTLSConf(conf);
         this.pulsarServiceList.add(doStartBroker(conf));
     }
 
@@ -524,6 +525,33 @@ public abstract class MQTTProtocolHandlerTestBase {
             sb.append((char) (ThreadLocalRandom.current().nextInt(26) + 'a'));
         }
         return sb.toString();
+    }
+
+    private void setTLSConf(ServiceConfiguration conf) {
+        conf.setTlsTrustCertsFilePath(getResourcePath("tls/cacert.pem"));
+        conf.setTlsCertificateFilePath(getResourcePath("tls/server-cert.pem"));
+        conf.setTlsKeyFilePath(getResourcePath("tls/server-key.pem"));
+        conf.setBrokerClientTrustCertsFilePath(getResourcePath("tls/cacert.pem"));
+        conf.setBrokerClientCertificateFilePath(getResourcePath("tls/client-cert.pem"));
+        conf.setBrokerClientKeyFilePath(getResourcePath("tls/client-key.pem"));
+        conf.setBrokerClientTlsEnabled(true);
+
+        conf.getProperties().setProperty("tlsTrustCertsFilePath", getResourcePath("tls/cacert.pem"));
+        conf.getProperties().setProperty("tlsCertificateFilePath", getResourcePath("tls/server-cert.pem"));
+        conf.getProperties().setProperty("tlsKeyFilePath", getResourcePath("tls/server-key.pem"));
+        conf.getProperties().setProperty("brokerClientTrustCertsFilePath", getResourcePath("tls/cacert.pem"));
+        conf.getProperties().setProperty("brokerClientCertificateFilePath", getResourcePath("tls/client-cert.pem"));
+        conf.getProperties().setProperty("brokerClientKeyFilePath", getResourcePath("tls/client-key.pem"));
+        conf.getProperties().setProperty("brokerClientTlsEnabled", "true");
+    }
+
+    private String getResourcePath(String path) {
+        // get resource directory path
+        URL resource = this.getClass().getClassLoader().getResource(path);
+        if (resource == null) {
+            throw new RuntimeException("Resource not found: " + path);
+        }
+        return resource.getPath();
     }
 
 }

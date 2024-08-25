@@ -25,17 +25,21 @@ import static io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils.getL
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
 import java.net.InetSocketAddress;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.ServiceConfigurationUtils;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
 import org.apache.pulsar.broker.service.BrokerService;
+
 /**
  * MQTT Protocol Handler load and run by Pulsar Service.
  */
@@ -55,6 +59,8 @@ public class MQTTProtocolHandler implements ProtocolHandler {
 
     @Getter
     private MQTTService mqttService;
+
+    private ScheduledExecutorService sslContextRefresher;
 
     @Override
     public String protocolName() {
@@ -112,6 +118,9 @@ public class MQTTProtocolHandler implements ProtocolHandler {
         checkArgument(mqttConfig.getMqttListeners() != null);
         checkArgument(brokerService != null);
 
+        this.sslContextRefresher = Executors.newSingleThreadScheduledExecutor(
+                new DefaultThreadFactory("mop-ssl-context-refresher"));
+
         String listeners = mqttConfig.getMqttListeners();
         String[] parts = listeners.split(LISTENER_DEL);
         try {
@@ -122,27 +131,28 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                 if (listener.startsWith(PLAINTEXT_PREFIX)) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(mqttService, false, false));
+                            new MQTTChannelInitializer(mqttService, false, false, sslContextRefresher));
 
                 } else if (listener.startsWith(SSL_PREFIX)) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(mqttService, true, false));
+                            new MQTTChannelInitializer(mqttService, true, false, sslContextRefresher));
 
                 } else if (listener.startsWith(SSL_PSK_PREFIX) && mqttConfig.isMqttTlsPskEnabled()) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(mqttService, false, true, false));
+                            new MQTTChannelInitializer(
+                                    mqttService, false, true, false, sslContextRefresher));
 
                 } else if (listener.startsWith(WS_PLAINTEXT_PREFIX)) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(mqttService, false, true));
+                            new MQTTChannelInitializer(mqttService, false, true, sslContextRefresher));
 
                 } else if (listener.startsWith(WS_SSL_PREFIX)) {
                     builder.put(
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
-                            new MQTTChannelInitializer(mqttService, true, true));
+                            new MQTTChannelInitializer(mqttService, true, true, sslContextRefresher));
 
                 } else {
                     log.error("MQTT listener {} not supported. supports {}, {} or {}",
@@ -159,6 +169,9 @@ public class MQTTProtocolHandler implements ProtocolHandler {
 
     @Override
     public void close() {
+        if (sslContextRefresher != null) {
+            sslContextRefresher.shutdownNow();
+        }
         if (proxyService != null) {
             proxyService.close();
         }
