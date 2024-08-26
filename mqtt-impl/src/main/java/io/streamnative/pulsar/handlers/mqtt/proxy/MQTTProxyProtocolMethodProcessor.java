@@ -15,6 +15,8 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import static io.streamnative.pulsar.handlers.mqtt.Constants.MTLS;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttConnectMessage;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttPublishMessage;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttSubscribeMessage;
 import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -145,6 +147,15 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .processor(this)
                 .build();
         connection.sendConnAck();
+//        if (MqttUtils.isMqtt5(msg.variableHeader().version()) && getMtlsAuthMethodAndData(msg).isPresent()) {
+//            MqttConnectMessage connectMessage = createMqttConnectMessage(msg, MTLS, userRole);
+//            msg = connectMessage;
+//            connection.setConnectMessage(msg);
+//        } else if (MqttUtils.isMqtt3(msg.variableHeader().version()) && proxyConfig.isMqttProxyMtlsEnabled()) {
+//            MqttConnectMessage connectMessage = createMqttConnectMessage(msg, MTLS, userRole);
+//            msg = connectMessage;
+//            connection.setConnectMessage(msg);
+//        }
         if (proxyConfig.isMqttProxyMtlsEnabled()) {
             MqttConnectMessage connectMessage = createMqttConnectMessage(msg, MTLS, userRole);
             msg = connectMessage;
@@ -178,6 +189,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
                 TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
         adapter.setClientId(connection.getClientId());
+        if (proxyConfig.isMqttProxyMtlsEnabled()) {
+            MqttPublishMessage mqttMessage = createMqttPublishMessage(msg, MTLS, connection.getUserRole());
+            adapter.setMqttMessage(mqttMessage);
+        }
         startPublish()
                 .thenCompose(__ ->  writeToBroker(pulsarTopicName, adapter))
                 .whenComplete((unused, ex) -> {
@@ -308,6 +323,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
         registerTopicListener(adapter);
+        if (proxyConfig.isMqttProxyMtlsEnabled()) {
+            MqttSubscribeMessage mqttMessage = createMqttSubscribeMessage(msg, MTLS, connection.getUserRole());
+            adapter.setMqttMessage(mqttMessage);
+        }
         doSubscribe(adapter, false)
                 .exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);

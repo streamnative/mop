@@ -36,7 +36,6 @@ import java.security.cert.CertificateFactory;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import javax.crypto.SecretKey;
 import javax.net.ssl.KeyManagerFactory;
@@ -50,11 +49,11 @@ import org.apache.pulsar.client.impl.auth.AuthenticationToken;
 import org.apache.pulsar.common.util.SecurityUtility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
+import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
 
 public class ProxyMtlsTest extends MQTTTestBase {
 
@@ -121,7 +120,7 @@ public class ProxyMtlsTest extends MQTTTestBase {
         Certificate caCert = CertificateFactory
                 .getInstance("X.509").generateCertificate(new FileInputStream(caCertFile));
 
-        File clientCertFile = new File(path + "client.crt");
+        File clientCertFile = new File(path + "client.cer");
         Certificate clientCert = CertificateFactory
                 .getInstance("X.509").generateCertificate(new FileInputStream(clientCertFile));
 
@@ -133,50 +132,24 @@ public class ProxyMtlsTest extends MQTTTestBase {
         return sslContext;
     }
 
-    public SSLContext createSSLContext2() throws Exception {
-        KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        keyStore.load(new FileInputStream(path + "client.p12"), "".toCharArray());
-
-        KeyStore trustStore = KeyStore.getInstance("PKCS12");
-        trustStore.load(new FileInputStream(path + "ca.p12"), "".toCharArray());
-
-        // 初始化密钥管理器
-        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-        keyManagerFactory.init(keyStore, "".toCharArray());
-
-        // 初始化信任管理器
-        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
-                TrustManagerFactory.getDefaultAlgorithm());
-        trustManagerFactory.init(trustStore);
-
-        final SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
-
-        return sslContext;
-    }
-
-
     @Test
     public void testMqtt3() throws Exception {
-
-
-        SSLContext sslContext = createSSLContext2();
+        SSLContext sslContext = createSSLContext();
         MQTT mqtt = createMQTTProxyTlsClient();
         mqtt.setSslContext(sslContext);
 
-        String topicName = "testProduceAndConsume";
+        String topicName = "mqtt3";
         BlockingConnection connection = mqtt.blockingConnection();
         connection.connect();
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
-//        connection.subscribe(topics);
-        String message = "Hello MQTT";
+        connection.subscribe(topics);
+        String message = "Hello MQTT3";
         connection.publish(topicName, message.getBytes(), QoS.AT_MOST_ONCE, false);
-//        Message received = connection.receive();
-//        Assert.assertEquals(received.getTopic(), topicName);
-//        Assert.assertEquals(new String(received.getPayload()), message);
-//        received.ack();
+        Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
+        Assert.assertEquals(new String(received.getPayload()), message);
+        received.ack();
         connection.disconnect();
-
     }
 
     @Test
@@ -200,28 +173,59 @@ public class ProxyMtlsTest extends MQTTTestBase {
                 .build();
 
         Random random = new Random();
-        final Mqtt5BlockingClient client = Mqtt5Client.builder()
-                .identifier(UUID.randomUUID().toString())
+        final Mqtt5BlockingClient client1 = Mqtt5Client.builder()
+                .identifier("client-1")
+                .serverHost("localhost")
+                .sslConfig(sslConfig)
+                .serverPort(getMqttProxyPortTlsList().get(random.nextInt(getMqttProxyPortTlsList().size())))
+                .buildBlocking();
+        final Mqtt5BlockingClient client2 = Mqtt5Client.builder()
+                .identifier("client-2")
                 .serverHost("localhost")
                 .sslConfig(sslConfig)
                 .serverPort(getMqttProxyPortTlsList().get(random.nextInt(getMqttProxyPortTlsList().size())))
                 .buildBlocking();
 
-        String topic = "testMqtt5";
-        client.connect();
-        client.subscribeWith().topicFilter(topic).qos(MqttQos.AT_LEAST_ONCE).send();
-        byte[] msg = "payload".getBytes();
-        client.publishWith()
-                .topic(topic)
+        String topic1 = "testMqtt5-client-1";
+        String topic2 = "testMqtt5-client-2";
+
+//        final Mqtt5UserProperties userProperties = Mqtt5UserProperties.builder().add(
+//                MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value() + "", Constants.MTLS).build();
+//        client1.connectWith().userProperties(userProperties).send();
+        client1.connect();
+        client2.connect();
+        client1.subscribeWith().topicFilter(topic1).qos(MqttQos.AT_LEAST_ONCE).send();
+        client2.subscribeWith().topicFilter(topic2).qos(MqttQos.AT_LEAST_ONCE).send();
+        byte[] msg1 = "client-1-payload".getBytes();
+        byte[] msg2 = "client-2-payload".getBytes();
+        client1.publishWith()
+                .topic(topic1)
                 .qos(MqttQos.AT_LEAST_ONCE)
-                .payload(msg)
+                .payload(msg1)
                 .send();
-        try (Mqtt5BlockingClient.Mqtt5Publishes publishes = client.publishes(MqttGlobalPublishFilter.ALL)) {
+
+        try (Mqtt5BlockingClient.Mqtt5Publishes publishes = client1.publishes(MqttGlobalPublishFilter.ALL)) {
+            System.out.println("go client1 receive");
             Mqtt5Publish publish = publishes.receive();
-            Assert.assertEquals(publish.getTopic(), MqttTopic.of(topic));
-            Assert.assertEquals(publish.getPayloadAsBytes(), msg);
+            Assert.assertEquals(publish.getTopic(), MqttTopic.of(topic1));
+            Assert.assertEquals(publish.getPayloadAsBytes(), msg1);
         }
-        client.unsubscribeWith().topicFilter(topic).send();
-        client.disconnect();
+        //
+        client2.publishWith()
+            .topic(topic2)
+            .qos(MqttQos.AT_LEAST_ONCE)
+            .payload(msg2)
+            .send();
+        try (Mqtt5BlockingClient.Mqtt5Publishes publishes = client2.publishes(MqttGlobalPublishFilter.ALL)) {
+            System.out.println("go client2 receive");
+            Mqtt5Publish publish = publishes.receive();
+            Assert.assertEquals(publish.getTopic(), MqttTopic.of(topic2));
+            Assert.assertEquals(publish.getPayloadAsBytes(), msg2);
+        }
+        client1.unsubscribeWith().topicFilter(topic1).send();
+        client1.disconnect();
+        client2.unsubscribeWith().topicFilter(topic1).send();
+        client2.disconnect();
+        System.out.println("done");
     }
 }

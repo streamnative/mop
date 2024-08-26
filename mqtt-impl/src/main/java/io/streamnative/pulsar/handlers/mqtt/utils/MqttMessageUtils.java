@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.MTLS;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -22,20 +23,25 @@ import io.netty.handler.codec.mqtt.MqttConnectPayload;
 import io.netty.handler.codec.mqtt.MqttConnectVariableHeader;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageIdAndPropertiesVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
+import io.netty.handler.codec.mqtt.MqttPublishVariableHeader;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.netty.handler.codec.mqtt.MqttVersion;
 import io.streamnative.pulsar.handlers.mqtt.support.MessageBuilder;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * Mqtt message utils.
@@ -193,13 +199,88 @@ public class MqttMessageUtils {
         properties.add(new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value()
                 , authData.getBytes()));
         MqttConnectVariableHeader variableHeader = new MqttConnectVariableHeader(
-                header.name(), header.version(), header.hasUserName(), header.hasPassword(), header.isWillRetain(),
-                header.willQos(), header.isWillFlag(), header.isCleanSession(), header.keepAliveTimeSeconds(),
+                header.name(), MqttVersion.MQTT_5.protocolLevel(), header.hasUserName(), header.hasPassword(),
+                header.isWillRetain(), header.willQos(), header.isWillFlag(), header.isCleanSession(),
+                header.keepAliveTimeSeconds(),
                 properties
         );
         MqttConnectMessage newConnectMessage = new MqttConnectMessage(connectMessage.fixedHeader(), variableHeader,
                 connectMessage.payload());
         return newConnectMessage;
+    }
+
+    public static MqttPublishMessage createMqttPublishMessage(MqttPublishMessage publishMessage,
+                                                              String authMethod,
+                                                              String authData) {
+        final MqttPublishVariableHeader header = publishMessage.variableHeader();
+        MqttProperties properties = new MqttProperties();
+        properties.add(new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value()
+                , authMethod));
+        properties.add(new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value()
+                , authData.getBytes()));
+        MqttPublishVariableHeader variableHeader = new MqttPublishVariableHeader(
+                header.topicName(), header.packetId(), properties);
+        MqttPublishMessage newPublishMessage = new MqttPublishMessage(publishMessage.fixedHeader(), variableHeader,
+                publishMessage.payload());
+        return newPublishMessage;
+    }
+
+    public static Optional<Pair<String, byte[]>> getMtlsAuthMethodAndData(MqttConnectMessage connectMessage) {
+        final MqttConnectVariableHeader header = connectMessage.variableHeader();
+        MqttProperties properties = header.properties();
+        final MqttProperties.MqttProperty property = properties.getProperty(
+                MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
+        if (property != null && property.value() instanceof String
+                && ((String) property.value()).equalsIgnoreCase(MTLS)) {
+            final MqttProperties.MqttProperty data = properties.getProperty(
+                    MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
+            return Optional.of(Pair.of((String) property.value(), (byte[]) data.value()));
+        }
+        return Optional.empty();
+    }
+
+    public static Optional<Pair<String, byte[]>> getMtlsAuthMethodAndData(MqttPublishMessage publishMessage) {
+        final MqttPublishVariableHeader header = publishMessage.variableHeader();
+        MqttProperties properties = header.properties();
+        final MqttProperties.MqttProperty property = properties.getProperty(
+                MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
+        if (property != null && property.value() instanceof String
+                && ((String) property.value()).equalsIgnoreCase(MTLS)) {
+            final MqttProperties.MqttProperty data = properties.getProperty(
+                    MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
+            return Optional.of(Pair.of((String) property.value(), (byte[]) data.value()));
+            }
+        return Optional.empty();
+    }
+
+    public static Optional<Pair<String, byte[]>> getMtlsAuthMethodAndData(MqttSubscribeMessage subscribeMessage) {
+        final MqttMessageIdAndPropertiesVariableHeader header = subscribeMessage.idAndPropertiesVariableHeader();
+        MqttProperties properties = header.properties();
+        final MqttProperties.MqttProperty property = properties.getProperty(
+                MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
+        if (property != null && property.value() instanceof String
+                && ((String) property.value()).equalsIgnoreCase(MTLS)) {
+            final MqttProperties.MqttProperty data = properties.getProperty(
+                    MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
+            return Optional.of(Pair.of((String) property.value(), (byte[]) data.value()));
+        }
+        return Optional.empty();
+    }
+
+    public static MqttSubscribeMessage createMqttSubscribeMessage(MqttSubscribeMessage subscribeMessage,
+                                                              String authMethod,
+                                                              String authData) {
+        final MqttMessageIdAndPropertiesVariableHeader header = subscribeMessage.idAndPropertiesVariableHeader();
+        MqttProperties properties = new MqttProperties();
+        properties.add(new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value()
+                , authMethod));
+        properties.add(new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value()
+                , authData.getBytes()));
+        MqttMessageIdAndPropertiesVariableHeader variableHeader = new MqttMessageIdAndPropertiesVariableHeader(
+                header.messageId(), properties);
+        MqttSubscribeMessage newSubscribeMessage = new MqttSubscribeMessage(subscribeMessage.fixedHeader(),
+                variableHeader, subscribeMessage.payload());
+        return newSubscribeMessage;
     }
 
     public static MqttMessage createMqttDisconnectMessage() {
