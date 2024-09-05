@@ -42,4 +42,8 @@ public record Pool(@JsonProperty(value = "name", required = true) String name,
     public int hashCode() {
         return Objects.hash(name);
     }
+
+    public String authType() {
+        return (authType == null || authType.isEmpty()) ? AUTH_TYPE_TOKEN : authType;
+    }
 }
