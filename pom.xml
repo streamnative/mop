@@ -187,6 +187,7 @@
                         <failOnViolation>true</failOnViolation>
                         <includeResources>false</includeResources>
                         <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                        <excludes>**/oidc/broker/common/**</excludes>
                     </configuration>
                     <executions>
                         <execution>

@@ -19,7 +19,6 @@ import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompil
 import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.SAN;
 import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.SHA1;
 import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.SNID;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import io.streamnative.oidc.broker.common.OIDCPoolResources;
@@ -193,7 +192,9 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
                 throw new AuthenticationException("Failed to get TLS certificates from client");
             }
 
-            // Parse CEL params form client certificate, refer to:  https://docs.confluent.io/cloud/current/security/authenticate/workload-identities/identity-providers/mtls/cel-filters.html
+            // Parse CEL params form client certificate, refer to:
+            // https://docs.confluent.io/cloud/current/security/authenticate/
+            // workload-identities/identity-providers/mtls/cel-filters.html
             final X509Certificate certificate = (X509Certificate) certs[0];
 
             // parse DN

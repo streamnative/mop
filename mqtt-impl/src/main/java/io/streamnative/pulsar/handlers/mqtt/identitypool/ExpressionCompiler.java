@@ -35,8 +35,7 @@ public class ExpressionCompiler {
     static final String SAN = "SAN";
     static final String SNID = "SNID";
     static final String SHA1 = "SHA1";
-
-    static final CelCompiler compiler;
+    static final CelCompiler COMPILER;
 
     static {
         CelCompilerBuilder celCompilerBuilder = CelCompilerFactory.standardCelCompilerBuilder()
@@ -48,7 +47,7 @@ public class ExpressionCompiler {
         celCompilerBuilder.addVar(SAN, SimpleType.STRING);
         celCompilerBuilder.addVar(SNID, SimpleType.STRING);
         celCompilerBuilder.addVar(SHA1, SimpleType.STRING);
-        compiler = celCompilerBuilder.build();
+        COMPILER = celCompilerBuilder.build();
     }
 
     final CelRuntime runtime = CelRuntimeFactory.standardCelRuntimeBuilder().build();
@@ -70,7 +69,7 @@ public class ExpressionCompiler {
     }
 
     private void compile() throws CelValidationException, CelEvaluationException {
-        this.ast = compiler.compile(expression).getAst();
+        this.ast = COMPILER.compile(expression).getAst();
         this.program = runtime.createProgram(ast);
     }
 
