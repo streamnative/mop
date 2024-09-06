@@ -17,14 +17,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import javax.validation.constraints.NotNull;
 
-public record Pool(@JsonProperty(value = "name", required = true) String name,
+public record Pool(@JsonProperty(value = "name", required = true) @NotNull String name,
                    @JsonProperty(value = "auth_type", defaultValue = AUTH_TYPE_TOKEN) @NotNull String authType,
                    @JsonProperty(value = "description", required = true) @NotNull String description,
-                   @JsonProperty(value = "provider_name", required = true) @NotNull String providerName,
+                   @JsonProperty(value = "provider_name") @NotNull String providerName,
                    @JsonProperty(value = "expression", required = true) @NotNull String expression) {
 
-    public final static String AUTH_TYPE_TOKEN = "token";
-    public final static String AUTH_TYPE_MTLS = "mtls";
+    public static final String AUTH_TYPE_TOKEN = "token";
+    public static final String AUTH_TYPE_MTLS = "mtls";
 
     @Override
     public boolean equals(Object o) {

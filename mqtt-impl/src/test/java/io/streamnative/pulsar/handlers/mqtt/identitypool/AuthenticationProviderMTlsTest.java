@@ -107,7 +107,7 @@ public class AuthenticationProviderMTlsTest {
         String sha1 = "c6deb54faffe854191ccb33ae44b9471c3a849a8".toUpperCase();
         String serialNumber = "61E61B07906A4FF7CD46B9591D3E1C390DF25E01";
 
-        Pool pool = new Pool(poolName, Pool.AUTH_TYPE_MTLS, "this a test mtls type pool", "",
+        Pool pool = new Pool(poolName, Pool.AUTH_TYPE_MTLS, "this a test mtls type pool", null,
             "DN.contains(\"C=US\") && OU=='Apache Pulsar' && SAN.contains(\"IP:127.0.0.1\") && SHA1=='" + sha1 + "' && "
                 + "SNID=='" + serialNumber + "'");
 
