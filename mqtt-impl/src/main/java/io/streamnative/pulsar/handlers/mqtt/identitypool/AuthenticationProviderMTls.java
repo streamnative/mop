@@ -234,7 +234,7 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
             try {
                 matched = compiler.eval(params);
             } catch (Exception e) {
-                log.warn("eval : {} value : {}", compiler.getExpression(), params, e);
+                log.warn("Failed to evaluate expression, eval : {} value : {}", compiler.getExpression(), params, e);
             }
             if (matched) {
                 principals.add(poolName);

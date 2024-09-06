@@ -14,7 +14,6 @@
 package io.streamnative.oidc.broker.common;
 
 import static io.streamnative.oidc.broker.common.OIDCConstants.RESOURCE_SYNC_OPERATION_TIMEOUT_SEC;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.streamnative.oidc.broker.common.pojo.Pool;
 import io.streamnative.oidc.broker.common.utils.Paths;
