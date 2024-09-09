@@ -24,6 +24,8 @@ public final class Constants {
     public static final String AUTH_BASIC = "basic";
     public static final String AUTH_TOKEN = "token";
 
+    public static final String AUTH_MTLS = "mTls";
+
     public static final String ATTR_TOPIC_SUBS = "topicSubs";
 
     public static final String MQTT_PROPERTIES = "MQTT_PROPERTIES_%d_";
@@ -44,8 +46,6 @@ public final class Constants {
     public static final String HANDLER_MQTT_WEB_SOCKET_CODEC = "mqttWebSocketCodecHandler";
 
     public static final String MQTT_SUB_PROTOCOL_CSV_LIST = "mqtt, mqttv3.1, mqttv3.1.1, mqttv5.0";
-
-    public static final String MTLS = "mTls";
 
     private Constants() {
     }

@@ -15,7 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.MTLS;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_MTLS;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -199,10 +199,9 @@ public class MqttMessageUtils {
         properties.add(new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value()
                 , authData.getBytes()));
         MqttConnectVariableHeader variableHeader = new MqttConnectVariableHeader(
-                header.name(), MqttVersion.MQTT_5.protocolLevel(), header.hasUserName(), header.hasPassword(),
-                header.isWillRetain(), header.willQos(), header.isWillFlag(), header.isCleanSession(),
-                header.keepAliveTimeSeconds(),
-                properties
+                MqttVersion.MQTT_5.protocolName(), MqttVersion.MQTT_5.protocolLevel(), header.hasUserName(),
+                header.hasPassword(), header.isWillRetain(), header.willQos(), header.isWillFlag(),
+                header.isCleanSession(), header.keepAliveTimeSeconds(), properties
         );
         MqttConnectMessage newConnectMessage = new MqttConnectMessage(connectMessage.fixedHeader(), variableHeader,
                 connectMessage.payload());
@@ -231,7 +230,7 @@ public class MqttMessageUtils {
         final MqttProperties.MqttProperty property = properties.getProperty(
                 MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
         if (property != null && property.value() instanceof String
-                && ((String) property.value()).equalsIgnoreCase(MTLS)) {
+                && ((String) property.value()).equalsIgnoreCase(AUTH_MTLS)) {
             final MqttProperties.MqttProperty data = properties.getProperty(
                     MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
             return Optional.of(Pair.of((String) property.value(), (byte[]) data.value()));
@@ -245,7 +244,7 @@ public class MqttMessageUtils {
         final MqttProperties.MqttProperty property = properties.getProperty(
                 MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
         if (property != null && property.value() instanceof String
-                && ((String) property.value()).equalsIgnoreCase(MTLS)) {
+                && ((String) property.value()).equalsIgnoreCase(AUTH_MTLS)) {
             final MqttProperties.MqttProperty data = properties.getProperty(
                     MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
             return Optional.of(Pair.of((String) property.value(), (byte[]) data.value()));
@@ -259,7 +258,7 @@ public class MqttMessageUtils {
         final MqttProperties.MqttProperty property = properties.getProperty(
                 MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
         if (property != null && property.value() instanceof String
-                && ((String) property.value()).equalsIgnoreCase(MTLS)) {
+                && ((String) property.value()).equalsIgnoreCase(AUTH_MTLS)) {
             final MqttProperties.MqttProperty data = properties.getProperty(
                     MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
             return Optional.of(Pair.of((String) property.value(), (byte[]) data.value()));

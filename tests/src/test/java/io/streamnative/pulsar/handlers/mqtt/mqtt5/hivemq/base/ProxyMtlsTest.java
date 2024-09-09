@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.mqtt5.hivemq.base;
 
+import static io.streamnative.oidc.broker.common.pojo.Pool.AUTH_TYPE_MTLS;
 import static org.mockito.Mockito.spy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -25,8 +26,12 @@ import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.streamnative.oidc.broker.common.OIDCPoolResources;
+import io.streamnative.oidc.broker.common.pojo.Pool;
+import io.streamnative.pulsar.handlers.mqtt.Constants;
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.identitypool.AuthenticationProviderMTls;
 import java.io.File;
 import java.io.FileInputStream;
 import java.security.KeyStore;
@@ -41,12 +46,14 @@ import javax.crypto.SecretKey;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationProviderToken;
 import org.apache.pulsar.broker.authentication.utils.AuthTokenUtils;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.impl.auth.AuthenticationToken;
 import org.apache.pulsar.common.util.SecurityUtility;
+import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.Message;
@@ -61,6 +68,8 @@ public class ProxyMtlsTest extends MQTTTestBase {
     String path = "./src/test/resources/mtls/";
 
     String token;
+
+    MQTTCommonConfiguration localConfig;
 
     @Override
     protected MQTTCommonConfiguration initConfig() throws Exception {
@@ -89,12 +98,17 @@ public class ProxyMtlsTest extends MQTTTestBase {
 
         mqtt.setAuthenticationEnabled(true);
         mqtt.setMqttAuthenticationEnabled(true);
-        mqtt.setMqttAuthenticationMethods(ImmutableList.of("token"));
+        mqtt.setMqttAuthenticationMethods(ImmutableList.of("token", Constants.AUTH_MTLS));
         mqtt.setSuperUserRoles(ImmutableSet.of("superUser"));
+        mqtt.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderToken.class.getName(),
+                AuthenticationProviderMTls.class.getName()));
+
         mqtt.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderToken.class.getName()));
         mqtt.setBrokerClientAuthenticationPlugin(AuthenticationToken.class.getName());
         mqtt.setBrokerClientAuthenticationParameters("token:" + token);
         mqtt.setProperties(properties);
+
+        localConfig = mqtt;
 
         return mqtt;
     }
@@ -113,6 +127,14 @@ public class ProxyMtlsTest extends MQTTTestBase {
                 .serviceHttpUrl(brokerUrl.toString())
                 .authentication(authToken)
                 .build());
+
+        final PulsarService pulsarService = pulsarServiceList.get(0);
+        OIDCPoolResources oidcPoolResources = new OIDCPoolResources(pulsarService.getLocalMetadataStore());
+
+        Pool pool = new Pool("test-pool", AUTH_TYPE_MTLS, "d", "provider-1", "CN=='CLIENT'");
+        oidcPoolResources.createPool(pool);
+
+        Awaitility.await().until(() -> oidcPoolResources.getPool("test-pool") != null);
     }
 
     public SSLContext createSSLContext() throws Exception {
@@ -189,9 +211,6 @@ public class ProxyMtlsTest extends MQTTTestBase {
         String topic1 = "testMqtt5-client-1";
         String topic2 = "testMqtt5-client-2";
 
-//        final Mqtt5UserProperties userProperties = Mqtt5UserProperties.builder().add(
-//                MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value() + "", Constants.MTLS).build();
-//        client1.connectWith().userProperties(userProperties).send();
         client1.connect();
         client2.connect();
         client1.subscribeWith().topicFilter(topic1).qos(MqttQos.AT_LEAST_ONCE).send();
@@ -205,7 +224,6 @@ public class ProxyMtlsTest extends MQTTTestBase {
                 .send();
 
         try (Mqtt5BlockingClient.Mqtt5Publishes publishes = client1.publishes(MqttGlobalPublishFilter.ALL)) {
-            System.out.println("go client1 receive");
             Mqtt5Publish publish = publishes.receive();
             Assert.assertEquals(publish.getTopic(), MqttTopic.of(topic1));
             Assert.assertEquals(publish.getPayloadAsBytes(), msg1);
@@ -217,7 +235,6 @@ public class ProxyMtlsTest extends MQTTTestBase {
             .payload(msg2)
             .send();
         try (Mqtt5BlockingClient.Mqtt5Publishes publishes = client2.publishes(MqttGlobalPublishFilter.ALL)) {
-            System.out.println("go client2 receive");
             Mqtt5Publish publish = publishes.receive();
             Assert.assertEquals(publish.getTopic(), MqttTopic.of(topic2));
             Assert.assertEquals(publish.getPayloadAsBytes(), msg2);
@@ -226,6 +243,5 @@ public class ProxyMtlsTest extends MQTTTestBase {
         client1.disconnect();
         client2.unsubscribeWith().topicFilter(topic1).send();
         client2.disconnect();
-        System.out.println("done");
     }
 }

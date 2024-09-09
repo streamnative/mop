@@ -51,7 +51,7 @@ public class AdapterChannel {
         });
         future.exceptionally(ex -> {
             log.warn("[AdapterChannel][{}] Proxy write to broker {} failed."
-                    + " error message: {}", clientId, broker, ex.getMessage());
+                    + " adapterMsg message: {}", clientId, broker, adapterMsg, ex);
             return null;
         });
         return future;

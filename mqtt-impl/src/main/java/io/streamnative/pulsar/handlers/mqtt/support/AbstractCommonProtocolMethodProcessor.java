@@ -21,6 +21,7 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
+import io.netty.handler.ssl.SslHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
@@ -34,6 +35,7 @@ import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import javax.net.ssl.SSLSession;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -125,9 +127,10 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
             }
         } else {
             MQTTAuthenticationService.AuthenticationResult authResult;
-            try {
-                authResult = mtlsAuth(adapter.fromProxy());
-            } catch (MQTTAuthException e) {
+            SslHandler sslHandler = ctx.pipeline().get(SslHandler.class);
+            SSLSession session = (sslHandler != null) ? sslHandler.engine().getSession() : null;
+            authResult = authenticationService.authenticate(adapter.fromProxy(), session, connectMessage);
+            if (authResult.isFailed()) {
                 MqttMessage mqttMessage = MqttConnectAck.errorBuilder().authFail(protocolVersion);
                 log.error("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
                 adapter.setMqttMessage(mqttMessage);
@@ -136,19 +139,6 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                     channel.close();
                 }
                 return;
-            }
-            if (authResult.isFailed()) {
-                authResult = authenticationService.authenticate(connectMessage);
-                if (authResult.isFailed()) {
-                    MqttMessage mqttMessage = MqttConnectAck.errorBuilder().authFail(protocolVersion);
-                    log.error("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
-                    adapter.setMqttMessage(mqttMessage);
-                    channel.writeAndFlush(adapter);
-                    if (!adapter.fromProxy()) {
-                        channel.close();
-                    }
-                    return;
-                }
             }
             userRole = authResult.getUserRole();
             authData = authResult.getAuthData();

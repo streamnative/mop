@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import static io.streamnative.pulsar.handlers.mqtt.Constants.MTLS;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_MTLS;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttConnectMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttPublishMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttSubscribeMessage;
@@ -27,21 +27,17 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttSubscribeMessage;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
-import io.netty.handler.ssl.SslHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
-import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.AdapterChannel;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
-import io.streamnative.pulsar.handlers.mqtt.exception.MQTTAuthException;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttPubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttSubAck;
 import io.streamnative.pulsar.handlers.mqtt.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.messages.properties.PulsarProperties;
-import io.streamnative.pulsar.handlers.mqtt.oidc.OIDCService;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.restrictions.ServerRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.support.AbstractCommonProtocolMethodProcessor;
@@ -97,7 +93,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final SystemEventService eventService;
     private final MQTTProxyAdapter proxyAdapter;
 
-    private final OIDCService oidcService;
     private final AtomicBoolean isDisconnected = new AtomicBoolean(false);
     private final AutoSubscribeHandler autoSubscribeHandler;
 
@@ -120,7 +115,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         this.unsubscribeAckTracker = new MessageAckTracker();
         this.packetIdTopic = new ConcurrentHashMap<>();
         this.proxyAdapter = proxyService.getProxyAdapter();
-        this.oidcService = proxyService.getOidcService();
         this.maxPendingSendRequest = proxyConfig.getMaxPendingSendRequest();
         this.resumeReadThreshold = maxPendingSendRequest / 2;
         this.autoSubscribeHandler = new AutoSubscribeHandler(proxyService.getEventCenter());
@@ -147,17 +141,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .processor(this)
                 .build();
         connection.sendConnAck();
-//        if (MqttUtils.isMqtt5(msg.variableHeader().version()) && getMtlsAuthMethodAndData(msg).isPresent()) {
-//            MqttConnectMessage connectMessage = createMqttConnectMessage(msg, MTLS, userRole);
-//            msg = connectMessage;
-//            connection.setConnectMessage(msg);
-//        } else if (MqttUtils.isMqtt3(msg.variableHeader().version()) && proxyConfig.isMqttProxyMtlsEnabled()) {
-//            MqttConnectMessage connectMessage = createMqttConnectMessage(msg, MTLS, userRole);
-//            msg = connectMessage;
-//            connection.setConnectMessage(msg);
-//        }
         if (proxyConfig.isMqttProxyMtlsEnabled()) {
-            MqttConnectMessage connectMessage = createMqttConnectMessage(msg, MTLS, userRole);
+            MqttConnectMessage connectMessage = createMqttConnectMessage(msg, AUTH_MTLS, userRole);
             msg = connectMessage;
             connection.setConnectMessage(msg);
         }
@@ -167,14 +152,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .address(pulsarService.getAdvertisedAddress())
                 .build();
         eventService.sendConnectEvent(connectEvent);
-    }
-
-    protected MQTTAuthenticationService.AuthenticationResult mtlsAuth(boolean fromProxy) throws MQTTAuthException {
-        if (proxyConfig.isMqttProxyMtlsEnabled()) {
-            SslHandler sslHandler = ctx.pipeline().get(SslHandler.class);
-            return authenticationService.mTlsAuthenticate(sslHandler, oidcService);
-        }
-        return super.mtlsAuth(fromProxy);
     }
 
     @Override
@@ -190,7 +167,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
         adapter.setClientId(connection.getClientId());
         if (proxyConfig.isMqttProxyMtlsEnabled()) {
-            MqttPublishMessage mqttMessage = createMqttPublishMessage(msg, MTLS, connection.getUserRole());
+            MqttPublishMessage mqttMessage = createMqttPublishMessage(msg, AUTH_MTLS, connection.getUserRole());
             adapter.setMqttMessage(mqttMessage);
         }
         startPublish()
@@ -324,7 +301,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         }
         registerTopicListener(adapter);
         if (proxyConfig.isMqttProxyMtlsEnabled()) {
-            MqttSubscribeMessage mqttMessage = createMqttSubscribeMessage(msg, MTLS, connection.getUserRole());
+            MqttSubscribeMessage mqttMessage = createMqttSubscribeMessage(msg, AUTH_MTLS, connection.getUserRole());
             adapter.setMqttMessage(mqttMessage);
         }
         doSubscribe(adapter, false)
