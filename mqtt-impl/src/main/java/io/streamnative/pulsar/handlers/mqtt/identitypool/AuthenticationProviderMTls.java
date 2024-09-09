@@ -69,6 +69,7 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
     @VisibleForTesting
     private final ConcurrentHashMap<String, ExpressionCompiler> poolMap = new ConcurrentHashMap<>();
     private boolean needCloseMetaData = false;
+    private AuthenticationMetrics metrics;
 
     private enum ErrorCode {
         UNKNOWN,
@@ -82,8 +83,19 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
     }
 
     @Override
-    public void initialize(ServiceConfiguration config) throws IOException {
-        this.metadataStore = createLocalMetadataStore(config);
+    public void initialize(ServiceConfiguration conf) throws IOException {
+        initialize(Context.builder().config(conf).build());
+    }
+
+    @Override
+    public void initialize(Context context) throws IOException {
+        metrics = new AuthenticationMetrics(
+                context.getOpenTelemetry(), getClass().getSimpleName(), "mtls");
+        init(context.getConfig());
+    }
+
+    private void init(ServiceConfiguration conf) throws MetadataStoreException {
+        this.metadataStore = createLocalMetadataStore(conf);
         this.needCloseMetaData = true;
         this.metadataStore.registerListener(this::handleMetadataChanges);
         this.poolResources = new OIDCPoolResources(metadataStore);
@@ -91,6 +103,9 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
     }
 
     public void initialize(MetadataStore metadataStore) {
+        Context context = Context.builder().build();
+        this.metrics = new AuthenticationMetrics(
+                context.getOpenTelemetry(), getClass().getSimpleName(), "mtls");
         this.metadataStore = metadataStore;
         this.metadataStore.registerListener(this::handleMetadataChanges);
         this.poolResources = new OIDCPoolResources(metadataStore);
@@ -219,10 +234,10 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
                 errorCode = ErrorCode.NO_MATCH_POOL;
                 throw new AuthenticationException("No matched identity pool from the client certificate");
             }
-            AuthenticationMetrics.authenticateSuccess(this.getClass().getSimpleName(), this.getAuthMethodName());
+            metrics.recordSuccess();
             return principal;
         } catch (AuthenticationException e) {
-            this.incrementFailureMetric(errorCode);
+            metrics.recordFailure(errorCode);
             throw e;
         }
     }
