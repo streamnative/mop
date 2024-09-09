@@ -143,6 +143,13 @@
             <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>dev.cel</groupId>
+            <artifactId>cel</artifactId>
+            <version>0.5.2</version>
+            <!--  It included in snoidc-broker-common -->
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>
@@ -180,6 +187,7 @@
                         <failOnViolation>true</failOnViolation>
                         <includeResources>false</includeResources>
                         <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                        <excludes>**/oidc/broker/common/**</excludes>
                     </configuration>
                     <executions>
                         <execution>
@@ -264,6 +272,7 @@
                         <exclude>**/.github/**</exclude>
                         <exlude>**/.ci/**</exlude>
                         <exclude>**/mqtt-perf/**</exclude>
+                        <exclude>**/resources/mtls/**</exclude>
                     </excludes>
                     <mapping>
                         <proto>JAVADOC_STYLE</proto>
