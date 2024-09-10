@@ -96,11 +96,7 @@
             </exclusions>
         </dependency>
 
-        <dependency>
-            <groupId>dev.cel</groupId>
-            <artifactId>cel</artifactId>
-            <version>0.5.2</version>
-        </dependency>
+
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-all</artifactId>
