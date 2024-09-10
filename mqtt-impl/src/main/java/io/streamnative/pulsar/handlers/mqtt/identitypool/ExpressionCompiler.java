@@ -73,7 +73,7 @@ public class ExpressionCompiler {
         this.program = runtime.createProgram(ast);
     }
 
-    public Boolean eval(Map<String, Object> mapValue) throws Exception {
+    public Boolean eval(Map<String, String> mapValue) throws Exception {
         final Object eval = program.eval(mapValue);
         if (eval instanceof Boolean) {
             return (Boolean) eval;
