@@ -21,10 +21,12 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
+import io.netty.handler.ssl.SslHandler;
 import io.streamnative.pulsar.handlers.mqtt.Connection;
 import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.ProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.exception.MQTTAuthException;
 import io.streamnative.pulsar.handlers.mqtt.exception.restrictions.InvalidReceiveMaximumException;
 import io.streamnative.pulsar.handlers.mqtt.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.messages.ack.MqttConnectAck;
@@ -33,6 +35,7 @@ import io.streamnative.pulsar.handlers.mqtt.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import javax.net.ssl.SSLSession;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -123,8 +126,10 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                         clientId, username);
             }
         } else {
-            MQTTAuthenticationService.AuthenticationResult authResult = authenticationService
-                    .authenticate(connectMessage);
+            MQTTAuthenticationService.AuthenticationResult authResult;
+            SslHandler sslHandler = ctx.pipeline().get(SslHandler.class);
+            SSLSession session = (sslHandler != null) ? sslHandler.engine().getSession() : null;
+            authResult = authenticationService.authenticate(adapter.fromProxy(), session, connectMessage);
             if (authResult.isFailed()) {
                 MqttMessage mqttMessage = MqttConnectAck.errorBuilder().authFail(protocolVersion);
                 log.error("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
@@ -155,6 +160,10 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
                 channel.close();
             }
         }
+    }
+
+    protected MQTTAuthenticationService.AuthenticationResult mtlsAuth(boolean fromProxy) throws MQTTAuthException {
+        return MQTTAuthenticationService.AuthenticationResult.FAILED;
     }
 
     @Override

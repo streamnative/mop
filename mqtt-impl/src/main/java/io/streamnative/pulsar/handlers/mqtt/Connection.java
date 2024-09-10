@@ -44,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 
@@ -69,7 +70,8 @@ public class Connection {
     @Getter
     private final TopicSubscriptionManager topicSubscriptionManager;
     @Getter
-    private final MqttConnectMessage connectMessage;
+    @Setter
+    private MqttConnectMessage connectMessage;
     @Getter
     private final ClientRestrictions clientRestrictions;
     @Getter

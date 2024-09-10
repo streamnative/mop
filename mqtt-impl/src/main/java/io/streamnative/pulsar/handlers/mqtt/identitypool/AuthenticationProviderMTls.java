@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.identitypool;
 
-
 import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.DN;
 import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.DN_KEYS;
 import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.SAN;
