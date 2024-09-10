@@ -148,6 +148,13 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
             required = false,
+            doc = "Whether use mTLS authenticate for mTLS connection"
+    )
+    private boolean mqttProxyMTlsAuthenticationEnabled = false;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
             doc = "Whether start mqtt protocol handler with proxy tls psk"
     )
     private boolean mqttProxyTlsPskEnabled = false;

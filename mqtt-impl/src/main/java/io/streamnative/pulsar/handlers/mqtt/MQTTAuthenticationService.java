@@ -14,14 +14,17 @@
 package io.streamnative.pulsar.handlers.mqtt;
 
 import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_BASIC;
+import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_MTLS;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_TOKEN;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
+import io.streamnative.pulsar.handlers.mqtt.identitypool.AuthenticationProviderMTls;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.naming.AuthenticationException;
+import javax.net.ssl.SSLSession;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +32,7 @@ import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.authentication.AuthenticationService;
+import org.apache.pulsar.broker.service.BrokerService;
 
 /**
  * MQTT authentication service.
@@ -42,8 +46,15 @@ public class MQTTAuthenticationService {
     @Getter
     private final Map<String, AuthenticationProvider> authenticationProviders;
 
-    public MQTTAuthenticationService(AuthenticationService authenticationService, List<String> authenticationMethods) {
-        this.authenticationService = authenticationService;
+    private final BrokerService brokerService;
+
+    private final boolean mqttProxyMTlsAuthenticationEnabled;
+
+    public MQTTAuthenticationService(BrokerService brokerService, List<String> authenticationMethods, boolean
+            mqttProxyMTlsAuthenticationEnabled) {
+        this.brokerService = brokerService;
+        this.mqttProxyMTlsAuthenticationEnabled = mqttProxyMTlsAuthenticationEnabled;
+        this.authenticationService = brokerService.getAuthenticationService();
         this.authenticationProviders = getAuthenticationProviders(authenticationMethods);
     }
 
@@ -57,34 +68,49 @@ public class MQTTAuthenticationService {
                 log.error("MQTT authentication method {} is not enabled in Pulsar configuration!", method);
             }
         }
+        if (mqttProxyMTlsAuthenticationEnabled) {
+            AuthenticationProviderMTls providerMTls = new AuthenticationProviderMTls();
+            try {
+                providerMTls.initialize(brokerService.pulsar().getLocalMetadataStore());
+                providers.put(AUTH_MTLS, providerMTls);
+            } catch (Exception e) {
+                log.error("Failed to initialize MQTT authentication method {} ", AUTH_MTLS, e);
+            }
+        }
         if (providers.isEmpty()) {
             throw new IllegalArgumentException(
                     "MQTT authentication is enabled but no providers were successfully configured");
         }
+
         return providers;
     }
 
-    public AuthenticationResult authenticate(MqttConnectMessage connectMessage) {
+    public AuthenticationResult authenticate(boolean fromProxy,
+                                             SSLSession session, MqttConnectMessage connectMessage) {
         String authMethod = MqttMessageUtils.getAuthMethod(connectMessage);
         if (authMethod != null) {
             byte[] authData = MqttMessageUtils.getAuthData(connectMessage);
             if (authData == null) {
                 return AuthenticationResult.FAILED;
             }
+            if (fromProxy && AUTH_MTLS.equalsIgnoreCase(authMethod)) {
+                return new AuthenticationResult(true, new String(authData),
+                        new AuthenticationDataCommand(new String(authData), null, session));
+            }
             return authenticate(connectMessage.payload().clientIdentifier(), authMethod,
-                    new AuthenticationDataCommand(new String(authData)));
+                    new AuthenticationDataCommand(new String(authData), null, session));
         }
-        return authenticate(connectMessage.payload());
+        return authenticate(connectMessage.payload(), session);
     }
 
-    public AuthenticationResult authenticate(MqttConnectPayload payload) {
+    public AuthenticationResult authenticate(MqttConnectPayload payload, SSLSession session) {
         String userRole = null;
         boolean authenticated = false;
         AuthenticationDataSource authenticationDataSource = null;
         for (Map.Entry<String, AuthenticationProvider> entry : authenticationProviders.entrySet()) {
             String authMethod = entry.getKey();
             try {
-                AuthenticationDataSource authData = getAuthData(authMethod, payload);
+                AuthenticationDataSource authData = getAuthData(authMethod, payload, session);
                 userRole = entry.getValue().authenticate(authData);
                 authenticated = true;
                 authenticationDataSource = authData;
@@ -116,12 +142,14 @@ public class MQTTAuthenticationService {
         return new AuthenticationResult(authenticated, userRole, command);
     }
 
-    public AuthenticationDataSource getAuthData(String authMethod, MqttConnectPayload payload) {
+    public AuthenticationDataSource getAuthData(String authMethod, MqttConnectPayload payload, SSLSession session) {
         switch (authMethod) {
             case AUTH_BASIC:
                 return new AuthenticationDataCommand(payload.userName() + ":" + payload.password());
             case AUTH_TOKEN:
                 return new AuthenticationDataCommand(payload.password());
+            case AUTH_MTLS:
+                return new AuthenticationDataCommand(null, null, session);
             default:
                 throw new IllegalArgumentException(
                         String.format("Unsupported authentication method : %s!", authMethod));

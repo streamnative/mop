@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createWillMessage;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getMtlsAuthMethodAndData;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
 import io.netty.channel.ChannelHandlerContext;
@@ -74,7 +75,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.PositionFactory;
 import org.apache.bookkeeper.mledger.impl.AckSetStateUtil;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -91,6 +94,7 @@ import org.apache.pulsar.common.util.FutureUtil;
  */
 @Slf4j
 public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMethodProcessor {
+
     private final PulsarService pulsarService;
     private final QosPublishHandlers qosPublishHandlers;
     private final MQTTServerConfiguration configuration;
@@ -104,6 +108,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     private final WillMessageHandler willMessageHandler;
     private final RetainedMessageHandler retainedMessageHandler;
     private final AutoSubscribeHandler autoSubscribeHandler;
+
     @Getter
     private final CompletableFuture<Void> inactiveFuture = new CompletableFuture<>();
 
@@ -180,19 +185,28 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     @Override
     public void processPublish(MqttAdapterMessage adapter) {
         if (log.isDebugEnabled()) {
-            log.debug("[Publish] [{}] msg: {}", connection.getClientId(), adapter);
+            log.debug("[Publish] [{}] msg: {}", adapter.getClientId(), adapter);
         }
         MqttPublishMessage msg = (MqttPublishMessage) adapter.getMqttMessage();
         CompletableFuture<Void> result;
         if (!configuration.isMqttAuthorizationEnabled()) {
             if (log.isDebugEnabled()) {
                 log.debug("[Publish] authorization is disabled, allowing client. CId={}, userRole={}",
-                        connection.getClientId(), connection.getUserRole());
+                        adapter.getClientId(), connection.getUserRole());
             }
             result = doPublish(adapter);
         } else {
+            String userRole = connection.getUserRole();
+            AuthenticationDataSource authData = connection.getAuthData();
+            if (adapter.fromProxy()) {
+                final Optional<Pair<String, byte[]>> mtlsAuthMethodAndData = getMtlsAuthMethodAndData(msg);
+                if (mtlsAuthMethodAndData.isPresent()) {
+                    userRole = mtlsAuthMethodAndData.get().getKey();
+                    authData = new AuthenticationDataCommand(new String(mtlsAuthMethodAndData.get().getValue()));
+                }
+            }
             result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
-                            connection.getUserRole(), connection.getAuthData())
+                            userRole, authData)
                     .thenCompose(authorized -> authorized ? doPublish(adapter) : doUnauthorized(adapter));
         }
         result.thenAccept(__ -> msg.release())
@@ -340,7 +354,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
     public void processSubscribe(MqttAdapterMessage adapter) {
         MqttSubscribeMessage msg = (MqttSubscribeMessage) adapter.getMqttMessage();
         final String clientId = connection.getClientId();
-        final String userRole = connection.getUserRole();
+        String userRole = connection.getUserRole();
         final int packetId = msg.variableHeader().messageId();
         if (log.isDebugEnabled()) {
             log.debug("[Subscribe] [{}] msg: {}", clientId, msg);
@@ -351,15 +365,24 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             }
             doSubscribe(msg);
         } else {
+            AuthenticationDataSource authData = connection.getAuthData();
+            if (adapter.fromProxy()) {
+                final Optional<Pair<String, byte[]>> mtlsAuthMethodAndData = getMtlsAuthMethodAndData(msg);
+                if (mtlsAuthMethodAndData.isPresent()) {
+                    userRole = mtlsAuthMethodAndData.get().getKey();
+                    authData = new AuthenticationDataCommand(new String(mtlsAuthMethodAndData.get().getValue()));
+                }
+            }
             List<CompletableFuture<Void>> authorizationFutures = new ArrayList<>();
             AtomicBoolean authorizedFlag = new AtomicBoolean(true);
             for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
+                String finalUserRole = userRole;
                 authorizationFutures.add(this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
-                        userRole, connection.getAuthData(), userRole).thenAccept((authorized) -> {
+                        userRole, authData, userRole).thenAccept((authorized) -> {
                             if (!authorized) {
                                 authorizedFlag.set(false);
                                 log.warn("[Subscribe] no authorization to sub topic={}, userRole={}, CId= {}",
-                                        topic.topicName(), userRole, clientId);
+                                        topic.topicName(), finalUserRole, clientId);
                             }
                         }));
             }

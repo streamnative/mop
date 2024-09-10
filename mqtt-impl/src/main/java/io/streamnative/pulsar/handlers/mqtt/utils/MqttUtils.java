@@ -42,6 +42,10 @@ public class MqttUtils {
     public static boolean isNotMqtt3(int version) {
         return !isMqtt3(version);
     }
+
+    public static boolean isMqtt5(int version) {
+        return version == MqttVersion.MQTT_5.protocolLevel();
+    }
     public static boolean isQosSupported(MqttConnectMessage msg) {
         return isQosSupported(msg.fixedHeader().qosLevel());
     }

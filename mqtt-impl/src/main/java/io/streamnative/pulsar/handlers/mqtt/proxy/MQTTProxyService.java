@@ -117,7 +117,7 @@ public class MQTTProxyService implements Closeable {
             throw new MQTTProxyException(e);
         }
 
-        if (proxyConfig.isMqttProxyTlsEnabled()) {
+        if (proxyConfig.isMqttProxyTlsEnabled() || proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
             ServerBootstrap tlsBootstrap = serverBootstrap.clone();
             tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(
                     this, proxyConfig, true, sslContextRefresher));
@@ -148,7 +148,6 @@ public class MQTTProxyService implements Closeable {
                 throw new MQTTProxyException(e);
             }
         }
-
         this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, proxyConfig);
         this.eventService.start();
     }
