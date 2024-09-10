@@ -65,7 +65,7 @@ import org.testng.annotations.Test;
 public class ProxyMtlsTest extends MQTTTestBase {
 
 
-    String path = "./src/test/resources/mtls/";
+    String path = "./src/test/resources/mtls/proxy/";
 
     String token;
 
