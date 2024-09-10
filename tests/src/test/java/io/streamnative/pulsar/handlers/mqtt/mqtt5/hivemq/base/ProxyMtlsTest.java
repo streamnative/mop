@@ -31,7 +31,6 @@ import io.streamnative.oidc.broker.common.pojo.Pool;
 import io.streamnative.pulsar.handlers.mqtt.Constants;
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import io.streamnative.pulsar.handlers.mqtt.identitypool.AuthenticationProviderMTls;
 import java.io.File;
 import java.io.FileInputStream;
 import java.security.KeyStore;
