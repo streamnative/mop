@@ -48,8 +48,12 @@ public class MQTTAuthenticationService {
 
     private final BrokerService brokerService;
 
-    public MQTTAuthenticationService(BrokerService brokerService, List<String> authenticationMethods) {
+    private final boolean mqttProxyMTlsAuthenticationEnabled;
+
+    public MQTTAuthenticationService(BrokerService brokerService, List<String> authenticationMethods, boolean
+            mqttProxyMTlsAuthenticationEnabled) {
         this.brokerService = brokerService;
+        this.mqttProxyMTlsAuthenticationEnabled = mqttProxyMTlsAuthenticationEnabled;
         this.authenticationService = brokerService.getAuthenticationService();
         this.authenticationProviders = getAuthenticationProviders(authenticationMethods);
     }
@@ -60,22 +64,24 @@ public class MQTTAuthenticationService {
             final AuthenticationProvider authProvider = authenticationService.getAuthenticationProvider(method);
             if (authProvider != null) {
                 providers.put(method, authProvider);
-            } else if (AUTH_MTLS.equalsIgnoreCase(method)) {
-                AuthenticationProviderMTls providerMTls = new AuthenticationProviderMTls();
-                try {
-                    providerMTls.initialize(brokerService.pulsar().getLocalMetadataStore());
-                    providers.put(method, providerMTls);
-                } catch (Exception e) {
-                    log.error("Failed to initialize MQTT authentication method {} ", method, e);
-                }
             } else {
                 log.error("MQTT authentication method {} is not enabled in Pulsar configuration!", method);
+            }
+        }
+        if (mqttProxyMTlsAuthenticationEnabled) {
+            AuthenticationProviderMTls providerMTls = new AuthenticationProviderMTls();
+            try {
+                providerMTls.initialize(brokerService.pulsar().getLocalMetadataStore());
+                providers.put(AUTH_MTLS, providerMTls);
+            } catch (Exception e) {
+                log.error("Failed to initialize MQTT authentication method {} ", AUTH_MTLS, e);
             }
         }
         if (providers.isEmpty()) {
             throw new IllegalArgumentException(
                     "MQTT authentication is enabled but no providers were successfully configured");
         }
+
         return providers;
     }
 

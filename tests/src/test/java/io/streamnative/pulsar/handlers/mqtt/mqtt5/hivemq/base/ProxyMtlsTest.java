@@ -28,7 +28,6 @@ import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.streamnative.oidc.broker.common.OIDCPoolResources;
 import io.streamnative.oidc.broker.common.pojo.Pool;
-import io.streamnative.pulsar.handlers.mqtt.Constants;
 import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.io.File;
@@ -98,7 +97,7 @@ public class ProxyMtlsTest extends MQTTTestBase {
 
         mqtt.setAuthenticationEnabled(true);
         mqtt.setMqttAuthenticationEnabled(true);
-        mqtt.setMqttAuthenticationMethods(ImmutableList.of("token", Constants.AUTH_MTLS));
+        mqtt.setMqttAuthenticationMethods(ImmutableList.of("token"));
         mqtt.setSuperUserRoles(ImmutableSet.of("superUser"));
         mqtt.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderToken.class.getName()));
 
