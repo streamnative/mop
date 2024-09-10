@@ -100,7 +100,7 @@ jobs:
         run: ./scripts/retry.sh mvn -B -ntp test -Dtest=${{ matrix.test }} -DfailIfNoTests=false
 
       - name: Upload jacoco artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.test }}-jacoco-artifact
           path: '**/*.exec'
