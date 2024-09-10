@@ -141,7 +141,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .processor(this)
                 .build();
         connection.sendConnAck();
-        if (proxyConfig.isMqttProxyMtlsEnabled()) {
+        if (proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
             MqttConnectMessage connectMessage = createMqttConnectMessage(msg, AUTH_MTLS, userRole);
             msg = connectMessage;
             connection.setConnectMessage(msg);
@@ -166,7 +166,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
                 TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
         adapter.setClientId(connection.getClientId());
-        if (proxyConfig.isMqttProxyMtlsEnabled()) {
+        if (proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
             MqttPublishMessage mqttMessage = createMqttPublishMessage(msg, AUTH_MTLS, connection.getUserRole());
             adapter.setMqttMessage(mqttMessage);
         }
@@ -300,7 +300,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
         registerTopicListener(adapter);
-        if (proxyConfig.isMqttProxyMtlsEnabled()) {
+        if (proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
             MqttSubscribeMessage mqttMessage = createMqttSubscribeMessage(msg, AUTH_MTLS, connection.getUserRole());
             adapter.setMqttMessage(mqttMessage);
         }

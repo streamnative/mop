@@ -60,7 +60,7 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
             category = CATEGORY_MQTT_PROXY,
             doc = "Enable system event service."
     )
-    private boolean systemEventEnabled = false;
+    private boolean systemEventEnabled = true;
 
     @FieldContext(
             category = CATEGORY_MQTT,

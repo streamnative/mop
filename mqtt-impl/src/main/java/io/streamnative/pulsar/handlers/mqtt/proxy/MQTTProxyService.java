@@ -117,7 +117,7 @@ public class MQTTProxyService implements Closeable {
             throw new MQTTProxyException(e);
         }
 
-        if (proxyConfig.isMqttProxyTlsEnabled() || proxyConfig.isMqttProxyMtlsEnabled()) {
+        if (proxyConfig.isMqttProxyTlsEnabled() || proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
             ServerBootstrap tlsBootstrap = serverBootstrap.clone();
             tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(
                     this, proxyConfig, true, sslContextRefresher));

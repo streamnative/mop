@@ -79,8 +79,7 @@ public class ProxyMtlsTest extends MQTTTestBase {
 
         mqtt.setSystemTopicEnabled(false);
         mqtt.setMqttProxyEnabled(true);
-        mqtt.setMqttProxyMtlsEnabled(true);
-        mqtt.setMqttMtlsEnabled(true);
+        mqtt.setMqttProxyMTlsAuthenticationEnabled(true);
         mqtt.setMqttProxyTlsEnabled(true);
 
         mqtt.setMqttTlsEnabledWithKeyStore(true);
@@ -100,10 +99,8 @@ public class ProxyMtlsTest extends MQTTTestBase {
         mqtt.setMqttAuthenticationEnabled(true);
         mqtt.setMqttAuthenticationMethods(ImmutableList.of("token", Constants.AUTH_MTLS));
         mqtt.setSuperUserRoles(ImmutableSet.of("superUser"));
-        mqtt.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderToken.class.getName(),
-                AuthenticationProviderMTls.class.getName()));
-
         mqtt.setAuthenticationProviders(Sets.newHashSet(AuthenticationProviderToken.class.getName()));
+
         mqtt.setBrokerClientAuthenticationPlugin(AuthenticationToken.class.getName());
         mqtt.setBrokerClientAuthenticationParameters("token:" + token);
         mqtt.setProperties(properties);

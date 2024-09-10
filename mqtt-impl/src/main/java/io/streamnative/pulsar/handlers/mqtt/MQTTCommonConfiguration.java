@@ -150,7 +150,7 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             required = false,
             doc = "Whether start mqtt protocol handler with proxy mtls"
     )
-    private boolean mqttProxyMtlsEnabled = false;
+    private boolean mqttProxyMTlsAuthenticationEnabled = false;
 
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
@@ -179,13 +179,6 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "Whether broker start mqtt protocol handler with tls psk"
     )
     private boolean mqttTlsPskEnabled = false;
-
-    @FieldContext(
-            category = CATEGORY_TLS,
-            required = false,
-            doc = "Whether start mqtt protocol handler with mtls"
-    )
-    private boolean mqttMtlsEnabled = false;
 
     @Deprecated
     @FieldContext(
