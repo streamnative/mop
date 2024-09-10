@@ -80,6 +80,8 @@ public class ProxyMtlsTest extends MQTTTestBase {
         mqtt.setMqttProxyEnabled(true);
         mqtt.setMqttProxyMTlsAuthenticationEnabled(true);
         mqtt.setMqttProxyTlsEnabled(true);
+        mqtt.setMqttTlsRequireTrustedClientCertOnConnect(true);
+        mqtt.setMqttTlsAllowInsecureConnection(false);
 
         mqtt.setMqttTlsEnabledWithKeyStore(true);
         mqtt.setMqttTlsKeyStoreType("JKS");
