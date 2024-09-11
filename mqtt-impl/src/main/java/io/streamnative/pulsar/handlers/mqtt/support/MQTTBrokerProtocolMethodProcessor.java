@@ -14,7 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createWillMessage;
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getMtlsAuthMethodAndData;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getAuthenticationRole;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
 import io.netty.channel.ChannelHandlerContext;
@@ -197,9 +197,9 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             String userRole = connection.getUserRole();
             AuthenticationDataSource authData = connection.getAuthData();
             if (adapter.fromProxy()) {
-                final Optional<String> mtlsAuthMethodAndData = getMtlsAuthMethodAndData(msg);
-                if (mtlsAuthMethodAndData.isPresent()) {
-                    userRole = mtlsAuthMethodAndData.get();
+                final Optional<String> authenticationRole = getAuthenticationRole(msg);
+                if (authenticationRole.isPresent()) {
+                    userRole = authenticationRole.get();
                 }
             }
             result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
@@ -364,9 +364,9 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         } else {
             AuthenticationDataSource authData = connection.getAuthData();
             if (adapter.fromProxy()) {
-                final Optional<String> mtlsAuthMethodAndData = getMtlsAuthMethodAndData(msg);
-                if (mtlsAuthMethodAndData.isPresent()) {
-                    userRole = mtlsAuthMethodAndData.get();
+                final Optional<String> authenticationRole = getAuthenticationRole(msg);
+                if (authenticationRole.isPresent()) {
+                    userRole = authenticationRole.get();
                 }
             }
             List<CompletableFuture<Void>> authorizationFutures = new ArrayList<>();

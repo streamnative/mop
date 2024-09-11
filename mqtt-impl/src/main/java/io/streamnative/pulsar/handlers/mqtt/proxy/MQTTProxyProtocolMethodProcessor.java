@@ -140,11 +140,9 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .processor(this)
                 .build();
         connection.sendConnAck();
-        if (proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
-            MqttConnectMessage connectMessage = createMqttConnectMessage(msg, userRole);
-            msg = connectMessage;
-            connection.setConnectMessage(msg);
-        }
+        MqttConnectMessage connectMessage = createMqttConnectMessage(msg, userRole);
+        msg = connectMessage;
+        connection.setConnectMessage(msg);
 
         ConnectEvent connectEvent = ConnectEvent.builder()
                 .clientId(connection.getClientId())

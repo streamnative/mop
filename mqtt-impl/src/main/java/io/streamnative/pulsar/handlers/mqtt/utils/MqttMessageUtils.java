@@ -216,7 +216,7 @@ public class MqttMessageUtils {
         return newPublishMessage;
     }
 
-    public static Optional<String> getMtlsAuthMethodAndData(MqttConnectMessage connectMessage) {
+    public static Optional<String> getAuthenticationRole(MqttConnectMessage connectMessage) {
         final MqttConnectVariableHeader header = connectMessage.variableHeader();
         MqttProperties properties = header.properties();
         final MqttProperties.UserProperties data = (MqttProperties.UserProperties) properties.getProperty(
@@ -228,7 +228,7 @@ public class MqttMessageUtils {
         return Optional.empty();
     }
 
-    public static Optional<String> getMtlsAuthMethodAndData(MqttPublishMessage publishMessage) {
+    public static Optional<String> getAuthenticationRole(MqttPublishMessage publishMessage) {
         final MqttPublishVariableHeader header = publishMessage.variableHeader();
         MqttProperties properties = header.properties();
         final MqttProperties.UserProperties data = (MqttProperties.UserProperties) properties.getProperty(
@@ -240,7 +240,7 @@ public class MqttMessageUtils {
         return Optional.empty();
     }
 
-    public static Optional<String> getMtlsAuthMethodAndData(MqttSubscribeMessage subscribeMessage) {
+    public static Optional<String> getAuthenticationRole(MqttSubscribeMessage subscribeMessage) {
         final MqttMessageIdAndPropertiesVariableHeader header = subscribeMessage.idAndPropertiesVariableHeader();
         MqttProperties properties = header.properties();
         final MqttProperties.UserProperties data = (MqttProperties.UserProperties) properties.getProperty(
