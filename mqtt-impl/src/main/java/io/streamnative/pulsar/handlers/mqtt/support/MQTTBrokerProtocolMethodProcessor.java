@@ -75,9 +75,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.PositionFactory;
 import org.apache.bookkeeper.mledger.impl.AckSetStateUtil;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -199,10 +197,9 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             String userRole = connection.getUserRole();
             AuthenticationDataSource authData = connection.getAuthData();
             if (adapter.fromProxy()) {
-                final Optional<Pair<String, byte[]>> mtlsAuthMethodAndData = getMtlsAuthMethodAndData(msg);
+                final Optional<String> mtlsAuthMethodAndData = getMtlsAuthMethodAndData(msg);
                 if (mtlsAuthMethodAndData.isPresent()) {
-                    userRole = mtlsAuthMethodAndData.get().getKey();
-                    authData = new AuthenticationDataCommand(new String(mtlsAuthMethodAndData.get().getValue()));
+                    userRole = mtlsAuthMethodAndData.get();
                 }
             }
             result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
@@ -367,10 +364,9 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         } else {
             AuthenticationDataSource authData = connection.getAuthData();
             if (adapter.fromProxy()) {
-                final Optional<Pair<String, byte[]>> mtlsAuthMethodAndData = getMtlsAuthMethodAndData(msg);
+                final Optional<String> mtlsAuthMethodAndData = getMtlsAuthMethodAndData(msg);
                 if (mtlsAuthMethodAndData.isPresent()) {
-                    userRole = mtlsAuthMethodAndData.get().getKey();
-                    authData = new AuthenticationDataCommand(new String(mtlsAuthMethodAndData.get().getValue()));
+                    userRole = mtlsAuthMethodAndData.get();
                 }
             }
             List<CompletableFuture<Void>> authorizationFutures = new ArrayList<>();

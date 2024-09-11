@@ -15,7 +15,6 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_MTLS;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -41,7 +40,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * Mqtt message utils.
@@ -49,6 +47,8 @@ import org.apache.commons.lang3.tuple.Pair;
 public class MqttMessageUtils {
 
     public static final int CLIENT_IDENTIFIER_MAX_LENGTH = 23;
+
+    public static final String AUTHENTICATE_ROLE_KEY = "__mop_auth_role";
 
     public static void checkState(MqttMessage msg) {
         if (!msg.decoderResult().isSuccess()) {
@@ -190,14 +190,10 @@ public class MqttMessageUtils {
     }
 
     public static MqttConnectMessage createMqttConnectMessage(MqttConnectMessage connectMessage,
-                                                              String authMethod,
                                                               String authData) {
         final MqttConnectVariableHeader header = connectMessage.variableHeader();
         MqttProperties properties = new MqttProperties();
-        properties.add(new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value()
-                , authMethod));
-        properties.add(new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value()
-                , authData.getBytes()));
+        properties.add(new MqttProperties.UserProperty(AUTHENTICATE_ROLE_KEY, authData));
         MqttConnectVariableHeader variableHeader = new MqttConnectVariableHeader(
                 MqttVersion.MQTT_5.protocolName(), MqttVersion.MQTT_5.protocolLevel(), header.hasUserName(),
                 header.hasPassword(), header.isWillRetain(), header.willQos(), header.isWillFlag(),
@@ -209,14 +205,10 @@ public class MqttMessageUtils {
     }
 
     public static MqttPublishMessage createMqttPublishMessage(MqttPublishMessage publishMessage,
-                                                              String authMethod,
                                                               String authData) {
         final MqttPublishVariableHeader header = publishMessage.variableHeader();
         MqttProperties properties = new MqttProperties();
-        properties.add(new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value()
-                , authMethod));
-        properties.add(new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value()
-                , authData.getBytes()));
+        properties.add(new MqttProperties.UserProperty(AUTHENTICATE_ROLE_KEY, authData));
         MqttPublishVariableHeader variableHeader = new MqttPublishVariableHeader(
                 header.topicName(), header.packetId(), properties);
         MqttPublishMessage newPublishMessage = new MqttPublishMessage(publishMessage.fixedHeader(), variableHeader,
@@ -224,57 +216,47 @@ public class MqttMessageUtils {
         return newPublishMessage;
     }
 
-    public static Optional<Pair<String, byte[]>> getMtlsAuthMethodAndData(MqttConnectMessage connectMessage) {
+    public static Optional<String> getMtlsAuthMethodAndData(MqttConnectMessage connectMessage) {
         final MqttConnectVariableHeader header = connectMessage.variableHeader();
         MqttProperties properties = header.properties();
-        final MqttProperties.MqttProperty property = properties.getProperty(
-                MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
-        if (property != null && property.value() instanceof String
-                && ((String) property.value()).equalsIgnoreCase(AUTH_MTLS)) {
-            final MqttProperties.MqttProperty data = properties.getProperty(
-                    MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
-            return Optional.of(Pair.of((String) property.value(), (byte[]) data.value()));
+        final MqttProperties.UserProperties data = (MqttProperties.UserProperties) properties.getProperty(
+                MqttProperties.MqttPropertyType.USER_PROPERTY.value());
+        if (data != null && data.value() instanceof List<MqttProperties.StringPair>) {
+            return data.value().stream().filter(d -> d.key.equalsIgnoreCase(AUTHENTICATE_ROLE_KEY))
+                    .map(e -> e.value).findFirst();
         }
         return Optional.empty();
     }
 
-    public static Optional<Pair<String, byte[]>> getMtlsAuthMethodAndData(MqttPublishMessage publishMessage) {
+    public static Optional<String> getMtlsAuthMethodAndData(MqttPublishMessage publishMessage) {
         final MqttPublishVariableHeader header = publishMessage.variableHeader();
         MqttProperties properties = header.properties();
-        final MqttProperties.MqttProperty property = properties.getProperty(
-                MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
-        if (property != null && property.value() instanceof String
-                && ((String) property.value()).equalsIgnoreCase(AUTH_MTLS)) {
-            final MqttProperties.MqttProperty data = properties.getProperty(
-                    MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
-            return Optional.of(Pair.of((String) property.value(), (byte[]) data.value()));
-            }
+        final MqttProperties.UserProperties data = (MqttProperties.UserProperties) properties.getProperty(
+                MqttProperties.MqttPropertyType.USER_PROPERTY.value());
+        if (data != null && data.value() instanceof List<MqttProperties.StringPair>) {
+            return data.value().stream().filter(d -> d.key.equalsIgnoreCase(AUTHENTICATE_ROLE_KEY))
+                    .map(e -> e.value).findFirst();
+        }
         return Optional.empty();
     }
 
-    public static Optional<Pair<String, byte[]>> getMtlsAuthMethodAndData(MqttSubscribeMessage subscribeMessage) {
+    public static Optional<String> getMtlsAuthMethodAndData(MqttSubscribeMessage subscribeMessage) {
         final MqttMessageIdAndPropertiesVariableHeader header = subscribeMessage.idAndPropertiesVariableHeader();
         MqttProperties properties = header.properties();
-        final MqttProperties.MqttProperty property = properties.getProperty(
-                MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value());
-        if (property != null && property.value() instanceof String
-                && ((String) property.value()).equalsIgnoreCase(AUTH_MTLS)) {
-            final MqttProperties.MqttProperty data = properties.getProperty(
-                    MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
-            return Optional.of(Pair.of((String) property.value(), (byte[]) data.value()));
+        final MqttProperties.UserProperties data = (MqttProperties.UserProperties) properties.getProperty(
+                MqttProperties.MqttPropertyType.USER_PROPERTY.value());
+        if (data != null && data.value() instanceof List<MqttProperties.StringPair>) {
+            return data.value().stream().filter(d -> d.key.equalsIgnoreCase(AUTHENTICATE_ROLE_KEY))
+                    .map(e -> e.value).findFirst();
         }
         return Optional.empty();
     }
 
     public static MqttSubscribeMessage createMqttSubscribeMessage(MqttSubscribeMessage subscribeMessage,
-                                                              String authMethod,
                                                               String authData) {
         final MqttMessageIdAndPropertiesVariableHeader header = subscribeMessage.idAndPropertiesVariableHeader();
         MqttProperties properties = new MqttProperties();
-        properties.add(new MqttProperties.StringProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_METHOD.value()
-                , authMethod));
-        properties.add(new MqttProperties.BinaryProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value()
-                , authData.getBytes()));
+        properties.add(new MqttProperties.UserProperty(AUTHENTICATE_ROLE_KEY, authData));
         MqttMessageIdAndPropertiesVariableHeader variableHeader = new MqttMessageIdAndPropertiesVariableHeader(
                 header.messageId(), properties);
         MqttSubscribeMessage newSubscribeMessage = new MqttSubscribeMessage(subscribeMessage.fixedHeader(),
