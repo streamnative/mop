@@ -163,8 +163,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
                 TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
         adapter.setClientId(connection.getClientId());
-        MqttPublishMessage mqttMessage = createMqttPublishMessage(msg, connection.getUserRole());
-        adapter.setMqttMessage(mqttMessage);
+//        MqttPublishMessage mqttMessage = createMqttPublishMessage(msg, connection.getUserRole());
+//        adapter.setMqttMessage(mqttMessage);
         startPublish()
                 .thenCompose(__ ->  writeToBroker(pulsarTopicName, adapter))
                 .whenComplete((unused, ex) -> {

@@ -287,4 +287,11 @@ public class MqttMessageUtils {
                 .getProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
         return authDataProperty != null ? authDataProperty.value() : null;
     }
+
+    public static int getPacketId(int packetId) {
+        if (packetId < 1) {
+            return 1;
+        }
+        return packetId;
+    }
 }
