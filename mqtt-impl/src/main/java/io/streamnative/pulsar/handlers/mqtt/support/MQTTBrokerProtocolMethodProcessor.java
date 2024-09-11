@@ -221,9 +221,11 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         log.error("[Publish] not authorized to topic={}, userRole={}, CId= {}",
                 msg.variableHeader().topicName(), connection.getUserRole(),
                 connection.getClientId());
+        int packetId = msg.variableHeader().packetId();
+        packetId = packetId == -1 ? 1 : packetId;
         MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder = MqttPubAck
                 .errorBuilder(connection.getProtocolVersion())
-                .packetId(msg.variableHeader().packetId())
+                .packetId(packetId)
                 .reasonCode(Mqtt5PubReasonCode.NOT_AUTHORIZED);
         if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
             pubAckBuilder.reasonString("Not Authorized!");
