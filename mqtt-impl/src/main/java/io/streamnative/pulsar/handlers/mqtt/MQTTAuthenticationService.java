@@ -87,16 +87,16 @@ public class MQTTAuthenticationService {
 
     public AuthenticationResult authenticate(boolean fromProxy,
                                              SSLSession session, MqttConnectMessage connectMessage) {
+        if (fromProxy) {
+            return new AuthenticationResult(true, null, null);
+        }
         String authMethod = MqttMessageUtils.getAuthMethod(connectMessage);
         if (authMethod != null) {
             byte[] authData = MqttMessageUtils.getAuthData(connectMessage);
             if (authData == null) {
                 return AuthenticationResult.FAILED;
             }
-            if (fromProxy && AUTH_MTLS.equalsIgnoreCase(authMethod)) {
-                return new AuthenticationResult(true, new String(authData),
-                        new AuthenticationDataCommand(new String(authData), null, session));
-            }
+
             return authenticate(connectMessage.payload().clientIdentifier(), authMethod,
                     new AuthenticationDataCommand(new String(authData), null, session));
         }
