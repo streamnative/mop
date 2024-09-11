@@ -14,7 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.support;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createWillMessage;
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getMtlsAuthMethodAndData;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getAuthenticationRole;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
 import io.netty.channel.ChannelHandlerContext;
@@ -75,9 +75,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.PositionFactory;
 import org.apache.bookkeeper.mledger.impl.AckSetStateUtil;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -199,10 +197,9 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             String userRole = connection.getUserRole();
             AuthenticationDataSource authData = connection.getAuthData();
             if (adapter.fromProxy()) {
-                final Optional<Pair<String, byte[]>> mtlsAuthMethodAndData = getMtlsAuthMethodAndData(msg);
-                if (mtlsAuthMethodAndData.isPresent()) {
-                    userRole = mtlsAuthMethodAndData.get().getKey();
-                    authData = new AuthenticationDataCommand(new String(mtlsAuthMethodAndData.get().getValue()));
+                final Optional<String> authenticationRole = getAuthenticationRole(msg);
+                if (authenticationRole.isPresent()) {
+                    userRole = authenticationRole.get();
                 }
             }
             result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
@@ -224,9 +221,11 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         log.error("[Publish] not authorized to topic={}, userRole={}, CId= {}",
                 msg.variableHeader().topicName(), connection.getUserRole(),
                 connection.getClientId());
+        int packetId = msg.variableHeader().packetId();
+        packetId = packetId == -1 ? 1 : packetId;
         MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder = MqttPubAck
                 .errorBuilder(connection.getProtocolVersion())
-                .packetId(msg.variableHeader().packetId())
+                .packetId(packetId)
                 .reasonCode(Mqtt5PubReasonCode.NOT_AUTHORIZED);
         if (connection.getClientRestrictions().isAllowReasonStrOrUserProperty()) {
             pubAckBuilder.reasonString("Not Authorized!");
@@ -367,10 +366,9 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         } else {
             AuthenticationDataSource authData = connection.getAuthData();
             if (adapter.fromProxy()) {
-                final Optional<Pair<String, byte[]>> mtlsAuthMethodAndData = getMtlsAuthMethodAndData(msg);
-                if (mtlsAuthMethodAndData.isPresent()) {
-                    userRole = mtlsAuthMethodAndData.get().getKey();
-                    authData = new AuthenticationDataCommand(new String(mtlsAuthMethodAndData.get().getValue()));
+                final Optional<String> authenticationRole = getAuthenticationRole(msg);
+                if (authenticationRole.isPresent()) {
+                    userRole = authenticationRole.get();
                 }
             }
             List<CompletableFuture<Void>> authorizationFutures = new ArrayList<>();
