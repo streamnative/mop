@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqtt5ConnectMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttPublishMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttSubscribeMessage;
 import com.google.common.collect.Lists;
@@ -139,6 +140,12 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .processor(this)
                 .build();
         connection.sendConnAck();
+
+        if (proxyConfig.isMqttAuthorizationEnabled()) {
+            MqttConnectMessage connectMessage = createMqtt5ConnectMessage(msg);
+            msg = connectMessage;
+            connection.setConnectMessage(msg);
+        }
 
         ConnectEvent connectEvent = ConnectEvent.builder()
                 .clientId(connection.getClientId())

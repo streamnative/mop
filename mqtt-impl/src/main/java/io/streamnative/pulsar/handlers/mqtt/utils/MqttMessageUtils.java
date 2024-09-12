@@ -189,16 +189,12 @@ public class MqttMessageUtils {
         return builder.build();
     }
 
-    public static MqttConnectMessage createMqttConnectMessage(MqttConnectMessage connectMessage,
-                                                              String authData) {
+    public static MqttConnectMessage createMqtt5ConnectMessage(MqttConnectMessage connectMessage) {
         final MqttConnectVariableHeader header = connectMessage.variableHeader();
-        MqttProperties properties = new MqttProperties();
-        properties.add(new MqttProperties.UserProperty(AUTHENTICATE_ROLE_KEY, authData));
         MqttConnectVariableHeader variableHeader = new MqttConnectVariableHeader(
                 MqttVersion.MQTT_5.protocolName(), MqttVersion.MQTT_5.protocolLevel(), header.hasUserName(),
                 header.hasPassword(), header.isWillRetain(), header.willQos(), header.isWillFlag(),
-                header.isCleanSession(), header.keepAliveTimeSeconds(), properties
-        );
+                header.isCleanSession(), header.keepAliveTimeSeconds(), connectMessage.variableHeader().properties());
         MqttConnectMessage newConnectMessage = new MqttConnectMessage(connectMessage.fixedHeader(), variableHeader,
                 connectMessage.payload());
         return newConnectMessage;
