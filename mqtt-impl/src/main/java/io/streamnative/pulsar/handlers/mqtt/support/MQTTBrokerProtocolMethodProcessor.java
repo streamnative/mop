@@ -197,12 +197,12 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         } else {
             String userRole = connection.getUserRole();
             AuthenticationDataSource authData = connection.getAuthData();
-//            if (adapter.fromProxy()) {
-//                final Optional<String> authenticationRole = getAuthenticationRole(msg);
-//                if (authenticationRole.isPresent()) {
-//                    userRole = authenticationRole.get();
-//                }
-//            }
+            if (adapter.fromProxy()) {
+                final Optional<String> authenticationRole = getAuthenticationRole(msg);
+                if (authenticationRole.isPresent()) {
+                    userRole = authenticationRole.get();
+                }
+            }
             result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
                             userRole, authData)
                     .thenCompose(authorized -> authorized ? doPublish(adapter) : doUnauthorized(adapter));

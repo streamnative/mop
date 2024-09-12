@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttConnectMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttPublishMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createMqttSubscribeMessage;
 import com.google.common.collect.Lists;
@@ -140,9 +139,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 .processor(this)
                 .build();
         connection.sendConnAck();
-        MqttConnectMessage connectMessage = createMqttConnectMessage(msg, userRole);
-        msg = connectMessage;
-        connection.setConnectMessage(msg);
 
         ConnectEvent connectEvent = ConnectEvent.builder()
                 .clientId(connection.getClientId())
@@ -163,8 +159,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                 proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
                 TopicDomain.getEnum(proxyConfig.getDefaultTopicDomain()));
         adapter.setClientId(connection.getClientId());
-//        MqttPublishMessage mqttMessage = createMqttPublishMessage(msg, connection.getUserRole());
-//        adapter.setMqttMessage(mqttMessage);
+        if (proxyConfig.isMqttAuthorizationEnabled()) {
+            MqttPublishMessage mqttMessage = createMqttPublishMessage(msg, connection.getUserRole());
+            adapter.setMqttMessage(mqttMessage);
+        }
         startPublish()
                 .thenCompose(__ ->  writeToBroker(pulsarTopicName, adapter))
                 .whenComplete((unused, ex) -> {
@@ -295,8 +293,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
             log.debug("[Proxy Subscribe] [{}] msg: {}", clientId, msg);
         }
         registerTopicListener(adapter);
-        MqttSubscribeMessage mqttMessage = createMqttSubscribeMessage(msg, connection.getUserRole());
-        adapter.setMqttMessage(mqttMessage);
+        if (proxyConfig.isMqttAuthorizationEnabled()) {
+            MqttSubscribeMessage mqttMessage = createMqttSubscribeMessage(msg, connection.getUserRole());
+            adapter.setMqttMessage(mqttMessage);
+        }
         doSubscribe(adapter, false)
                 .exceptionally(ex -> {
                     Throwable realCause = FutureUtil.unwrapCompletionException(ex);
