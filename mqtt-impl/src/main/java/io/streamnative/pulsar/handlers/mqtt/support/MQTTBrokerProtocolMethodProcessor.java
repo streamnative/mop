@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.support;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.createWillMessage;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getAuthenticationRole;
+import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.getPacketId;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.pingResp;
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.topicSubscriptions;
 import io.netty.channel.ChannelHandlerContext;
@@ -219,8 +220,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         log.error("[Publish] not authorized to topic={}, userRole={}, CId= {}",
                 msg.variableHeader().topicName(), connection.getUserRole(),
                 connection.getClientId());
-        int packetId = msg.variableHeader().packetId();
-        packetId = packetId == -1 ? 1 : packetId;
+        int packetId = getPacketId(msg.variableHeader().packetId());
         MqttPubAck.MqttPubErrorAckBuilder pubAckBuilder = MqttPubAck
                 .errorBuilder(connection.getProtocolVersion())
                 .packetId(packetId)

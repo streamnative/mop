@@ -189,16 +189,12 @@ public class MqttMessageUtils {
         return builder.build();
     }
 
-    public static MqttConnectMessage createMqttConnectMessage(MqttConnectMessage connectMessage,
-                                                              String authData) {
+    public static MqttConnectMessage createMqtt5ConnectMessage(MqttConnectMessage connectMessage) {
         final MqttConnectVariableHeader header = connectMessage.variableHeader();
-        MqttProperties properties = new MqttProperties();
-        properties.add(new MqttProperties.UserProperty(AUTHENTICATE_ROLE_KEY, authData));
         MqttConnectVariableHeader variableHeader = new MqttConnectVariableHeader(
                 MqttVersion.MQTT_5.protocolName(), MqttVersion.MQTT_5.protocolLevel(), header.hasUserName(),
                 header.hasPassword(), header.isWillRetain(), header.willQos(), header.isWillFlag(),
-                header.isCleanSession(), header.keepAliveTimeSeconds(), properties
-        );
+                header.isCleanSession(), header.keepAliveTimeSeconds(), connectMessage.variableHeader().properties());
         MqttConnectMessage newConnectMessage = new MqttConnectMessage(connectMessage.fixedHeader(), variableHeader,
                 connectMessage.payload());
         return newConnectMessage;
@@ -286,5 +282,12 @@ public class MqttMessageUtils {
         MqttProperties.BinaryProperty authDataProperty = (MqttProperties.BinaryProperty) properties
                 .getProperty(MqttProperties.MqttPropertyType.AUTHENTICATION_DATA.value());
         return authDataProperty != null ? authDataProperty.value() : null;
+    }
+
+    public static int getPacketId(int packetId) {
+        if (packetId < 1) {
+            return 1;
+        }
+        return packetId;
     }
 }

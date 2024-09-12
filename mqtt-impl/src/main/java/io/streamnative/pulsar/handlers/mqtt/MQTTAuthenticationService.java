@@ -88,7 +88,7 @@ public class MQTTAuthenticationService {
     public AuthenticationResult authenticate(boolean fromProxy,
                                              SSLSession session, MqttConnectMessage connectMessage) {
         if (fromProxy) {
-            return new AuthenticationResult(true, null, null);
+            return AuthenticationResult.PASSED;
         }
         String authMethod = MqttMessageUtils.getAuthMethod(connectMessage);
         if (authMethod != null) {
@@ -161,6 +161,7 @@ public class MQTTAuthenticationService {
     public static class AuthenticationResult {
 
         public static final AuthenticationResult FAILED = new AuthenticationResult(false, null, null);
+        public static final AuthenticationResult PASSED = new AuthenticationResult(true, null, null);
         private final boolean authenticated;
         private final String userRole;
         private final AuthenticationDataSource authData;
