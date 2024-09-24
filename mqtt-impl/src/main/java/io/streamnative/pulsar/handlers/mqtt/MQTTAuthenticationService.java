@@ -18,7 +18,7 @@ import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_MTLS;
 import static io.streamnative.pulsar.handlers.mqtt.Constants.AUTH_TOKEN;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
-import io.streamnative.pulsar.handlers.mqtt.identitypool.AuthenticationProviderMTls;
+import io.streamnative.pulsar.handlers.mqtt.authentication.AuthenticationProviderMTls;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import java.util.HashMap;
 import java.util.List;

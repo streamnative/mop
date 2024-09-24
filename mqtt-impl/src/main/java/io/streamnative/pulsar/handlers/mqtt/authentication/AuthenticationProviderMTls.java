@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.identitypool;
+package io.streamnative.pulsar.handlers.mqtt.authentication;
 
-import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.DN;
-import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.SAN;
-import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.SHA1;
-import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.SNID;
+import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.DN;
+import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.SAN;
+import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.SHA1;
+import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.SNID;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
