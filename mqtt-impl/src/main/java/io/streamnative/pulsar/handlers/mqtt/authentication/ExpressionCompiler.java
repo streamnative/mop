@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.identitypool;
+package io.streamnative.pulsar.handlers.mqtt.authentication;
 
 
 import dev.cel.common.CelAbstractSyntaxTree;
@@ -73,7 +73,7 @@ public class ExpressionCompiler {
         this.program = runtime.createProgram(ast);
     }
 
-    public Boolean eval(Map<String, Object> mapValue) throws Exception {
+    public Boolean eval(Map<String, String> mapValue) throws Exception {
         final Object eval = program.eval(mapValue);
         if (eval instanceof Boolean) {
             return (Boolean) eval;

@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.identitypool;
+package io.streamnative.pulsar.handlers.mqtt.authentication;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.netty.channel.local.LocalAddress;
 import io.streamnative.oidc.broker.common.pojo.Pool;
 import java.io.File;
@@ -25,9 +26,11 @@ import java.util.Set;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSessionContext;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
+import org.apache.pulsar.common.util.ObjectMapperFactory;
 import org.apache.pulsar.common.util.SecurityUtility;
 import org.apache.pulsar.metadata.api.MetadataStoreConfig;
 import org.apache.pulsar.metadata.impl.LocalMemoryMetadataStore;
@@ -38,6 +41,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+@Slf4j
 public class AuthenticationProviderMTlsTest {
 
     private static final String SUPER_USER = "superUser";
@@ -45,6 +49,7 @@ public class AuthenticationProviderMTlsTest {
 
     private ServiceConfiguration serviceConfiguration;
     private LocalMemoryMetadataStore metadataStore;
+    private final ObjectMapper objectMapper = ObjectMapperFactory.create();
 
     @SuppressWarnings("UnstableApiUsage")
     @BeforeClass
@@ -73,7 +78,8 @@ public class AuthenticationProviderMTlsTest {
     public void testExpression() throws Exception {
         String dn = FileUtils.readFileToString(new File(getResourcePath("mtls/cel-test.txt")), "UTF-8");
 
-        Map<String, Object> params = AuthenticationProviderMTls.parseDN(dn);
+        Map<String, String> params = AuthenticationProviderMTls.parseDN(dn);
+        params.put("O2", "StreamNative, Inc.");
 
         ExpressionCompiler compiler = new ExpressionCompiler("DN.contains(\"CN=streamnative.io\")");
         Boolean eval = compiler.eval(params);
@@ -121,7 +127,9 @@ public class AuthenticationProviderMTlsTest {
         SSLSession sslSession = new MockSSLSession(x509Certificates);
         AuthenticationDataCommand authData = new AuthenticationDataCommand("", LocalAddress.ANY, sslSession);
         String principal = authenticationProvider.authenticate(authData);
-        Assert.assertEquals(principal, poolName);
+        log.info("Principal: {}", principal);
+        AuthRequest authRequest = objectMapper.readValue(principal, AuthRequest.class);
+        Assert.assertEquals(authRequest.getSubject(), poolName);
         authenticationProvider.close();
     }
 
