@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.identitypool;
+package io.streamnative.pulsar.handlers.mqtt.authentication;
 
-import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.DN;
-import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.DN_KEYS;
-import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.SAN;
-import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.SHA1;
-import static io.streamnative.pulsar.handlers.mqtt.identitypool.ExpressionCompiler.SNID;
+import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.DN;
+import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.SAN;
+import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.SHA1;
+import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.SNID;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import io.streamnative.oidc.broker.common.OIDCPoolResources;
@@ -43,10 +44,12 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.text.StrBuilder;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.authentication.metrics.AuthenticationMetrics;
+import org.apache.pulsar.common.util.ObjectMapperFactory;
 import org.apache.pulsar.metadata.api.MetadataStore;
 import org.apache.pulsar.metadata.api.MetadataStoreConfig;
 import org.apache.pulsar.metadata.api.MetadataStoreException;
@@ -63,6 +66,8 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
     @Getter
     @VisibleForTesting
     private OIDCPoolResources poolResources;
+
+    private final ObjectMapper objectMapper = ObjectMapperFactory.create();
 
     @Getter
     @VisibleForTesting
@@ -212,7 +217,7 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
             final X509Certificate certificate = (X509Certificate) certs[0];
 
             // parse DN
-            Map<String, Object> params;
+            Map<String, String> params;
             try {
                 String subject = certificate.getSubjectX500Principal().getName();
                 params = parseDN(subject);
@@ -228,20 +233,26 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
             // parse SHA1
             params.put(SHA1, parseSHA1FingerPrint(certificate));
 
-            String principal = matchPool(params);
-            if (principal.isEmpty()) {
+            String poolName = matchPool(params);
+            if (poolName.isEmpty()) {
                 errorCode = ErrorCode.NO_MATCH_POOL;
                 throw new AuthenticationException("No matched identity pool from the client certificate");
             }
+            AuthRequest authRequest = new AuthRequest(poolName, params);
+            String authRequestJson = objectMapper.writeValueAsString(authRequest);
             metrics.recordSuccess();
-            return principal;
+            return authRequestJson;
         } catch (AuthenticationException e) {
             metrics.recordFailure(errorCode);
             throw e;
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize the auth request", e);
+            metrics.recordFailure(errorCode);
+            throw new AuthenticationException(e.getMessage());
         }
     }
 
-    public String matchPool(Map<String, Object> params) throws AuthenticationException {
+    public String matchPool(Map<String, String> params) throws AuthenticationException {
         List<String> principals = new ArrayList<>();
         poolMap.forEach((poolName, compiler) -> {
             Boolean matched = false;
@@ -284,8 +295,8 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
         }
     }
 
-    static Map<String, Object> parseDN(String dn) throws InvalidNameException {
-        Map<String, Object> params = new HashMap<>();
+    static Map<String, String> parseDN(String dn) throws InvalidNameException {
+        Map<String, String> params = new HashMap<>();
         if (StringUtils.isEmpty(dn)) {
             return params;
         }
@@ -293,23 +304,29 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
         LdapName ldapName = new LdapName(dn);
         for (Rdn rdn : ldapName.getRdns()) {
             String rdnType = rdn.getType().toUpperCase();
-            if (DN_KEYS.contains(rdnType)) {
-                String value = Rdn.escapeValue(rdn.getValue());
-                value = value.replace("\r", "\\0D");
-                value = value.replace("\n", "\\0A");
-                params.put(rdnType, value);
-            }
+            String value = Rdn.escapeValue(rdn.getValue());
+            value = value.replace("\r", "\\0D");
+            value = value.replace("\n", "\\0A");
+            params.put(rdnType, value);
         }
 
         return params;
     }
 
-    static void parseSAN(X509Certificate certificate, @NotNull Map<String, Object> map) {
+    static void parseSAN(X509Certificate certificate, @NotNull Map<String, String> map) {
         try {
+            // byte[] extensionValue = certificate.getExtensionValue("2.5.29.17");
+            // TODO How to get the original extension name
             Collection<List<?>> subjectAlternativeNames = certificate.getSubjectAlternativeNames();
             if (subjectAlternativeNames != null) {
                 List<String> formattedSANList = subjectAlternativeNames.stream()
-                        .map(list -> getSanName((int) list.get(0)) + ":" + list.get(1))
+                        .map(list -> {
+                            String sanName = getSanName((int) list.get(0));
+                            String sanValue = (String) list.get(1);
+                            map.put(sanName, sanValue);
+                            sanName = mapSANNames(sanName, sanValue, map);
+                            return sanName + ":" + sanValue;
+                        })
                         .collect(Collectors.toList());
                 String formattedSAN = String.join(",", formattedSANList);
                 map.put(SAN, formattedSAN);
@@ -319,10 +336,27 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
         }
     }
 
+    static String mapSANNames(String sanName, String sanValue, @NotNull Map<String, String> map) {
+        String newSanName = sanName;
+        // "RFC822NAME:aaa" -> "EMAIL:aaa,DEVICE_ID:aaa,RFC822NAME:aaa"
+        if (sanName.equals("DNS")) {
+            StrBuilder strBuilder = new StrBuilder();
+            strBuilder.append("EMAIL:").append(sanValue).append(",");
+            map.put("EMAIL", sanValue);
+
+//            strBuilder.append("DEVICE_ID:").append(sanValue).append(",");
+//            map.put("DEVICE_ID", sanValue);
+
+            strBuilder.append(sanName);
+            newSanName = strBuilder.toString();
+        }
+        return newSanName;
+    }
+
     private static String getSanName(int type) {
         return switch (type) {
             case 0 -> "OTHERNAME";
-            case 1 -> "EMAIL";
+            case 1 -> "RFC822NAME";
             case 2 -> "DNS";
             case 3 -> "X400";
             case 4 -> "DIR";
