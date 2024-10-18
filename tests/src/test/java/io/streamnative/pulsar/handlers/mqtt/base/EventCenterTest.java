@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.base;
 
-import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTProtocolHandler;
+import io.streamnative.pulsar.handlers.mqtt.broker.impl.MQTTProtocolHandler;
 import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarTopicChangeListener;
 import java.util.List;
