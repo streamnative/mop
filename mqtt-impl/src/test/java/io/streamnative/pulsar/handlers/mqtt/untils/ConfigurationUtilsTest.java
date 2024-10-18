@@ -13,8 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.untils;
 
-import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTServerConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
+import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
 import lombok.SneakyThrows;
 import org.testng.Assert;
 import org.testng.annotations.Test;

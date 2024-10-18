@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.broker.processor;
 
-import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterMessage;
 
 /**
  * Interface for MQTT protocol method processor.

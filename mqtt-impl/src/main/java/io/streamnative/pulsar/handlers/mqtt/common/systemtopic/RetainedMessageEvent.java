@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.common.systemtopic;
 
-import io.streamnative.pulsar.handlers.mqtt.utils.RetainedMessage;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.RetainedMessage;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

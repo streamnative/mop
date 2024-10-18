@@ -17,7 +17,7 @@ package io.streamnative.pulsar.handlers.mqtt.common.psk;
 import static io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventType.ADD_PSK_IDENTITY;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventListener;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.MqttEvent;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.PSKEvent;

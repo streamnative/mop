@@ -16,7 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.broker.metric;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import io.streamnative.pulsar.handlers.mqtt.MopVersion;
-import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

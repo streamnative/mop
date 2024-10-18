@@ -16,7 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt.broker;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsCollector;
-import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTServerConfiguration;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;

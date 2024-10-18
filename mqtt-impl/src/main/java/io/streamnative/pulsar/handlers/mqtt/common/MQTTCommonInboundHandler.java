@@ -14,7 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.common;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils.checkState;
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.checkState;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -23,11 +23,11 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
-import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.broker.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.broker.processor.MQTTBrokerProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.broker.processor.ProtocolMethodProcessor;
-import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTService;
-import io.streamnative.pulsar.handlers.mqtt.utils.NettyUtils;
+import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.NettyUtils;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.Setter;

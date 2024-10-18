@@ -19,7 +19,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsProvider;
-import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTServerConfiguration;
 import org.apache.pulsar.common.util.SimpleTextOutputStream;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
