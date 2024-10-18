@@ -82,7 +82,7 @@ public class RetainedMessageHandler {
         }
     }
 
-    public class RetainedMessageEventListener implements EventListener {
+    class RetainedMessageEventListener implements EventListener {
 
         @Override
         public void onChange(MqttEvent event) {
