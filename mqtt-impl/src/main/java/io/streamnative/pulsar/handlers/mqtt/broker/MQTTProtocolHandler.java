@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.broker.impl;
+package io.streamnative.pulsar.handlers.mqtt.broker;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.LISTENER_DEL;
@@ -27,8 +27,6 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.MopVersion;
-import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.broker.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.broker.channel.MQTTChannelInitializer;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
