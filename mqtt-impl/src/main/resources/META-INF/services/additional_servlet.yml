@@ -14,4 +14,4 @@
 
 name: mqtt-servlet
 description: MQTT servlet handler
-additionalServletClass: io.streamnative.pulsar.handlers.mqtt.MQTTAdditionalServlet
+additionalServletClass: io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTAdditionalServlet

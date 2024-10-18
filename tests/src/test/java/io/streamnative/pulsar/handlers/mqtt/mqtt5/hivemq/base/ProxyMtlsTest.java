@@ -28,7 +28,7 @@ import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.streamnative.oidc.broker.common.OIDCPoolResources;
 import io.streamnative.oidc.broker.common.pojo.Pool;
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.io.File;
 import java.io.FileInputStream;

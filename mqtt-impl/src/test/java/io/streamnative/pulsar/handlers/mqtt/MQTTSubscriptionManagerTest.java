@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt;
 import com.google.common.collect.Lists;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTSubscriptionManager;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 

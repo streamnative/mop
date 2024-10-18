@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.untils;
 
-import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
+import io.streamnative.pulsar.handlers.mqtt.common.TopicFilter;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.net.URLEncoder;
 import java.util.List;

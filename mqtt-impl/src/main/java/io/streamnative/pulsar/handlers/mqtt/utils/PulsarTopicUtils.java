@@ -15,8 +15,8 @@ package io.streamnative.pulsar.handlers.mqtt.utils;
 
 import static io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils.isRegexFilter;
 import com.google.common.base.Splitter;
-import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
-import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
+import io.streamnative.pulsar.handlers.mqtt.common.TopicFilter;
+import io.streamnative.pulsar.handlers.mqtt.common.TopicFilterImpl;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.Collections;

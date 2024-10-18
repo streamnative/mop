@@ -22,7 +22,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.adapter.CombineAdapterHandler;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterDecoder;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterEncoder;
-import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
+import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKUtils;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import lombok.Getter;

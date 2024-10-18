@@ -15,8 +15,8 @@
 package io.streamnative.pulsar.handlers.mqtt.base;
 
 import io.netty.handler.codec.mqtt.MqttProperties;
-import io.streamnative.pulsar.handlers.mqtt.MQTTServerConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.utils.PulsarMessageConverter;
+import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.broker.support.PulsarMessageConverter;
 import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;

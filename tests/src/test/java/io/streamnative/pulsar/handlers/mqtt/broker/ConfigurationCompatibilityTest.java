@@ -16,7 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.broker;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import com.google.common.collect.Sets;
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import java.util.Set;
 import org.testng.annotations.Test;
 

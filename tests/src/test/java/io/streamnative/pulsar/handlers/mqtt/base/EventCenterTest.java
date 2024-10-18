@@ -13,9 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.base;
 
-import io.streamnative.pulsar.handlers.mqtt.MQTTProtocolHandler;
-import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
-import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarTopicChangeListener;
+import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTProtocolHandler;
+import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarEventCenter;
+import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarTopicChangeListener;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;

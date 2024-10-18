@@ -13,11 +13,11 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.utils;
 
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CLIENT_ADDR;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.ATTR_CONNECTION;
+import static io.streamnative.pulsar.handlers.mqtt.common.Constants.ATTR_CLIENT_ADDR;
+import static io.streamnative.pulsar.handlers.mqtt.common.Constants.ATTR_CONNECTION;
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
-import io.streamnative.pulsar.handlers.mqtt.Connection;
+import io.streamnative.pulsar.handlers.mqtt.common.Connection;
 import java.net.InetSocketAddress;
 
 /**

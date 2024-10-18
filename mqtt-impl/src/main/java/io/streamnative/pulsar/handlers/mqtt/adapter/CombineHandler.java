@@ -14,7 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.adapter;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.streamnative.pulsar.handlers.mqtt.Constants.DEFAULT_CLIENT_ID;
+import static io.streamnative.pulsar.handlers.mqtt.common.Constants.DEFAULT_CLIENT_ID;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.mqtt.MqttMessage;

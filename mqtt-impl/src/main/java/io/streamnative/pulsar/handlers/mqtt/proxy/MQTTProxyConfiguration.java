@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.pulsar.common.configuration.Category;

@@ -14,4 +14,4 @@
 
 name: mqtt
 description: MQTT Protocol Handler
-handlerClass: io.streamnative.pulsar.handlers.mqtt.MQTTProtocolHandler
+handlerClass: io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTProtocolHandler
