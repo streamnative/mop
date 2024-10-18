@@ -98,7 +98,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
             try {
                 MQTTProxyConfiguration proxyConfig =
                         ConfigurationUtils.create(mqttConfig.getProperties(), MQTTProxyConfiguration.class);
-                proxyService = new MQTTProxyService(mqttService, proxyConfig);
+                proxyService = new MQTTProxyService(brokerService, proxyConfig);
                 proxyService.start();
                 log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());
             } catch (Exception ex) {

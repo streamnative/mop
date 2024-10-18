@@ -15,11 +15,12 @@ package io.streamnative.pulsar.handlers.mqtt.broker.feature;
 
 import static io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventType.RETAINED_MESSAGE;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
-import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.common.TopicFilterImpl;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventListener;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.MqttEvent;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.RetainedMessageEvent;
+import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.SystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.SystemTopicBasedSystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.utils.RetainedMessage;
@@ -35,21 +36,24 @@ public class RetainedMessageHandler {
 
     @Getter
     private final EventListener eventListener;
-    private final MQTTService mqttService;
+    private final SystemEventService eventService;
     private final Map<String, RetainedMessage> retainedMessages = new ConcurrentHashMap<>();
 
-    public RetainedMessageHandler(MQTTService mqttService) {
-        this.mqttService = mqttService;
+    private final boolean isSystemTopicEnabled;
+
+    public RetainedMessageHandler(SystemEventService eventService) {
+        this.eventService = eventService;
+        this.isSystemTopicEnabled = eventService instanceof SystemTopicBasedSystemEventService;
         this.eventListener = new RetainedMessageEventListener();
     }
 
     public CompletableFuture<Void> addRetainedMessage(MqttPublishMessage retainedMessage) {
-        if (mqttService.isSystemTopicEnabled()) {
+        if (isSystemTopicEnabled) {
             RetainedMessageEvent event = RetainedMessageEvent
                     .builder()
                     .retainedMessage(MqttMessageUtils.createRetainedMessage(retainedMessage))
                     .build();
-            mqttService.getEventService().sendRetainedEvent(event);
+            eventService.sendRetainedEvent(event);
         } else {
             // Standalone mode
             addRetainedMessage(MqttMessageUtils.createRetainedMessage(retainedMessage));
@@ -78,7 +82,7 @@ public class RetainedMessageHandler {
         }
     }
 
-    class RetainedMessageEventListener implements EventListener {
+    public class RetainedMessageEventListener implements EventListener {
 
         @Override
         public void onChange(MqttEvent event) {

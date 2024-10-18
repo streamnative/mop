@@ -370,6 +370,12 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     )
     private String webSocketPath = "/mqtt";
 
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "Enable system event service."
+    )
+    private boolean systemEventEnabled = true;
+
     public long getMqttTlsCertRefreshCheckDurationSec() {
         if (mqttTlsCertRefreshCheckDurationSec != 300) {
             return mqttTlsCertRefreshCheckDurationSec;

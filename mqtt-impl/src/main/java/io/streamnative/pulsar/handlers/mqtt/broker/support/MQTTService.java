@@ -23,9 +23,10 @@ import io.streamnative.pulsar.handlers.mqtt.common.event.DisableEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarEventCenterImpl;
 import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.DisabledSystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.SystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.SystemTopicBasedSystemEventService;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
@@ -83,8 +84,7 @@ public class MQTTService {
     private final QosPublishHandlers qosPublishHandlers;
 
     @Getter
-    @Setter
-    private SystemEventService eventService;
+    private final SystemEventService eventService;
 
     public MQTTService(BrokerService brokerService, MQTTServerConfiguration serverConfiguration) {
         this.brokerService = brokerService;
@@ -108,21 +108,21 @@ public class MQTTService {
             this.eventCenter = new PulsarEventCenterImpl(brokerService,
                     serverConfiguration.getEventCenterCallbackPoolThreadNum());
         }
-        this.retainedMessageHandler = new RetainedMessageHandler(this);
+        if (getServerConfiguration().isMqttProxyEnabled()) {
+            this.eventService = new DisabledSystemEventService();
+        } else {
+            this.eventService = serverConfiguration.isSystemEventEnabled()
+                    ? new SystemTopicBasedSystemEventService(pulsarService)
+                    : new DisabledSystemEventService();
+        }
+        this.retainedMessageHandler = new RetainedMessageHandler(eventService);
         this.qosPublishHandlers = new QosPublishHandlersImpl(this);
         this.willMessageHandler = new WillMessageHandler(this);
-    }
-
-    public boolean isSystemTopicEnabled() {
-        return eventService != null;
     }
 
     public void close() {
         this.connectionManager.close();
         this.eventCenter.shutdown();
-        if (eventService != null) {
-            eventService.close();
-        }
         this.willMessageHandler.close();
     }
 }

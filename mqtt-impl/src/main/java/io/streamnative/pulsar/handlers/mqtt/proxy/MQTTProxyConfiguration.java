@@ -57,12 +57,6 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
     private int maxPendingSendRequest = 1000;
 
     @FieldContext(
-            category = CATEGORY_MQTT_PROXY,
-            doc = "Enable system event service."
-    )
-    private boolean systemEventEnabled = true;
-
-    @FieldContext(
             category = CATEGORY_MQTT,
             doc = "The maximum number of channels which can exist concurrently on a connection."
     )
