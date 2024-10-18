@@ -30,7 +30,7 @@ import io.streamnative.pulsar.handlers.mqtt.common.exception.restrictions.Invali
 import io.streamnative.pulsar.handlers.mqtt.common.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.common.messages.ack.MqttConnectAck;
 import io.streamnative.pulsar.handlers.mqtt.common.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
-import io.streamnative.pulsar.handlers.mqtt.common.restrictions.ClientRestrictions;
+import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.NettyUtils;

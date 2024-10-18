@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.broker.mqtt5;
+package io.streamnative.pulsar.handlers.mqtt.common.mqtt5;
 
 import static io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventType.RETAINED_MESSAGE;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;

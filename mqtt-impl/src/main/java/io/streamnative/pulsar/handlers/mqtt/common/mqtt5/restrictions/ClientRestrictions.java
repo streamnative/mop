@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.common.restrictions;
+package io.streamnative.pulsar.handlers.mqtt.common.mqtt5.restrictions;
 
 import io.streamnative.pulsar.handlers.mqtt.common.exception.restrictions.InvalidSessionExpireIntervalException;
 import java.util.Optional;

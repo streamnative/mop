@@ -11,20 +11,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.common.restrictions;
-
-import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
-
-@Builder
-@ToString
-@EqualsAndHashCode
-public class ServerRestrictions {
-    @Getter
-    private int receiveMaximum;
-
-    @Getter
-    private int maximumPacketSize;
-}
+package io.streamnative.pulsar.handlers.mqtt.common.mqtt5;

@@ -17,7 +17,6 @@ import io.streamnative.pulsar.handlers.mqtt.broker.impl.MQTTNamespaceBundleOwner
 import io.streamnative.pulsar.handlers.mqtt.broker.impl.MQTTSubscriptionManager;
 import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsProvider;
-import io.streamnative.pulsar.handlers.mqtt.broker.mqtt5.RetainedMessageHandler;
 import io.streamnative.pulsar.handlers.mqtt.broker.mqtt5.WillMessageHandler;
 import io.streamnative.pulsar.handlers.mqtt.broker.qos.QosPublishHandlers;
 import io.streamnative.pulsar.handlers.mqtt.broker.qos.QosPublishHandlersImpl;
@@ -26,6 +25,7 @@ import io.streamnative.pulsar.handlers.mqtt.common.authentication.MQTTAuthentica
 import io.streamnative.pulsar.handlers.mqtt.common.event.DisableEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarEventCenterImpl;
+import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.RetainedMessageHandler;
 import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.DisabledSystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.SystemEventService;

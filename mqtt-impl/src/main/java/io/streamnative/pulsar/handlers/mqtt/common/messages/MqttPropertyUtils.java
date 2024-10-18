@@ -18,7 +18,7 @@ import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttReasonCodeAndPropertiesVariableHeader;
 import io.streamnative.pulsar.handlers.mqtt.common.exception.restrictions.InvalidReceiveMaximumException;
-import io.streamnative.pulsar.handlers.mqtt.common.restrictions.ClientRestrictions;
+import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.MqttUtils;
 import java.util.List;
 import java.util.Map;

@@ -25,7 +25,7 @@ import io.streamnative.pulsar.handlers.mqtt.broker.impl.PulsarMessageConverter;
 import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.common.Connection;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterMessage;
-import io.streamnative.pulsar.handlers.mqtt.common.restrictions.ClientRestrictions;
+import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils;
 import java.util.Collections;
 import java.util.List;
