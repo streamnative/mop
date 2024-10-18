@@ -17,8 +17,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsCollector;
 import lombok.Getter;
 import org.apache.pulsar.broker.stats.prometheus.PrometheusRawMetricsProvider;
 import org.apache.pulsar.common.stats.Metrics;

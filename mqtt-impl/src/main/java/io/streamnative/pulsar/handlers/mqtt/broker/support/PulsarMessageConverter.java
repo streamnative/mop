@@ -23,14 +23,13 @@ import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.util.concurrent.FastThreadLocal;
+import io.streamnative.pulsar.handlers.mqtt.utils.MessageBuilder;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import io.streamnative.pulsar.handlers.mqtt.utils.MessageBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Entry;
 import org.apache.commons.lang3.StringUtils;

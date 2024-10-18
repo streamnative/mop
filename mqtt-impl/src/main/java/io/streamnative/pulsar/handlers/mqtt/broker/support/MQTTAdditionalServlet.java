@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.broker.support;
 
-import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTServiceServlet;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.web.plugin.servlet.AdditionalServletWithPulsarService;
 import org.apache.pulsar.common.configuration.PulsarConfiguration;

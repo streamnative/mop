@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.common.systemtopic;
 
-import static io.streamnative.pulsar.handlers.mqtt.common.systemtopic.MqttEventUtils.getMqttEvent;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.Beta;

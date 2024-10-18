@@ -13,8 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.broker.support;
 
-import io.streamnative.pulsar.handlers.mqtt.broker.support.OutstandingPacket;
-
 /**
  * Outstanding packet container.
  */

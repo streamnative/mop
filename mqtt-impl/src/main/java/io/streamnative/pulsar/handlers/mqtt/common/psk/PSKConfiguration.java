@@ -18,15 +18,14 @@ import static io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventType.
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTServerConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventListener;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.MqttEvent;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.PSKEvent;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import java.io.File;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;

@@ -13,17 +13,17 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.broker.support;
 
-import io.streamnative.pulsar.handlers.mqtt.common.authentication.MQTTAuthenticationService;
-import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsCollector;
-import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsProvider;
 import io.streamnative.pulsar.handlers.mqtt.broker.feature.RetainedMessageHandler;
 import io.streamnative.pulsar.handlers.mqtt.broker.feature.WillMessageHandler;
+import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsCollector;
+import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsProvider;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTConnectionManager;
+import io.streamnative.pulsar.handlers.mqtt.common.authentication.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.common.event.DisableEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarEventCenter;
 import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarEventCenterImpl;
 import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.SystemEventService;
-import io.streamnative.pulsar.handlers.mqtt.common.MQTTConnectionManager;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;

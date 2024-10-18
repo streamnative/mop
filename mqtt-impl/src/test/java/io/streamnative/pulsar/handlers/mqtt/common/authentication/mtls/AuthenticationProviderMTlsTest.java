@@ -26,10 +26,6 @@ import java.util.Set;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSessionContext;
-
-import io.streamnative.pulsar.handlers.mqtt.common.authentication.mtls.AuthRequest;
-import io.streamnative.pulsar.handlers.mqtt.common.authentication.mtls.AuthenticationProviderMTls;
-import io.streamnative.pulsar.handlers.mqtt.common.authentication.mtls.ExpressionCompiler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.pulsar.broker.ServiceConfiguration;

@@ -14,8 +14,8 @@
 package io.streamnative.pulsar.handlers.mqtt.broker.support;
 
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
-import io.streamnative.pulsar.handlers.mqtt.common.Connection;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.common.Connection;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttUtils;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;

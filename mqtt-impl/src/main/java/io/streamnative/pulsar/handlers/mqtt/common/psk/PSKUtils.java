@@ -30,11 +30,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLEngine;
-
-import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKClientKeyManager;
-import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKSecretKey;
-import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKServerKeyManager;
 import org.conscrypt.OpenSSLProvider;
 
 public class PSKUtils {

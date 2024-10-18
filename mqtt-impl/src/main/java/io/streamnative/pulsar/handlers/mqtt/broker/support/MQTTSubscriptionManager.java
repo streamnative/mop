@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.broker.support;
 
 import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import io.streamnative.pulsar.handlers.mqtt.common.TopicFilterImpl;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -22,8 +23,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
-
-import io.streamnative.pulsar.handlers.mqtt.common.TopicFilterImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;

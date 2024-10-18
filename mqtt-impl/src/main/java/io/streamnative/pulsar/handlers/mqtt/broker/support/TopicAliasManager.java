@@ -16,8 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt.broker.support;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-
-import io.streamnative.pulsar.handlers.mqtt.broker.support.PacketIdGenerator;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
