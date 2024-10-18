@@ -14,7 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
-import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collections;

@@ -13,8 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.untils;
 
-import io.streamnative.pulsar.handlers.mqtt.TopicFilter;
-import io.streamnative.pulsar.handlers.mqtt.TopicFilterImpl;
+import io.streamnative.pulsar.handlers.mqtt.common.TopicFilter;
+import io.streamnative.pulsar.handlers.mqtt.common.TopicFilterImpl;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 

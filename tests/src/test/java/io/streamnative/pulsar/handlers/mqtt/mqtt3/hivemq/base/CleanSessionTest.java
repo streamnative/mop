@@ -18,7 +18,7 @@ import com.hivemq.client.mqtt.mqtt3.Mqtt3BlockingClient;
 import com.hivemq.client.mqtt.mqtt3.Mqtt3Client;
 import com.hivemq.client.mqtt.mqtt3.message.connect.connack.Mqtt3ConnAck;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;

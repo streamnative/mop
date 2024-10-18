@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.Properties;

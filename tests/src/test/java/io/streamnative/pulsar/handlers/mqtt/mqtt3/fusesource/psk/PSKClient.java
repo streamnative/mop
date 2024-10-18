@@ -21,9 +21,9 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.ssl.SslHandler;
-import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKSecretKey;
-import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKUtils;
+import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKSecretKey;
+import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKUtils;
 import lombok.extern.slf4j.Slf4j;
 
 /**

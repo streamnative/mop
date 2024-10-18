@@ -19,7 +19,7 @@ import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5DisconnectException;
 import com.hivemq.client.mqtt.mqtt5.message.connect.connack.Mqtt5ConnAck;
 import com.hivemq.client.mqtt.mqtt5.message.disconnect.Mqtt5DisconnectReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
-import io.streamnative.pulsar.handlers.mqtt.utils.PulsarTopicUtils;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
