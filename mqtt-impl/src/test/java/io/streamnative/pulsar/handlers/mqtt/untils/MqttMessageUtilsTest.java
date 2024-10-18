@@ -22,7 +22,7 @@ import io.netty.handler.codec.mqtt.MqttConnectVariableHeader;
 import io.netty.handler.codec.mqtt.MqttFixedHeader;
 import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import org.mockito.Mockito;

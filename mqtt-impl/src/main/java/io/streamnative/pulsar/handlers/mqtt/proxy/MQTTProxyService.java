@@ -19,22 +19,23 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
-import io.streamnative.pulsar.handlers.mqtt.MQTTAuthenticationService;
-import io.streamnative.pulsar.handlers.mqtt.MQTTConnectionManager;
-import io.streamnative.pulsar.handlers.mqtt.MQTTService;
-import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;
-import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenter;
-import io.streamnative.pulsar.handlers.mqtt.support.event.PulsarEventCenterImpl;
-import io.streamnative.pulsar.handlers.mqtt.support.psk.PSKConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.DisabledSystemEventService;
-import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemEventService;
-import io.streamnative.pulsar.handlers.mqtt.support.systemtopic.SystemTopicBasedSystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTConnectionManager;
+import io.streamnative.pulsar.handlers.mqtt.common.adapter.MQTTProxyAdapter;
+import io.streamnative.pulsar.handlers.mqtt.common.authentication.MQTTAuthenticationService;
+import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarEventCenter;
+import io.streamnative.pulsar.handlers.mqtt.common.event.PulsarEventCenterImpl;
+import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.RetainedMessageHandler;
+import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.DisabledSystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.SystemEventService;
+import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.SystemTopicBasedSystemEventService;
 import java.io.Closeable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.service.BrokerService;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
 
 /**
@@ -72,24 +73,26 @@ public class MQTTProxyService implements Closeable {
     private DefaultThreadFactory workerThreadFactory = new DefaultThreadFactory("mqtt-redirect-io");
     private ScheduledExecutorService sslContextRefresher;
 
-    public MQTTProxyService(MQTTService mqttService, MQTTProxyConfiguration proxyConfig) {
+    public MQTTProxyService(BrokerService brokerService, MQTTProxyConfiguration proxyConfig) {
         configValid(proxyConfig);
-        this.pulsarService = mqttService.getPulsarService();
+        this.pulsarService = brokerService.getPulsar();
         this.proxyConfig = proxyConfig;
         this.pskConfiguration = new PSKConfiguration(proxyConfig);
-        this.authenticationService = mqttService.getAuthenticationService();
+        this.authenticationService = proxyConfig.isMqttAuthenticationEnabled()
+                ? new MQTTAuthenticationService(brokerService,
+                proxyConfig.getMqttAuthenticationMethods(),
+                proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) : null;
         this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
         this.eventService = proxyConfig.isSystemEventEnabled()
-                ? new SystemTopicBasedSystemEventService(mqttService.getPulsarService())
+                ? new SystemTopicBasedSystemEventService(pulsarService)
                 : new DisabledSystemEventService();
         this.eventService.addListener(connectionManager.getEventListener());
-        this.eventService.addListener(mqttService.getRetainedMessageHandler().getEventListener());
-        mqttService.setEventService(eventService);
+        this.eventService.addListener(new RetainedMessageHandler(eventService).getEventListener());
         this.acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
                 false, acceptorThreadFactory);
         this.workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),
                 false, workerThreadFactory);
-        this.eventCenter = new PulsarEventCenterImpl(mqttService.getBrokerService(),
+        this.eventCenter = new PulsarEventCenterImpl(brokerService,
                 proxyConfig.getEventCenterCallbackPoolThreadNum());
         this.proxyAdapter = new MQTTProxyAdapter(this);
         this.sslContextRefresher = Executors.newSingleThreadScheduledExecutor(

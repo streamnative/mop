@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.pulsar.common.configuration.Category;
@@ -55,12 +55,6 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
                     + "each proxy connection to prevent overloading a broker."
     )
     private int maxPendingSendRequest = 1000;
-
-    @FieldContext(
-            category = CATEGORY_MQTT_PROXY,
-            doc = "Enable system event service."
-    )
-    private boolean systemEventEnabled = true;
 
     @FieldContext(
             category = CATEGORY_MQTT,

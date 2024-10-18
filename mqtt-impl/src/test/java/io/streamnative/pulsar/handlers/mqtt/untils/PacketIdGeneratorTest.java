@@ -14,7 +14,7 @@
 
 package io.streamnative.pulsar.handlers.mqtt.untils;
 
-import io.streamnative.pulsar.handlers.mqtt.PacketIdGenerator;
+import io.streamnative.pulsar.handlers.mqtt.broker.impl.PacketIdGenerator;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
