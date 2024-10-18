@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.broker.support;
 
-import io.streamnative.pulsar.handlers.mqtt.authentication.MQTTAuthenticationService;
+import io.streamnative.pulsar.handlers.mqtt.common.authentication.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsCollector;
 import io.streamnative.pulsar.handlers.mqtt.broker.metric.MQTTMetricsProvider;
 import io.streamnative.pulsar.handlers.mqtt.broker.feature.RetainedMessageHandler;

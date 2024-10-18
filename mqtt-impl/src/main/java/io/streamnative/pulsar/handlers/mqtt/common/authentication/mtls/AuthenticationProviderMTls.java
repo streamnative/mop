@@ -11,12 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.authentication;
+package io.streamnative.pulsar.handlers.mqtt.common.authentication.mtls;
 
-import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.DN;
-import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.SAN;
-import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.SHA1;
-import static io.streamnative.pulsar.handlers.mqtt.authentication.ExpressionCompiler.SNID;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -229,9 +225,9 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
             // parse SAN
             parseSAN(certificate, params);
             // get SNID
-            params.put(SNID, certificate.getSerialNumber().toString(16).toUpperCase());
+            params.put(ExpressionCompiler.SNID, certificate.getSerialNumber().toString(16).toUpperCase());
             // parse SHA1
-            params.put(SHA1, parseSHA1FingerPrint(certificate));
+            params.put(ExpressionCompiler.SHA1, parseSHA1FingerPrint(certificate));
 
             String poolName = matchPool(params);
             if (poolName.isEmpty()) {
@@ -300,7 +296,7 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
         if (StringUtils.isEmpty(dn)) {
             return params;
         }
-        params.put(DN, dn);
+        params.put(ExpressionCompiler.DN, dn);
         LdapName ldapName = new LdapName(dn);
         for (Rdn rdn : ldapName.getRdns()) {
             String rdnType = rdn.getType().toUpperCase();
@@ -329,7 +325,7 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
                         })
                         .collect(Collectors.toList());
                 String formattedSAN = String.join(",", formattedSANList);
-                map.put(SAN, formattedSAN);
+                map.put(ExpressionCompiler.SAN, formattedSAN);
             }
         } catch (Exception e) {
             log.error("Failed to parse the SAN from the client certificate, skip parse SAN", e);

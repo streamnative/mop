@@ -19,7 +19,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
-import io.streamnative.pulsar.handlers.mqtt.authentication.MQTTAuthenticationService;
+import io.streamnative.pulsar.handlers.mqtt.common.authentication.MQTTAuthenticationService;
 import io.streamnative.pulsar.handlers.mqtt.common.MQTTConnectionManager;
 import io.streamnative.pulsar.handlers.mqtt.broker.support.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;

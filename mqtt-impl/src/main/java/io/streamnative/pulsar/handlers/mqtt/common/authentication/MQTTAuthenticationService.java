@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.authentication;
+package io.streamnative.pulsar.handlers.mqtt.common.authentication;
 
 import static io.streamnative.pulsar.handlers.mqtt.common.Constants.AUTH_BASIC;
 import static io.streamnative.pulsar.handlers.mqtt.common.Constants.AUTH_MTLS;
 import static io.streamnative.pulsar.handlers.mqtt.common.Constants.AUTH_TOKEN;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttConnectPayload;
+import io.streamnative.pulsar.handlers.mqtt.common.authentication.mtls.AuthenticationProviderMTls;
 import io.streamnative.pulsar.handlers.mqtt.utils.MqttMessageUtils;
 import java.util.HashMap;
 import java.util.List;
