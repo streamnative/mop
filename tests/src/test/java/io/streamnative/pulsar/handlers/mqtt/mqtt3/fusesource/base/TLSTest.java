@@ -14,8 +14,8 @@
 
 package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.base;
 
-import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import java.io.File;
 import java.io.FileInputStream;
 import java.security.KeyStore;

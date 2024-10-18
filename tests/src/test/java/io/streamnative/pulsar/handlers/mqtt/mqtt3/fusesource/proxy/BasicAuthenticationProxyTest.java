@@ -13,8 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.proxy;
 
-import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.BasicAuthenticationConfig;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
