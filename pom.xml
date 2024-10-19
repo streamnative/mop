@@ -33,6 +33,7 @@
 
     <modules>
         <module>mqtt-impl</module>
+        <module>mqtt-proxy</module>
         <module>tests</module>
     </modules>
 
