@@ -30,12 +30,6 @@
     <dependencies>
         <dependency>
             <groupId>io.streamnative.pulsar.handlers</groupId>
-            <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>
-            <version>${project.version}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.streamnative.pulsar.handlers</groupId>
             <artifactId>pulsar-protocol-handler-mqtt-proxy</artifactId>
             <version>${project.version}</version>
         </dependency>
