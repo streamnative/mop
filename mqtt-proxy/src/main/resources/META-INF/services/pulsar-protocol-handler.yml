@@ -1,4 +1,3 @@
-#!/bin/bash
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,20 +12,6 @@
 # limitations under the License.
 #
 
-set -ex
-
-echo "Releasing MOP"
-
-version=${1#v}
-if [[ "x$version" == "x" ]]; then
-  echo "You need give a version number of the MOP"
-  exit 1
-fi
-
-# Create a direcotry to save assets
-ASSETS_DIR=release
-mkdir $ASSETS_DIR
-
-mvn clean install -DskipTests -Dmaven.wagon.http.retryHandler.count=3
-mv mqtt-broker/target/pulsar-protocol-handler-mqtt-*.nar  ./$ASSETS_DIR
-cp README.md ./$ASSETS_DIR/pulsar-protocol-handler-mqtt-readme.md
+name: mqtt-proxy
+description: MQTT Proxy Protocol Handler
+handlerClass: io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyProtocolHandler

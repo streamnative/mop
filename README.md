@@ -46,7 +46,7 @@ MQTT-on-Pulsar (aka MoP) is developed to support MQTT protocol natively on Apach
 3. The NAR file can be found at this location.
 
     ```bash
-    ./mqtt-impl/target/pulsar-protocol-handler-mqtt-${version}.nar
+    ./mqtt-broker/target/pulsar-protocol-handler-mqtt-${version}.nar
     ```
 
 ### Install MoP protocol handler
