@@ -15,6 +15,10 @@ package io.streamnative.pulsar.handlers.mqtt.common.mqtt5;
 
 import com.google.common.collect.Maps;
 import io.streamnative.pulsar.handlers.mqtt.common.exception.MQTTNoSubscriptionExistedException;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.service.BrokerServiceException;
@@ -22,11 +26,6 @@ import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.common.util.FutureUtil;
-
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class TopicSubscriptionManager {
