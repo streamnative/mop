@@ -16,8 +16,8 @@ package io.streamnative.pulsar.handlers.mqtt.proxy.channel;
 import static io.streamnative.pulsar.handlers.mqtt.common.Constants.DEFAULT_CLIENT_ID;
 import io.netty.channel.ChannelHandlerContext;
 import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonInboundHandler;
-import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
+import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyProtocolMethodProcessor;
 import lombok.extern.slf4j.Slf4j;
 
 /**

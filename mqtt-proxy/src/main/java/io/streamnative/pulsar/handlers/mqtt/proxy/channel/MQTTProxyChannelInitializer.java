@@ -23,12 +23,11 @@ import io.streamnative.pulsar.handlers.mqtt.common.adapter.CombineAdapterHandler
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterDecoder;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterEncoder;
 import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKUtils;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
+import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyException;
-import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.util.PulsarSslConfiguration;

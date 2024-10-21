@@ -13,22 +13,20 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.PROTOCOL_NAME;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
-import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
+import java.net.InetSocketAddress;
+import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.ServiceConfigurationUtils;
 import org.apache.pulsar.broker.protocol.ProtocolHandler;
 import org.apache.pulsar.broker.service.BrokerService;
-import java.net.InetSocketAddress;
-import java.util.Map;
-import java.util.concurrent.ScheduledExecutorService;
-import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.PROTOCOL_NAME;
 
 /**
  * MQTT Protocol Handler load and run by Pulsar Service.

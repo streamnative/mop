@@ -13,18 +13,16 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy.channel;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import io.netty.channel.Channel;
 import io.streamnative.pulsar.handlers.mqtt.common.Connection;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.FutureUtils;
+import java.net.InetSocketAddress;
+import java.util.concurrent.CompletableFuture;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-
-import java.net.InetSocketAddress;
-import java.util.concurrent.CompletableFuture;
-
-import static com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
 public class AdapterChannel {

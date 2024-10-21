@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy.handler;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,8 +26,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-
-import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;

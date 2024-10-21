@@ -30,14 +30,14 @@ import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.DisabledSystemEve
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.SystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.SystemTopicBasedSystemEventService;
 import io.streamnative.pulsar.handlers.mqtt.proxy.authentication.mtls.AuthenticationProviderMTls;
-import java.io.Closeable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import io.streamnative.pulsar.handlers.mqtt.proxy.channel.MQTTProxyAdapter;
 import io.streamnative.pulsar.handlers.mqtt.proxy.channel.MQTTProxyChannelInitializer;
 import io.streamnative.pulsar.handlers.mqtt.proxy.handler.LookupHandler;
 import io.streamnative.pulsar.handlers.mqtt.proxy.handler.PulsarServiceLookupHandler;
 import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyException;
+import java.io.Closeable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;

@@ -15,4 +15,4 @@
 /**
  * Package info.
  */
-package io.streamnative.pulsar.handlers.mqtt.common.adapter;
+package io.streamnative.pulsar.handlers.mqtt.proxy.impl;

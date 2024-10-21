@@ -15,4 +15,4 @@
 /**
  * Package info.
  */
-package io.streamnative.pulsar.handlers.mqtt.common.event;
+package io.streamnative.pulsar.handlers.mqtt.proxy.channel;
