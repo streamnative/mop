@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.common.authentication.mtls;
+package io.streamnative.pulsar.handlers.mqtt.proxy.authentication.mtls;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.netty.channel.local.LocalAddress;
