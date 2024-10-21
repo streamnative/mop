@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.common;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.checkState;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
@@ -23,13 +24,9 @@ import io.netty.handler.codec.mqtt.MqttMessageType;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
-//import io.streamnative.pulsar.handlers.mqtt.broker.MQTTService;
-//import io.streamnative.pulsar.handlers.mqtt.broker.processor.MQTTBrokerProtocolMethodProcessor;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.NettyUtils;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -41,9 +38,6 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
 
     public static final String NAME = "InboundHandler";
 
-//    @Setter
-//    protected MQTTService mqttService;
-
     protected final ConcurrentHashMap<String, ProtocolMethodProcessor> processors = new ConcurrentHashMap<>();
 
     @Override
@@ -51,16 +45,9 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
         checkArgument(message instanceof MqttAdapterMessage);
         MqttAdapterMessage adapterMsg = (MqttAdapterMessage) message;
         MqttMessage mqttMessage = adapterMsg.getMqttMessage();
-        final ProtocolMethodProcessor processor = processors.computeIfAbsent(adapterMsg.getClientId(), key -> {
-//            MQTTBrokerProtocolMethodProcessor p = new MQTTBrokerProtocolMethodProcessor(mqttService, ctx);
-//            CompletableFuture<Void> inactiveFuture = p.getInactiveFuture();
-//            inactiveFuture.whenComplete((id, ex) -> {
-//                processors.remove(adapterMsg.getClientId());
-//            });
-//            return p;
-            return null;
-        });
+        final ProtocolMethodProcessor processor = processors.get(adapterMsg.getClientId());
         try {
+            checkNotNull(processor);
             checkState(mqttMessage);
             MqttMessageType messageType = mqttMessage.fixedHeader().messageType();
             if (log.isDebugEnabled()) {
