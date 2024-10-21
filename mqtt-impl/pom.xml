@@ -27,6 +27,19 @@
     <name>StreamNative :: Pulsar Protocol Handler :: MQTT</name>
     <description>MQTT on Pulsar implemented using Pulsar Protocol Handler</description>
 
+    <dependencies>
+<!--        <dependency>-->
+<!--            <groupId>io.streamnative.pulsar.handlers</groupId>-->
+<!--            <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>-->
+<!--            <version>${project.version}</version>-->
+<!--            <scope>compile</scope>-->
+<!--        </dependency>-->
+        <dependency>
+            <groupId>io.streamnative.pulsar.handlers</groupId>
+            <artifactId>pulsar-protocol-handler-mqtt-proxy</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
     <build>
         <plugins>
             <plugin>

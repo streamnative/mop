@@ -93,7 +93,9 @@ public class MQTTService {
         this.brokerService = brokerService;
         this.pulsarService = brokerService.pulsar();
         this.serverConfiguration = serverConfiguration;
-        this.pskConfiguration = new PSKConfiguration(serverConfiguration);
+        this.pskConfiguration = new PSKConfiguration(serverConfiguration.getMqttTlsPskIdentityHint(),
+                serverConfiguration.getMqttTlsPskIdentity(), serverConfiguration.getMqttTlsPskIdentityFile(),
+                serverConfiguration.getMqttTlsProtocols(), serverConfiguration.getMqttTlsCiphers());
         this.authorizationService = brokerService.getAuthorizationService();
         this.bundleOwnershipListener = new MQTTNamespaceBundleOwnershipListener(pulsarService.getNamespaceService());
         this.metricsCollector = new MQTTMetricsCollector(serverConfiguration);
@@ -101,8 +103,7 @@ public class MQTTService {
         this.pulsarService.addPrometheusRawMetricsProvider(metricsProvider);
         this.authenticationService = serverConfiguration.isMqttAuthenticationEnabled()
             ? new MQTTAuthenticationService(brokerService,
-                serverConfiguration.getMqttAuthenticationMethods(),
-                serverConfiguration.isMqttProxyMTlsAuthenticationEnabled()) : null;
+                serverConfiguration.getMqttAuthenticationMethods()) : null;
         this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
         this.subscriptionManager = new MQTTSubscriptionManager();
         if (getServerConfiguration().isMqttProxyEnabled()) {

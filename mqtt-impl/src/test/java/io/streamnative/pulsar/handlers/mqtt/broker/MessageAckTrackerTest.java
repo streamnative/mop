@@ -15,7 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.broker;
 
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import io.streamnative.pulsar.handlers.mqtt.proxy.MessageAckTracker;
+import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MessageAckTracker;
 import org.testng.annotations.Test;
 
 public class MessageAckTrackerTest {

@@ -31,7 +31,6 @@ import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.broker.MQTTService;
 import io.streamnative.pulsar.handlers.mqtt.broker.channel.MQTTServerCnx;
 import io.streamnative.pulsar.handlers.mqtt.broker.impl.MQTTSubscriptionManager;
-import io.streamnative.pulsar.handlers.mqtt.broker.impl.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.broker.impl.consumer.MQTTConsumer;
 import io.streamnative.pulsar.handlers.mqtt.broker.impl.consumer.OutstandingPacket;
 import io.streamnative.pulsar.handlers.mqtt.broker.impl.consumer.OutstandingPacketContainer;
@@ -58,6 +57,7 @@ import io.streamnative.pulsar.handlers.mqtt.common.messages.codes.mqtt5.Mqtt5Dis
 import io.streamnative.pulsar.handlers.mqtt.common.messages.codes.mqtt5.Mqtt5PubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.common.messages.codes.mqtt5.Mqtt5UnsubReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.common.messages.properties.PulsarProperties;
+import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.RetainedMessageHandler;
 import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.restrictions.ServerRestrictions;

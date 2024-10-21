@@ -18,7 +18,6 @@ import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.broker.MQTTService;
-import io.streamnative.pulsar.handlers.mqtt.broker.impl.TopicAliasManager;
 import io.streamnative.pulsar.handlers.mqtt.broker.impl.consumer.MessagePublishContext;
 import io.streamnative.pulsar.handlers.mqtt.common.Connection;
 import io.streamnative.pulsar.handlers.mqtt.common.exception.MQTTNoMatchingSubscriberException;
@@ -26,6 +25,7 @@ import io.streamnative.pulsar.handlers.mqtt.common.exception.MQTTTopicAliasExcee
 import io.streamnative.pulsar.handlers.mqtt.common.exception.MQTTTopicAliasNotFoundException;
 import io.streamnative.pulsar.handlers.mqtt.common.messages.MqttPropertyUtils;
 import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.RetainedMessageHandler;
+import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.TopicAliasManager;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;

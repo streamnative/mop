@@ -24,6 +24,7 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import io.netty.util.concurrent.FastThreadLocal;
 import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.MessageBuilder;
 import java.io.IOException;
 import java.nio.ByteBuffer;
