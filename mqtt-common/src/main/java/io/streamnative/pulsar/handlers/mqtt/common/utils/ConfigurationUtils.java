@@ -54,6 +54,9 @@ public final class ConfigurationUtils {
     public static final String LISTENER_PATTERN =
             "^((mqtt)(\\+ssl)?(\\+psk)?|(ws)(\\+ssl)?)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
 
+    public static final String PROXY_LISTENER_PATTERN =
+            "^(mqtt-proxy)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
+
     /**
      * Creates PulsarConfiguration and loads it with populated attribute values loaded from provided property file.
      *
@@ -160,6 +163,13 @@ public final class ConfigurationUtils {
         return Integer.parseInt(listener.substring(lastIndex + 1));
     }
 
+    public static int getProxyListenerPort(String listener) {
+        checkArgument(listener.matches(PROXY_LISTENER_PATTERN), "proxy listener not match pattern");
+
+        int lastIndex = listener.lastIndexOf(':');
+        return Integer.parseInt(listener.substring(lastIndex + 1));
+    }
+
     private ConfigurationUtils() {}
 
     /**
@@ -245,5 +255,6 @@ public final class ConfigurationUtils {
         List list = (List) fieldValue;
         return Joiner.on(LISTENER_DEL).join(list);
     }
+
 
 }

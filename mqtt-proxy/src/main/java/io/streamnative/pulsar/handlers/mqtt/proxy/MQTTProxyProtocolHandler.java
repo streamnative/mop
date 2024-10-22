@@ -17,7 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.LISTENER_DEL;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.PROTOCOL_PROXY_NAME;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.PROXY_PREFIX;
-import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.getListenerPort;
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.getProxyListenerPort;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
@@ -111,7 +111,8 @@ public class MQTTProxyProtocolHandler implements ProtocolHandler {
             for (String listener: parts) {
                 if (listener.startsWith(PROXY_PREFIX)) {
                     builder.put(
-                            new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
+                            new InetSocketAddress(brokerService.pulsar().getBindAddress(),
+                                    getProxyListenerPort(listener)),
                             new MQTTProxyChannelInitializer(
                                     proxyService, proxyConfig, false, false, sslContextRefresher));
                 }
