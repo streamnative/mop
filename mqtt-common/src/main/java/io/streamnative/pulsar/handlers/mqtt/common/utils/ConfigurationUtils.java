@@ -42,6 +42,7 @@ import org.apache.pulsar.common.configuration.PulsarConfiguration;
 public final class ConfigurationUtils {
 
     public static final String PROTOCOL_NAME = "mqtt";
+    public static final String PROTOCOL_PROXY_NAME = "mqtt-proxy";
     public static final String PLAINTEXT_PREFIX = "mqtt://";
     public static final String SSL_PREFIX = "mqtt+ssl://";
     public static final String SSL_PSK_PREFIX = "mqtt+ssl+psk://";

@@ -13,7 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
-import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.PROTOCOL_NAME;
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.PROTOCOL_PROXY_NAME;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
@@ -49,12 +49,12 @@ public class MQTTProxyProtocolHandler implements ProtocolHandler {
 
     @Override
     public String protocolName() {
-        return PROTOCOL_NAME;
+        return PROTOCOL_PROXY_NAME;
     }
 
     @Override
     public boolean accept(String protocol) {
-        return PROTOCOL_NAME.equals(protocol.toLowerCase());
+        return PROTOCOL_PROXY_NAME.equals(protocol.toLowerCase());
     }
 
     @Override
