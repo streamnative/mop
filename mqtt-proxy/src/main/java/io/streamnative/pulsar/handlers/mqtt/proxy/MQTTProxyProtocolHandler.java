@@ -13,13 +13,20 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.LISTENER_DEL;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.PROTOCOL_PROXY_NAME;
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.PROXY_PREFIX;
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.getListenerPort;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
+import io.streamnative.pulsar.handlers.mqtt.proxy.channel.MQTTProxyChannelInitializer;
 import java.net.InetSocketAddress;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -68,7 +75,10 @@ public class MQTTProxyProtocolHandler implements ProtocolHandler {
 
     @Override
     public String getProtocolDataToAdvertise() {
-        return null;
+        if (log.isDebugEnabled()) {
+            log.debug("Get configured listener: {}", proxyConfig.getMqttProxyListeners());
+        }
+        return proxyConfig.getMqttProxyListeners();
     }
 
     @Override
@@ -76,8 +86,8 @@ public class MQTTProxyProtocolHandler implements ProtocolHandler {
         this.brokerService = brokerService;
         try {
             proxyService = new MQTTProxyService(brokerService, proxyConfig);
-            proxyService.start();
-            log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());
+            proxyService.start0();
+            log.info("Start MQTT proxy service ");
         } catch (Exception ex) {
             log.error("Failed to start MQTT proxy service.", ex);
         }
@@ -86,8 +96,26 @@ public class MQTTProxyProtocolHandler implements ProtocolHandler {
     @Override
     public Map<InetSocketAddress, ChannelInitializer<SocketChannel>> newChannelInitializers() {
         try {
+            checkArgument(proxyConfig != null);
+            checkArgument(proxyConfig.getMqttProxyListeners() != null);
+            checkArgument(brokerService != null);
+
+            this.sslContextRefresher = Executors.newSingleThreadScheduledExecutor(
+                    new DefaultThreadFactory("mop-ssl-context-refresher"));
+
+            String listeners = proxyConfig.getMqttProxyListeners();
+            String[] parts = listeners.split(LISTENER_DEL);
             ImmutableMap.Builder<InetSocketAddress, ChannelInitializer<SocketChannel>> builder =
                     ImmutableMap.<InetSocketAddress, ChannelInitializer<SocketChannel>>builder();
+
+            for (String listener: parts) {
+                if (listener.startsWith(PROXY_PREFIX)) {
+                    builder.put(
+                            new InetSocketAddress(brokerService.pulsar().getBindAddress(), getListenerPort(listener)),
+                            new MQTTProxyChannelInitializer(
+                                    proxyService, proxyConfig, false, false, sslContextRefresher));
+                }
+            }
             return builder.build();
         } catch (Exception e) {
             log.error("MQTTProtocolHandler newChannelInitializers failed with", e);

@@ -30,6 +30,13 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
     private static final String CATEGORY_BROKER_DISCOVERY = "Broker Discovery";
 
     @FieldContext(
+            category = CATEGORY_MQTT,
+            required = true,
+            doc = "Listener for the MQTT Server."
+    )
+    private String mqttProxyListeners = "mqtt://127.0.0.1:5682";
+
+    @FieldContext(
             category = CATEGORY_BROKER_DISCOVERY,
             doc = "The service url points to the broker cluster"
     )

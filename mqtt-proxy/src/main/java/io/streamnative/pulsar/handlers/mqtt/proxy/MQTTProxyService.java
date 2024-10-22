@@ -170,6 +170,47 @@ public class MQTTProxyService implements Closeable {
         this.eventService.start();
     }
 
+    public void start0() throws MQTTProxyException {
+        ServerBootstrap serverBootstrap = new ServerBootstrap();
+        serverBootstrap.group(acceptorGroup, workerGroup);
+        serverBootstrap.channel(EventLoopUtil.getServerSocketChannelClass(workerGroup));
+        EventLoopUtil.enableTriggeredMode(serverBootstrap);
+
+        if (proxyConfig.isMqttProxyTlsEnabled() || proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
+            ServerBootstrap tlsBootstrap = serverBootstrap.clone();
+            tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(
+                    this, proxyConfig, true, sslContextRefresher));
+            try {
+                listenChannelTls = tlsBootstrap.bind(proxyConfig.getMqttProxyTlsPort()).sync().channel();
+                log.info("Started MQTT Proxy with TLS on {}", listenChannelTls.localAddress());
+            } catch (InterruptedException e) {
+                throw new MQTTProxyException(e);
+            }
+        }
+
+        if (proxyConfig.isMqttProxyTlsPskEnabled()) {
+            // init psk config
+            pskConfiguration.setIdentityHint(proxyConfig.getTlsPskIdentityHint());
+            pskConfiguration.setIdentity(proxyConfig.getTlsPskIdentity());
+            pskConfiguration.setIdentityFile(proxyConfig.getTlsPskIdentityFile());
+            pskConfiguration.setProtocols(proxyConfig.getTlsProtocols());
+            pskConfiguration.setCiphers(proxyConfig.getTlsCiphers());
+            this.eventService.addListener(pskConfiguration.getEventListener());
+            // Add channel initializer
+            ServerBootstrap tlsPskBootstrap = serverBootstrap.clone();
+            tlsPskBootstrap.childHandler(new MQTTProxyChannelInitializer(
+                    this, proxyConfig, false, true, sslContextRefresher));
+            try {
+                listenChannelTlsPsk = tlsPskBootstrap.bind(proxyConfig.getMqttProxyTlsPskPort()).sync().channel();
+                log.info("Started MQTT Proxy with TLS-PSK on {}", listenChannelTlsPsk.localAddress());
+            } catch (InterruptedException e) {
+                throw new MQTTProxyException(e);
+            }
+        }
+        this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, proxyConfig);
+        this.eventService.start();
+    }
+
     @Override
     public void close() {
         if (listenChannel != null) {

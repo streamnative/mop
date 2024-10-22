@@ -44,6 +44,7 @@ public final class ConfigurationUtils {
     public static final String PROTOCOL_NAME = "mqtt";
     public static final String PROTOCOL_PROXY_NAME = "mqtt-proxy";
     public static final String PLAINTEXT_PREFIX = "mqtt://";
+    public static final String PROXY_PREFIX = "mqtt-proxy://";
     public static final String SSL_PREFIX = "mqtt+ssl://";
     public static final String SSL_PSK_PREFIX = "mqtt+ssl+psk://";
     public static final String WS_PLAINTEXT_PREFIX = "ws://";
