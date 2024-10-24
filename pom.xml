@@ -32,7 +32,9 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>mqtt-impl</module>
+        <module>mqtt-common</module>
+        <module>mqtt-proxy</module>
+        <module>mqtt-broker</module>
         <module>tests</module>
     </modules>
 

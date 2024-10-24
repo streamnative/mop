@@ -61,7 +61,7 @@ jobs:
         id: list-test
         run: |
           TESTS=`find tests/src/test/java/io/streamnative/pulsar/handlers/mqtt \
-          mqtt-impl/src/test/java/io/streamnative/pulsar/handlers/mqtt -name "*Test.java" | \
+          mqtt-broker/src/test/java/io/streamnative/pulsar/handlers/mqtt -name "*Test.java" | \
           awk -F "/" '{ print $NF }' | \
           awk -F "." '{ print $1 }' | \
           jq -R -s -c 'split("\n") | map(select(. != ""))'`
@@ -146,7 +146,7 @@ jobs:
       - name: Download jacoco artifact
         uses: actions/download-artifact@v3
         with:
-          path: mqtt-impl/target
+          path: mqtt-broker/target
 
       - name: Merge jacoco report
         run: mvn jacoco:merge
