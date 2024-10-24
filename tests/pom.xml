@@ -91,7 +91,7 @@
                         <configuration>
                             <tasks>
                                 <echo>copy protocol handler</echo>
-                                <copy file="${basedir}/../mqtt-impl/target/pulsar-protocol-handler-mqtt-${project.version}.nar"
+                                <copy file="${basedir}/../mqtt-broker/target/pulsar-protocol-handler-mqtt-${project.version}.nar"
                                       tofile="${basedir}/src/test/resources/test-protocol-handler.nar"/>
                             </tasks>
                         </configuration>
