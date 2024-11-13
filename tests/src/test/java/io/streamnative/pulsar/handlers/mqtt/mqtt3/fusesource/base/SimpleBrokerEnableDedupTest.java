@@ -53,4 +53,22 @@ public class SimpleBrokerEnableDedupTest extends MQTTTestBase {
         received.ack();
         connection.disconnect();
     }
+
+    @Test
+    public void testDedup() throws Exception {
+        MQTT mqtt = createMQTTClient();
+        String topicName = "testDedup";
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        for (int i = 1; i <= 10; i ++) {
+            connection.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
+            Message received = connection.receive();
+            Assert.assertEquals(received.getTopic(), topicName);
+            Assert.assertEquals(new String(received.getPayload()), message + i);
+        }
+        connection.disconnect();
+    }
 }

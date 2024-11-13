@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.loadbalance.extensions.data.BrokerLookupData;
 import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.ServerCnx;
@@ -64,5 +65,10 @@ public class MQTTServerCnx extends ServerCnx {
                 }
             });
         }
+    }
+
+    @Override
+    public AuthenticationDataSource getAuthenticationData() {
+        return null;
     }
 }

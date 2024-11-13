@@ -29,11 +29,14 @@ import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.TopicAliasManager;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Topic;
+import org.apache.pulsar.broker.service.persistent.PersistentTopic;
 import org.apache.pulsar.client.impl.MessageImpl;
 import org.apache.pulsar.common.util.FutureUtil;
 
@@ -45,6 +48,8 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     protected final PulsarService pulsarService;
     protected final RetainedMessageHandler retainedMessageHandler;
     protected final MQTTServerConfiguration configuration;
+    private final ConcurrentHashMap<String, Long> sequenceIdMap = new ConcurrentHashMap<>();
+
 
     protected AbstractQosPublishHandler(MQTTService mqttService) {
         this.pulsarService = mqttService.getPulsarService();
@@ -104,9 +109,23 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
             mqttTopicName = msg.variableHeader().topicName();
         }
         return getTopicReference(mqttTopicName).thenCompose(topicOp -> topicOp.map(topic -> {
+            long lastPublishedSequenceId = -1;
+            if (topic instanceof PersistentTopic) {
+                final long lastPublishedId = ((PersistentTopic) topic).getLastPublishedSequenceId(producerName);
+                lastPublishedSequenceId = sequenceIdMap.compute(producerName, (k, v) -> {
+                    long id;
+                    if (v == null) {
+                        id = lastPublishedId + 1;
+                    } else {
+                        id = Math.max(v, lastPublishedId) + 1;
+                    }
+                    return id;
+                });
+            }
             MessageImpl<byte[]> message = toPulsarMsg(configuration, topic, msg.variableHeader().properties(),
                     msg.payload().nioBuffer());
-            CompletableFuture<Position> ret = MessagePublishContext.publishMessages(producerName, message, topic);
+            CompletableFuture<Position> ret = MessagePublishContext.publishMessages(producerName, message,
+                    lastPublishedSequenceId, topic);
             message.recycle();
             return ret.thenApply(position -> {
                 if (checkSubscription && topic.getSubscriptions().isEmpty()) {
