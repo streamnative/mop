@@ -30,7 +30,6 @@ import io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
