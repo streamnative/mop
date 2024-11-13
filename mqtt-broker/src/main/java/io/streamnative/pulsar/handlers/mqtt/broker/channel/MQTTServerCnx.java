@@ -66,9 +66,4 @@ public class MQTTServerCnx extends ServerCnx {
             });
         }
     }
-
-    @Override
-    public AuthenticationDataSource getAuthenticationData() {
-        return null;
-    }
 }
