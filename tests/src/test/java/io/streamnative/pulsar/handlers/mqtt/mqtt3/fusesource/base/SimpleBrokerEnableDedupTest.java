@@ -63,7 +63,7 @@ public class SimpleBrokerEnableDedupTest extends MQTTTestBase {
         Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
         connection.subscribe(topics);
         String message = "Hello MQTT";
-        for (int i = 1; i <= 10; i ++) {
+        for (int i = 1; i <= 10; i++) {
             connection.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
             Message received = connection.receive();
             Assert.assertEquals(received.getTopic(), topicName);
