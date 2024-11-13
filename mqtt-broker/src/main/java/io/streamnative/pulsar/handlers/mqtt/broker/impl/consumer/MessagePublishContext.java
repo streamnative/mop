@@ -36,6 +36,7 @@ public final class MessagePublishContext implements PublishContext {
     private Topic topic;
     private long startTimeNs;
     private CompletableFuture<Position> positionFuture;
+    private long sequenceId;
 
     /**
      * Executed from managed ledger thread when the message is persisted.
@@ -58,11 +59,12 @@ public final class MessagePublishContext implements PublishContext {
 
     // recycler
     public static MessagePublishContext get(CompletableFuture<Position> positionFuture, String producerName,
-                                            Topic topic, long startTimeNs) {
+                                            Topic topic, long sequenceId, long startTimeNs) {
         MessagePublishContext callback = RECYCLER.get();
         callback.positionFuture = positionFuture;
         callback.producerName = producerName;
         callback.topic = topic;
+        callback.sequenceId = sequenceId;
         callback.startTimeNs = startTimeNs;
         return callback;
     }
@@ -77,6 +79,12 @@ public final class MessagePublishContext implements PublishContext {
         return producerName;
     }
 
+    @Override
+    public long getSequenceId() {
+        return this.sequenceId;
+    }
+
+
     private static final Recycler<MessagePublishContext> RECYCLER = new Recycler<MessagePublishContext>() {
         protected MessagePublishContext newObject(Handle<MessagePublishContext> handle) {
             return new MessagePublishContext(handle);
@@ -87,6 +95,7 @@ public final class MessagePublishContext implements PublishContext {
         positionFuture = null;
         topic = null;
         startTimeNs = -1;
+        sequenceId = -1;
         recyclerHandle.recycle(this);
     }
 
@@ -94,12 +103,12 @@ public final class MessagePublishContext implements PublishContext {
      * publish mqtt message to pulsar topic, no batch.
      */
     public static CompletableFuture<Position> publishMessages(String producerName, Message<byte[]> message,
-                                                              Topic topic) {
+                                                              long sequenceId, Topic topic) {
         CompletableFuture<Position> future = new CompletableFuture<>();
 
         ByteBuf headerAndPayload = messageToByteBuf(message);
         topic.publishMessage(headerAndPayload,
-                MessagePublishContext.get(future, producerName, topic, System.nanoTime()));
+                MessagePublishContext.get(future, producerName, topic, sequenceId, System.nanoTime()));
         headerAndPayload.release();
         return future;
     }
