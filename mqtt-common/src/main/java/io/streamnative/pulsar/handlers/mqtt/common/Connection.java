@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.common;
 import static io.streamnative.pulsar.handlers.mqtt.common.Connection.ConnectionState.CONNECT_ACK;
 import static io.streamnative.pulsar.handlers.mqtt.common.Connection.ConnectionState.DISCONNECTED;
 import static io.streamnative.pulsar.handlers.mqtt.common.Connection.ConnectionState.ESTABLISHED;
+import static io.streamnative.pulsar.handlers.mqtt.common.Constants.AUTH_DATA_ATTRIBUTE_KEY;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.getAuthMethod;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.NettyUtils.ATTR_KEY_CONNECTION;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
@@ -101,6 +102,7 @@ public class Connection {
 
     static ChannelException channelInactiveException = new ChannelException("Channel is inactive");
 
+
     Connection(ConnectionBuilder builder) {
         this.clientId = builder.clientId;
         this.protocolVersion = builder.protocolVersion;
@@ -116,6 +118,7 @@ public class Connection {
         this.processor = builder.processor;
         this.fromProxy = builder.fromProxy;
         this.authData = builder.authData;
+        this.channel.attr(AUTH_DATA_ATTRIBUTE_KEY).set(authData);
         this.addIdleStateHandler();
         this.manager.addConnection(this);
         this.topicAliasManager = new TopicAliasManager(clientRestrictions.getTopicAliasMaximum());
@@ -162,6 +165,7 @@ public class Connection {
 
     public void updateAuthData(AuthenticationDataSource authData) {
         this.authData = authData;
+        this.channel.attr(AUTH_DATA_ATTRIBUTE_KEY).set(authData);
     }
 
     public CompletableFuture<Void> sendAckThenClose(MqttAck mqttAck) {
