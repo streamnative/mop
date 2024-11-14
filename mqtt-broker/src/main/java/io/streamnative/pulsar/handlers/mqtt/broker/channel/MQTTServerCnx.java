@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.broker.channel;
 
+import static io.streamnative.pulsar.handlers.mqtt.common.Constants.AUTH_DATA_ATTRIBUTE_KEY;
 import io.netty.channel.ChannelHandlerContext;
 import io.streamnative.pulsar.handlers.mqtt.broker.impl.consumer.MQTTConsumer;
 import java.util.Optional;
@@ -23,7 +24,6 @@ import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.loadbalance.extensions.data.BrokerLookupData;
 import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.ServerCnx;
-import static io.streamnative.pulsar.handlers.mqtt.common.Constants.AUTH_DATA_ATTRIBUTE_KEY;
 
 /**
  * Server cnx for MQTT server.
