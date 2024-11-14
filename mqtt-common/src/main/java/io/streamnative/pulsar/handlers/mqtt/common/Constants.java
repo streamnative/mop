@@ -13,6 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.common;
 
+import io.netty.util.AttributeKey;
+import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
+
 /**
  * Server constants keeper.
  */
@@ -46,6 +49,9 @@ public final class Constants {
     public static final String HANDLER_MQTT_WEB_SOCKET_CODEC = "mqttWebSocketCodecHandler";
 
     public static final String MQTT_SUB_PROTOCOL_CSV_LIST = "mqtt, mqttv3.1, mqttv3.1.1, mqttv5.0";
+
+    public static final AttributeKey<AuthenticationDataSource> AUTH_DATA_ATTRIBUTE_KEY =
+            AttributeKey.valueOf("authData");
 
     private Constants() {
     }
