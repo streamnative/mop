@@ -36,8 +36,6 @@ import io.streamnative.pulsar.handlers.mqtt.proxy.handler.LookupHandler;
 import io.streamnative.pulsar.handlers.mqtt.proxy.handler.PulsarServiceLookupHandler;
 import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyException;
 import java.io.Closeable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
@@ -77,7 +75,6 @@ public class MQTTProxyService implements Closeable {
 
     private DefaultThreadFactory acceptorThreadFactory = new DefaultThreadFactory("mqtt-redirect-acceptor");
     private DefaultThreadFactory workerThreadFactory = new DefaultThreadFactory("mqtt-redirect-io");
-    private ScheduledExecutorService sslContextRefresher;
 
     public MQTTProxyService(BrokerService brokerService, MQTTProxyConfiguration proxyConfig) {
         configValid(proxyConfig);
@@ -110,8 +107,6 @@ public class MQTTProxyService implements Closeable {
         this.eventCenter = new PulsarEventCenterImpl(brokerService,
                 proxyConfig.getEventCenterCallbackPoolThreadNum());
         this.proxyAdapter = new MQTTProxyAdapter(this);
-        this.sslContextRefresher = Executors.newSingleThreadScheduledExecutor(
-                new DefaultThreadFactory("mop-proxy-ssl-context-refresher"));
     }
 
     private void configValid(MQTTProxyConfiguration proxyConfig) {
@@ -125,8 +120,7 @@ public class MQTTProxyService implements Closeable {
         serverBootstrap.group(acceptorGroup, workerGroup);
         serverBootstrap.channel(EventLoopUtil.getServerSocketChannelClass(workerGroup));
         EventLoopUtil.enableTriggeredMode(serverBootstrap);
-        serverBootstrap.childHandler(new MQTTProxyChannelInitializer(
-                this, proxyConfig, false, sslContextRefresher));
+        serverBootstrap.childHandler(new MQTTProxyChannelInitializer(this, proxyConfig, false));
 
         try {
             listenChannel = serverBootstrap.bind(proxyConfig.getMqttProxyPort()).sync().channel();
@@ -137,8 +131,7 @@ public class MQTTProxyService implements Closeable {
 
         if (proxyConfig.isMqttProxyTlsEnabled() || proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
             ServerBootstrap tlsBootstrap = serverBootstrap.clone();
-            tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(
-                    this, proxyConfig, true, sslContextRefresher));
+            tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(this, proxyConfig, true));
             try {
                 listenChannelTls = tlsBootstrap.bind(proxyConfig.getMqttProxyTlsPort()).sync().channel();
                 log.info("Started MQTT Proxy with TLS on {}", listenChannelTls.localAddress());
@@ -157,8 +150,7 @@ public class MQTTProxyService implements Closeable {
             this.eventService.addListener(pskConfiguration.getEventListener());
             // Add channel initializer
             ServerBootstrap tlsPskBootstrap = serverBootstrap.clone();
-            tlsPskBootstrap.childHandler(new MQTTProxyChannelInitializer(
-                    this, proxyConfig, false, true, sslContextRefresher));
+            tlsPskBootstrap.childHandler(new MQTTProxyChannelInitializer(this, proxyConfig, false, true));
             try {
                 listenChannelTlsPsk = tlsPskBootstrap.bind(proxyConfig.getMqttProxyTlsPskPort()).sync().channel();
                 log.info("Started MQTT Proxy with TLS-PSK on {}", listenChannelTlsPsk.localAddress());
@@ -179,7 +171,7 @@ public class MQTTProxyService implements Closeable {
         if (proxyConfig.isMqttProxyTlsEnabled() || proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
             ServerBootstrap tlsBootstrap = serverBootstrap.clone();
             tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(
-                    this, proxyConfig, true, sslContextRefresher));
+                    this, proxyConfig, true));
             try {
                 listenChannelTls = tlsBootstrap.bind(proxyConfig.getMqttProxyTlsPort()).sync().channel();
                 log.info("Started MQTT Proxy with TLS on {}", listenChannelTls.localAddress());
@@ -199,7 +191,7 @@ public class MQTTProxyService implements Closeable {
             // Add channel initializer
             ServerBootstrap tlsPskBootstrap = serverBootstrap.clone();
             tlsPskBootstrap.childHandler(new MQTTProxyChannelInitializer(
-                    this, proxyConfig, false, true, sslContextRefresher));
+                    this, proxyConfig, false, true));
             try {
                 listenChannelTlsPsk = tlsPskBootstrap.bind(proxyConfig.getMqttProxyTlsPskPort()).sync().channel();
                 log.info("Started MQTT Proxy with TLS-PSK on {}", listenChannelTlsPsk.localAddress());
@@ -230,8 +222,5 @@ public class MQTTProxyService implements Closeable {
         }
         this.proxyAdapter.shutdown();
         this.connectionManager.close();
-        if (sslContextRefresher != null) {
-            sslContextRefresher.shutdownNow();
-        }
     }
 }

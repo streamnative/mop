@@ -114,7 +114,7 @@ public class MQTTProxyProtocolHandler implements ProtocolHandler {
                             new InetSocketAddress(brokerService.pulsar().getBindAddress(),
                                     getProxyListenerPort(listener)),
                             new MQTTProxyChannelInitializer(
-                                    proxyService, proxyConfig, false, false, sslContextRefresher));
+                                    proxyService, proxyConfig, false, false));
                 }
             }
             return builder.build();

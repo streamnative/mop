@@ -81,8 +81,7 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Position;
-import org.apache.bookkeeper.mledger.PositionFactory;
-import org.apache.bookkeeper.mledger.impl.AckSetStateUtil;
+import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authorization.AuthorizationService;
@@ -177,9 +176,9 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                 for (int i = 0; i < packet.getBatchSize(); i++) {
                     ackSets[i] = packet.getBatchIndex() == i ? 0 : 1;
                 }
-                position = AckSetStateUtil.createPositionWithAckSet(packet.getLedgerId(), packet.getEntryId(), ackSets);
+                position = PositionImpl.get(packet.getLedgerId(), packet.getEntryId(), ackSets);
             } else {
-                position = PositionFactory.create(packet.getLedgerId(), packet.getEntryId());
+                position = PositionImpl.get(packet.getLedgerId(), packet.getEntryId());
             }
             packet.getConsumer().getSubscription().acknowledgeMessage(Collections.singletonList(position),
                     CommandAck.AckType.Individual, Collections.emptyMap());

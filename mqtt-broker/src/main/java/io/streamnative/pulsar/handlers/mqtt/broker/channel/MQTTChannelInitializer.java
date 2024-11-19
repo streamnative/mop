@@ -22,6 +22,7 @@ import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.codec.mqtt.MqttDecoder;
+import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
@@ -32,16 +33,13 @@ import io.streamnative.pulsar.handlers.mqtt.common.adapter.CombineAdapterHandler
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterDecoder;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterEncoder;
 import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKUtils;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.pulsar.common.util.PulsarSslConfiguration;
-import org.apache.pulsar.common.util.PulsarSslFactory;
+import org.apache.pulsar.common.util.NettyServerSslContextBuilder;
+import org.apache.pulsar.common.util.SslContextAutoRefreshBuilder;
+import org.apache.pulsar.common.util.keystoretls.NettySSLContextAutoRefreshBuilder;
 
 /**
  * A channel initializer that initialize channels for MQTT protocol.
  */
-@Slf4j
 public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     private final MQTTServerConfiguration mqttConfig;
@@ -49,32 +47,49 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
     private final boolean enableTls;
     private final boolean enableTlsPsk;
     private final boolean enableWs;
-    private PulsarSslFactory sslFactory;
+    private final boolean tlsEnabledWithKeyStore;
 
-    public MQTTChannelInitializer(MQTTService mqttService, boolean enableTls, boolean enableWs,
-                                  ScheduledExecutorService sslContextRefresher) throws Exception {
-        this(mqttService, enableTls, false, enableWs, sslContextRefresher);
+    private SslContextAutoRefreshBuilder<SslContext> sslCtxRefresher;
+    private NettySSLContextAutoRefreshBuilder nettySSLContextAutoRefreshBuilder;
+
+    public MQTTChannelInitializer(MQTTService mqttService, boolean enableTls, boolean enableWs) {
+        this(mqttService, enableTls, false, enableWs);
     }
 
-    public MQTTChannelInitializer(
-            MQTTService mqttService, boolean enableTls, boolean enableTlsPsk, boolean enableWs,
-            ScheduledExecutorService sslContextRefresher) throws Exception {
+    public MQTTChannelInitializer(MQTTService mqttService, boolean enableTls, boolean enableTlsPsk, boolean enableWs) {
         super();
         this.mqttService = mqttService;
         this.mqttConfig = mqttService.getServerConfiguration();
         this.enableTls = enableTls;
         this.enableTlsPsk = enableTlsPsk;
         this.enableWs = enableWs;
+        this.tlsEnabledWithKeyStore = mqttConfig.isMqttTlsEnabledWithKeyStore();
         if (this.enableTls) {
-            PulsarSslConfiguration sslConfiguration = buildSslConfiguration(mqttConfig);
-            this.sslFactory = (PulsarSslFactory) Class.forName(mqttConfig.getSslFactoryPlugin())
-                    .getConstructor().newInstance();
-            this.sslFactory.initialize(sslConfiguration);
-            this.sslFactory.createInternalSslContext();
-            if (mqttConfig.getTlsCertRefreshCheckDurationSec() > 0) {
-                sslContextRefresher.scheduleWithFixedDelay(this::refreshSslContext,
-                        mqttConfig.getTlsCertRefreshCheckDurationSec(),
-                        mqttConfig.getTlsCertRefreshCheckDurationSec(), TimeUnit.SECONDS);
+            if (tlsEnabledWithKeyStore) {
+                nettySSLContextAutoRefreshBuilder = new NettySSLContextAutoRefreshBuilder(
+                        mqttConfig.getMqttTlsProvider(),
+                        mqttConfig.getMqttTlsKeyStoreType(),
+                        mqttConfig.getMqttTlsKeyStore(),
+                        mqttConfig.getMqttTlsKeyStorePassword(),
+                        mqttConfig.isMqttTlsAllowInsecureConnection(),
+                        mqttConfig.getMqttTlsTrustStoreType(),
+                        mqttConfig.getMqttTlsTrustStore(),
+                        mqttConfig.getMqttTlsTrustStorePassword(),
+                        mqttConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
+                        mqttConfig.getMqttTlsCiphers(),
+                        mqttConfig.getMqttTlsProtocols(),
+                        mqttConfig.getMqttTlsCertRefreshCheckDurationSec());
+            } else {
+                sslCtxRefresher = new NettyServerSslContextBuilder(
+                        null,
+                        mqttConfig.isMqttTlsAllowInsecureConnection(),
+                        mqttConfig.getMqttTlsTrustCertsFilePath(),
+                        mqttConfig.getMqttTlsCertificateFilePath(),
+                        mqttConfig.getMqttTlsKeyFilePath(),
+                        mqttConfig.getMqttTlsCiphers(),
+                        mqttConfig.getMqttTlsProtocols(),
+                        mqttConfig.isMqttTlsRequireTrustedClientCertOnConnect(),
+                        mqttConfig.getMqttTlsCertRefreshCheckDurationSec());
             }
         }
     }
@@ -83,7 +98,12 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
     public void initChannel(SocketChannel ch) throws Exception {
         ch.pipeline().addFirst("idleStateHandler", new IdleStateHandler(0, 0, 120));
         if (this.enableTls) {
-            ch.pipeline().addLast(TLS_HANDLER, new SslHandler(sslFactory.createServerSslEngine(ch.alloc())));
+            if (this.tlsEnabledWithKeyStore) {
+                ch.pipeline().addLast(TLS_HANDLER,
+                        new SslHandler(nettySSLContextAutoRefreshBuilder.get().createSSLEngine()));
+            } else {
+                ch.pipeline().addLast(TLS_HANDLER, sslCtxRefresher.get().newHandler(ch.alloc()));
+            }
         } else if (this.enableTlsPsk) {
             ch.pipeline().addLast(TLS_HANDLER,
                     new SslHandler(PSKUtils.createServerEngine(ch, mqttService.getPskConfiguration())));
@@ -121,36 +141,4 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
                         true, mqttConfig.getWebSocketMaxFrameSize()));
         pipeline.addLast(Constants.HANDLER_MQTT_WEB_SOCKET_CODEC, new MqttWebSocketCodec());
     }
-
-    protected PulsarSslConfiguration buildSslConfiguration(MQTTServerConfiguration config) {
-        return PulsarSslConfiguration.builder()
-                .tlsProvider(config.getMqttTlsProvider())
-                .tlsKeyStoreType(config.getMqttTlsKeyStoreType())
-                .tlsKeyStorePath(config.getMqttTlsKeyStore())
-                .tlsKeyStorePassword(config.getMqttTlsKeyStorePassword())
-                .tlsTrustStoreType(config.getMqttTlsTrustStoreType())
-                .tlsTrustStorePath(config.getMqttTlsTrustStore())
-                .tlsTrustStorePassword(config.getMqttTlsTrustStorePassword())
-                .tlsCiphers(config.getMqttTlsCiphers())
-                .tlsProtocols(config.getMqttTlsProtocols())
-                .tlsTrustCertsFilePath(config.getMqttTlsTrustCertsFilePath())
-                .tlsCertificateFilePath(config.getMqttTlsCertificateFilePath())
-                .tlsKeyFilePath(config.getMqttTlsKeyFilePath())
-                .allowInsecureConnection(config.isMqttTlsAllowInsecureConnection())
-                .requireTrustedClientCertOnConnect(config.isMqttTlsRequireTrustedClientCertOnConnect())
-                .tlsEnabledWithKeystore(config.isMqttTlsEnabledWithKeyStore())
-                .tlsCustomParams(config.getSslFactoryPluginParams())
-                .authData(null)
-                .serverMode(true)
-                .build();
-    }
-
-    protected void refreshSslContext() {
-        try {
-            this.sslFactory.update();
-        } catch (Exception e) {
-            log.error("Failed to refresh SSL context for mqtt channel.", e);
-        }
-    }
-
 }

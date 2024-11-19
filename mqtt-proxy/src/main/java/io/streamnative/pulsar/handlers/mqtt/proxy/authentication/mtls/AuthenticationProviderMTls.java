@@ -69,7 +69,6 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
     @VisibleForTesting
     private final ConcurrentHashMap<String, ExpressionCompiler> poolMap = new ConcurrentHashMap<>();
     private boolean needCloseMetaData = false;
-    private AuthenticationMetrics metrics;
 
     private enum ErrorCode {
         UNKNOWN,
@@ -83,19 +82,8 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
     }
 
     @Override
-    public void initialize(ServiceConfiguration conf) throws IOException {
-        initialize(Context.builder().config(conf).build());
-    }
-
-    @Override
-    public void initialize(Context context) throws IOException {
-        metrics = new AuthenticationMetrics(
-                context.getOpenTelemetry(), getClass().getSimpleName(), "mtls");
-        init(context.getConfig());
-    }
-
-    private void init(ServiceConfiguration conf) throws MetadataStoreException {
-        this.metadataStore = createLocalMetadataStore(conf);
+    public void initialize(ServiceConfiguration config) throws IOException {
+        this.metadataStore = createLocalMetadataStore(config);
         this.needCloseMetaData = true;
         this.metadataStore.registerListener(this::handleMetadataChanges);
         this.poolResources = new OIDCPoolResources(metadataStore);
@@ -103,9 +91,6 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
     }
 
     public void initialize(MetadataStore metadataStore) {
-        Context context = Context.builder().build();
-        this.metrics = new AuthenticationMetrics(
-                context.getOpenTelemetry(), getClass().getSimpleName(), "mtls");
         this.metadataStore = metadataStore;
         this.metadataStore.registerListener(this::handleMetadataChanges);
         this.poolResources = new OIDCPoolResources(metadataStore);
@@ -229,22 +214,16 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
             // parse SHA1
             params.put(ExpressionCompiler.SHA1, parseSHA1FingerPrint(certificate));
 
-            String poolName = matchPool(params);
-            if (poolName.isEmpty()) {
+            String principal = matchPool(params);
+            if (principal.isEmpty()) {
                 errorCode = ErrorCode.NO_MATCH_POOL;
                 throw new AuthenticationException("No matched identity pool from the client certificate");
             }
-            AuthRequest authRequest = new AuthRequest(poolName, params);
-            String authRequestJson = objectMapper.writeValueAsString(authRequest);
-            metrics.recordSuccess();
-            return authRequestJson;
+            AuthenticationMetrics.authenticateSuccess(this.getClass().getSimpleName(), this.getAuthMethodName());
+            return principal;
         } catch (AuthenticationException e) {
-            metrics.recordFailure(errorCode);
+            this.incrementFailureMetric(errorCode);
             throw e;
-        } catch (JsonProcessingException e) {
-            log.error("Failed to serialize the auth request", e);
-            metrics.recordFailure(errorCode);
-            throw new AuthenticationException(e.getMessage());
         }
     }
 

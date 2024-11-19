@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Position;
-import org.apache.bookkeeper.mledger.PositionFactory;
+import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.broker.service.Topic.PublishContext;
 import org.apache.pulsar.client.api.Message;
@@ -52,7 +52,7 @@ public final class MessagePublishContext implements PublishContext {
                         topic.getName(), ledgerId, entryId);
             }
             topic.recordAddLatency(System.nanoTime() - startTimeNs, TimeUnit.NANOSECONDS);
-            positionFuture.complete(PositionFactory.create(ledgerId, entryId));
+            positionFuture.complete(PositionImpl.get(ledgerId, entryId));
         }
         recycle();
     }
