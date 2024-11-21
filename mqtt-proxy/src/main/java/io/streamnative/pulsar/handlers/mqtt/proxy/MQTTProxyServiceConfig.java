@@ -3,21 +3,21 @@ package io.streamnative.pulsar.handlers.mqtt.proxy;
 
 import lombok.Data;
 import org.apache.pulsar.broker.authentication.AuthenticationService;
-import org.apache.pulsar.client.impl.PulsarClientImpl;
-import org.apache.pulsar.metadata.api.extended.MetadataStoreExtended;
+import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.metadata.api.MetadataStore;
 
 @Data
 public class MQTTProxyServiceConfig {
 
     private MQTTProxyConfiguration proxyConfiguration;
 
-    private MetadataStoreExtended localMetadataStore;
+    private MetadataStore localMetadataStore;
 
-    private MetadataStoreExtended configMetadataStore;
+    private MetadataStore configMetadataStore;
 
     private AuthenticationService authenticationService;
 
-    private PulsarClientImpl pulsarClient;
+    private PulsarClient pulsarClient;
 
     private String bindAddress;
 
