@@ -43,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.BrokerService;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
+import org.apache.pulsar.metadata.api.extended.MetadataStoreExtended;
 
 /**
  * This service is used for redirecting MQTT client request to proper MQTT protocol handler Broker.
@@ -52,8 +53,6 @@ public class MQTTProxyService implements Closeable {
 
     @Getter
     private final MQTTProxyConfiguration proxyConfig;
-    @Getter
-    private final PulsarService pulsarService;
     @Getter
     private final MQTTAuthenticationService authenticationService;
     @Getter
@@ -68,6 +67,8 @@ public class MQTTProxyService implements Closeable {
     private final PSKConfiguration pskConfiguration;
     @Getter
     private final MQTTProxyAdapter proxyAdapter;
+    @Getter
+    private final MQTTProxyServiceConfig proxyServiceConfig;
 
     private Channel listenChannel;
     private Channel listenChannelTls;
@@ -79,25 +80,27 @@ public class MQTTProxyService implements Closeable {
     private DefaultThreadFactory workerThreadFactory = new DefaultThreadFactory("mqtt-redirect-io");
     private ScheduledExecutorService sslContextRefresher;
 
-    public MQTTProxyService(BrokerService brokerService, MQTTProxyConfiguration proxyConfig) {
-        configValid(proxyConfig);
-        this.pulsarService = brokerService.getPulsar();
-        this.proxyConfig = proxyConfig;
+    public MQTTProxyService(MQTTProxyServiceConfig proxyServiceConfig) {
+        this.proxyServiceConfig = proxyServiceConfig;
+        configValid(proxyServiceConfig.getProxyConfiguration());
+        this.proxyConfig = proxyServiceConfig.getProxyConfiguration();
+
         this.pskConfiguration = new PSKConfiguration(proxyConfig.getMqttTlsPskIdentityHint(),
                 proxyConfig.getMqttTlsPskIdentity(), proxyConfig.getMqttTlsPskIdentityFile(),
                 proxyConfig.getMqttTlsProtocols(), proxyConfig.getMqttTlsCiphers());
         this.authenticationService = proxyConfig.isMqttAuthenticationEnabled()
-                ? new MQTTAuthenticationService(brokerService, proxyConfig.getMqttAuthenticationMethods()) : null;
+                ? new MQTTAuthenticationService(proxyServiceConfig.getAuthenticationService()
+                , proxyConfig.getMqttAuthenticationMethods()) : null;
         if (authenticationService != null && proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
             AuthenticationProviderMTls providerMTls = new AuthenticationProviderMTls();
             try {
-                providerMTls.initialize(brokerService.pulsar().getLocalMetadataStore());
+                providerMTls.initialize(proxyServiceConfig.getLocalMetadataStore());
                 authenticationService.getAuthenticationProviders().put(AUTH_MTLS, providerMTls);
             } catch (Exception e) {
                 log.error("Failed to initialize MQTT authentication method {} ", AUTH_MTLS, e);
             }
         }
-        this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
+        this.connectionManager = new MQTTConnectionManager(proxyServiceConfig.getAdvertisedAddress());
         this.eventService = proxyConfig.isSystemEventEnabled()
                 ? new SystemTopicBasedSystemEventService(pulsarService)
                 : new DisabledSystemEventService();
@@ -107,7 +110,7 @@ public class MQTTProxyService implements Closeable {
                 false, acceptorThreadFactory);
         this.workerGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumIOThreads(),
                 false, workerThreadFactory);
-        this.eventCenter = new PulsarEventCenterImpl(brokerService,
+        this.eventCenter = new PulsarEventCenterImpl(proxyServiceConfig.getConfigMetadataStore(),
                 proxyConfig.getEventCenterCallbackPoolThreadNum());
         this.proxyAdapter = new MQTTProxyAdapter(this);
         this.sslContextRefresher = Executors.newSingleThreadScheduledExecutor(
@@ -166,7 +169,7 @@ public class MQTTProxyService implements Closeable {
                 throw new MQTTProxyException(e);
             }
         }
-        this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, proxyConfig);
+        this.lookupHandler = new PulsarServiceLookupHandler(proxyServiceConfig);
         this.eventService.start();
     }
 
@@ -207,7 +210,7 @@ public class MQTTProxyService implements Closeable {
                 throw new MQTTProxyException(e);
             }
         }
-        this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, proxyConfig);
+        this.lookupHandler = new PulsarServiceLookupHandler(proxyServiceConfig);
         this.eventService.start();
     }
 

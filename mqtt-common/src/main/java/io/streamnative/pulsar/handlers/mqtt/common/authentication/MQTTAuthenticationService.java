@@ -45,8 +45,8 @@ public class MQTTAuthenticationService {
     @Getter
     private final Map<String, AuthenticationProvider> authenticationProviders;
 
-    public MQTTAuthenticationService(BrokerService brokerService, List<String> authenticationMethods) {
-        this.authenticationService = brokerService.getAuthenticationService();
+    public MQTTAuthenticationService(AuthenticationService authenticationService, List<String> authenticationMethods) {
+        this.authenticationService = authenticationService;
         this.authenticationProviders = getAuthenticationProviders(authenticationMethods);
     }
 
