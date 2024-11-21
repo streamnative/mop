@@ -19,7 +19,6 @@ import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUti
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.PROXY_PREFIX;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils.getProxyListenerPort;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
-
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
@@ -33,10 +32,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.ServiceConfigurationUtils;
+import org.apache.pulsar.broker.resources.PulsarResources;
 import org.apache.pulsar.client.api.AuthenticationFactory;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
+import org.apache.pulsar.metadata.api.MetadataStoreException;
+import org.apache.pulsar.metadata.api.extended.MetadataStoreExtended;
 import org.apache.pulsar.proxy.extensions.ProxyExtension;
 import org.apache.pulsar.proxy.server.ProxyConfiguration;
 import org.apache.pulsar.proxy.server.ProxyService;
@@ -49,6 +51,9 @@ public class MQTTProxyProtocolHandler implements ProxyExtension {
 
     @Getter
     private MQTTProxyConfiguration proxyConfig;
+
+    @Getter
+    private ProxyConfiguration conf;
 
     @Getter
     private ProxyService proxyService;
@@ -77,12 +82,13 @@ public class MQTTProxyProtocolHandler implements ProxyExtension {
 
     @Override
     public void initialize(ProxyConfiguration conf) throws Exception {
-        proxyConfig = ConfigurationUtils.create(conf.getProperties(), MQTTProxyConfiguration.class);
+        this.conf = conf;
+        this.proxyConfig = ConfigurationUtils.create(conf.getProperties(), MQTTProxyConfiguration.class);
         // We have to enable ack batch message individual.
-        proxyConfig.setAcknowledgmentAtBatchIndexLevelEnabled(true);
-        this.bindAddress = ServiceConfigurationUtils.getDefaultOrConfiguredAddress(proxyConfig.getBindAddress());
+        this.proxyConfig.setAcknowledgmentAtBatchIndexLevelEnabled(true);
+        this.bindAddress = ServiceConfigurationUtils.getDefaultOrConfiguredAddress(conf.getBindAddress());
         this.advertisedAddress =
-                ServiceConfigurationUtils.getDefaultOrConfiguredAddress(proxyConfig.getAdvertisedAddress());
+                ServiceConfigurationUtils.getDefaultOrConfiguredAddress(conf.getAdvertisedAddress());
     }
 
     @Override
@@ -98,14 +104,27 @@ public class MQTTProxyProtocolHandler implements ProxyExtension {
         }
     }
 
-    private MQTTProxyServiceConfig initProxyConfig() {
+    private MQTTProxyServiceConfig initProxyConfig() throws Exception {
         MQTTProxyServiceConfig config = new MQTTProxyServiceConfig();
         config.setBindAddress(bindAddress);
         config.setAdvertisedAddress(advertisedAddress);
         config.setProxyConfiguration(proxyConfig);
-//        config.setLocalMetadataStore(proxyService.);
+        config.setLocalMetadataStore(createLocalMetadataStore());
+        config.setConfigMetadataStore(createConfigurationMetadataStore());
         config.setPulsarClient(getClient());
         return config;
+    }
+
+    public MetadataStoreExtended createLocalMetadataStore() throws MetadataStoreException {
+        return PulsarResources.createLocalMetadataStore(conf.getMetadataStoreUrl(),
+                conf.getMetadataStoreSessionTimeoutMillis(),
+                conf.isMetadataStoreAllowReadOnlyOperations());
+    }
+
+    public MetadataStoreExtended createConfigurationMetadataStore() throws MetadataStoreException {
+        return PulsarResources.createConfigMetadataStore(conf.getConfigurationMetadataStoreUrl(),
+                conf.getMetadataStoreSessionTimeoutMillis(),
+                conf.isMetadataStoreAllowReadOnlyOperations());
     }
 
     private PulsarClientImpl getClient() {
