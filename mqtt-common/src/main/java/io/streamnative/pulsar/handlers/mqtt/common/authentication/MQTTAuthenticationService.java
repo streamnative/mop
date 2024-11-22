@@ -31,7 +31,6 @@ import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.authentication.AuthenticationService;
-import org.apache.pulsar.broker.service.BrokerService;
 
 /**
  * MQTT authentication service.

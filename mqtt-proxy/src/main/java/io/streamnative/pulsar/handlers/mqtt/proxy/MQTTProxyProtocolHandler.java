@@ -26,11 +26,13 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
 import io.streamnative.pulsar.handlers.mqtt.proxy.channel.MQTTProxyChannelInitializer;
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.broker.PulsarServerException;
 import org.apache.pulsar.broker.ServiceConfigurationUtils;
 import org.apache.pulsar.broker.resources.PulsarResources;
 import org.apache.pulsar.client.api.AuthenticationFactory;
@@ -39,6 +41,7 @@ import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
 import org.apache.pulsar.metadata.api.MetadataStoreException;
 import org.apache.pulsar.metadata.api.extended.MetadataStoreExtended;
+import org.apache.pulsar.policies.data.loadbalancer.ServiceLookupData;
 import org.apache.pulsar.proxy.extensions.ProxyExtension;
 import org.apache.pulsar.proxy.server.ProxyConfiguration;
 import org.apache.pulsar.proxy.server.ProxyService;
@@ -111,6 +114,7 @@ public class MQTTProxyProtocolHandler implements ProxyExtension {
         config.setProxyConfiguration(proxyConfig);
         config.setLocalMetadataStore(createLocalMetadataStore());
         config.setConfigMetadataStore(createConfigurationMetadataStore());
+        config.setPulsarResources(new PulsarResources(config.getLocalMetadataStore(), config.getConfigMetadataStore()));
         config.setPulsarClient(getClient());
         return config;
     }
@@ -127,10 +131,16 @@ public class MQTTProxyProtocolHandler implements ProxyExtension {
                 conf.isMetadataStoreAllowReadOnlyOperations());
     }
 
-    private PulsarClientImpl getClient() {
+    private PulsarClientImpl getClient() throws Exception {
+        final List<? extends ServiceLookupData> availableBrokers =
+                proxyService.getDiscoveryProvider().getAvailableBrokers();
+        if (availableBrokers.isEmpty()) {
+            throw new PulsarServerException("No active broker is available");
+        }
+        final ServiceLookupData serviceLookupData = availableBrokers.get(0);
         ClientConfigurationData conf = new ClientConfigurationData();
         conf.setServiceUrl(proxyConfig.isTlsEnabled()
-                ? pulsarService.getBrokerServiceUrlTls() : pulsarService.getBrokerServiceUrl());
+                ? serviceLookupData.getPulsarServiceUrlTls() : serviceLookupData.getPulsarServiceUrl());
         conf.setTlsAllowInsecureConnection(proxyConfig.isTlsAllowInsecureConnection());
         conf.setTlsTrustCertsFilePath(proxyConfig.getTlsCertificateFilePath());
 

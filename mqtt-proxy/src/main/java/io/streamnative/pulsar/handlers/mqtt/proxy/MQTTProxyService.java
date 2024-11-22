@@ -40,10 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.service.BrokerService;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
-import org.apache.pulsar.metadata.api.extended.MetadataStoreExtended;
 
 /**
  * This service is used for redirecting MQTT client request to proper MQTT protocol handler Broker.
@@ -102,7 +99,8 @@ public class MQTTProxyService implements Closeable {
         }
         this.connectionManager = new MQTTConnectionManager(proxyServiceConfig.getAdvertisedAddress());
         this.eventService = proxyConfig.isSystemEventEnabled()
-                ? new SystemTopicBasedSystemEventService(pulsarService)
+                ? new SystemTopicBasedSystemEventService(proxyServiceConfig.getPulsarResources(),
+                                                proxyServiceConfig.getPulsarClient())
                 : new DisabledSystemEventService();
         this.eventService.addListener(connectionManager.getEventListener());
         this.eventService.addListener(new RetainedMessageHandler(eventService).getEventListener());

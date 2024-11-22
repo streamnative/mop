@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy.handler;
 
 import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyServiceConfig;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,7 +26,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyServiceConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.loadbalance.LoadManager;
@@ -58,7 +58,7 @@ public class PulsarServiceLookupHandler implements LookupHandler {
         this.executorProvider = new ScheduledExecutorProvider(proxyConfig.getLookupThreadPoolNum(),
                                                               "mop-lookup-thread");
         this.localBrokerDataCache = proxyServiceConfig.getLocalMetadataStore().getMetadataCache(LocalBrokerData.class);
-        this.pulsarClient = proxyServiceConfig.getPulsarClient();
+        this.pulsarClient = (PulsarClientImpl) proxyServiceConfig.getPulsarClient();
     }
 
     private void findBroker(TopicName topicName,

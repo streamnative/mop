@@ -31,12 +31,11 @@ import io.streamnative.pulsar.handlers.mqtt.broker.channel.MQTTChannelInitialize
 import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyServiceConfig;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-
-import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyServiceConfig;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.ServiceConfiguration;
@@ -82,7 +81,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Override
     public void initialize(ServiceConfiguration conf) throws Exception {
         // init config
-        this. mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
+        this.mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
         // We have to enable ack batch message individual.
         this.mqttConfig.setAcknowledgmentAtBatchIndexLevelEnabled(true);
         this.bindAddress = ServiceConfigurationUtils.getDefaultOrConfiguredAddress(mqttConfig.getBindAddress());
@@ -130,6 +129,7 @@ public class MQTTProtocolHandler implements ProtocolHandler {
         config.setLocalMetadataStore(brokerService.pulsar().getLocalMetadataStore());
         config.setConfigMetadataStore(brokerService.pulsar().getConfigurationMetadataStore());
         config.setPulsarClient(brokerService.pulsar().getClient());
+        config.setPulsarResources(brokerService.pulsar().getPulsarResources());
         return config;
     }
 
