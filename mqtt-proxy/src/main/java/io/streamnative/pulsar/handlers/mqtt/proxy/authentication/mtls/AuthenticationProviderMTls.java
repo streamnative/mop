@@ -13,6 +13,7 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy.authentication.mtls;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -213,16 +214,22 @@ public class AuthenticationProviderMTls implements AuthenticationProvider {
             // parse SHA1
             params.put(ExpressionCompiler.SHA1, parseSHA1FingerPrint(certificate));
 
-            String principal = matchPool(params);
-            if (principal.isEmpty()) {
+            String poolName = matchPool(params);
+            if (poolName.isEmpty()) {
                 errorCode = ErrorCode.NO_MATCH_POOL;
                 throw new AuthenticationException("No matched identity pool from the client certificate");
             }
+            AuthRequest authRequest = new AuthRequest(poolName, params);
+            String authRequestJson = objectMapper.writeValueAsString(authRequest);
             AuthenticationMetrics.authenticateSuccess(this.getClass().getSimpleName(), this.getAuthMethodName());
-            return principal;
+            return authRequestJson;
         } catch (AuthenticationException e) {
             this.incrementFailureMetric(errorCode);
             throw e;
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize the auth request", e);
+            this.incrementFailureMetric(errorCode);
+            throw new AuthenticationException(e.getMessage());
         }
     }
 
