@@ -101,7 +101,7 @@
         <dependency>
             <groupId>io.streamnative</groupId>
             <artifactId>pulsar-proxy</artifactId>
-            <version>4.0.0.0</version>
+            <version>${pulsar.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.grpc</groupId>
