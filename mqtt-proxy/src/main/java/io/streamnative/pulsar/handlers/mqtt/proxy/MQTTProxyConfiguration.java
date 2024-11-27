@@ -71,6 +71,13 @@ public class MQTTProxyConfiguration extends MQTTCommonConfiguration {
 
     @FieldContext(
             category = CATEGORY_MQTT,
+            doc = "Number of threads to use for Netty IO for proxy to broker. "
+                    + "Default is set to `Runtime.getRuntime().availableProcessors()`"
+    )
+    private int proxyAdapterNumIOThreads = Runtime.getRuntime().availableProcessors();
+
+    @FieldContext(
+            category = CATEGORY_MQTT,
             doc = "Proxy connect to broker timeout (ms)"
     )
     private int connectTimeoutMs = 10000;
