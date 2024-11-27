@@ -77,8 +77,6 @@ import org.apache.pulsar.common.util.FutureUtil;
 @Slf4j
 public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMethodProcessor {
 
-    private final PulsarService pulsarService;
-
     @Getter
     private Connection connection;
     private final LookupHandler lookupHandler;
@@ -94,6 +92,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private final MQTTConnectionManager connectionManager;
     private final SystemEventService eventService;
     private final MQTTProxyAdapter proxyAdapter;
+    private final MQTTProxyService proxyService;
 
     private final AtomicBoolean isDisconnected = new AtomicBoolean(false);
     private final AutoSubscribeHandler autoSubscribeHandler;
@@ -106,7 +105,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         super(proxyService.getAuthenticationService(),
                 proxyService.getProxyConfig().isMqttAuthenticationEnabled(),
                 ctx);
-        pulsarService = proxyService.getPulsarService();
+        this.proxyService = proxyService;
         this.lookupHandler = proxyService.getLookupHandler();
         this.proxyConfig = proxyService.getProxyConfig();
         this.connectionManager = proxyService.getConnectionManager();
@@ -152,7 +151,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
         ConnectEvent connectEvent = ConnectEvent.builder()
                 .clientId(connection.getClientId())
-                .address(pulsarService.getAdvertisedAddress())
+                .address(proxyService.getProxyServiceConfig().getAdvertisedAddress())
                 .build();
         eventService.sendConnectEvent(connectEvent);
     }
@@ -365,7 +364,8 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         final int packetId = message.variableHeader().messageId();
         List<CompletableFuture<Void>> futures = message.payload().topicSubscriptions().stream()
                 .map(subscription -> PulsarTopicUtils.asyncGetTopicListFromTopicSubscription(subscription.topicName(),
-                                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(), pulsarService,
+                                proxyConfig.getDefaultTenant(), proxyConfig.getDefaultNamespace(),
+                                proxyService.getProxyServiceConfig().getPulsarResources().getNamespaceResources(),
                                 proxyConfig.getDefaultTopicDomain())
                         .thenCompose(pulsarTopicNames -> {
                             if (CollectionUtils.isEmpty(pulsarTopicNames)) {

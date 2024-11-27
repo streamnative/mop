@@ -16,19 +16,22 @@ package io.streamnative.pulsar.handlers.mqtt.common.systemtopic;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.Beta;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.common.util.JsonUtil;
-import org.apache.pulsar.broker.PulsarServerException;
-import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.resources.PulsarResources;
 import org.apache.pulsar.broker.systopic.SystemTopicClient;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.MessageId;
+import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.util.RetryUtil;
 import org.apache.pulsar.common.naming.NamespaceName;
@@ -48,22 +51,19 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     private static final long CACHE_EXPIRE_TIME_MILLIS = TimeUnit.MINUTES.toMillis(10);
 
     private static final String WRITER_KEY = "writer";
-    private final PulsarService pulsarService;
+    private final PulsarResources pulsarResources;
     private final SystemTopicClient<MqttEvent> systemTopicClient;
     private final List<EventListener> listeners;
     private volatile SystemTopicClient.Reader<MqttEvent> reader;
     private final AtomicBoolean initReader = new AtomicBoolean(false);
     private final AtomicInteger maxRetry = new AtomicInteger(0);
 
+    private final ScheduledExecutorService executor;
     private final AsyncLoadingCache<String, SystemTopicClient.Writer<MqttEvent>> writerCaches;
 
-    public SystemTopicBasedSystemEventService(PulsarService pulsarService) {
-        this.pulsarService = pulsarService;
-        try {
-            this.systemTopicClient = new MQTTEventSystemTopicClient(pulsarService.getClient(), SYSTEM_EVENT_TOPIC);
-        } catch (PulsarServerException e) {
-            throw new IllegalStateException(e);
-        }
+    public SystemTopicBasedSystemEventService(PulsarResources pulsarResources, PulsarClient client) {
+        this.pulsarResources = pulsarResources;
+        this.systemTopicClient = new MQTTEventSystemTopicClient(client, SYSTEM_EVENT_TOPIC);
         this.listeners = new ArrayList<>();
         writerCaches = Caffeine.newBuilder()
                 .expireAfterAccess(CACHE_EXPIRE_TIME_MILLIS, TimeUnit.MILLISECONDS)
@@ -71,6 +71,8 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                     ((SystemTopicClient.Writer<MqttEvent>) v).closeAsync();
                 })
                 .buildAsync((key, executor) -> systemTopicClient.newWriterAsync());
+        executor = Executors.newSingleThreadScheduledExecutor(
+                new DefaultThreadFactory("mop_system_topic_client"));
     }
 
     @Override
@@ -134,14 +136,13 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
         Backoff backoff = new Backoff(1, TimeUnit.SECONDS,
                 3, TimeUnit.SECONDS,
                 10, TimeUnit.SECONDS);
-        RetryUtil.retryAsynchronously(systemTopicClient::newReaderAsync, backoff, pulsarService.getExecutor(), result);
+        RetryUtil.retryAsynchronously(systemTopicClient::newReaderAsync, backoff, executor, result);
         return result;
     }
 
     @Override
     public void start() {
-        CompletableFuture<Boolean> checkNamespaceFuture = pulsarService
-                .getPulsarResources()
+        CompletableFuture<Boolean> checkNamespaceFuture = pulsarResources
                 .getNamespaceResources()
                 .namespaceExistsAsync(NamespaceName.SYSTEM_NAMESPACE);
         checkNamespaceFuture.thenAccept(ret -> {
@@ -149,7 +150,7 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                 startReader();
             } else {
                 if (maxRetry.incrementAndGet() < 10) {
-                    pulsarService.getExecutor().schedule(this::start, 1, TimeUnit.SECONDS);
+                    executor.schedule(this::start, 1, TimeUnit.SECONDS);
                 }
             }
         }).exceptionally(ex -> {
@@ -161,6 +162,7 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
     @Override
     public void close() {
         closeReader();
+        executor.shutdownNow();
     }
 
     private void startReader() {
