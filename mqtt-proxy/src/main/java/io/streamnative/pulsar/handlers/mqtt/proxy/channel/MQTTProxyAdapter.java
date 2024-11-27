@@ -71,14 +71,14 @@ public class MQTTProxyAdapter {
     private final AtomicLong counter = new AtomicLong(0);
     @Getter
     private final ConcurrentMap<InetSocketAddress, Map<Integer, CompletableFuture<Channel>>> pool;
-    private final int workerThread = Runtime.getRuntime().availableProcessors();
     private final int maxNoOfChannels;
 
     public MQTTProxyAdapter(MQTTProxyService proxyService) {
         this.proxyService = proxyService;
         this.pool = new ConcurrentHashMap<>();
         this.bootstrap = new Bootstrap();
-        this.eventLoopGroup = EventLoopUtil.newEventLoopGroup(workerThread, false, threadFactory);
+        this.eventLoopGroup = EventLoopUtil.newEventLoopGroup(
+                proxyService.getProxyConfig().getProxyAdapterNumIOThreads(), false, threadFactory);
         this.maxNoOfChannels = proxyService.getProxyConfig().getMaxNoOfChannels();
         this.bootstrap.group(eventLoopGroup)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, proxyService.getProxyConfig().getConnectTimeoutMs())
