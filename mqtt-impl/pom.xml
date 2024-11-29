@@ -20,7 +20,7 @@
     <parent>
         <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>
         <groupId>io.streamnative.pulsar.handlers</groupId>
-        <version>3.4.0-SNAPSHOT</version>
+        <version>4.0.0.7</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>pulsar-protocol-handler-mqtt</artifactId>
