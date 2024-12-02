@@ -14,6 +14,7 @@
 package io.streamnative.pulsar.handlers.mqtt.broker.qos;
 
 import static io.streamnative.pulsar.handlers.mqtt.broker.impl.PulsarMessageConverter.toPulsarMsg;
+import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
@@ -34,6 +35,7 @@ import org.apache.bookkeeper.mledger.Position;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
+import org.apache.pulsar.broker.service.Producer;
 import org.apache.pulsar.broker.service.Topic;
 import org.apache.pulsar.broker.service.persistent.PersistentTopic;
 import org.apache.pulsar.client.impl.MessageImpl;
@@ -48,6 +50,7 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
     protected final RetainedMessageHandler retainedMessageHandler;
     protected final MQTTServerConfiguration configuration;
     private final ConcurrentHashMap<String, Long> sequenceIdMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Producer> producerMap = new ConcurrentHashMap<>();
 
 
     protected AbstractQosPublishHandler(MQTTService mqttService) {
@@ -109,6 +112,12 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
         }
         return getTopicReference(mqttTopicName).thenCompose(topicOp -> topicOp.map(topic -> {
             long lastPublishedSequenceId = -1;
+            Producer producer = producerMap.compute(producerName, (k, v) -> {
+                if (v == null) {
+                    v = MQTTProducer.create(topic, connection.getServerCnx(), producerName);
+                }
+                return v;
+            });
             if (topic instanceof PersistentTopic) {
                 final long lastPublishedId = ((PersistentTopic) topic).getLastPublishedSequenceId(producerName);
                 lastPublishedSequenceId = sequenceIdMap.compute(producerName, (k, v) -> {
@@ -121,12 +130,14 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
                     return id;
                 });
             }
+            final ByteBuf payload = msg.payload();
             MessageImpl<byte[]> message = toPulsarMsg(configuration, topic, msg.variableHeader().properties(),
-                    msg.payload().nioBuffer());
+                    payload.nioBuffer());
             CompletableFuture<Position> ret = MessagePublishContext.publishMessages(producerName, message,
                     lastPublishedSequenceId, topic);
             message.recycle();
             return ret.thenApply(position -> {
+                topic.incrementPublishCount(producer, 1, payload.readableBytes());
                 if (checkSubscription && topic.getSubscriptions().isEmpty()) {
                     throw new MQTTNoMatchingSubscriberException(mqttTopicName);
                 }
@@ -134,5 +145,13 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
             });
         }).orElseGet(() -> FutureUtil.failedFuture(
                 new BrokerServiceException.TopicNotFoundException(mqttTopicName))));
+    }
+
+    @Override
+    public void closeProducer(Connection connection) {
+        final Producer producer = producerMap.remove(connection.getClientId());
+        if (producer != null) {
+            producer.close(true);
+        }
     }
 }

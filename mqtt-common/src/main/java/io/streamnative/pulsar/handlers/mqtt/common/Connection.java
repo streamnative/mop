@@ -50,6 +50,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
+import org.apache.pulsar.broker.service.ServerCnx;
 
 /**
  * Value object to maintain the information of single connection, like ClientID, Channel, and clean
@@ -91,6 +92,9 @@ public class Connection {
     private AuthenticationDataSource authData;
 
     @Getter
+    private ServerCnx serverCnx;
+
+    @Getter
     private final boolean fromProxy;
     private volatile ConnectionState connectionState = DISCONNECTED;
 
@@ -118,6 +122,7 @@ public class Connection {
         this.processor = builder.processor;
         this.fromProxy = builder.fromProxy;
         this.authData = builder.authData;
+        this.serverCnx = builder.serverCnx;
         this.channel.attr(AUTH_DATA_ATTRIBUTE_KEY).set(authData);
         this.addIdleStateHandler();
         this.manager.addConnection(this);
@@ -309,6 +314,7 @@ public class Connection {
         private boolean fromProxy;
 
         private AuthenticationDataSource authData;
+        private ServerCnx serverCnx;
 
         public ConnectionBuilder protocolVersion(int protocolVersion) {
             this.protocolVersion = protocolVersion;
@@ -367,6 +373,11 @@ public class Connection {
 
         public ConnectionBuilder authData(AuthenticationDataSource authData) {
             this.authData = authData;
+            return this;
+        }
+
+        public ConnectionBuilder serverCnx(ServerCnx serverCnx) {
+            this.serverCnx = serverCnx;
             return this;
         }
 
