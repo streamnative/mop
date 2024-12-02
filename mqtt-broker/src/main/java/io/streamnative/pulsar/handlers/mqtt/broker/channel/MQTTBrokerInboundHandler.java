@@ -47,6 +47,7 @@ public class MQTTBrokerInboundHandler extends MQTTCommonInboundHandler {
     public void channelRead(ChannelHandlerContext ctx, Object message) {
         checkArgument(message instanceof MqttAdapterMessage);
         MqttAdapterMessage adapterMsg = (MqttAdapterMessage) message;
+        log.info("broker channel read from client : {}", adapterMsg.getClientId());
         processors.computeIfAbsent(adapterMsg.getClientId(), key -> {
             MQTTBrokerProtocolMethodProcessor p = new MQTTBrokerProtocolMethodProcessor(mqttService, ctx);
             CompletableFuture<Void> inactiveFuture = p.getInactiveFuture();
