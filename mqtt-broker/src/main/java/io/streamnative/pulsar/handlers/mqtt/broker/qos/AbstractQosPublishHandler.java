@@ -31,6 +31,7 @@ import io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
@@ -44,6 +45,7 @@ import org.apache.pulsar.common.util.FutureUtil;
 /**
  * Abstract class for publish handler.
  */
+@Slf4j
 public abstract class AbstractQosPublishHandler implements QosPublishHandler {
 
     protected final PulsarService pulsarService;
@@ -115,6 +117,13 @@ public abstract class AbstractQosPublishHandler implements QosPublishHandler {
             Producer producer = producerMap.compute(producerName, (k, v) -> {
                 if (v == null) {
                     v = MQTTProducer.create(topic, connection.getServerCnx(), producerName);
+                    final CompletableFuture<Optional<Long>> producerFuture =
+                            topic.addProducer(v, new CompletableFuture<>());
+                    producerFuture.whenComplete((r, e) -> {
+                        if (e != null) {
+                            log.error("Failed to add producer", e);
+                        }
+                    });
                 }
                 return v;
             });
