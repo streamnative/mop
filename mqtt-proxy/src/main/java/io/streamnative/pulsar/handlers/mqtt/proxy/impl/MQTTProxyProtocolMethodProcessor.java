@@ -126,6 +126,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     public void doProcessConnect(MqttAdapterMessage adapter, String userRole,
                                  AuthenticationDataSource authData, ClientRestrictions clientRestrictions) {
         MqttConnectMessage msg = (MqttConnectMessage) adapter.getMqttMessage();
+        log.info("proxy process connect : {}", msg.payload().clientIdentifier());
         final ServerRestrictions serverRestrictions = ServerRestrictions.builder()
                 .receiveMaximum(proxyConfig.getReceiveMaximum())
                 .maximumPacketSize(proxyConfig.getMqttMessageMaxLength())

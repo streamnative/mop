@@ -44,4 +44,6 @@ public class QosPublishHandlersImpl implements QosPublishHandlers {
     public QosPublishHandler qos2() {
         return this.qos2Handler;
     }
+
+
 }
