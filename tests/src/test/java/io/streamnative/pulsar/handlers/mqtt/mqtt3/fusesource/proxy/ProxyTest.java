@@ -346,24 +346,27 @@ public class ProxyTest extends MQTTTestBase {
     @Test
     public void testTopicUnload() throws Exception {
         MQTT mqttConsumer = createMQTTProxyClient();
+        mqttConsumer.setClientId("client-consumer");
         BlockingConnection consumer = mqttConsumer.blockingConnection();
         consumer.connect();
         String topicName1 = "topic-unload-1";
         Topic[] topic1 = { new Topic(topicName1, QoS.AT_MOST_ONCE)};
         consumer.subscribe(topic1);
         MQTT mqttProducer = createMQTTProxyClient();
+        mqttProducer.setClientId("client-producer");
         BlockingConnection producer = mqttProducer.blockingConnection();
         producer.connect();
         String msg1 = "hello topic1";
         producer.publish(topicName1, msg1.getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
-        Message receive1 = consumer.receive();
+        Message receive1 = consumer.receive(10, TimeUnit.SECONDS);
         Assert.assertEquals(new String(receive1.getPayload()), msg1);
         Assert.assertEquals(receive1.getTopic(), topicName1);
         admin.topics().unload(topicName1);
         Thread.sleep(5000);
+        log.info("unloaded topic : {}", topicName1);
         producer.publish(topicName1, msg1.getBytes(StandardCharsets.UTF_8), QoS.AT_MOST_ONCE, false);
-        producer.disconnect();
-        Message receive2 = consumer.receive();
+//        producer.disconnect();
+        Message receive2 = consumer.receive(10, TimeUnit.SECONDS);
         Assert.assertEquals(new String(receive2.getPayload()), msg1);
         Assert.assertEquals(receive2.getTopic(), topicName1);
         consumer.disconnect();
