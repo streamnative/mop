@@ -85,7 +85,6 @@ public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
                         .collect(Collectors.toList()))
                 .build();
 
-        admin.clusters().createNamespaceIsolationPolicy("test", "policy-1", isolationData);
         try {
             final Mqtt5PublishResult r2 = client.publishWith()
                     .topic(topic1)
@@ -104,7 +103,6 @@ public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
                 .send();
         Assert.assertFalse(r3.getError().isPresent());
         client.disconnect();
-        admin.clusters().deleteNamespaceIsolationPolicy("test", "policy-1");
     }
 
     @Test(invocationCount = 2)

@@ -245,7 +245,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         topicBrokers.values().forEach(adapterChannel -> {
             adapterChannel.thenAccept(channel -> {
                 msg.setClientId(clientId);
-                channel.writeAndFlush(msg);
+                channel.writeAndFlush(connection, msg);
             });
         });
     }
@@ -269,7 +269,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             .filter(future -> !future.isCompletedExceptionally())
                             .map(CompletableFuture::join)
                             .collect(Collectors.toSet())
-                            .forEach(channel -> channel.writeAndFlush(msg)));
+                            .forEach(channel -> channel.writeAndFlush(connection, msg)));
         } else {
             if (log.isDebugEnabled()) {
                 log.debug("Disconnect is already triggered, ignore");
@@ -464,7 +464,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
 
     private CompletableFuture<Void> writeToBroker(final String topic, final MqttAdapterMessage msg) {
         CompletableFuture<AdapterChannel> proxyExchanger = connectToBroker(topic);
-        return proxyExchanger.thenCompose(exchanger -> exchanger.writeAndFlush(msg));
+        return proxyExchanger.thenCompose(exchanger -> exchanger.writeAndFlush(connection, msg));
     }
 
     private CompletableFuture<AdapterChannel> connectToBroker(final String topic) {
@@ -473,8 +473,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                         adapterChannels.computeIfAbsent(mqttBroker, key1 -> {
                             AdapterChannel adapterChannel = proxyAdapter.getAdapterChannel(mqttBroker);
                             final MqttConnectMessage connectMessage = connection.getConnectMessage();
-
-                            adapterChannel.writeAndFlush(new MqttAdapterMessage(connection.getClientId(),
+                            adapterChannel.writeAndFlush(connection, new MqttAdapterMessage(connection.getClientId(),
                                     connectMessage));
                             return adapterChannel;
                         })
