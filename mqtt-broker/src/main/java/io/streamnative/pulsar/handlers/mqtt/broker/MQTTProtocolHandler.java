@@ -31,6 +31,7 @@ import io.streamnative.pulsar.handlers.mqtt.broker.channel.MQTTChannelInitialize
 import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyServiceConfig;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -57,6 +58,9 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Getter
     private String bindAddress;
 
+    @Getter
+    private String advertisedAddress;
+
     private MQTTProxyService proxyService;
 
     @Getter
@@ -77,10 +81,12 @@ public class MQTTProtocolHandler implements ProtocolHandler {
     @Override
     public void initialize(ServiceConfiguration conf) throws Exception {
         // init config
-        mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
+        this.mqttConfig = ConfigurationUtils.create(conf.getProperties(), MQTTServerConfiguration.class);
         // We have to enable ack batch message individual.
-        mqttConfig.setAcknowledgmentAtBatchIndexLevelEnabled(true);
+        this.mqttConfig.setAcknowledgmentAtBatchIndexLevelEnabled(true);
         this.bindAddress = ServiceConfigurationUtils.getDefaultOrConfiguredAddress(mqttConfig.getBindAddress());
+        this.advertisedAddress =
+                ServiceConfigurationUtils.getDefaultOrConfiguredAddress(mqttConfig.getAdvertisedAddress());
     }
 
     @Override
@@ -97,11 +103,10 @@ public class MQTTProtocolHandler implements ProtocolHandler {
         mqttService = new MQTTService(brokerService, mqttConfig);
         if (mqttConfig.isMqttProxyEnabled() || mqttConfig.isMqttProxyEnable()) {
             try {
-                MQTTProxyConfiguration proxyConfig =
-                        ConfigurationUtils.create(mqttConfig.getProperties(), MQTTProxyConfiguration.class);
-                proxyService = new MQTTProxyService(brokerService, proxyConfig);
+                final MQTTProxyServiceConfig config = initProxyConfig();
+                proxyService = new MQTTProxyService(config);
                 proxyService.start();
-                log.info("Start MQTT proxy service at port: {}", proxyConfig.getMqttProxyPort());
+                log.info("Start MQTT proxy service at port: {}", config.getProxyConfiguration().getMqttProxyPort());
             } catch (Exception ex) {
                 log.error("Failed to start MQTT proxy service.", ex);
             }
@@ -112,6 +117,20 @@ public class MQTTProtocolHandler implements ProtocolHandler {
                 MopVersion.getBuildUser(),
                 MopVersion.getBuildHost(),
                 MopVersion.getBuildTime());
+    }
+
+    private MQTTProxyServiceConfig initProxyConfig() throws Exception {
+        MQTTProxyConfiguration proxyConfig =
+                ConfigurationUtils.create(mqttConfig.getProperties(), MQTTProxyConfiguration.class);
+        MQTTProxyServiceConfig config = new MQTTProxyServiceConfig();
+        config.setBindAddress(bindAddress);
+        config.setAdvertisedAddress(advertisedAddress);
+        config.setProxyConfiguration(proxyConfig);
+        config.setLocalMetadataStore(brokerService.pulsar().getLocalMetadataStore());
+        config.setConfigMetadataStore(brokerService.pulsar().getConfigurationMetadataStore());
+        config.setPulsarClient(brokerService.pulsar().getClient());
+        config.setPulsarResources(brokerService.pulsar().getPulsarResources());
+        return config;
     }
 
     @Override

@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.namespace.LookupOptions;
+import org.apache.pulsar.broker.namespace.NamespaceService;
 import org.apache.pulsar.broker.service.BrokerServiceException;
 import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.broker.service.Topic;
@@ -197,14 +198,15 @@ public class PulsarTopicUtils {
     }
 
     public static CompletableFuture<List<String>> asyncGetTopicListFromTopicSubscription(String topicFilter,
-         String defaultTenant, String defaultNamespace, PulsarService pulsarService, String defaultTopicDomain) {
+                                                  String defaultTenant, String defaultNamespace,
+                                                  NamespaceService namespaceService, String defaultTopicDomain) {
         if (MqttUtils.isRegexFilter(topicFilter)) {
             TopicFilter filter = PulsarTopicUtils.getTopicFilter(topicFilter);
             Pair<TopicDomain, NamespaceName> domainNamespacePair =
                     PulsarTopicUtils
                             .getTopicDomainAndNamespaceFromTopicFilter(topicFilter, defaultTenant,
                             defaultNamespace, defaultTopicDomain);
-            return pulsarService.getNamespaceService().getListOfTopics(
+            return namespaceService.getListOfTopics(
                     domainNamespacePair.getRight(), domainNamespacePair.getLeft() == TopicDomain.persistent
                             ? CommandGetTopicsOfNamespace.Mode.PERSISTENT
                             : CommandGetTopicsOfNamespace.Mode.NON_PERSISTENT).thenCompose(topics ->

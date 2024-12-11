@@ -13,9 +13,9 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy.handler;
 
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyServiceConfig;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collections;
@@ -28,13 +28,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.loadbalance.LoadManager;
 import org.apache.pulsar.broker.service.BrokerServiceException;
-import org.apache.pulsar.client.api.AuthenticationFactory;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
-import org.apache.pulsar.client.impl.conf.ClientConfigurationData;
 import org.apache.pulsar.client.util.ExecutorProvider;
 import org.apache.pulsar.client.util.ScheduledExecutorProvider;
 import org.apache.pulsar.common.naming.TopicName;
@@ -53,18 +50,15 @@ public class PulsarServiceLookupHandler implements LookupHandler {
     private final String protocolHandlerName = "mqtt";
     private final PulsarClientImpl pulsarClient;
     private final MetadataCache<LocalBrokerData> localBrokerDataCache;
-    private final PulsarService pulsarService;
     private final MQTTProxyConfiguration proxyConfig;
     private final ExecutorProvider executorProvider;
 
-    public PulsarServiceLookupHandler(PulsarService pulsarService, MQTTProxyConfiguration proxyConfig) {
-        this.pulsarService = pulsarService;
-        this.proxyConfig = proxyConfig;
+    public PulsarServiceLookupHandler(MQTTProxyServiceConfig proxyServiceConfig) {
+        this.proxyConfig = proxyServiceConfig.getProxyConfiguration();
         this.executorProvider = new ScheduledExecutorProvider(proxyConfig.getLookupThreadPoolNum(),
                                                               "mop-lookup-thread");
-        this.localBrokerDataCache = pulsarService
-                .getLocalMetadataStore().getMetadataCache(LocalBrokerData.class);
-        this.pulsarClient = getClient(proxyConfig);
+        this.localBrokerDataCache = proxyServiceConfig.getLocalMetadataStore().getMetadataCache(LocalBrokerData.class);
+        this.pulsarClient = (PulsarClientImpl) proxyServiceConfig.getPulsarClient();
     }
 
     private void findBroker(TopicName topicName,
@@ -171,43 +165,6 @@ public class PulsarServiceLookupHandler implements LookupHandler {
             pulsarClient.close();
             executorProvider.shutdownNow();
         } catch (PulsarClientException ignore) {
-        }
-    }
-
-    private PulsarClientImpl getClient(MQTTProxyConfiguration proxyConfig) {
-        ClientConfigurationData conf = new ClientConfigurationData();
-        conf.setServiceUrl(proxyConfig.isTlsEnabled()
-                ? pulsarService.getBrokerServiceUrlTls() : pulsarService.getBrokerServiceUrl());
-        conf.setTlsAllowInsecureConnection(proxyConfig.isTlsAllowInsecureConnection());
-        conf.setTlsTrustCertsFilePath(proxyConfig.getTlsCertificateFilePath());
-
-        if (proxyConfig.isBrokerClientTlsEnabled()) {
-            if (proxyConfig.isBrokerClientTlsEnabledWithKeyStore()) {
-                conf.setUseKeyStoreTls(true);
-                conf.setTlsTrustStoreType(proxyConfig.getBrokerClientTlsTrustStoreType());
-                conf.setTlsTrustStorePath(proxyConfig.getBrokerClientTlsTrustStore());
-                conf.setTlsTrustStorePassword(proxyConfig.getBrokerClientTlsTrustStorePassword());
-            } else {
-                conf.setTlsTrustCertsFilePath(
-                        isNotBlank(proxyConfig.getBrokerClientTrustCertsFilePath())
-                                ? proxyConfig.getBrokerClientTrustCertsFilePath()
-                                : proxyConfig.getTlsCertificateFilePath());
-            }
-        }
-
-        try {
-            if (isNotBlank(proxyConfig.getBrokerClientAuthenticationPlugin())) {
-                conf.setAuthPluginClassName(proxyConfig.getBrokerClientAuthenticationPlugin());
-                conf.setAuthParams(proxyConfig.getBrokerClientAuthenticationParameters());
-                conf.setAuthParamMap(null);
-                conf.setAuthentication(AuthenticationFactory.create(
-                        proxyConfig.getBrokerClientAuthenticationPlugin(),
-                        proxyConfig.getBrokerClientAuthenticationParameters()));
-            }
-            return new PulsarClientImpl(conf);
-        } catch (PulsarClientException e) {
-            log.error("Failed to create PulsarClient", e);
-            throw new IllegalArgumentException(e);
         }
     }
 }

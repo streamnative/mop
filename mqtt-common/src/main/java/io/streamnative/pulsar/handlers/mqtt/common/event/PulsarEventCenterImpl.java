@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.common.util.OrderedExecutor;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.pulsar.broker.service.BrokerService;
+import org.apache.pulsar.metadata.api.MetadataStore;
 import org.apache.pulsar.metadata.api.Notification;
 
 @Slf4j
@@ -29,13 +29,12 @@ public class PulsarEventCenterImpl implements Consumer<Notification>, PulsarEven
     private final OrderedExecutor callbackExecutor;
 
     @SuppressWarnings("UnstableApiUsage")
-    public PulsarEventCenterImpl(BrokerService brokerService, int poolThreadNum) {
+    public PulsarEventCenterImpl(MetadataStore configurationMetadataStore, int poolThreadNum) {
         this.listeners = new CopyOnWriteArrayList<>();
         this.callbackExecutor = OrderedExecutor.newBuilder()
                 .numThreads(poolThreadNum)
                 .name("mqtt-notification-workers").build();
-        brokerService.getPulsar()
-                .getConfigurationMetadataStore().registerListener(this);
+        configurationMetadataStore.registerListener(this);
     }
 
 

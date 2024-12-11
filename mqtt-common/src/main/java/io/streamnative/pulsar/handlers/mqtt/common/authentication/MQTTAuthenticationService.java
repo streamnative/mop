@@ -31,7 +31,6 @@ import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
 import org.apache.pulsar.broker.authentication.AuthenticationProvider;
 import org.apache.pulsar.broker.authentication.AuthenticationService;
-import org.apache.pulsar.broker.service.BrokerService;
 
 /**
  * MQTT authentication service.
@@ -45,8 +44,8 @@ public class MQTTAuthenticationService {
     @Getter
     private final Map<String, AuthenticationProvider> authenticationProviders;
 
-    public MQTTAuthenticationService(BrokerService brokerService, List<String> authenticationMethods) {
-        this.authenticationService = brokerService.getAuthenticationService();
+    public MQTTAuthenticationService(AuthenticationService authenticationService, List<String> authenticationMethods) {
+        this.authenticationService = authenticationService;
         this.authenticationProviders = getAuthenticationProviders(authenticationMethods);
     }
 

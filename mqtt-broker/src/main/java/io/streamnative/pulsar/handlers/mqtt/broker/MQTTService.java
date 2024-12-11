@@ -102,14 +102,14 @@ public class MQTTService {
         this.metricsProvider = new MQTTMetricsProvider(metricsCollector);
         this.pulsarService.addPrometheusRawMetricsProvider(metricsProvider);
         this.authenticationService = serverConfiguration.isMqttAuthenticationEnabled()
-            ? new MQTTAuthenticationService(brokerService,
+            ? new MQTTAuthenticationService(brokerService.getAuthenticationService(),
                 serverConfiguration.getMqttAuthenticationMethods()) : null;
         this.connectionManager = new MQTTConnectionManager(pulsarService.getAdvertisedAddress());
         this.subscriptionManager = new MQTTSubscriptionManager();
         if (getServerConfiguration().isMqttProxyEnabled()) {
             this.eventCenter = new DisableEventCenter();
         } else {
-            this.eventCenter = new PulsarEventCenterImpl(brokerService,
+            this.eventCenter = new PulsarEventCenterImpl(brokerService.pulsar().getConfigurationMetadataStore(),
                     serverConfiguration.getEventCenterCallbackPoolThreadNum());
         }
         this.eventService = new DisabledSystemEventService();
