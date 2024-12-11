@@ -152,6 +152,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                 .clientRestrictions(clientRestrictions)
                 .serverRestrictions(serverRestrictions)
                 .authData(authData)
+                .serverCnx(serverCnx)
                 .channel(channel)
                 .connectMessage(msg)
                 .connectionManager(connectionManager)
@@ -295,6 +296,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
         if (log.isDebugEnabled()) {
             log.debug("[Disconnect] [{}] ", clientId);
         }
+        qosPublishHandlers.qos0().closeProducer(connection);
         // If client update session timeout interval property.
         Optional<Integer> newSessionExpireInterval;
         if ((newSessionExpireInterval = MqttPropertyUtils
@@ -328,6 +330,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             if (log.isDebugEnabled()) {
                 log.debug("[Connection Lost] [{}] ", clientId);
             }
+            qosPublishHandlers.qos0().closeProducer(connection);
             metricsCollector.removeClient(NettyUtils.getAddress(channel));
             WillMessage willMessage = connection.getWillMessage();
             if (willMessage != null) {
