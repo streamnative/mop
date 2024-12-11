@@ -13,7 +13,6 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.broker.qos;
 
-
 /**
  * Qos publish handlers for different Qos message publish.
  */

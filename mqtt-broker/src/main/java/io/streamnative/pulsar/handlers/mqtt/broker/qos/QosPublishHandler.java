@@ -23,4 +23,6 @@ import java.util.concurrent.CompletableFuture;
 public interface QosPublishHandler {
 
     CompletableFuture<Void> publish(Connection connection, MqttAdapterMessage msg);
+
+    void closeProducer(Connection connection);
 }

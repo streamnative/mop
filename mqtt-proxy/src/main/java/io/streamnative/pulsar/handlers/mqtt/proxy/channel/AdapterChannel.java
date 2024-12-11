@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy.channel;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import io.netty.channel.Channel;
+import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.streamnative.pulsar.handlers.mqtt.common.Connection;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.FutureUtils;
@@ -39,14 +40,18 @@ public class AdapterChannel {
         this.channelFuture = channelFuture;
     }
 
-    public CompletableFuture<Void> writeAndFlush(final MqttAdapterMessage adapterMsg) {
+    public CompletableFuture<Void> writeAndFlush(final Connection connection, final MqttAdapterMessage adapterMsg) {
         checkArgument(StringUtils.isNotBlank(adapterMsg.getClientId()), "clientId is blank");
         final String clientId = adapterMsg.getClientId();
         adapterMsg.setEncodeType(MqttAdapterMessage.EncodeType.ADAPTER_MESSAGE);
         CompletableFuture<Void> future = channelFuture.thenCompose(channel -> {
             if (!channel.isActive()) {
                 channelFuture = adapter.getChannel(broker);
-                return writeAndFlush(adapterMsg);
+                if (log.isDebugEnabled()) {
+                    log.debug("channel is inactive, re-create channel to broker : {}", broker);
+                }
+                return writeConnectMessage(connection)
+                        .thenCompose(__ -> writeAndFlush(connection, adapterMsg));
             }
             return FutureUtils.completableFuture(channel.writeAndFlush(adapterMsg));
         });
@@ -56,6 +61,11 @@ public class AdapterChannel {
             return null;
         });
         return future;
+    }
+
+    private CompletableFuture<Void> writeConnectMessage(final Connection connection) {
+        final MqttConnectMessage connectMessage = connection.getConnectMessage();
+        return writeAndFlush(connection, new MqttAdapterMessage(connection.getClientId(), connectMessage));
     }
 
     /**
