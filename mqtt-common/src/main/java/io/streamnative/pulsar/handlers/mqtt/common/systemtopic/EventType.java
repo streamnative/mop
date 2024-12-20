@@ -15,6 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.common.systemtopic;
 
 public enum EventType {
     CONNECT,
+    DISCONNECT,
     LAST_WILL_MESSAGE,
     RETAINED_MESSAGE,
     ADD_PSK_IDENTITY;

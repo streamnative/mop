@@ -38,9 +38,12 @@ import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyException;
 import java.io.Closeable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+
+import io.streamnative.pulsar.handlers.mqtt.proxy.web.WebService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
+import org.apache.pulsar.broker.ServiceConfigurationUtils;
 import org.apache.pulsar.broker.service.BrokerService;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
 
@@ -74,6 +77,7 @@ public class MQTTProxyService implements Closeable {
     private Channel listenChannelTlsPsk;
     private final EventLoopGroup acceptorGroup;
     private final EventLoopGroup workerGroup;
+    private final WebService webService;
 
     private DefaultThreadFactory acceptorThreadFactory = new DefaultThreadFactory("mqtt-redirect-acceptor");
     private DefaultThreadFactory workerThreadFactory = new DefaultThreadFactory("mqtt-redirect-io");
@@ -101,7 +105,8 @@ public class MQTTProxyService implements Closeable {
         this.eventService = proxyConfig.isSystemEventEnabled()
                 ? new SystemTopicBasedSystemEventService(pulsarService)
                 : new DisabledSystemEventService();
-        this.eventService.addListener(connectionManager.getEventListener());
+        this.eventService.addListener(connectionManager.getConnectListener());
+        this.eventService.addListener(connectionManager.getDisconnectListener());
         this.eventService.addListener(new RetainedMessageHandler(eventService).getEventListener());
         this.acceptorGroup = EventLoopUtil.newEventLoopGroup(proxyConfig.getMqttProxyNumAcceptorThreads(),
                 false, acceptorThreadFactory);
@@ -112,6 +117,7 @@ public class MQTTProxyService implements Closeable {
         this.proxyAdapter = new MQTTProxyAdapter(this);
         this.sslContextRefresher = Executors.newSingleThreadScheduledExecutor(
                 new DefaultThreadFactory("mop-proxy-ssl-context-refresher"));
+        this.webService = new WebService(this);
     }
 
     private void configValid(MQTTProxyConfiguration proxyConfig) {
@@ -168,6 +174,7 @@ public class MQTTProxyService implements Closeable {
         }
         this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, proxyConfig);
         this.eventService.start();
+        this.webService.start();
     }
 
     public void start0() throws MQTTProxyException {

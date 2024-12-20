@@ -14,12 +14,15 @@
 package io.streamnative.pulsar.handlers.mqtt.common;
 
 import static io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventType.CONNECT;
+import static io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventType.DISCONNECT;
 import io.netty.util.HashedWheelTimer;
 import io.netty.util.Timeout;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.ConnectEvent;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventListener;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.MqttEvent;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +36,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MQTTConnectionManager {
 
-    private final ConcurrentMap<String, Connection> connections;
+    private final ConcurrentMap<String, Connection> localConnections;
+
+    private final ConcurrentMap<String, Connection> eventConnections;
 
     @Getter
     private static final HashedWheelTimer sessionExpireInterval =
@@ -41,18 +46,23 @@ public class MQTTConnectionManager {
                     new DefaultThreadFactory("session-expire-interval"), 1, TimeUnit.SECONDS);
 
     @Getter
-    private final EventListener eventListener;
+    private final EventListener connectListener;
+
+    @Getter
+    private final EventListener disconnectListener;
 
     private final String advertisedAddress;
 
     public MQTTConnectionManager(String advertisedAddress) {
         this.advertisedAddress = advertisedAddress;
-        this.connections = new ConcurrentHashMap<>(2048);
-        this.eventListener = new ConnectEventListener();
+        this.localConnections = new ConcurrentHashMap<>(2048);
+        this.eventConnections = new ConcurrentHashMap<>(2048);
+        this.connectListener = new ConnectEventListener();
+        this.disconnectListener = new DisconnectEventListener();
     }
 
     public void addConnection(Connection connection) {
-        Connection existing = connections.put(connection.getClientId(), connection);
+        Connection existing = localConnections.put(connection.getClientId(), connection);
         if (existing != null) {
             log.warn("The clientId is existed. Close existing connection. CId={}", existing.getClientId());
             existing.disconnect();
@@ -68,7 +78,7 @@ public class MQTTConnectionManager {
      */
     public void newSessionExpireInterval(Consumer<Timeout> task, String clientId, int interval) {
         sessionExpireInterval.newTimeout(timeout -> {
-            Connection connection = connections.get(clientId);
+            Connection connection = localConnections.get(clientId);
             if (connection != null
                     && connection.getState() != Connection.ConnectionState.DISCONNECTED) {
                 return;
@@ -80,16 +90,28 @@ public class MQTTConnectionManager {
     // Must use connections.remove(key, value).
     public void removeConnection(Connection connection) {
         if (connection != null) {
-            connections.remove(connection.getClientId(), connection);
+            localConnections.remove(connection.getClientId(), connection);
         }
     }
 
     public Connection getConnection(String clientId) {
-        return connections.get(clientId);
+        return localConnections.get(clientId);
+    }
+
+    public Collection<Connection> getLocalConnections() {
+        return this.localConnections.values();
+    }
+
+    public Collection<Connection> getAllConnections() {
+        Collection<Connection> connections = new ArrayList<>(this.localConnections.values().size()
+                    + this.eventConnections.values().size());
+        connections.addAll(this.localConnections.values());
+        connections.addAll(eventConnections.values());
+        return connections;
     }
 
     public void close() {
-        connections.values().forEach(connection -> connection.getChannel().close());
+        localConnections.values().forEach(connection -> connection.getChannel().close());
     }
 
     class ConnectEventListener implements EventListener {
@@ -103,7 +125,23 @@ public class MQTTConnectionManager {
                     if (connection != null) {
                         log.warn("[ConnectEvent] close existing connection : {}", connection);
                         connection.disconnect();
+                    } else {
+                        eventConnections.put(connectEvent.getClientId(), connection);
                     }
+                }
+            }
+        }
+    }
+
+    //TODO
+    class DisconnectEventListener implements EventListener {
+
+        @Override
+        public void onChange(MqttEvent event) {
+            if (event.getEventType() == DISCONNECT) {
+                ConnectEvent connectEvent = (ConnectEvent) event.getSourceEvent();
+                if (!connectEvent.getAddress().equals(advertisedAddress)) {
+                    eventConnections.remove(connectEvent.getClientId());
                 }
             }
         }
