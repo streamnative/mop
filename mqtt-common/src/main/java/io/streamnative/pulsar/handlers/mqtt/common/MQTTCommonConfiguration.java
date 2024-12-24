@@ -377,6 +377,10 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     )
     private boolean systemEventEnabled = true;
 
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "Enable web http service."
+    )
     private Optional<Integer> mopWebServicePort = Optional.of(9090);
 
     public long getMqttTlsCertRefreshCheckDurationSec() {

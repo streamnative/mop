@@ -83,6 +83,7 @@ public class WebService implements AutoCloseable {
     private PulsarSslFactory sslFactory;
     private ScheduledFuture<?> sslContextRefreshTask;
     private final MQTTCommonConfiguration config;
+    private final MQTTProxyService proxyService;
 
     @Getter
     private static final DynamicSkipUnknownPropertyHandler sharedUnknownPropertyHandler =
@@ -96,6 +97,7 @@ public class WebService implements AutoCloseable {
     public WebService(MQTTProxyService proxyService) {
         this.handlers = new ArrayList<>();
         this.config = proxyService.getProxyConfig();
+        this.proxyService = proxyService;
         this.webServiceExecutor = new WebExecutorThreadPool(
                 config.getNumHttpServerThreads(),
                 "mop-web",
@@ -223,9 +225,9 @@ public class WebService implements AutoCloseable {
             server.start();
 
             if (httpConnector != null) {
-                log.info("HTTP Service started at http://{}:{}", httpConnector.getHost(), httpConnector.getLocalPort());
+                log.info("MoP HTTP Service started at http://{}:{}", httpConnector.getHost(), httpConnector.getLocalPort());
             } else {
-                log.info("HTTP Service disabled");
+                log.info("MoP HTTP Service disabled");
             }
 
         } catch (Exception e) {
@@ -235,7 +237,7 @@ public class WebService implements AutoCloseable {
 
     private void addWebServerHandlers() {
         Map<String, Object> attributeMap = new HashMap<>();
-        attributeMap.put(ATTRIBUTE_PROXY_NAME, this);
+        attributeMap.put(ATTRIBUTE_PROXY_NAME, proxyService);
 
         addRestResources("/admin",
                 true, attributeMap, false,
