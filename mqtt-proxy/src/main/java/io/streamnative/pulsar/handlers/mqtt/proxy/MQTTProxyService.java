@@ -35,15 +35,13 @@ import io.streamnative.pulsar.handlers.mqtt.proxy.channel.MQTTProxyChannelInitia
 import io.streamnative.pulsar.handlers.mqtt.proxy.handler.LookupHandler;
 import io.streamnative.pulsar.handlers.mqtt.proxy.handler.PulsarServiceLookupHandler;
 import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyException;
+import io.streamnative.pulsar.handlers.mqtt.proxy.web.WebService;
 import java.io.Closeable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-
-import io.streamnative.pulsar.handlers.mqtt.proxy.web.WebService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.broker.PulsarService;
-import org.apache.pulsar.broker.ServiceConfigurationUtils;
 import org.apache.pulsar.broker.service.BrokerService;
 import org.apache.pulsar.common.util.netty.EventLoopUtil;
 

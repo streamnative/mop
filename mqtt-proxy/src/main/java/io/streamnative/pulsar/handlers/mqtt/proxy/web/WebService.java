@@ -18,6 +18,12 @@ import io.prometheus.client.jetty.JettyStatisticsCollector;
 import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ScheduledFuture;
 import lombok.Getter;
 import org.apache.pulsar.broker.web.DynamicSkipUnknownPropertyHandler;
 import org.apache.pulsar.broker.web.GzipHandlerUtil;
@@ -51,12 +57,6 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ScheduledFuture;
 
 /**
  * Web Service embedded into MoP Proxy.
@@ -220,7 +220,8 @@ public class WebService implements AutoCloseable {
             server.start();
 
             if (httpConnector != null) {
-                log.info("MoP HTTP Service started at http://{}:{}", httpConnector.getHost(), httpConnector.getLocalPort());
+                log.info("MoP HTTP Service started at http://{}:{}", httpConnector.getHost(),
+                        httpConnector.getLocalPort());
             } else {
                 log.info("MoP HTTP Service disabled");
             }

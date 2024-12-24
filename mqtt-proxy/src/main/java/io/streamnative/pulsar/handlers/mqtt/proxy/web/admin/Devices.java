@@ -18,17 +18,17 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
-import org.apache.pulsar.broker.web.RestException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.Collection;
+import java.util.stream.Collectors;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.MediaType;
-import java.util.Collection;
-import java.util.stream.Collectors;
+import org.apache.pulsar.broker.web.RestException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  */
