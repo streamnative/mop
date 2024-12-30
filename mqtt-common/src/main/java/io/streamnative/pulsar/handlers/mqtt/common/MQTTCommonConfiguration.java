@@ -381,7 +381,7 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             category = CATEGORY_MQTT_PROXY,
             doc = "Enable web http service."
     )
-    private Optional<Integer> mopWebServicePort = Optional.of(9090);
+    private Optional<Integer> mopWebServicePort = Optional.of(5680);
 
     public long getMqttTlsCertRefreshCheckDurationSec() {
         if (mqttTlsCertRefreshCheckDurationSec != 300) {

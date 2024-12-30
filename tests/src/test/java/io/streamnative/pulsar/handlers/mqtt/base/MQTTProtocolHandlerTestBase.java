@@ -116,6 +116,8 @@ public abstract class MQTTProtocolHandlerTestBase {
     @Getter
     protected List<Integer> mqttProxyPortList = new ArrayList<>();
     @Getter
+    protected List<Integer> mqttProxyHttpPortList = new ArrayList<>();
+    @Getter
     protected List<Integer> mqttProxyPortTlsList = new ArrayList<>();
     @Getter
     protected List<Integer> mqttProxyPortTlsPskList = new ArrayList<>();
@@ -288,6 +290,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqttBrokerPortTlsList.clear();
         mqttBrokerPortTlsPskList.clear();
         mqttProxyPortList.clear();
+        mqttProxyHttpPortList.clear();
         mqttProxyPortTlsList.clear();
         mqttProxyPortTlsPskList.clear();
     }
@@ -304,6 +307,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqttProxyPortList.remove(brokerIndex);
         mqttProxyPortTlsList.remove(brokerIndex);
         mqttProxyPortTlsPskList.remove(brokerIndex);
+        mqttProxyHttpPortList.remove(brokerIndex);
     }
 
     protected void startBroker() throws Exception {
@@ -355,6 +359,7 @@ public abstract class MQTTProtocolHandlerTestBase {
             mqttHttpPort = PortManager.nextFreePort();
             conf.setMqttProxyPort(mqttProxyPort);
             mqttProxyPortList.add(mqttProxyPort);
+            mqttProxyHttpPortList.add(mqttHttpPort);
             if (conf.isMqttProxyTlsEnabled()) {
                 mqttProxyTlsPort = PortManager.nextFreePort();
                 conf.setMqttProxyTlsPort(mqttProxyTlsPort);
