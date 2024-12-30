@@ -280,7 +280,11 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     @Override
     public void processConnectionLost() {
         if (log.isDebugEnabled()) {
-            log.debug("[Proxy Connection Lost] [{}] ", connection.getClientId());
+            String clientId = "unknown";
+            if (connection != null) {
+                clientId = connection.getClientId();
+            }
+            log.debug("[Proxy Connection Lost] [{}] ", clientId);
         }
         autoSubscribeHandler.close();
         if (connection != null) {
