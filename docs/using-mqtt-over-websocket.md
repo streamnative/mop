@@ -54,6 +54,31 @@ mqttTlsKeyFilePath=/xxx/server.key
    >
    > Secure WebSocket Port: `8084`
 
+### How to use Proxy
+
+```
+mqttProxyEnabled=true
+mqttProxyTlsEnabled=true
+mqttProxyTlsPskEnabled=true
+mqttProxyWsEnabled=true
+mqttProxyWssEnabled=true
+```
+
+   > #### Note
+   > MQTT Proxy Info:
+   >
+   > Server: `broker.steamnative.io`
+   >
+   > Proxy TCP Port: `5682``
+   >
+   > Proxy TLS Port: `5683`
+   >
+   > Proxy TLS PSK Port: `5684`
+   >
+   > Proxy WebSocket Port: `5083
+   >
+   > Proxy Secure WebSocket Port: `5084`
+
 ## Get Started with MQTT over WebSocket
 
 ### Install MQTT WebSocket Client

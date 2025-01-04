@@ -560,7 +560,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         if (resource == null) {
             throw new RuntimeException("Resource not found: " + path);
         }
-        return resource.getPath();
+        return resource.getPath().substring(1);
     }
 
 }
