@@ -20,13 +20,16 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelId;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessageBuilders;
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.adapter.AdapterChannel;
-import io.streamnative.pulsar.handlers.mqtt.adapter.MQTTProxyAdapter;
-import io.streamnative.pulsar.handlers.mqtt.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.common.Connection;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTConnectionManager;
+import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
+import io.streamnative.pulsar.handlers.mqtt.proxy.channel.AdapterChannel;
+import io.streamnative.pulsar.handlers.mqtt.proxy.channel.MQTTProxyAdapter;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +39,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
 
 
 public class AdapterChannelTest extends MQTTTestBase {
@@ -74,7 +76,13 @@ public class AdapterChannelTest extends MQTTTestBase {
                 MqttConnectMessage fakeConnectMessage = MqttMessageBuilders.connect()
                         .clientId(clientId).build();
                 MqttAdapterMessage mqttAdapterMessage = new MqttAdapterMessage(clientId, fakeConnectMessage);
-                adapterChannel.writeAndFlush(mqttAdapterMessage).join();
+                Connection connection = Connection.builder()
+                        .channel(channel)
+                        .clientRestrictions(ClientRestrictions.builder().keepAliveTime(10).build())
+                        .connectionManager(Mockito.mock(MQTTConnectionManager.class))
+                        .clientId(clientId)
+                        .connectMessage(fakeConnectMessage).build();
+                adapterChannel.writeAndFlush(connection, mqttAdapterMessage).join();
                 CompletableFuture<Channel> channelFutureAfterSend = brokerChannels.get(key);
                 Channel channelAfterSend = channelFutureAfterSend.join();
                 assertNotEquals(channelAfterSend.id(), previousChannelId);

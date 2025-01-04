@@ -13,8 +13,8 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.base;
 
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
@@ -51,6 +51,24 @@ public class SimpleBrokerEnableDedupTest extends MQTTTestBase {
         Assert.assertEquals(received.getTopic(), topicName);
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
+        connection.disconnect();
+    }
+
+    @Test
+    public void testDedup() throws Exception {
+        MQTT mqtt = createMQTTClient();
+        String topicName = "testDedup";
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        Topic[] topics = { new Topic(topicName, QoS.AT_MOST_ONCE) };
+        connection.subscribe(topics);
+        String message = "Hello MQTT";
+        for (int i = 1; i <= 10; i++) {
+            connection.publish(topicName, (message + i).getBytes(), QoS.AT_MOST_ONCE, false);
+            Message received = connection.receive();
+            Assert.assertEquals(received.getTopic(), topicName);
+            Assert.assertEquals(new String(received.getPayload()), message + i);
+        }
         connection.disconnect();
     }
 }

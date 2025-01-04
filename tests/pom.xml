@@ -20,7 +20,7 @@
     <parent>
         <artifactId>pulsar-protocol-handler-mqtt-parent</artifactId>
         <groupId>io.streamnative.pulsar.handlers</groupId>
-        <version>2.10.0.0-rc4</version>
+        <version>3.4.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>pulsar-protocol-handler-mqtt-tests</artifactId>
@@ -31,6 +31,12 @@
         <dependency>
             <groupId>io.streamnative.pulsar.handlers</groupId>
             <artifactId>pulsar-protocol-handler-mqtt</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.streamnative.pulsar.handlers</groupId>
+            <artifactId>pulsar-protocol-handler-mqtt-common</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -91,7 +97,7 @@
                         <configuration>
                             <tasks>
                                 <echo>copy protocol handler</echo>
-                                <copy file="${basedir}/../mqtt-impl/target/pulsar-protocol-handler-mqtt-${project.version}.nar"
+                                <copy file="${basedir}/../mqtt-broker/target/pulsar-protocol-handler-mqtt-${project.version}.nar"
                                       tofile="${basedir}/src/test/resources/test-protocol-handler.nar"/>
                             </tasks>
                         </configuration>

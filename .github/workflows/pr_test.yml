@@ -23,17 +23,17 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Cache Maven packages
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: 17
@@ -55,13 +55,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Get All Tests
         id: list-test
         run: |
           TESTS=`find tests/src/test/java/io/streamnative/pulsar/handlers/mqtt \
-          mqtt-impl/src/test/java/io/streamnative/pulsar/handlers/mqtt -name "*Test.java" | \
+          mqtt-broker/src/test/java/io/streamnative/pulsar/handlers/mqtt -name "*Test.java" | \
           awk -F "/" '{ print $NF }' | \
           awk -F "." '{ print $1 }' | \
           jq -R -s -c 'split("\n") | map(select(. != ""))'`
@@ -78,17 +78,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Cache Maven packages
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: 17
@@ -100,7 +100,7 @@ jobs:
         run: ./scripts/retry.sh mvn -B -ntp test -Dtest=${{ matrix.test }} -DfailIfNoTests=false
 
       - name: Upload jacoco artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.test }}-jacoco-artifact
           path: '**/*.exec'
@@ -125,17 +125,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Cache Maven packages
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: 17
@@ -144,9 +144,9 @@ jobs:
         run: mvn clean install -DskipTests
 
       - name: Download jacoco artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
-          path: mqtt-impl/target
+          path: mqtt-broker/target
 
       - name: Merge jacoco report
         run: mvn jacoco:merge

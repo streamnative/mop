@@ -20,9 +20,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.netty.channel.EventLoopGroup;
-import io.streamnative.pulsar.handlers.mqtt.MQTTCommonConfiguration;
-import io.streamnative.pulsar.handlers.mqtt.utils.ConfigurationUtils;
-import java.io.IOException;
+import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URL;
@@ -33,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -115,6 +115,8 @@ public abstract class MQTTProtocolHandlerTestBase {
     protected List<Integer> mqttBrokerPortTlsPskList = new ArrayList<>();
     @Getter
     protected List<Integer> mqttProxyPortList = new ArrayList<>();
+    @Getter
+    protected List<Integer> mqttProxyHttpPortList = new ArrayList<>();
     @Getter
     protected List<Integer> mqttProxyPortTlsList = new ArrayList<>();
     @Getter
@@ -288,6 +290,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqttBrokerPortTlsList.clear();
         mqttBrokerPortTlsPskList.clear();
         mqttProxyPortList.clear();
+        mqttProxyHttpPortList.clear();
         mqttProxyPortTlsList.clear();
         mqttProxyPortTlsPskList.clear();
     }
@@ -304,6 +307,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqttProxyPortList.remove(brokerIndex);
         mqttProxyPortTlsList.remove(brokerIndex);
         mqttProxyPortTlsPskList.remove(brokerIndex);
+        mqttProxyHttpPortList.remove(brokerIndex);
     }
 
     protected void startBroker() throws Exception {
@@ -349,10 +353,13 @@ public abstract class MQTTProtocolHandlerTestBase {
         int mqttProxyPort = -1;
         int mqttProxyTlsPort = -1;
         int mqttProxyTlsPskPort = -1;
+        int mqttHttpPort = -1;
         if (conf.isMqttProxyEnabled()) {
             mqttProxyPort = PortManager.nextFreePort();
+            mqttHttpPort = PortManager.nextFreePort();
             conf.setMqttProxyPort(mqttProxyPort);
             mqttProxyPortList.add(mqttProxyPort);
+            mqttProxyHttpPortList.add(mqttHttpPort);
             if (conf.isMqttProxyTlsEnabled()) {
                 mqttProxyTlsPort = PortManager.nextFreePort();
                 conf.setMqttProxyTlsPort(mqttProxyTlsPort);
@@ -369,6 +376,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         conf.setBrokerServicePortTls(Optional.of(brokerPortTls));
         conf.setWebServicePort(Optional.of(brokerWebServicePort));
         conf.setWebServicePortTls(Optional.of(brokerWebServicePortTls));
+        conf.setMopWebServicePort(Optional.of(mqttHttpPort));
         String listener = "mqtt://127.0.0.1:" + mqttBrokerPort;
         String tlsListener = null;
         String tlsPskListener = null;
@@ -384,11 +392,13 @@ public abstract class MQTTProtocolHandlerTestBase {
         log.info("Start broker info, brokerPort: {}, brokerPortTls : {}, "
                         + "brokerWebServicePort : {} , brokerWebServicePortTls : {}, "
                         + "mqttBrokerPort: {}, mqttBrokerTlsPort: {}, mqttBrokerTlsPskPort: {}, "
-                        + "mqttProxyPort: {}, mqttProxyTlsPort: {}, mqttProxyTlsPskPort: {}",
+                        + "mqttProxyPort: {}, mqttProxyTlsPort: {}, mqttProxyTlsPskPort: {}, "
+                        + "mqttHttpPort: {}",
                 brokerPort, brokerPortTls, brokerWebServicePort, brokerWebServicePortTls,
                 mqttBrokerPort, mqttBrokerTlsPort, mqttBrokerTlsPskPort,
-                mqttProxyPort, mqttProxyTlsPort, mqttProxyTlsPskPort);
+                mqttProxyPort, mqttProxyTlsPort, mqttProxyTlsPskPort, mqttHttpPort);
         ConfigurationUtils.extractFieldToProperties(conf);
+        setTLSConf(conf);
         this.pulsarServiceList.add(doStartBroker(conf));
     }
 
@@ -404,8 +414,8 @@ public abstract class MQTTProtocolHandlerTestBase {
     protected void setupBrokerMocks(PulsarService pulsar) throws Exception {
         // Override default providers with mocked ones
         doReturn(mockBookKeeperClientFactory).when(pulsar).newBookKeeperClientFactory();
-        doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar).createLocalMetadataStore(any());
-        doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar).createConfigurationMetadataStore(any());
+        doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar).createLocalMetadataStore(any(), any());
+        doReturn(new ZKMetadataStore(mockZooKeeper)).when(pulsar).createConfigurationMetadataStore(any(), any());
 
         Supplier<NamespaceService> namespaceServiceSupplier = () -> spy(new NamespaceService(pulsar));
         doReturn(namespaceServiceSupplier).when(pulsar).getNamespaceServiceProvider();
@@ -459,18 +469,19 @@ public abstract class MQTTProtocolHandlerTestBase {
     private BookKeeperClientFactory mockBookKeeperClientFactory = new BookKeeperClientFactory() {
 
         @Override
-        public BookKeeper create(ServiceConfiguration conf, MetadataStoreExtended store, EventLoopGroup eventLoopGroup,
-                                 Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
-                                 Map<String, Object> ensemblePlacementPolicyProperties) throws IOException {
-            return mockBookKeeper;
+        public CompletableFuture<BookKeeper> create(ServiceConfiguration conf, MetadataStoreExtended store,
+                                                    EventLoopGroup eventLoopGroup,
+            Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
+            Map<String, Object> ensemblePlacementPolicyProperties) {
+            return CompletableFuture.completedFuture(mockBookKeeper);
         }
 
         @Override
-        public BookKeeper create(ServiceConfiguration conf, MetadataStoreExtended store, EventLoopGroup eventLoopGroup,
-                                 Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
-                                 Map<String, Object> ensemblePlacementPolicyProperties, StatsLogger statsLogger)
-                throws IOException {
-            return mockBookKeeper;
+        public CompletableFuture<BookKeeper> create(ServiceConfiguration conf, MetadataStoreExtended store,
+                                                    EventLoopGroup eventLoopGroup,
+            Optional<Class<? extends EnsemblePlacementPolicy>> ensemblePlacementPolicyClass,
+            Map<String, Object> ensemblePlacementPolicyProperties, StatsLogger statsLogger) {
+            return CompletableFuture.completedFuture(mockBookKeeper);
         }
 
         @Override
@@ -523,6 +534,33 @@ public abstract class MQTTProtocolHandlerTestBase {
             sb.append((char) (ThreadLocalRandom.current().nextInt(26) + 'a'));
         }
         return sb.toString();
+    }
+
+    private void setTLSConf(ServiceConfiguration conf) {
+        conf.setTlsTrustCertsFilePath(getResourcePath("tls/cacert.pem"));
+        conf.setTlsCertificateFilePath(getResourcePath("tls/server-cert.pem"));
+        conf.setTlsKeyFilePath(getResourcePath("tls/server-key.pem"));
+        conf.setBrokerClientTrustCertsFilePath(getResourcePath("tls/cacert.pem"));
+        conf.setBrokerClientCertificateFilePath(getResourcePath("tls/client-cert.pem"));
+        conf.setBrokerClientKeyFilePath(getResourcePath("tls/client-key.pem"));
+        conf.setBrokerClientTlsEnabled(true);
+
+        conf.getProperties().setProperty("tlsTrustCertsFilePath", getResourcePath("tls/cacert.pem"));
+        conf.getProperties().setProperty("tlsCertificateFilePath", getResourcePath("tls/server-cert.pem"));
+        conf.getProperties().setProperty("tlsKeyFilePath", getResourcePath("tls/server-key.pem"));
+        conf.getProperties().setProperty("brokerClientTrustCertsFilePath", getResourcePath("tls/cacert.pem"));
+        conf.getProperties().setProperty("brokerClientCertificateFilePath", getResourcePath("tls/client-cert.pem"));
+        conf.getProperties().setProperty("brokerClientKeyFilePath", getResourcePath("tls/client-key.pem"));
+        conf.getProperties().setProperty("brokerClientTlsEnabled", "true");
+    }
+
+    private String getResourcePath(String path) {
+        // get resource directory path
+        URL resource = this.getClass().getClassLoader().getResource(path);
+        if (resource == null) {
+            throw new RuntimeException("Resource not found: " + path);
+        }
+        return resource.getPath();
     }
 
 }
