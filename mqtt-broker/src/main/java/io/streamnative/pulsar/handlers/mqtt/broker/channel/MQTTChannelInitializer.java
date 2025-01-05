@@ -15,23 +15,17 @@ package io.streamnative.pulsar.handlers.mqtt.broker.channel;
 
 import static org.apache.pulsar.client.impl.PulsarChannelInitializer.TLS_HANDLER;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.http.HttpContentCompressor;
-import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpServerCodec;
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.broker.MQTTService;
-import io.streamnative.pulsar.handlers.mqtt.broker.codec.MqttWebSocketCodec;
-import io.streamnative.pulsar.handlers.mqtt.common.Constants;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.CombineAdapterHandler;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterDecoder;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterEncoder;
 import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKUtils;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.WebSocketUtils;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
@@ -89,7 +83,7 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
                     new SslHandler(PSKUtils.createServerEngine(ch, mqttService.getPskConfiguration())));
         }
         if (this.enableWs) {
-            addWsHandler(ch.pipeline());
+            WebSocketUtils.addWsHandler(ch.pipeline(), mqttConfig);
         }
         // Decoder
         ch.pipeline().addLast(MqttAdapterDecoder.NAME, new MqttAdapterDecoder());
@@ -99,27 +93,6 @@ public class MQTTChannelInitializer extends ChannelInitializer<SocketChannel> {
         // Handler
         ch.pipeline().addLast(CombineAdapterHandler.NAME, new CombineAdapterHandler());
         ch.pipeline().addLast(MQTTBrokerInboundHandler.NAME, new MQTTBrokerInboundHandler(mqttService));
-    }
-
-    /**
-     * Add websocket handler.
-     * @param pipeline
-     */
-    private void addWsHandler(ChannelPipeline pipeline) {
-        // Encode or decode request and reply messages into HTTP messages
-        pipeline.addLast(Constants.HANDLER_HTTP_CODEC, new HttpServerCodec());
-
-        // Combine the parts of an HTTP message into a complete HTTP message
-        pipeline.addLast(Constants.HANDLER_HTTP_AGGREGATOR,
-                new HttpObjectAggregator(mqttConfig.getHttpMaxContentLength()));
-
-        // Compress and encode HTTP messages
-        pipeline.addLast(Constants.HANDLER_HTTP_COMPRESSOR, new HttpContentCompressor());
-
-        pipeline.addLast(Constants.HANDLER_WEB_SOCKET_SERVER_PROTOCOL,
-                new WebSocketServerProtocolHandler(mqttConfig.getWebSocketPath(), Constants.MQTT_SUB_PROTOCOL_CSV_LIST,
-                        true, mqttConfig.getWebSocketMaxFrameSize()));
-        pipeline.addLast(Constants.HANDLER_MQTT_WEB_SOCKET_CODEC, new MqttWebSocketCodec());
     }
 
     protected PulsarSslConfiguration buildSslConfiguration(MQTTServerConfiguration config) {

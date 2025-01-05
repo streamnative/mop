@@ -55,7 +55,7 @@ public final class ConfigurationUtils {
             "^((mqtt)(\\+ssl)?(\\+psk)?|(ws)(\\+ssl)?)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
 
     public static final String PROXY_LISTENER_PATTERN =
-            "^(mqtt-proxy)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
+            "^((mqtt-proxy)(\\\\+ssl)?(\\\\+psk)?|(ws-proxy)(\\\\+ssl)?)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-0-9+]";
 
     /**
      * Creates PulsarConfiguration and loads it with populated attribute values loaded from provided property file.

@@ -23,6 +23,7 @@ import io.streamnative.pulsar.handlers.mqtt.common.adapter.CombineAdapterHandler
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterDecoder;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterEncoder;
 import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKUtils;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.WebSocketUtils;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyException;
@@ -45,22 +46,24 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
 
     private final boolean enableTls;
     private final boolean enableTlsPsk;
+    private final boolean enableWs;
     private PulsarSslFactory sslFactory;
 
     public MQTTProxyChannelInitializer(MQTTProxyService proxyService, MQTTProxyConfiguration proxyConfig,
-                                       boolean enableTls,
+                                       boolean enableTls, boolean enableWs,
                                        ScheduledExecutorService sslContextRefresher) throws MQTTProxyException {
-        this(proxyService, proxyConfig, enableTls, false, sslContextRefresher);
+        this(proxyService, proxyConfig, enableTls, false, enableWs, sslContextRefresher);
     }
 
     public MQTTProxyChannelInitializer(MQTTProxyService proxyService, MQTTProxyConfiguration proxyConfig,
-                                       boolean enableTls, boolean enableTlsPsk,
+                                       boolean enableTls, boolean enableTlsPsk, boolean enableWs,
                                        ScheduledExecutorService sslContextRefresher) throws MQTTProxyException {
         try {
             this.proxyService = proxyService;
             this.proxyConfig = proxyConfig;
             this.enableTls = enableTls;
             this.enableTlsPsk = enableTlsPsk;
+            this.enableWs = enableWs;
             if (this.enableTls) {
                 PulsarSslConfiguration sslConfiguration = buildSslConfiguration(proxyConfig);
                 this.sslFactory = (PulsarSslFactory) Class.forName(proxyConfig.getSslFactoryPlugin())
@@ -87,6 +90,9 @@ public class MQTTProxyChannelInitializer extends ChannelInitializer<SocketChanne
         } else if (this.enableTlsPsk) {
             ch.pipeline().addLast(TLS_HANDLER,
                     new SslHandler(PSKUtils.createServerEngine(ch, proxyService.getPskConfiguration())));
+        }
+        if (this.enableWs) {
+            WebSocketUtils.addWsHandler(ch.pipeline(), proxyConfig);
         }
         ch.pipeline().addLast(MqttAdapterDecoder.NAME, new MqttAdapterDecoder());
         ch.pipeline().addLast("mqtt-decoder", new MqttDecoder(proxyConfig.getMqttMessageMaxLength()));

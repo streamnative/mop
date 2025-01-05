@@ -73,6 +73,8 @@ public class MQTTProxyService implements Closeable {
     private Channel listenChannel;
     private Channel listenChannelTls;
     private Channel listenChannelTlsPsk;
+    private Channel listenChannelWs;
+    private Channel listenChannelWss;
     private final EventLoopGroup acceptorGroup;
     private final EventLoopGroup workerGroup;
     private final WebService webService;
@@ -130,7 +132,7 @@ public class MQTTProxyService implements Closeable {
         serverBootstrap.channel(EventLoopUtil.getServerSocketChannelClass(workerGroup));
         EventLoopUtil.enableTriggeredMode(serverBootstrap);
         serverBootstrap.childHandler(new MQTTProxyChannelInitializer(
-                this, proxyConfig, false, sslContextRefresher));
+                this, proxyConfig, false, false, sslContextRefresher));
 
         try {
             listenChannel = serverBootstrap.bind(proxyConfig.getMqttProxyPort()).sync().channel();
@@ -142,7 +144,7 @@ public class MQTTProxyService implements Closeable {
         if (proxyConfig.isMqttProxyTlsEnabled() || proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
             ServerBootstrap tlsBootstrap = serverBootstrap.clone();
             tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(
-                    this, proxyConfig, true, sslContextRefresher));
+                    this, proxyConfig, true, false, sslContextRefresher));
             try {
                 listenChannelTls = tlsBootstrap.bind(proxyConfig.getMqttProxyTlsPort()).sync().channel();
                 log.info("Started MQTT Proxy with TLS on {}", listenChannelTls.localAddress());
@@ -162,10 +164,34 @@ public class MQTTProxyService implements Closeable {
             // Add channel initializer
             ServerBootstrap tlsPskBootstrap = serverBootstrap.clone();
             tlsPskBootstrap.childHandler(new MQTTProxyChannelInitializer(
-                    this, proxyConfig, false, true, sslContextRefresher));
+                    this, proxyConfig, false, true, false, sslContextRefresher));
             try {
                 listenChannelTlsPsk = tlsPskBootstrap.bind(proxyConfig.getMqttProxyTlsPskPort()).sync().channel();
                 log.info("Started MQTT Proxy with TLS-PSK on {}", listenChannelTlsPsk.localAddress());
+            } catch (InterruptedException e) {
+                throw new MQTTProxyException(e);
+            }
+        }
+
+        if (proxyConfig.isMqttProxyWsEnabled()) {
+            ServerBootstrap wsBootstrap = serverBootstrap.clone();
+            wsBootstrap.childHandler(new MQTTProxyChannelInitializer(
+                    this, proxyConfig, false, true, sslContextRefresher));
+            try {
+                listenChannelWs = wsBootstrap.bind(proxyConfig.getMqttProxyWsPort()).sync().channel();
+                log.info("Started MQTT Proxy with WS on {}", listenChannelWs.localAddress());
+            } catch (InterruptedException e) {
+                throw new MQTTProxyException(e);
+            }
+        }
+
+        if (proxyConfig.isMqttProxyWssEnabled()) {
+            ServerBootstrap wssBootstrap = serverBootstrap.clone();
+            wssBootstrap.childHandler(new MQTTProxyChannelInitializer(
+                    this, proxyConfig, true, true, sslContextRefresher));
+            try {
+                listenChannelWss = wssBootstrap.bind(proxyConfig.getMqttProxyWssPort()).sync().channel();
+                log.info("Started MQTT Proxy with WSS on {}", listenChannelWss.localAddress());
             } catch (InterruptedException e) {
                 throw new MQTTProxyException(e);
             }
@@ -184,7 +210,7 @@ public class MQTTProxyService implements Closeable {
         if (proxyConfig.isMqttProxyTlsEnabled() || proxyConfig.isMqttProxyMTlsAuthenticationEnabled()) {
             ServerBootstrap tlsBootstrap = serverBootstrap.clone();
             tlsBootstrap.childHandler(new MQTTProxyChannelInitializer(
-                    this, proxyConfig, true, sslContextRefresher));
+                    this, proxyConfig, true, false, sslContextRefresher));
             try {
                 listenChannelTls = tlsBootstrap.bind(proxyConfig.getMqttProxyTlsPort()).sync().channel();
                 log.info("Started MQTT Proxy with TLS on {}", listenChannelTls.localAddress());
@@ -204,10 +230,34 @@ public class MQTTProxyService implements Closeable {
             // Add channel initializer
             ServerBootstrap tlsPskBootstrap = serverBootstrap.clone();
             tlsPskBootstrap.childHandler(new MQTTProxyChannelInitializer(
-                    this, proxyConfig, false, true, sslContextRefresher));
+                    this, proxyConfig, false, true, false, sslContextRefresher));
             try {
                 listenChannelTlsPsk = tlsPskBootstrap.bind(proxyConfig.getMqttProxyTlsPskPort()).sync().channel();
                 log.info("Started MQTT Proxy with TLS-PSK on {}", listenChannelTlsPsk.localAddress());
+            } catch (InterruptedException e) {
+                throw new MQTTProxyException(e);
+            }
+        }
+
+        if (proxyConfig.isMqttProxyWsEnabled()) {
+            ServerBootstrap wsBootstrap = serverBootstrap.clone();
+            wsBootstrap.childHandler(new MQTTProxyChannelInitializer(
+                    this, proxyConfig, false, true, sslContextRefresher));
+            try {
+                listenChannelWs = wsBootstrap.bind(proxyConfig.getMqttProxyWsPort()).sync().channel();
+                log.info("Started MQTT Proxy with WS on {}", listenChannelWs.localAddress());
+            } catch (InterruptedException e) {
+                throw new MQTTProxyException(e);
+            }
+        }
+
+        if (proxyConfig.isMqttProxyWssEnabled()) {
+            ServerBootstrap wssBootstrap = serverBootstrap.clone();
+            wssBootstrap.childHandler(new MQTTProxyChannelInitializer(
+                    this, proxyConfig, true, true, sslContextRefresher));
+            try {
+                listenChannelWss = wssBootstrap.bind(proxyConfig.getMqttProxyWssPort()).sync().channel();
+                log.info("Started MQTT Proxy with WSS on {}", listenChannelWss.localAddress());
             } catch (InterruptedException e) {
                 throw new MQTTProxyException(e);
             }
@@ -226,6 +276,12 @@ public class MQTTProxyService implements Closeable {
         }
         if (listenChannelTlsPsk != null) {
             listenChannelTlsPsk.close();
+        }
+        if (listenChannelWs != null) {
+            listenChannelWs.close();
+        }
+        if (listenChannelWss != null) {
+            listenChannelWss.close();
         }
         this.acceptorGroup.shutdownGracefully();
         this.workerGroup.shutdownGracefully();

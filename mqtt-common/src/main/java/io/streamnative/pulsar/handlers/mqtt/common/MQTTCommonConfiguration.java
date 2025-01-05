@@ -127,6 +127,20 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
             required = false,
+            doc = "The mqtt proxy ws port"
+    )
+    private int mqttProxyWsPort = 5083;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
+            doc = "The mqtt proxy wss port"
+    )
+    private int mqttProxyWssPort = 5084;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
             doc = "Deprecated, use `mqttProxyEnabled` instead"
     )
     @Deprecated
@@ -159,6 +173,20 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "Whether start mqtt protocol handler with proxy tls psk"
     )
     private boolean mqttProxyTlsPskEnabled = false;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
+            doc = "Whether start mqtt protocol handler with proxy ws"
+    )
+    private boolean mqttProxyWsEnabled = false;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            required = false,
+            doc = "Whether start mqtt protocol handler with proxy wss"
+    )
+    private boolean mqttProxyWssEnabled = false;
 
     @FieldContext(
             category = CATEGORY_MQTT_PROXY,
