@@ -25,9 +25,9 @@ import io.streamnative.pulsar.handlers.mqtt.common.adapter.CombineAdapterHandler
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterDecoder;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterEncoder;
 import io.streamnative.pulsar.handlers.mqtt.common.psk.PSKUtils;
+import io.streamnative.pulsar.handlers.mqtt.common.utils.WebSocketUtils;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import io.streamnative.pulsar.handlers.mqtt.common.utils.WebSocketUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.util.PulsarSslConfiguration;
 import org.apache.pulsar.common.util.PulsarSslFactory;
