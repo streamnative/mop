@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
@@ -375,6 +376,12 @@ public class MQTTCommonConfiguration extends ServiceConfiguration {
             doc = "Enable system event service."
     )
     private boolean systemEventEnabled = true;
+
+    @FieldContext(
+            category = CATEGORY_MQTT_PROXY,
+            doc = "Enable web http service."
+    )
+    private Optional<Integer> mopWebServicePort = Optional.of(5680);
 
     public long getMqttTlsCertRefreshCheckDurationSec() {
         if (mqttTlsCertRefreshCheckDurationSec != 300) {

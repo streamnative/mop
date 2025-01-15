@@ -116,6 +116,8 @@ public abstract class MQTTProtocolHandlerTestBase {
     @Getter
     protected List<Integer> mqttProxyPortList = new ArrayList<>();
     @Getter
+    protected List<Integer> mqttProxyHttpPortList = new ArrayList<>();
+    @Getter
     protected List<Integer> mqttProxyPortTlsList = new ArrayList<>();
     @Getter
     protected List<Integer> mqttProxyPortTlsPskList = new ArrayList<>();
@@ -288,6 +290,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqttBrokerPortTlsList.clear();
         mqttBrokerPortTlsPskList.clear();
         mqttProxyPortList.clear();
+        mqttProxyHttpPortList.clear();
         mqttProxyPortTlsList.clear();
         mqttProxyPortTlsPskList.clear();
     }
@@ -304,6 +307,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         mqttProxyPortList.remove(brokerIndex);
         mqttProxyPortTlsList.remove(brokerIndex);
         mqttProxyPortTlsPskList.remove(brokerIndex);
+        mqttProxyHttpPortList.remove(brokerIndex);
     }
 
     protected void startBroker() throws Exception {
@@ -349,10 +353,13 @@ public abstract class MQTTProtocolHandlerTestBase {
         int mqttProxyPort = -1;
         int mqttProxyTlsPort = -1;
         int mqttProxyTlsPskPort = -1;
+        int mqttHttpPort = -1;
         if (conf.isMqttProxyEnabled()) {
             mqttProxyPort = PortManager.nextFreePort();
+            mqttHttpPort = PortManager.nextFreePort();
             conf.setMqttProxyPort(mqttProxyPort);
             mqttProxyPortList.add(mqttProxyPort);
+            mqttProxyHttpPortList.add(mqttHttpPort);
             if (conf.isMqttProxyTlsEnabled()) {
                 mqttProxyTlsPort = PortManager.nextFreePort();
                 conf.setMqttProxyTlsPort(mqttProxyTlsPort);
@@ -369,6 +376,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         conf.setBrokerServicePortTls(Optional.of(brokerPortTls));
         conf.setWebServicePort(Optional.of(brokerWebServicePort));
         conf.setWebServicePortTls(Optional.of(brokerWebServicePortTls));
+        conf.setMopWebServicePort(Optional.of(mqttHttpPort));
         String listener = "mqtt://127.0.0.1:" + mqttBrokerPort;
         String tlsListener = null;
         String tlsPskListener = null;
@@ -384,10 +392,11 @@ public abstract class MQTTProtocolHandlerTestBase {
         log.info("Start broker info, brokerPort: {}, brokerPortTls : {}, "
                         + "brokerWebServicePort : {} , brokerWebServicePortTls : {}, "
                         + "mqttBrokerPort: {}, mqttBrokerTlsPort: {}, mqttBrokerTlsPskPort: {}, "
-                        + "mqttProxyPort: {}, mqttProxyTlsPort: {}, mqttProxyTlsPskPort: {}",
+                        + "mqttProxyPort: {}, mqttProxyTlsPort: {}, mqttProxyTlsPskPort: {}, "
+                        + "mqttHttpPort: {}",
                 brokerPort, brokerPortTls, brokerWebServicePort, brokerWebServicePortTls,
                 mqttBrokerPort, mqttBrokerTlsPort, mqttBrokerTlsPskPort,
-                mqttProxyPort, mqttProxyTlsPort, mqttProxyTlsPskPort);
+                mqttProxyPort, mqttProxyTlsPort, mqttProxyTlsPskPort, mqttHttpPort);
         ConfigurationUtils.extractFieldToProperties(conf);
         this.pulsarServiceList.add(doStartBroker(conf));
     }

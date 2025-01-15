@@ -11,12 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.streamnative.pulsar.handlers.mqtt.common.systemtopic;
 
-public enum EventType {
-    CONNECT,
-    DISCONNECT,
-    LAST_WILL_MESSAGE,
-    RETAINED_MESSAGE,
-    ADD_PSK_IDENTITY;
-}
+/**
+ * Package info.
+ */
+package io.streamnative.pulsar.handlers.mqtt.proxy.web.admin;
