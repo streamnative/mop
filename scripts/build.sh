@@ -28,7 +28,7 @@ ASSETS_DIR=release
 mkdir $ASSETS_DIR
 
 mvn clean install -DskipTests -Dmaven.wagon.http.retryHandler.count=3
-mv mqtt-broker/target/pulsar-protocol-handler-mqtt-*.jar ./$ASSETS_DIR/pulsar-protocol-handle
+mv mqtt-broker/target/pulsar-protocol-handler-mqtt-*.jar ./$ASSETS_DIR/pulsar-protocol-handler-mqtt-"${version}".nar
 mv mqtt-common/target/pulsar-protocol-handler-mqtt-common-*.jar ./$ASSETS_DIR/
 mv mqtt-proxy/target/pulsar-protocol-handler-mqtt-proxy-*.jar ./$ASSETS_DIR/
 cp README.md ./$ASSETS_DIR/pulsar-protocol-handler-mqtt-readme.md
