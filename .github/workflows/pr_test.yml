@@ -100,7 +100,7 @@ jobs:
         run: ./scripts/retry.sh mvn -B -ntp test -Dtest=${{ matrix.test }} -DfailIfNoTests=false
 
       - name: Upload jacoco artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.test }}-jacoco-artifact
           path: '**/*.exec'
@@ -113,7 +113,7 @@ jobs:
           mkdir artifacts
           find . -type d -name "*surefire*" -exec cp --parents -R {} artifacts/ \;
           zip -r ${{ matrix.test }}-artifacts.zip artifacts
-      - uses: actions/upload-artifact@master
+      - uses: actions/upload-artifact@v4
         name: upload surefire-artifacts
         if: failure()
         with:
@@ -144,7 +144,7 @@ jobs:
         run: mvn clean install -DskipTests
 
       - name: Download jacoco artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: mqtt-broker/target
 
