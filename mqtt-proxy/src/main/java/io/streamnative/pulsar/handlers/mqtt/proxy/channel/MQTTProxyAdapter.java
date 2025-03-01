@@ -178,7 +178,6 @@ public class MQTTProxyAdapter {
                 }
                 switch (messageType) {
                     case DISCONNECT:
-                        log.info("Received DISCONNECT from adapter, closing connection {}", connection);
                         if (MqttUtils.isNotMqtt3(connection.getProtocolVersion())) {
                             clientChannel.writeAndFlush(adapterMsg);
                         }
