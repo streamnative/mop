@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy.channel;
 import static com.google.common.base.Preconditions.checkArgument;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
+import io.netty.util.concurrent.FutureListener;
 import io.streamnative.pulsar.handlers.mqtt.common.Connection;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.FutureUtils;
@@ -31,10 +32,11 @@ public class AdapterChannel {
     private final MQTTProxyAdapter adapter;
     @Getter
     private final InetSocketAddress broker;
+    @Getter
     private CompletableFuture<Channel> channelFuture;
 
-    public AdapterChannel(MQTTProxyAdapter adapter,
-                          InetSocketAddress broker, CompletableFuture<Channel> channelFuture) {
+    public AdapterChannel(MQTTProxyAdapter adapter, InetSocketAddress broker,
+                          CompletableFuture<Channel> channelFuture) {
         this.adapter = adapter;
         this.broker = broker;
         this.channelFuture = channelFuture;
@@ -68,16 +70,9 @@ public class AdapterChannel {
         return writeAndFlush(connection, new MqttAdapterMessage(connection.getClientId(), connectMessage));
     }
 
-    /**
-     * When client subscribes, the adapter channel maybe close in exception, so register listener to close the
-     * related client channel and trigger reconnection.
-     * @param connection
-     */
-    public void registerAdapterChannelInactiveListener(Connection connection) {
+    public void registerClosureListener(FutureListener<Void> closeListener) {
         channelFuture.thenAccept(channel -> {
-            MQTTProxyAdapter.AdapterHandler channelHandler = (MQTTProxyAdapter.AdapterHandler)
-                    channel.pipeline().get(MQTTProxyAdapter.AdapterHandler.NAME);
-            channelHandler.registerAdapterChannelInactiveListener(connection);
+            channel.closeFuture().addListener(closeListener);
         });
     }
 }
