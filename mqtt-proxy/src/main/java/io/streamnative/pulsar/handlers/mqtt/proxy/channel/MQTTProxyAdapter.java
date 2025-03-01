@@ -45,10 +45,8 @@ import io.streamnative.pulsar.handlers.mqtt.common.utils.MqttUtils;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyProtocolMethodProcessor;
 import java.net.InetSocketAddress;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -157,17 +155,6 @@ public class MQTTProxyAdapter {
 
         public static final String NAME = "adapter-handler";
 
-        private final Set<Connection> callbackConnections = Collections.newSetFromMap(new ConcurrentHashMap<>());
-
-        public void registerAdapterChannelInactiveListener(Connection connection) {
-            callbackConnections.add(connection);
-        }
-
-        @Override
-        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-            callbackConnections.forEach(connection -> connection.getChannel().close());
-        }
-
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
             checkArgument(message instanceof MqttAdapterMessage);
@@ -191,6 +178,7 @@ public class MQTTProxyAdapter {
                 }
                 switch (messageType) {
                     case DISCONNECT:
+                        log.info("Received DISCONNECT from adapter, closing connection {}", connection);
                         if (MqttUtils.isNotMqtt3(connection.getProtocolVersion())) {
                             clientChannel.writeAndFlush(adapterMsg);
                         }
