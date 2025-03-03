@@ -83,6 +83,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     private Connection connection;
     private final LookupHandler lookupHandler;
     private final MQTTProxyConfiguration proxyConfig;
+    @Getter
     private final Map<String, CompletableFuture<AdapterChannel>> topicBrokers;
     private final Map<InetSocketAddress, AdapterChannel> adapterChannels;
     @Getter
@@ -392,9 +393,7 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                                                 .build();
                                         MqttAdapterMessage mqttAdapterMessage =
                                                 new MqttAdapterMessage(connection.getClientId(), subscribeMessage);
-                                        return writeToBroker(encodedPulsarTopicName, mqttAdapterMessage)
-                                                .thenAccept(__ ->
-                                                        registerAdapterChannelInactiveListener(encodedPulsarTopicName));
+                                        return writeToBroker(encodedPulsarTopicName, mqttAdapterMessage);
                                     }).collect(Collectors.toList());
                             return FutureUtil.waitForAll(writeFutures);
                         })
@@ -414,11 +413,6 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
         } else {
             return Codec.decode(encodedPulsarTopicName);
         }
-    }
-
-    private void registerAdapterChannelInactiveListener(final String topic) {
-        CompletableFuture<AdapterChannel> adapterChannel = topicBrokers.get(topic);
-        adapterChannel.thenAccept(channel -> channel.registerAdapterChannelInactiveListener(connection));
     }
 
     @Override
@@ -475,6 +469,19 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
                             final MqttConnectMessage connectMessage = connection.getConnectMessage();
                             adapterChannel.writeAndFlush(connection, new MqttAdapterMessage(connection.getClientId(),
                                     connectMessage));
+                            adapterChannel.registerClosureListener(future -> {
+                                topicBrokers.values().remove(adapterChannel);
+                                if (topicBrokers.values().size() <= 1) {
+                                    if (log.isDebugEnabled()) {
+                                        log.debug("Adapter channel inactive, close related connection {}", connection);
+                                    }
+                                    connection.getChannel().close();
+                                } else {
+                                    if (log.isDebugEnabled()) {
+                                        log.debug("connection {} has more than one AdapterChannel", connection);
+                                    }
+                                }
+                            });
                             return adapterChannel;
                         })
                 )
