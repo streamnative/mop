@@ -355,7 +355,7 @@
         </repository>
         <repository>
             <id>github</id>
-            <url>https://maven.pkg.github.com/streamnative/streamnative-bom</url>
+            <url>https://maven.pkg.github.com/streamnative/*</url>
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>
