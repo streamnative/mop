@@ -104,13 +104,6 @@ jobs:
       - name: Test after build
         run: ./scripts/retry.sh mvn -B -ntp test -Dtest=${{ matrix.test }} -DfailIfNoTests=false
 
-      - name: Upload jacoco artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.test }}-jacoco-artifact
-          path: '**/*.exec'
-          retention-days: 2
-
       - name: package surefire artifacts
         if: failure()
         run: |
@@ -147,18 +140,4 @@ jobs:
 
       - name: Build with Maven skipTests
         run: mvn clean install -DskipTests
-
-      - name: Download jacoco artifact
-        uses: actions/download-artifact@v4
-        with:
-          path: mqtt-broker/target
-
-      - name: Merge jacoco report
-        run: mvn jacoco:merge
-
-      - name: Generate jacoco report
-        run: mvn jacoco:report
-
-      - name: Upload test report
-        run: bash <(curl -s https://codecov.io/bash)
 
