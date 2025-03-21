@@ -364,8 +364,11 @@
         </repository>
 
         <repository>
-            <id>snapshot</id>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/streamnative/*</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
         </repository>
 
         <repository>
