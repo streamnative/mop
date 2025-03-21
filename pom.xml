@@ -378,8 +378,11 @@
             <url>https://repo1.maven.org/maven2</url>
         </repository>
         <repository>
-            <id>snapshot</id>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/streamnative/*</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
         </repository>
         <repository>
             <snapshots>
@@ -388,14 +391,6 @@
             <id>bintray-yahoo-maven</id>
             <name>bintray</name>
             <url>https://yahoo.bintray.com/maven</url>
-        </repository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/service/local/repositories/iostreamnative-3192/content</url>
-        </repository>
-        <repository>
-            <id>nexus-snapshot</id>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
         </repository>
     </repositories>
     <distributionManagement>
