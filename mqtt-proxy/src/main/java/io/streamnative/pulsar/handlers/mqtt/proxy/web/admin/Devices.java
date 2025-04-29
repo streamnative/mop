@@ -13,13 +13,11 @@
  */
 package io.streamnative.pulsar.handlers.mqtt.proxy.web.admin;
 
-import io.streamnative.pulsar.handlers.mqtt.common.Connection;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import java.util.Collection;
-import java.util.stream.Collectors;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
