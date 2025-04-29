@@ -16,6 +16,8 @@ package io.streamnative.pulsar.handlers.mqtt.mqtt5.hivemq.proxy;
 import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.datatypes.MqttQos;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
+import com.hivemq.client.mqtt.mqtt5.datatypes.Mqtt5UserProperties;
+import com.hivemq.client.mqtt.mqtt5.datatypes.Mqtt5UserProperty;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5ConnAckException;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5PubAckException;
 import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5SubAckException;
@@ -33,12 +35,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.common.policies.data.AuthAction;
 import org.awaitility.Awaitility;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+@Slf4j
 public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends AuthorizationConfig {
     private final Random random = new Random();
 
@@ -199,6 +203,59 @@ public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends Authorization
                 .applySimpleAuth()
                 .send();
         Assert.assertEquals(connAck.getReasonCode(), Mqtt5ConnAckReasonCode.SUCCESS);
+    }
+
+    @Test
+    public void testPublishWithUserPropertiesAndEnableAuthorization() throws Exception {
+        Set<AuthAction> userActions = new HashSet<>();
+        userActions.add(AuthAction.produce);
+        userActions.add(AuthAction.consume);
+        admin.namespaces().grantPermissionOnNamespace("public/default", "user1", userActions);
+
+
+        final String topic = "testPublishWithUserProperties";
+        Mqtt5BlockingClient client1 = MQTT5ClientUtils.createMqtt5ProxyClient(
+                getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
+        Mqtt5UserProperties userProperty = Mqtt5UserProperties.builder()
+            .add("user-1", "value-1")
+            .add("user-2", "value-2")
+            .build();
+        Mqtt5UserProperty userProperty1 = Mqtt5UserProperty.of("user-1", "value-1");
+        Mqtt5UserProperty userProperty2 = Mqtt5UserProperty.of("user-2", "value-2");
+        client1.connectWith()
+            .simpleAuth()
+            .username("user1")
+            .password("pass1".getBytes(StandardCharsets.UTF_8))
+            .applySimpleAuth()
+            .send();
+        Mqtt5Publish publishMessage = Mqtt5Publish.builder().topic(topic).qos(MqttQos.AT_LEAST_ONCE)
+            .userProperties(userProperty)
+            .asWill().build();
+
+        Mqtt5BlockingClient client2 = MQTT5ClientUtils.createMqtt5ProxyClient(
+                getMqttProxyPortList().get(random.nextInt(mqttProxyPortList.size())));
+        client2.connectWith()
+            .simpleAuth()
+            .username("user1")
+            .password("pass1".getBytes(StandardCharsets.UTF_8))
+            .applySimpleAuth()
+            .send();
+        client2.subscribeWith()
+            .topicFilter(topic)
+            .qos(MqttQos.AT_LEAST_ONCE)
+            .send();
+        Mqtt5BlockingClient.Mqtt5Publishes publishes = client2.publishes(MqttGlobalPublishFilter.ALL);
+        client1.publish(publishMessage);
+        Mqtt5Publish message = publishes.receive();
+        Assert.assertNotNull(message);
+        log.info("Received message properties: {}", message.getUserProperties());
+        // Validate the user properties order, must be the same with set order.
+        Assert.assertEquals(message.getUserProperties().asList().get(0).compareTo(userProperty1), 0);
+        Assert.assertEquals(message.getUserProperties().asList().get(1).compareTo(userProperty2), 0);
+        publishes.close();
+        client2.unsubscribeWith().topicFilter(topic).send();
+        client1.disconnect();
+        client2.disconnect();
     }
 }
 
