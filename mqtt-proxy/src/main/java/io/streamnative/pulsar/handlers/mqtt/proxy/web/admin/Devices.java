@@ -45,9 +45,8 @@ public class Devices extends WebResource {
             @ApiResponse(code = 500, message = "Internal server error")})
     public void getList(@Suspended final AsyncResponse asyncResponse) {
         try {
-            final Collection<Connection> allConnections = service().getConnectionManager().getAllConnections();
-            asyncResponse.resume(allConnections.stream().map(e ->
-                    e.getClientId()).collect(Collectors.toList()));
+            final Collection<String> allConnections = service().getConnectionManager().getAllConnectionsId();
+            asyncResponse.resume(allConnections);
         } catch (Exception e) {
             log.error("[{}] Failed to list devices {}", clientAppId(), e);
             asyncResponse.resume(new RestException(e));

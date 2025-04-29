@@ -21,8 +21,9 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.ConnectEvent;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventListener;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.MqttEvent;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +36,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class MQTTConnectionManager {
+
+    private static final Connection REMOTE_CONNECTION_SOLT = Connection.builder().build();
 
     private final ConcurrentMap<String, Connection> localConnections;
 
@@ -102,11 +105,11 @@ public class MQTTConnectionManager {
         return this.localConnections.values();
     }
 
-    public Collection<Connection> getAllConnections() {
-        Collection<Connection> connections = new ArrayList<>(this.localConnections.values().size()
-                    + this.eventConnections.values().size());
-        connections.addAll(this.localConnections.values());
-        connections.addAll(eventConnections.values());
+    public Collection<String> getAllConnectionsId() {
+        Set<String> connections = new LinkedHashSet<>(this.localConnections.keySet().size()
+                    + this.eventConnections.keySet().size());
+        connections.addAll(this.localConnections.keySet());
+        connections.addAll(eventConnections.keySet());
         return connections;
     }
 
@@ -126,7 +129,7 @@ public class MQTTConnectionManager {
                         log.warn("[ConnectEvent] close existing connection : {}", connection);
                         connection.disconnect();
                     } else {
-                        eventConnections.put(connectEvent.getClientId(), connection);
+                        eventConnections.put(connectEvent.getClientId(), REMOTE_CONNECTION_SOLT);
                     }
                 }
             }
