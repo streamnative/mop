@@ -21,14 +21,16 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.ConnectEvent;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.EventListener;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.MqttEvent;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.jetcd.shaded.io.vertx.core.impl.ConcurrentHashSet;
 
 /**
  * Proxy connection manager.
@@ -38,7 +40,7 @@ public class MQTTConnectionManager {
 
     private final ConcurrentMap<String, Connection> localConnections;
 
-    private final ConcurrentMap<String, Connection> eventConnections;
+    private final ConcurrentHashSet<String> eventClientIds;
 
     @Getter
     private static final HashedWheelTimer sessionExpireInterval =
@@ -56,7 +58,7 @@ public class MQTTConnectionManager {
     public MQTTConnectionManager(String advertisedAddress) {
         this.advertisedAddress = advertisedAddress;
         this.localConnections = new ConcurrentHashMap<>(2048);
-        this.eventConnections = new ConcurrentHashMap<>(2048);
+        this.eventClientIds = new ConcurrentHashSet<>(2048);
         this.connectListener = new ConnectEventListener();
         this.disconnectListener = new DisconnectEventListener();
     }
@@ -102,11 +104,11 @@ public class MQTTConnectionManager {
         return this.localConnections.values();
     }
 
-    public Collection<Connection> getAllConnections() {
-        Collection<Connection> connections = new ArrayList<>(this.localConnections.values().size()
-                    + this.eventConnections.values().size());
-        connections.addAll(this.localConnections.values());
-        connections.addAll(eventConnections.values());
+    public Collection<String> getAllConnectionsId() {
+        Set<String> connections = new LinkedHashSet<>(this.localConnections.keySet().size()
+                    + this.eventClientIds.size());
+        connections.addAll(this.localConnections.keySet());
+        connections.addAll(eventClientIds);
         return connections;
     }
 
@@ -126,7 +128,7 @@ public class MQTTConnectionManager {
                         log.warn("[ConnectEvent] close existing connection : {}", connection);
                         connection.disconnect();
                     } else {
-                        eventConnections.put(connectEvent.getClientId(), connection);
+                        eventClientIds.add(connectEvent.getClientId());
                     }
                 }
             }
@@ -141,7 +143,7 @@ public class MQTTConnectionManager {
             if (event.getEventType() == DISCONNECT) {
                 ConnectEvent connectEvent = (ConnectEvent) event.getSourceEvent();
                 if (!connectEvent.getAddress().equals(advertisedAddress)) {
-                    eventConnections.remove(connectEvent.getClientId());
+                    eventClientIds.remove(connectEvent.getClientId());
                 }
             }
         }

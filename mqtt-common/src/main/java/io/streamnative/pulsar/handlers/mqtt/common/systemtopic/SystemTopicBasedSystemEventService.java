@@ -237,7 +237,13 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
                 default:
                     break;
             }
-            listeners.forEach(listener -> listener.onChange(value));
+            listeners.forEach(listener -> {
+                try {
+                    listener.onChange(value);
+                } catch (Throwable e) {
+                    log.error("Failed to process event : {}", value.getKey(), e);
+                }
+            });
         } catch (Throwable ex) {
             log.error("refresh cache error", ex);
         }
