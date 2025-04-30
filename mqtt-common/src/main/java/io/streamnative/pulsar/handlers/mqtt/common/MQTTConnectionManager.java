@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.jetcd.shaded.io.vertx.core.impl.ConcurrentHashSet;
 
 /**
  * Proxy connection manager.
@@ -37,11 +38,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MQTTConnectionManager {
 
-    private static final Connection REMOTE_CONNECTION_SOLT = Connection.builder().build();
-
     private final ConcurrentMap<String, Connection> localConnections;
 
-    private final ConcurrentMap<String, Connection> eventConnections;
+    private final ConcurrentHashSet<String> eventClientIds;
 
     @Getter
     private static final HashedWheelTimer sessionExpireInterval =
@@ -59,7 +58,7 @@ public class MQTTConnectionManager {
     public MQTTConnectionManager(String advertisedAddress) {
         this.advertisedAddress = advertisedAddress;
         this.localConnections = new ConcurrentHashMap<>(2048);
-        this.eventConnections = new ConcurrentHashMap<>(2048);
+        this.eventClientIds = new ConcurrentHashSet<>(2048);
         this.connectListener = new ConnectEventListener();
         this.disconnectListener = new DisconnectEventListener();
     }
@@ -107,9 +106,9 @@ public class MQTTConnectionManager {
 
     public Collection<String> getAllConnectionsId() {
         Set<String> connections = new LinkedHashSet<>(this.localConnections.keySet().size()
-                    + this.eventConnections.keySet().size());
+                    + this.eventClientIds.size());
         connections.addAll(this.localConnections.keySet());
-        connections.addAll(eventConnections.keySet());
+        connections.addAll(eventClientIds);
         return connections;
     }
 
@@ -129,7 +128,7 @@ public class MQTTConnectionManager {
                         log.warn("[ConnectEvent] close existing connection : {}", connection);
                         connection.disconnect();
                     } else {
-                        eventConnections.put(connectEvent.getClientId(), REMOTE_CONNECTION_SOLT);
+                        eventClientIds.add(connectEvent.getClientId());
                     }
                 }
             }
@@ -144,7 +143,7 @@ public class MQTTConnectionManager {
             if (event.getEventType() == DISCONNECT) {
                 ConnectEvent connectEvent = (ConnectEvent) event.getSourceEvent();
                 if (!connectEvent.getAddress().equals(advertisedAddress)) {
-                    eventConnections.remove(connectEvent.getClientId());
+                    eventClientIds.remove(connectEvent.getClientId());
                 }
             }
         }
