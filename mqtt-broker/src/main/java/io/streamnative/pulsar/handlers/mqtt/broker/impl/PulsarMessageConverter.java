@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.broker.impl;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.streamnative.pulsar.handlers.mqtt.common.Constants.MQTT_PROPERTIES;
 import static io.streamnative.pulsar.handlers.mqtt.common.Constants.MQTT_PROPERTIES_PREFIX;
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.AUTHENTICATE_ROLE_KEY;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBuf;
@@ -100,8 +101,10 @@ public class PulsarMessageConverter {
                             metadata.setPartitionKey(pair.value);
                             metadata.setPartitionKeyB64Encoded(false);
                         }
-                        metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()) + pair.key)
+                        if (!pair.key.equalsIgnoreCase(AUTHENTICATE_ROLE_KEY)) {
+                            metadata.addProperty().setKey(getPropertiesPrefix(prop.propertyId()) + pair.key)
                                 .setValue(pair.value);
+                        }
                     });
                 } else if (MqttProperties.MqttPropertyType.RESPONSE_TOPIC.value() == prop.propertyId()) {
                     MqttProperties.StringProperty property = (MqttProperties.StringProperty) prop;
