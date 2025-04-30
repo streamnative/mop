@@ -203,6 +203,7 @@ public class MqttMessageUtils {
                                                               String authData) {
         final MqttPublishVariableHeader header = publishMessage.variableHeader();
         MqttProperties properties = new MqttProperties();
+        header.properties().listAll().forEach(properties::add);
         properties.add(new MqttProperties.UserProperty(AUTHENTICATE_ROLE_KEY, authData));
         MqttPublishVariableHeader variableHeader = new MqttPublishVariableHeader(
                 header.topicName(), header.packetId(), properties);
@@ -251,6 +252,7 @@ public class MqttMessageUtils {
                                                               String authData) {
         final MqttMessageIdAndPropertiesVariableHeader header = subscribeMessage.idAndPropertiesVariableHeader();
         MqttProperties properties = new MqttProperties();
+        header.properties().listAll().forEach(properties::add);
         properties.add(new MqttProperties.UserProperty(AUTHENTICATE_ROLE_KEY, authData));
         MqttMessageIdAndPropertiesVariableHeader variableHeader = new MqttMessageIdAndPropertiesVariableHeader(
                 header.messageId(), properties);
