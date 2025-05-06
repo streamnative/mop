@@ -18,9 +18,6 @@ import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.getPacketId;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.pingResp;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.topicSubscriptions;
-import static io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils.getEncodedPulsarTopicName;
-import static io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils.getPulsarTopicName;
-
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
