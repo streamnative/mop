@@ -16,6 +16,8 @@ package io.streamnative.pulsar.handlers.mqtt.broker;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
+
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelId;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -85,6 +87,7 @@ public class AdapterChannelTest extends MQTTTestBase {
                 adapterChannel.writeAndFlush(connection, mqttAdapterMessage).join();
                 CompletableFuture<Channel> channelFutureAfterSend = brokerChannels.get(key);
                 Channel channelAfterSend = channelFutureAfterSend.join();
+                assertNotNull(channelAfterSend);
                 assertNotEquals(channelAfterSend.id(), previousChannelId);
             }
         }
