@@ -17,7 +17,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelId;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
