@@ -18,6 +18,9 @@ import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.getPacketId;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.pingResp;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.topicSubscriptions;
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils.getEncodedPulsarTopicName;
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils.getPulsarTopicName;
+
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttMessage;
@@ -91,6 +94,7 @@ import org.apache.pulsar.broker.service.Consumer;
 import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
+import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.Codec;
 import org.apache.pulsar.common.util.FutureUtil;
@@ -211,8 +215,8 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                     userRole = authenticationRole.get();
                 }
             }
-            result = this.authorizationService.canProduceAsync(TopicName.get(msg.variableHeader().topicName()),
-                            userRole, authData)
+            result = this.authorizationService.canProduceAsync(
+                    getEncodedPulsarTopicName(msg.variableHeader().topicName()), userRole, authData)
                     .thenCompose(authorized -> authorized ? doPublish(adapter) : doUnauthorized(adapter));
         }
         result.thenAccept(__ -> msg.release())
@@ -223,6 +227,12 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
                     msg.release();
                     return null;
                 });
+    }
+
+    private TopicName getEncodedPulsarTopicName(String mqttTopicName) {
+        return TopicName.get(PulsarTopicUtils.getEncodedPulsarTopicName(mqttTopicName,
+                configuration.getDefaultTenant(), configuration.getDefaultNamespace(),
+                TopicDomain.getEnum(configuration.getDefaultTopicDomain())));
     }
 
     private CompletableFuture<Void> doUnauthorized(MqttAdapterMessage adapter) {
@@ -385,8 +395,9 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             AtomicBoolean authorizedFlag = new AtomicBoolean(true);
             for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
                 String finalUserRole = userRole;
-                authorizationFutures.add(this.authorizationService.canConsumeAsync(TopicName.get(topic.topicName()),
-                        userRole, authData, userRole).thenAccept((authorized) -> {
+                authorizationFutures.add(this.authorizationService.canConsumeAsync(
+                        getEncodedPulsarTopicName(topic.topicName()), userRole, authData, userRole)
+                        .thenAccept((authorized) -> {
                             if (!authorized) {
                                 authorizedFlag.set(false);
                                 log.warn("[Subscribe] no authorization to sub topic={}, userRole={}, CId= {}",
