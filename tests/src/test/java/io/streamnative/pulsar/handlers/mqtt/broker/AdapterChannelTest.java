@@ -85,6 +85,7 @@ public class AdapterChannelTest extends MQTTTestBase {
                         .connectMessage(fakeConnectMessage).build();
                 adapterChannel.writeAndFlush(connection, mqttAdapterMessage).join();
                 CompletableFuture<Channel> channelFutureAfterSend = brokerChannels.get(key);
+                assertNotNull(channelFutureAfterSend);
                 Channel channelAfterSend = channelFutureAfterSend.join();
                 assertNotNull(channelAfterSend);
                 assertNotEquals(channelAfterSend.id(), previousChannelId);
