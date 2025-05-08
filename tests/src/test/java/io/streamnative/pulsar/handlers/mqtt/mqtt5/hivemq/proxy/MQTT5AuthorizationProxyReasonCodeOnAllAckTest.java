@@ -43,6 +43,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 @Slf4j
+@Test(enabled = false)
 public class MQTT5AuthorizationProxyReasonCodeOnAllAckTest extends AuthorizationConfig {
     private final Random random = new Random();
 

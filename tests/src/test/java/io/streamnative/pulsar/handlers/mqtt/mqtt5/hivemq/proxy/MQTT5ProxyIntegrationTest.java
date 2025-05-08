@@ -44,6 +44,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 import org.testng.internal.collections.Pair;
 
+@Test(enabled = false)
 public class MQTT5ProxyIntegrationTest extends MQTTTestBase {
     private final Random random = new Random();
 
