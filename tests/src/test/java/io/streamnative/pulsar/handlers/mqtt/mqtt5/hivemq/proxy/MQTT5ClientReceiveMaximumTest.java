@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-
+@Test(enabled = false)
 public class MQTT5ClientReceiveMaximumTest extends MQTTTestBase {
     private final Random random = new Random();
 

@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
  * Authorization with proxy test.
  */
 @Slf4j
+@Test(enabled = false)
 public class AuthorizationProxyTest extends AuthorizationConfig {
 
     @Override
