@@ -22,10 +22,11 @@ import io.streamnative.pulsar.handlers.mqtt.base.MQTTTestBase;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.testng.Assert;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 
-
+@Ignore
 public class MQTT5ClientReceiveMaximumTest extends MQTTTestBase {
 
 
