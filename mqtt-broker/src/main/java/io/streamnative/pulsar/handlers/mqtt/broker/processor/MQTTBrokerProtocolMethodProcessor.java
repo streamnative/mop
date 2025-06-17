@@ -393,14 +393,22 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             for (MqttTopicSubscription topic: msg.payload().topicSubscriptions()) {
                 String finalUserRole = userRole;
                 authorizationFutures.add(this.authorizationService.canConsumeAsync(
-                        getEncodedPulsarTopicName(topic.topicName()), userRole, authData, userRole)
+                        getEncodedPulsarTopicName(topic.topicName()), userRole, authData, clientId)
                         .thenAccept((authorized) -> {
                             if (!authorized) {
                                 authorizedFlag.set(false);
                                 log.warn("[Subscribe] no authorization to sub topic={}, userRole={}, CId= {}",
                                         topic.topicName(), finalUserRole, clientId);
                             }
-                        }));
+                }).exceptionally(ex -> {
+                    if (ex != null) {
+                        ex = FutureUtil.unwrapCompletionException(ex);
+                        authorizedFlag.set(false);
+                        log.warn("[Subscribe] failed to authorize sub topic={}, userRole={}, CId= {}, err= {}",
+                            topic.topicName(), finalUserRole, clientId, ex.getMessage());
+                    }
+                    return null;
+                }));
             }
             FutureUtil.waitForAll(authorizationFutures).thenAccept(__ -> {
                 if (!authorizedFlag.get()) {
