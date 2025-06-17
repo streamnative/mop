@@ -158,16 +158,16 @@
 
     <dependencyManagement>
         <dependencies>
-          <dependency>
-            <groupId>com.fasterxml.jackson</groupId>
-            <artifactId>jackson-bom</artifactId>
-            <version>${jackson.version}</version>
-            <scope>import</scope>
-            <type>pom</type>
-          </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <scope>import</scope>
+                <type>pom</type>
+            </dependency>
         </dependencies>
     </dependencyManagement>
-  
+
 
     <build>
         <pluginManagement>
@@ -206,14 +206,14 @@
             </plugins>
         </pluginManagement>
         <plugins>
-<!--            <plugin>-->
-<!--                <groupId>com.github.spotbugs</groupId>-->
-<!--                <artifactId>spotbugs-maven-plugin</artifactId>-->
-<!--                <version>${spotbugs-maven-plugin.version}</version>-->
-<!--                <configuration>-->
-<!--                    <excludeFilterFile>resources/findbugsExclude.xml</excludeFilterFile>-->
-<!--                </configuration>-->
-<!--            </plugin>-->
+            <!--            <plugin>-->
+            <!--                <groupId>com.github.spotbugs</groupId>-->
+            <!--                <artifactId>spotbugs-maven-plugin</artifactId>-->
+            <!--                <version>${spotbugs-maven-plugin.version}</version>-->
+            <!--                <configuration>-->
+            <!--                    <excludeFilterFile>resources/findbugsExclude.xml</excludeFilterFile>-->
+            <!--                </configuration>-->
+            <!--            </plugin>-->
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>
