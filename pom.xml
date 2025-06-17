@@ -77,10 +77,21 @@
         <dependency>
             <groupId>io.streamnative</groupId>
             <artifactId>pulsar-broker</artifactId>
+            <exclusions>
+                <exclusion>
+                    <artifactId>netty-codec-http2</artifactId>
+                    <groupId>io.netty</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+        </dependency>
+        <dependency>
+            <artifactId>netty-codec-http2</artifactId>
+            <groupId>io.netty</groupId>
+            <version>4.1.122.Final</version>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
