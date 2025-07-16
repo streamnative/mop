@@ -24,7 +24,7 @@
 
 # MQTT on Pulsar (MoP)
 
-MQTT-on-Pulsar (aka MoP) is developed to support MQTT protocol natively on Apache Pulsar.
+MQTT-on-Pulsar (aka MoP) is developed to support MQTT protocol natively on Apache Pulsar. 
 
 ## Get started
 
@@ -410,6 +410,37 @@ Please refer [here](docs/mop-configuration.md)
 ## Using MQTT over WebSocket
 
 Please refer [here](docs/using-mqtt-over-websocket.md)
+
+## MoP Features
+
+MoP currently support sending QoS0 and QoS1 message， for QoS2, it is not supported yet.
+
+### Supported MQTT5 Features
+
+| Feature                                    | Supported |
+|--------------------------------------------|-----------|
+| Custom Headers and User Properties         | true      |
+| Reason Codes and Negative Acknowledgements | false     |
+| Payload Format and Content Types           | true      |
+| Server Disconnect                          | true      |
+| Connect Options                            | true      |
+| Session Expiry                             | true      |
+| Message Expiry                             | true      |
+| Shared Subscriptions                       | false     |
+| Content Type Indication                    | true      |
+| Request / Response Pattern                 | false     |
+| Subscription Identifier                    | true      |
+| Topic Alias                                | true      |
+| Flow Control                               | false     |
+| Optional Server Feature Availability       | false     |
+| Enhanced Authentication Mechanisms         | true      |
+| Subscription Options                       | false     |
+| Will Delay                                 | true      |
+| Server Keep-Alive                          | true      |
+| Maximum Packet Size                        | true      |
+| Assigned Client Identifiers                | true      |
+| Server Reference                           | false     |
+
 
 ## Project maintainers
 
