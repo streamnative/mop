@@ -413,7 +413,7 @@ Please refer [here](docs/using-mqtt-over-websocket.md)
 
 ## MoP Features
 
-MoP currently support QoS0 and QoS1 message semantics， for QoS2, it is not supported yet.
+MoP currently support sending QoS0 and QoS1 message， for QoS2, it is not supported yet.
 
 ### Supported MQTT5 Features
 
