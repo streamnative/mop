@@ -91,20 +91,6 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection.disconnect();
     }
 
-//    @Test(timeOut = TIMEOUT)
-//    public void testInvalidClientId() throws Exception {
-//        MQTT mqtt = createMQTTClient();
-//        mqtt.setClientId("7e8dae24-33c9-41f7-af10-334c4480348b_mqtt-test-6c8b");
-//        BlockingConnection connection = mqtt.blockingConnection();
-//        try {
-//            connection.connect();
-//            Assert.fail();
-//        } catch (Exception exception) {
-//            log.info("Expected exception: {}", exception.getMessage());
-//        }
-//        connection.disconnect();
-//    }
-
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
     public void testSimpleMqttPubAndSubQos1(String topicName) throws Exception {
         MQTT mqtt = createMQTTClient();
