@@ -26,7 +26,6 @@ import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils;
 import io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.psk.PSKClient;
 import java.io.BufferedReader;
-import java.io.EOFException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -50,6 +49,7 @@ import org.apache.pulsar.common.policies.data.TopicStats;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
+import org.fusesource.mqtt.client.MQTTException;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
@@ -90,6 +90,20 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         received.ack();
         connection.disconnect();
     }
+
+//    @Test(timeOut = TIMEOUT)
+//    public void testInvalidClientId() throws Exception {
+//        MQTT mqtt = createMQTTClient();
+//        mqtt.setClientId("7e8dae24-33c9-41f7-af10-334c4480348b_mqtt-test-6c8b");
+//        BlockingConnection connection = mqtt.blockingConnection();
+//        try {
+//            connection.connect();
+//            Assert.fail();
+//        } catch (Exception exception) {
+//            log.info("Expected exception: {}", exception.getMessage());
+//        }
+//        connection.disconnect();
+//    }
 
     @Test(dataProvider = "mqttTopicNames", timeOut = TIMEOUT)
     public void testSimpleMqttPubAndSubQos1(String topicName) throws Exception {
@@ -374,14 +388,19 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         connection2.disconnect();
     }
 
-    @Test(expectedExceptions = {EOFException.class, IllegalStateException.class})
+    @Test(expectedExceptions = {MQTTException.class},
+        expectedExceptionsMessageRegExp = ".*CONNECTION_REFUSED_SERVER_UNAVAILABLE.*")
     public void testInvalidClientId() throws Exception {
         MQTT mqtt = createMQTTClient();
-        mqtt.setConnectAttemptsMax(1);
         // ClientId is invalid, for max length is 23 in mqtt 3.1
         mqtt.setClientId(UUID.randomUUID().toString().replace("-", ""));
         BlockingConnection connection = Mockito.spy(mqtt.blockingConnection());
-        connection.connect();
+        try {
+            connection.connect();
+        } catch (Exception ex) {
+            log.info("Expected exception: {}", ex.getMessage());
+            throw ex; // rethrow to verify the exception
+        }
         verify(connection, Mockito.times(2)).connect();
     }
 
