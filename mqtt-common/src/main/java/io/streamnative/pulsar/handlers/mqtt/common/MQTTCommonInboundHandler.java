@@ -22,6 +22,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.mqtt.MqttConnectVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttVersion;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
@@ -115,7 +116,7 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
             ReferenceCountUtil.safeRelease(mqttMessage);
             log.warn("Invalid MQTT message state: {}", ex.getMessage());
 
-            int protocolVersion = 4;
+            int protocolVersion = MqttVersion.MQTT_3_1.protocolLevel();
             try {
                 Connection existingConnection = NettyUtils.getConnection(ctx.channel());
                 if (existingConnection != null) {
