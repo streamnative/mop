@@ -19,12 +19,18 @@ import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.codec.mqtt.MqttConnectVariableHeader;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttVersion;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
 import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterMessage;
+import io.streamnative.pulsar.handlers.mqtt.common.messages.ack.MqttAck;
+import io.streamnative.pulsar.handlers.mqtt.common.messages.ack.MqttConnectAck;
+import io.streamnative.pulsar.handlers.mqtt.common.messages.ack.MqttDisconnectAck;
+import io.streamnative.pulsar.handlers.mqtt.common.messages.codes.mqtt5.Mqtt5DisConnReasonCode;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.NettyUtils;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
@@ -106,6 +112,50 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
                 default:
                     throw new UnsupportedOperationException("Unknown MessageType: " + messageType);
             }
+        } catch (IllegalStateException ex) {
+            ReferenceCountUtil.safeRelease(mqttMessage);
+            MqttMessageType mqttMessageType = mqttMessage.fixedHeader().messageType();
+            log.warn("Invalid MQTT message state: {}, mqttMessageType:{}", ex.getMessage(), mqttMessageType);
+
+            int protocolVersion = MqttVersion.MQTT_3_1.protocolLevel();
+            try {
+                Connection existingConnection = NettyUtils.getConnection(ctx.channel());
+                if (existingConnection != null) {
+                    protocolVersion = existingConnection.getProtocolVersion();
+                }
+            } catch (Exception e) {
+            }
+
+            if (mqttMessageType == MqttMessageType.CONNECT) {
+                MqttConnectVariableHeader connectVariableHeader =
+                    (MqttConnectVariableHeader) mqttMessage.variableHeader();
+                protocolVersion = connectVariableHeader.version();
+
+                // For CONNECT message errors, send a CONNACK error response.
+                MqttMessage errorResponse = MqttConnectAck.errorBuilder().protocolError(protocolVersion);
+                MqttAdapterMessage errorAdapterMsg = new MqttAdapterMessage(
+                        adapterMsg.getClientId(),
+                        errorResponse,
+                        adapterMsg.fromProxy()
+                );
+                ctx.writeAndFlush(errorAdapterMsg);
+            } else {
+                // For other message errors, send a DISCONNECT error response if supported.
+                MqttAck errorAck = MqttDisconnectAck.errorBuilder(protocolVersion)
+                        .reasonCode(Mqtt5DisConnReasonCode.MALFORMED_PACKET)
+                        .reasonString("Invalid message format: " + ex.getMessage())
+                        .build();
+
+                if (errorAck.isProtocolSupported()) {
+                    MqttAdapterMessage errorAdapterMsg = new MqttAdapterMessage(
+                            adapterMsg.getClientId(),
+                            errorAck.getMqttMessage(),
+                            adapterMsg.fromProxy()
+                    );
+                    ctx.writeAndFlush(errorAdapterMsg);
+                }
+            }
+            ctx.close();
         } catch (Throwable ex) {
             ReferenceCountUtil.safeRelease(mqttMessage);
             log.error("Exception was caught while processing MQTT message, ", ex);
