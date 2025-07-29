@@ -114,7 +114,8 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
             }
         } catch (IllegalStateException ex) {
             ReferenceCountUtil.safeRelease(mqttMessage);
-            log.warn("Invalid MQTT message state: {}", ex.getMessage());
+            MqttMessageType mqttMessageType = mqttMessage.fixedHeader().messageType();
+            log.warn("Invalid MQTT message state: {}, mqttMessageType:{}", ex.getMessage(), mqttMessageType);
 
             int protocolVersion = MqttVersion.MQTT_3_1.protocolLevel();
             try {
@@ -125,7 +126,6 @@ public class MQTTCommonInboundHandler extends ChannelInboundHandlerAdapter {
             } catch (Exception e) {
             }
 
-            MqttMessageType mqttMessageType = mqttMessage.fixedHeader().messageType();
             if (mqttMessageType == MqttMessageType.CONNECT) {
                 MqttConnectVariableHeader connectVariableHeader =
                     (MqttConnectVariableHeader) mqttMessage.variableHeader();
