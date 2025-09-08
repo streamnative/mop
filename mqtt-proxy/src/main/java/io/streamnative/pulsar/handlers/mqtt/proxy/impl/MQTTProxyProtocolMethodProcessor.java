@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.proxy.impl;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.createMqtt5ConnectMessage;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.createMqttPublishMessage;
 import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.createMqttSubscribeMessage;
+import static io.streamnative.pulsar.handlers.mqtt.common.utils.MqttMessageUtils.pingResp;
 import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
@@ -62,6 +63,7 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.authentication.AuthenticationDataSource;
@@ -243,6 +245,10 @@ public class MQTTProxyProtocolMethodProcessor extends AbstractCommonProtocolMeth
     @Override
     public void processPingReq(final MqttAdapterMessage msg) {
         String clientId = connection.getClientId();
+        if (MapUtils.isEmpty(topicBrokers)) {
+            connection.send(pingResp());
+            return;
+        }
         topicBrokers.values().forEach(adapterChannel -> {
             adapterChannel.thenAccept(channel -> {
                 msg.setClientId(clientId);
