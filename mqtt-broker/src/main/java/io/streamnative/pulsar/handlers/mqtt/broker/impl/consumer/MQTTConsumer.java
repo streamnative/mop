@@ -72,7 +72,7 @@ public class MQTTConsumer extends Consumer {
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
                         OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector) {
         super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0,
-                connection.getClientId(), true, cnx, "", null, false,
+                connection.getClientId(), true, cnx, connection.getUserRole(), null, false,
                 null, MessageId.latest, Commands.DEFAULT_CONSUMER_EPOCH);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
