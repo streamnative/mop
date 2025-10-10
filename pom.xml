@@ -51,8 +51,8 @@
         <mockito.version>2.22.0</mockito.version>
         <testng.version>6.14.3</testng.version>
         <awaitility.version>4.0.2</awaitility.version>
-        <pulsar.version>4.1.0-SNAPSHOT</pulsar.version>
-        <sn.bom.version>4.1.0-SNAPSHOT</sn.bom.version>
+        <pulsar.version>4.0.6.8</pulsar.version>
+        <sn.bom.version>4.0.6.8</sn.bom.version>
         <log4j2.version>2.18.0</log4j2.version>
         <fusesource.client.version>1.16</fusesource.client.version>
         <hivemq.mqtt.client.version>1.2.2</hivemq.mqtt.client.version>
