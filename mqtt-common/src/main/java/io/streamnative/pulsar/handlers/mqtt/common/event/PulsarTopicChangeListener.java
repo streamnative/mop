@@ -15,7 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.common.event;
 
 import io.streamnative.pulsar.handlers.mqtt.common.utils.EventParserUtils;
 import java.util.regex.Pattern;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.common.naming.SystemTopicNames;
 import org.apache.pulsar.common.naming.TopicName;
 
