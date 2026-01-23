@@ -14,7 +14,6 @@
 package io.streamnative.pulsar.handlers.mqtt.proxy.web;
 
 import io.prometheus.client.CollectorRegistry;
-import io.prometheus.client.jetty.JettyStatisticsCollector;
 import io.streamnative.pulsar.handlers.mqtt.common.MQTTCommonConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyService;
 import io.streamnative.pulsar.handlers.mqtt.proxy.impl.MQTTProxyException;
@@ -32,26 +31,25 @@ import org.apache.pulsar.broker.web.JsonMapperProvider;
 import org.apache.pulsar.broker.web.UnrecognizedPropertyExceptionMapper;
 import org.apache.pulsar.broker.web.WebExecutorThreadPool;
 import org.apache.pulsar.common.util.PulsarSslFactory;
+import org.apache.pulsar.jetty.metrics.JettyStatisticsCollector;
+import org.eclipse.jetty.ee8.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee8.servlet.ServletHolder;
 import org.eclipse.jetty.server.ConnectionFactory;
-import org.eclipse.jetty.server.ConnectionLimit;
 import org.eclipse.jetty.server.ForwardedRequestCustomizer;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
+import org.eclipse.jetty.server.NetworkConnectionLimit;
 import org.eclipse.jetty.server.ProxyConnectionFactory;
-import org.eclipse.jetty.server.RequestLog;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.ContextHandlerCollection;
 import org.eclipse.jetty.server.handler.DefaultHandler;
-import org.eclipse.jetty.server.handler.HandlerCollection;
-import org.eclipse.jetty.server.handler.RequestLogHandler;
+import org.eclipse.jetty.server.handler.QoSHandler;
 import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.server.handler.StatisticsHandler;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
-import org.eclipse.jetty.util.resource.Resource;
+import org.eclipse.jetty.util.resource.ResourceFactory;
 import org.glassfish.jersey.media.multipart.MultiPartFeature;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
@@ -99,7 +97,7 @@ public class WebService implements AutoCloseable {
                 config.getHttpServerThreadPoolQueueSize());
         this.server = new Server(webServiceExecutor);
         if (config.getMaxHttpServerConnections() > 0) {
-            server.addBean(new ConnectionLimit(config.getMaxHttpServerConnections(), server));
+            server.addBean(new NetworkConnectionLimit(config.getMaxHttpServerConnections(), server));
         }
         List<ServerConnector> connectors = new ArrayList<>();
 
@@ -176,14 +174,15 @@ public class WebService implements AutoCloseable {
         if (attributeMap != null) {
             attributeMap.forEach(servletContextHandler::setAttribute);
         }
-        handlers.add(servletContextHandler);
+        handlers.add(servletContextHandler.get());
     }
 
     public void addStaticResources(String basePath, String resourcePath) {
         ContextHandler capHandler = new ContextHandler();
         capHandler.setContextPath(basePath);
         ResourceHandler resHandler = new ResourceHandler();
-        resHandler.setBaseResource(Resource.newClassPathResource(resourcePath));
+        ResourceFactory resourceFactory = ResourceFactory.root();
+        resHandler.setBaseResource(resourceFactory.newClassLoaderResource(resourcePath, true));
         resHandler.setEtags(true);
         resHandler.setCacheControl(WebService.HANDLER_CACHE_CONTROL);
         capHandler.setHandler(resHandler);
@@ -192,19 +191,15 @@ public class WebService implements AutoCloseable {
 
     public void start() throws MQTTProxyException {
         try {
-            RequestLogHandler requestLogHandler = new RequestLogHandler();
-            RequestLog requestLogger = JettyRequestLogFactory.createRequestLogger(false, server);
-            requestLogHandler.setRequestLog(requestLogger);
-            handlers.add(0, new ContextHandlerCollection());
-            handlers.add(requestLogHandler);
+            server.setRequestLog(JettyRequestLogFactory.createRequestLogger(false, server));
 
             ContextHandlerCollection contexts = new ContextHandlerCollection();
-            contexts.setHandlers(handlers.toArray(new Handler[handlers.size()]));
+            contexts.setHandlers(handlers);
 
             Handler handlerForContexts = GzipHandlerUtil.wrapWithGzipHandler(contexts,
                     config.getHttpServerGzipCompressionExcludedPaths());
-            HandlerCollection handlerCollection = new HandlerCollection();
-            handlerCollection.setHandlers(new Handler[] {handlerForContexts, new DefaultHandler(), requestLogHandler});
+            Handler.Collection  handlerCollection = new Handler.Sequence();
+            handlerCollection.setHandlers(handlerForContexts, new DefaultHandler());
 
             // Metrics handler
             StatisticsHandler stats = new StatisticsHandler();
@@ -216,7 +211,14 @@ public class WebService implements AutoCloseable {
                 // Already registered. Eg: in unit tests
             }
 
-            server.setHandler(stats);
+            Handler serverHandler = stats;
+            if (config.getMaxConcurrentHttpRequests() > 0) {
+                QoSHandler qoSHandler = new QoSHandler(serverHandler);
+                qoSHandler.setMaxRequestCount(config.getMaxConcurrentHttpRequests());
+                serverHandler = qoSHandler;
+            }
+            server.setHandler(serverHandler);
+
             server.start();
 
             if (httpConnector != null) {
