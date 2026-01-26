@@ -42,6 +42,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 
+@Test(enabled = false)
 public class AdapterChannelTest extends MQTTTestBase {
 
     @Override

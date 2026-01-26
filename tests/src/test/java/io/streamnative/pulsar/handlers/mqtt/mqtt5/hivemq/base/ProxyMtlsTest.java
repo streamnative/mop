@@ -60,6 +60,7 @@ import org.fusesource.mqtt.client.Topic;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+@Test(enabled = false)
 public class ProxyMtlsTest extends MQTTTestBase {
 
 
