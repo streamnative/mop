@@ -39,10 +39,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 
 @Test(enabled = false)
+@Ignore
 public class AdapterChannelTest extends MQTTTestBase {
 
     @Override
