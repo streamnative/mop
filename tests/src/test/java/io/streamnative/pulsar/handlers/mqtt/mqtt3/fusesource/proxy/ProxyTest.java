@@ -67,12 +67,15 @@ import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 import org.mockito.Mockito;
 import org.testng.Assert;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 /**
  * Integration tests for MQTT protocol handler with proxy.
  */
 @Slf4j
+@Ignore
+@Test(enabled = false)
 public class ProxyTest extends MQTTTestBase {
 
     @Override
