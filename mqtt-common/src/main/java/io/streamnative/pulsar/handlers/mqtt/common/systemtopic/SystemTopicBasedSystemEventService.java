@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.common.systemtopic;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.Beta;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -131,9 +132,10 @@ public class SystemTopicBasedSystemEventService implements SystemEventService {
 
     protected CompletableFuture<SystemTopicClient.Reader<MqttEvent>> createReader() {
         CompletableFuture<SystemTopicClient.Reader<MqttEvent>> result = new CompletableFuture<>();
-        Backoff backoff = new Backoff(1, TimeUnit.SECONDS,
-                3, TimeUnit.SECONDS,
-                10, TimeUnit.SECONDS);
+        Backoff backoff = Backoff.builder()
+                .initialDelay(Duration.ofSeconds(1))
+                .mandatoryStop(Duration.ofSeconds(10))
+                .maxBackoff(Duration.ofSeconds(3)).build();
         RetryUtil.retryAsynchronously(systemTopicClient::newReaderAsync, backoff, pulsarService.getExecutor(), result);
         return result;
     }

@@ -17,6 +17,7 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.ConfigurationUtils;
 import io.streamnative.pulsar.handlers.mqtt.proxy.MQTTProxyConfiguration;
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -39,7 +40,6 @@ import org.apache.pulsar.client.util.ExecutorProvider;
 import org.apache.pulsar.client.util.ScheduledExecutorProvider;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.util.Backoff;
-import org.apache.pulsar.common.util.BackoffBuilder;
 import org.apache.pulsar.common.util.FutureUtil;
 import org.apache.pulsar.metadata.api.MetadataCache;
 import org.apache.pulsar.policies.data.loadbalancer.LocalBrokerData;
@@ -121,7 +121,7 @@ public class PulsarServiceLookupHandler implements LookupHandler {
                 })
                 .thenAccept(future::complete)
                 .exceptionally(e -> {
-                    long nextDelay = Math.min(backoff.next(), remainingTime.get());
+                    long nextDelay = Math.min(backoff.next().toMillis(), remainingTime.get());
                     // skip retry scheduler when `TooManyRequestsException`
                     boolean isLookupThrottling = !PulsarClientException.isRetriableError(e.getCause())
                             || e.getCause() instanceof PulsarClientException.TooManyRequestsException
@@ -145,11 +145,10 @@ public class PulsarServiceLookupHandler implements LookupHandler {
     public CompletableFuture<InetSocketAddress> findBroker(TopicName topicName) {
         CompletableFuture<InetSocketAddress> lookupResult = new CompletableFuture<>();
         AtomicLong opTimeoutMs = new AtomicLong(proxyConfig.getLookupOperationTimeoutMs());
-        Backoff backoff = new BackoffBuilder()
-                .setInitialTime(100, TimeUnit.MILLISECONDS)
-                .setMandatoryStop(opTimeoutMs.get() * 2, TimeUnit.MILLISECONDS)
-                .setMax(proxyConfig.getMaxLookupIntervalMs(), TimeUnit.MILLISECONDS)
-                .create();
+        Backoff backoff = Backoff.builder()
+                .initialDelay(Duration.ofMillis(100))
+                .mandatoryStop(Duration.ofMillis(opTimeoutMs.get() * 2))
+                .maxBackoff(Duration.ofMillis(proxyConfig.getMaxLookupIntervalMs())).build();
 
         findBroker(topicName, backoff, opTimeoutMs, lookupResult);
         return lookupResult;
