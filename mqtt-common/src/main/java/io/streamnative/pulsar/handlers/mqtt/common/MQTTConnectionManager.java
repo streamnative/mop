@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.pulsar.jetcd.shaded.io.vertx.core.impl.ConcurrentHashSet;
 
 /**
  * Proxy connection manager.
@@ -40,7 +39,7 @@ public class MQTTConnectionManager {
 
     private final ConcurrentMap<String, Connection> localConnections;
 
-    private final ConcurrentHashSet<String> eventClientIds;
+    private final Set<String> eventClientIds;
 
     @Getter
     private static final HashedWheelTimer sessionExpireInterval =
@@ -58,7 +57,7 @@ public class MQTTConnectionManager {
     public MQTTConnectionManager(String advertisedAddress) {
         this.advertisedAddress = advertisedAddress;
         this.localConnections = new ConcurrentHashMap<>(2048);
-        this.eventClientIds = new ConcurrentHashSet<>(2048);
+        this.eventClientIds = ConcurrentHashMap.newKeySet(2048);
         this.connectListener = new ConnectEventListener();
         this.disconnectListener = new DisconnectEventListener();
     }
