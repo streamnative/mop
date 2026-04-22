@@ -72,4 +72,9 @@ public class MQTTServerCnx extends ServerCnx {
     public AuthenticationDataSource getAuthenticationData() {
         return ctx.channel().attr(AUTH_DATA_ATTRIBUTE_KEY).get();
     }
+
+    @Override
+    public String getClientVersion() {
+        return "mqtt";
+    }
 }
