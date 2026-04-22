@@ -43,6 +43,8 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.common.policies.data.ConsumerStats;
+import org.apache.pulsar.common.policies.data.SubscriptionStats;
 import org.apache.pulsar.common.naming.TopicDomain;
 import org.apache.pulsar.common.policies.data.BundlesData;
 import org.apache.pulsar.common.policies.data.TopicStats;
@@ -152,6 +154,53 @@ public class SimpleIntegrationTest extends MQTTTestBase {
         Assert.assertEquals(received.getTopic(), topicName);
         Assert.assertEquals(new String(received.getPayload()), message);
         received.ack();
+        connection.disconnect();
+        producer.close();
+    }
+
+    @Test(timeOut = TIMEOUT)
+    public void testMqttConsumerStatsAreReported() throws Exception {
+        final String topicName = "persistent://public/default/testMqttConsumerStatsAreReported";
+        final String clientId = "mqtt-stats-client";
+        final String payload = "Hello MQTT stats";
+
+        MQTT mqtt = createMQTTClient();
+        mqtt.setClientId(clientId);
+        BlockingConnection connection = mqtt.blockingConnection();
+        connection.connect();
+        connection.subscribe(new Topic[]{new Topic(topicName, QoS.AT_LEAST_ONCE)});
+
+        Producer<String> producer = pulsarClient.newProducer(Schema.STRING)
+                .topic(topicName)
+                .enableBatching(false)
+                .create();
+
+        producer.send(payload);
+
+        Message received = connection.receive();
+        Assert.assertEquals(received.getTopic(), topicName);
+        Assert.assertEquals(new String(received.getPayload(), StandardCharsets.UTF_8), payload);
+        received.ack();
+
+        Awaitility.await().untilAsserted(() -> {
+            TopicStats stats = admin.topics().getStats(topicName);
+            SubscriptionStats subscriptionStats = stats.getSubscriptions().get(clientId);
+            Assert.assertNotNull(subscriptionStats);
+            Assert.assertTrue(subscriptionStats.getMsgOutCounter() > 0);
+            Assert.assertTrue(subscriptionStats.getBytesOutCounter() > 0);
+            Assert.assertTrue(subscriptionStats.getLastConsumedTimestamp() > 0);
+            Assert.assertTrue(subscriptionStats.getLastAckedTimestamp() > 0);
+
+            Assert.assertEquals(subscriptionStats.getConsumers().size(), 1);
+            ConsumerStats consumerStats = subscriptionStats.getConsumers().get(0);
+            Assert.assertEquals(consumerStats.getClientVersion(), "mqtt");
+            Assert.assertEquals(consumerStats.getAppId(), clientId);
+            Assert.assertEquals(consumerStats.getMetadata().get("protocol"), "mqtt");
+            Assert.assertTrue(consumerStats.getMsgOutCounter() > 0);
+            Assert.assertTrue(consumerStats.getBytesOutCounter() > 0);
+            Assert.assertTrue(consumerStats.getLastConsumedFlowTimestamp() > 0);
+        });
+
         connection.disconnect();
         producer.close();
     }
