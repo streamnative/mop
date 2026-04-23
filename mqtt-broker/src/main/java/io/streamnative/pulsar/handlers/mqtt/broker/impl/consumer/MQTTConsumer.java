@@ -44,8 +44,8 @@ import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
-import org.apache.pulsar.common.protocol.Commands;
 import org.apache.pulsar.common.policies.data.stats.ConsumerStatsImpl;
+import org.apache.pulsar.common.protocol.Commands;
 
 /**
  * MQTT consumer.
@@ -75,7 +75,8 @@ public class MQTTConsumer extends Consumer {
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
                         OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector) {
         super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0,
-                connection.getClientId(), true, cnx, connection.getClientId(), createConsumerMetadata(connection), false,
+                connection.getClientId(), true, cnx, connection.getClientId(),
+                createConsumerMetadata(connection), false,
                 null, MessageId.latest, Commands.DEFAULT_CONSUMER_EPOCH);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
