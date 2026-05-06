@@ -28,7 +28,9 @@ import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import lombok.Getter;
@@ -42,6 +44,7 @@ import org.apache.pulsar.broker.service.Subscription;
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.common.api.proto.CommandAck;
 import org.apache.pulsar.common.api.proto.CommandSubscribe;
+import org.apache.pulsar.common.policies.data.stats.ConsumerStatsImpl;
 import org.apache.pulsar.common.protocol.Commands;
 
 /**
@@ -72,7 +75,8 @@ public class MQTTConsumer extends Consumer {
                         MQTTServerCnx cnx, MqttQoS qos, PacketIdGenerator packetIdGenerator,
                         OutstandingPacketContainer outstandingPacketContainer, MQTTMetricsCollector metricsCollector) {
         super(subscription, CommandSubscribe.SubType.Shared, pulsarTopicName, 0, 0,
-                connection.getClientId(), true, cnx, connection.getUserRole(), null, false,
+                connection.getClientId(), true, cnx, connection.getClientId(),
+                createConsumerMetadata(connection), false,
                 null, MessageId.latest, Commands.DEFAULT_CONSUMER_EPOCH);
         this.pulsarTopicName = pulsarTopicName;
         this.mqttTopicName = mqttTopicName;
@@ -90,6 +94,8 @@ public class MQTTConsumer extends Consumer {
                                      EntryBatchIndexesAcks batchIndexesAcks, int totalMessages, long totalBytes,
                                      long totalChunkedMessages, RedeliveryTracker redeliveryTracker) {
         ChannelPromise promise = cnx.ctx().newPromise();
+        long sentMessages = 0;
+        long sentBytes = 0;
         MESSAGE_PERMITS_UPDATER.addAndGet(this, -totalMessages);
         for (Entry entry : entries) {
             String toConsumerTopicName = PulsarTopicUtils.getToConsumerTopicName(mqttTopicName, pulsarTopicName);
@@ -137,6 +143,8 @@ public class MQTTConsumer extends Consumer {
                             CommandAck.AckType.Individual, Collections.emptyMap());
                     continue;
                 }
+                sentMessages++;
+                sentBytes += readableBytes;
                 cnx.ctx().channel().write(new MqttAdapterMessage(connection.getClientId(), msg,
                         connection.isFromProxy()));
             }
@@ -149,7 +157,15 @@ public class MQTTConsumer extends Consumer {
                     CommandAck.AckType.Cumulative, Collections.emptyMap());
             }
         }
+        final long deliveredMessages = sentMessages;
+        final long deliveredBytes = sentBytes;
         cnx.ctx().channel().writeAndFlush(Unpooled.EMPTY_BUFFER, promise);
+        promise.addListener(future -> {
+            if (future.isSuccess() && (deliveredMessages > 0 || deliveredBytes > 0)) {
+                recordStatsUpdate(System.currentTimeMillis(), 0, System.currentTimeMillis(),
+                        deliveredMessages, deliveredBytes);
+            }
+        });
         return promise;
     }
 
@@ -173,12 +189,44 @@ public class MQTTConsumer extends Consumer {
             MESSAGE_PERMITS_UPDATER.addAndGet(this, var);
             this.getSubscription().consumerFlow(this, availablePermits);
             ADD_PERMITS_UPDATER.set(this, 0);
+            recordStatsUpdate(0, 0, System.currentTimeMillis(), 0, 0);
         }
     }
 
     public void addAllPermits() {
         this.availablePermits = clientRestrictions.getReceiveMaximum();
         this.getSubscription().consumerFlow(this, availablePermits);
+        recordStatsUpdate(0, 0, System.currentTimeMillis(), 0, 0);
+    }
+
+    public void recordAck() {
+        recordStatsUpdate(0, System.currentTimeMillis(), 0, 0, 0);
+    }
+
+    private void recordStatsUpdate(long lastConsumedTimestamp, long lastAckedTimestamp,
+                                   long lastConsumedFlowTimestamp, long msgOutCounter, long bytesOutCounter) {
+        ConsumerStatsImpl currentStats = getStats();
+        ConsumerStatsImpl stats = new ConsumerStatsImpl();
+        stats.setAvailablePermits(getAvailablePermits());
+        stats.setAvgMessagesPerEntry(getAvgMessagesPerEntry());
+        stats.setLastConsumedTimestamp(
+                lastConsumedTimestamp > 0 ? lastConsumedTimestamp : currentStats.getLastConsumedTimestamp());
+        stats.setLastAckedTimestamp(lastAckedTimestamp > 0 ? lastAckedTimestamp : currentStats.getLastAckedTimestamp());
+        stats.setLastConsumedFlowTimestamp(lastConsumedFlowTimestamp > 0
+                ? lastConsumedFlowTimestamp : currentStats.getLastConsumedFlowTimestamp());
+        stats.setMsgOutCounter(msgOutCounter);
+        stats.setBytesOutCounter(bytesOutCounter);
+        updateStats(stats);
+    }
+
+    private static Map<String, String> createConsumerMetadata(Connection connection) {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("protocol", "mqtt");
+        metadata.put("appId", connection.getClientId());
+        if (connection.getUserRole() != null) {
+            metadata.put("authRole", connection.getUserRole());
+        }
+        return metadata;
     }
 
     @Override

@@ -186,6 +186,7 @@ public class MQTTBrokerProtocolMethodProcessor extends AbstractCommonProtocolMet
             packet.getConsumer().getSubscription().acknowledgeMessage(Collections.singletonList(position),
                     CommandAck.AckType.Individual, Collections.emptyMap());
             packet.getConsumer().getPendingAcks().remove(packet.getLedgerId(), packet.getEntryId());
+            packet.getConsumer().recordAck();
             packet.getConsumer().incrementPermits();
         }
     }
