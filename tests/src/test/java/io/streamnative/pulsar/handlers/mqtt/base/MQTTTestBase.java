@@ -22,7 +22,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.policies.data.ClusterData;
 import org.apache.pulsar.common.policies.data.RetentionPolicies;
 import org.apache.pulsar.common.policies.data.TenantInfo;
+import org.conscrypt.Conscrypt;
 import org.fusesource.mqtt.client.MQTT;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -96,7 +98,6 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
         super.setup();
         log.info("success internal setup");
         setupClusterNamespaces();
-        setPulsarServiceState();
     }
 
     protected void setupClusterNamespaces() throws Exception {
@@ -134,6 +135,12 @@ public class MQTTTestBase extends MQTTProtocolHandlerTestBase {
             admin.namespaces().createNamespace("pulsar/system");
             admin.namespaces().setRetention("pulsar/system",
                     new RetentionPolicies(60, 1000));
+        }
+    }
+
+    protected void assumeConscryptAvailable() {
+        if (!Conscrypt.isAvailable()) {
+            throw new SkipException("Conscrypt native library is not available on this platform");
         }
     }
 

@@ -442,6 +442,7 @@ public class SimpleIntegrationTest extends MQTTTestBase {
     @Test
     @SneakyThrows
     public void testTlsPskWithTlsv1() {
+        assumeConscryptAvailable();
         Bootstrap client = new Bootstrap();
         EventLoopGroup group = new NioEventLoopGroup();
         client.group(group);

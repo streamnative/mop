@@ -260,6 +260,7 @@ public class ProxyTest extends MQTTTestBase {
     @Test
     @SneakyThrows
     public void testTlsPskWithTlsv1() {
+        assumeConscryptAvailable();
         Bootstrap client = new Bootstrap();
         EventLoopGroup group = new NioEventLoopGroup();
         client.group(group);
@@ -501,6 +502,7 @@ public class ProxyTest extends MQTTTestBase {
     @Test
     @SneakyThrows
     public void testAddPskIdentity() {
+        assumeConscryptAvailable();
         HttpClient httpClient = HttpClientBuilder.create().build();
         final String mopEndPoint = "http://localhost:" + brokerWebservicePortList.get(0) + "/mop/add_psk_identity";
         HttpPost request = new HttpPost();
