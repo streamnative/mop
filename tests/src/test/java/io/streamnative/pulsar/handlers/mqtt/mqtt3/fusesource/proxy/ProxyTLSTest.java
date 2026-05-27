@@ -156,6 +156,7 @@ public class ProxyTLSTest extends MQTTTestBase {
     @Test(timeOut = TIMEOUT, priority = 4)
     @SneakyThrows
     public void testTlsPsk() {
+        assumeConscryptAvailable();
         Bootstrap client = new Bootstrap();
         EventLoopGroup group = new NioEventLoopGroup();
         client.group(group);
