@@ -130,7 +130,7 @@ public abstract class AbstractCommonProtocolMethodProcessor implements ProtocolM
             authResult = authenticationService.authenticate(adapter.fromProxy(), session, connectMessage);
             if (authResult.isFailed()) {
                 MqttMessage mqttMessage = MqttConnectAck.errorBuilder().authFail(protocolVersion);
-                log.error("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
+                log.warn("[CONNECT] Invalid or incorrect authentication. CId={}, username={}", clientId, username);
                 adapter.setMqttMessage(mqttMessage);
                 channel.writeAndFlush(adapter);
                 if (!adapter.fromProxy()) {
