@@ -18,6 +18,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.Future;
 import io.streamnative.pulsar.handlers.mqtt.broker.channel.MQTTServerCnx;
 import io.streamnative.pulsar.handlers.mqtt.broker.impl.PulsarMessageConverter;
@@ -27,6 +28,7 @@ import io.streamnative.pulsar.handlers.mqtt.common.adapter.MqttAdapterMessage;
 import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.PacketIdGenerator;
 import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.restrictions.ClientRestrictions;
 import io.streamnative.pulsar.handlers.mqtt.common.utils.PulsarTopicUtils;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -97,76 +99,114 @@ public class MQTTConsumer extends Consumer {
         long sentMessages = 0;
         long sentBytes = 0;
         MESSAGE_PERMITS_UPDATER.addAndGet(this, -totalMessages);
-        for (Entry entry : entries) {
-            String toConsumerTopicName = PulsarTopicUtils.getToConsumerTopicName(mqttTopicName, pulsarTopicName);
-            List<MqttPublishMessage> messages = PulsarMessageConverter.toMqttMessages(toConsumerTopicName, entry,
-                    packetIdGenerator, qos);
-            if (MqttQoS.AT_MOST_ONCE != qos) {
-                final boolean isBatch = messages.size() > 1;
-                if (isBatch) {
-                    for (int i = 0; i < messages.size(); i++) {
-                        int packetId = messages.get(i).variableHeader().packetId();
-                        OutstandingPacket outstandingPacket = new OutstandingPacket(this, packetId, entry.getLedgerId(),
-                                        entry.getEntryId(), i, messages.size());
-                        outstandingPacketContainer.add(outstandingPacket);
-                    }
-                } else {
-                    // Because batch msg is sent from Pulsar client, so only individual msg may have mqtt-5 properties.
-                    MqttPublishMessage firstMessage = messages.get(0);
-                    long expiryInterval = getMessageExpiryInterval(firstMessage);
-                    boolean addToOutstandingPacketContainer = expiryInterval >= 0;
-                    if (expiryInterval < 0) {
-                        log.warn("mqtt msg has expired : {}", firstMessage);
-                        messages.remove(0);
-                        getSubscription().acknowledgeMessage(
-                                Collections.singletonList(entry.getPosition()),
-                                CommandAck.AckType.Individual, Collections.emptyMap());
-                    }
-                    if (addToOutstandingPacketContainer) {
-                        OutstandingPacket outstandingPacket = new OutstandingPacket(this,
-                                messages.get(0).variableHeader().packetId(), entry.getLedgerId(), entry.getEntryId());
-                        outstandingPacketContainer.add(outstandingPacket);
-                    }
-                }
-            }
-            for (MqttPublishMessage msg : messages) {
-                if (log.isDebugEnabled()) {
-                    log.debug("[{}] [{}] [{}] Send MQTT message {} to subscriber", pulsarTopicName,
-                            mqttTopicName, super.getSubscription().getName(), msg);
-                }
-                final int readableBytes = msg.payload().readableBytes();
-                metricsCollector.addReceived(readableBytes);
-                if (clientRestrictions.exceedMaximumPacketSize(readableBytes)) {
-                    log.warn("discard msg {}, because it exceeds maximum packet size : {}, msg size {}", msg,
-                            clientRestrictions.getMaximumPacketSize(), readableBytes);
-                    getSubscription().acknowledgeMessage(Collections.singletonList(entry.getPosition()),
-                            CommandAck.AckType.Individual, Collections.emptyMap());
+        List<Entry> entriesToRelease = new ArrayList<>(entries.size());
+        try {
+            for (Entry entry : entries) {
+                if (entry == null) {
                     continue;
                 }
-                sentMessages++;
-                sentBytes += readableBytes;
-                cnx.ctx().channel().write(new MqttAdapterMessage(connection.getClientId(), msg,
-                        connection.isFromProxy()));
+                entriesToRelease.add(entry);
+                String toConsumerTopicName = PulsarTopicUtils.getToConsumerTopicName(mqttTopicName, pulsarTopicName);
+                List<MqttPublishMessage> messages = PulsarMessageConverter.toMqttMessages(toConsumerTopicName, entry,
+                        packetIdGenerator, qos);
+                if (messages.isEmpty()) {
+                    continue;
+                }
+                if (MqttQoS.AT_MOST_ONCE != qos) {
+                    final boolean isBatch = messages.size() > 1;
+                    if (isBatch) {
+                        for (int i = 0; i < messages.size(); i++) {
+                            int packetId = messages.get(i).variableHeader().packetId();
+                            OutstandingPacket outstandingPacket = new OutstandingPacket(this, packetId,
+                                    entry.getLedgerId(), entry.getEntryId(), i, messages.size());
+                            outstandingPacketContainer.add(outstandingPacket);
+                        }
+                    } else {
+                        // Because batch msg is sent from Pulsar client, so only individual msg may have mqtt-5 properties.
+                        MqttPublishMessage firstMessage = messages.get(0);
+                        long expiryInterval = getMessageExpiryInterval(firstMessage);
+                        boolean addToOutstandingPacketContainer = expiryInterval >= 0;
+                        if (expiryInterval < 0) {
+                            log.warn("mqtt msg has expired : {}", firstMessage);
+                            ReferenceCountUtil.safeRelease(messages.remove(0));
+                            getSubscription().acknowledgeMessage(
+                                    Collections.singletonList(entry.getPosition()),
+                                    CommandAck.AckType.Individual, Collections.emptyMap());
+                        }
+                        if (addToOutstandingPacketContainer) {
+                            OutstandingPacket outstandingPacket = new OutstandingPacket(this,
+                                    messages.get(0).variableHeader().packetId(), entry.getLedgerId(),
+                                    entry.getEntryId());
+                            outstandingPacketContainer.add(outstandingPacket);
+                        }
+                    }
+                }
+                for (MqttPublishMessage msg : messages) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("[{}] [{}] [{}] Send MQTT message {} to subscriber", pulsarTopicName,
+                                mqttTopicName, super.getSubscription().getName(), msg);
+                    }
+                    final int readableBytes = msg.payload().readableBytes();
+                    metricsCollector.addReceived(readableBytes);
+                    if (clientRestrictions.exceedMaximumPacketSize(readableBytes)) {
+                        log.warn("discard msg {}, because it exceeds maximum packet size : {}, msg size {}", msg,
+                                clientRestrictions.getMaximumPacketSize(), readableBytes);
+                        getSubscription().acknowledgeMessage(Collections.singletonList(entry.getPosition()),
+                                CommandAck.AckType.Individual, Collections.emptyMap());
+                        ReferenceCountUtil.safeRelease(msg);
+                        continue;
+                    }
+                    sentMessages++;
+                    sentBytes += readableBytes;
+                    boolean written = false;
+                    try {
+                        cnx.ctx().channel().write(new MqttAdapterMessage(connection.getClientId(), msg,
+                                connection.isFromProxy()));
+                        written = true;
+                    } finally {
+                        if (!written) {
+                            ReferenceCountUtil.safeRelease(msg);
+                        }
+                    }
+                }
             }
+            if (MqttQoS.AT_MOST_ONCE == qos) {
+                incrementPermits(totalMessages);
+                if (entries.size() > 0) {
+                    getSubscription().acknowledgeMessage(
+                        Collections.singletonList(entries.get(entries.size() - 1).getPosition()),
+                        CommandAck.AckType.Cumulative, Collections.emptyMap());
+                }
+            }
+            final long deliveredMessages = sentMessages;
+            final long deliveredBytes = sentBytes;
+            cnx.ctx().channel().writeAndFlush(Unpooled.EMPTY_BUFFER, promise);
+            promise.addListener(future -> {
+                try {
+                    if (future.isSuccess() && (deliveredMessages > 0 || deliveredBytes > 0)) {
+                        recordStatsUpdate(System.currentTimeMillis(), 0, System.currentTimeMillis(),
+                                deliveredMessages, deliveredBytes);
+                    }
+                } finally {
+                    entriesToRelease.forEach(Entry::release);
+                    recycleBatchObjects(batchSizes, batchIndexesAcks);
+                }
+            });
+        } catch (Throwable t) {
+            entriesToRelease.forEach(Entry::release);
+            recycleBatchObjects(batchSizes, batchIndexesAcks);
+            promise.tryFailure(t);
         }
-        if (MqttQoS.AT_MOST_ONCE == qos) {
-            incrementPermits(totalMessages);
-            if (entries.size() > 0) {
-                getSubscription().acknowledgeMessage(
-                    Collections.singletonList(entries.get(entries.size() - 1).getPosition()),
-                    CommandAck.AckType.Cumulative, Collections.emptyMap());
-            }
-        }
-        final long deliveredMessages = sentMessages;
-        final long deliveredBytes = sentBytes;
-        cnx.ctx().channel().writeAndFlush(Unpooled.EMPTY_BUFFER, promise);
-        promise.addListener(future -> {
-            if (future.isSuccess() && (deliveredMessages > 0 || deliveredBytes > 0)) {
-                recordStatsUpdate(System.currentTimeMillis(), 0, System.currentTimeMillis(),
-                        deliveredMessages, deliveredBytes);
-            }
-        });
         return promise;
+    }
+
+    private static void recycleBatchObjects(EntryBatchSizes batchSizes, EntryBatchIndexesAcks batchIndexesAcks) {
+        if (batchSizes != null) {
+            batchSizes.recyle();
+        }
+        if (batchIndexesAcks != null) {
+            batchIndexesAcks.recycle();
+        }
     }
 
     @Override
