@@ -23,6 +23,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.MqttProperties;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
+import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.FastThreadLocal;
 import io.streamnative.pulsar.handlers.mqtt.broker.MQTTServerConfiguration;
 import io.streamnative.pulsar.handlers.mqtt.common.mqtt5.PacketIdGenerator;
@@ -203,12 +204,13 @@ public class PulsarMessageConverter {
             } catch (IOException e) {
                 log.error("Error decoding batch for message {}. Whole batch will be included in output",
                         entry.getPosition(), e);
+                response.forEach(ReferenceCountUtil::safeRelease);
                 return Collections.emptyList();
             }
         } else {
             return Lists.newArrayList(MessageBuilder.publish()
                     .messageId(packetIdGenerator.nextPacketId())
-                    .payload(metadataAndPayload)
+                    .payload(metadataAndPayload.retainedSlice())
                     .topicName(topicName)
                     .qos(qos)
                     .properties(properties)
