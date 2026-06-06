@@ -39,7 +39,7 @@ public class PulsarMessageConverterTest {
                 .setPublishTime(System.currentTimeMillis());
         ByteBuf metadataAndPayload = Commands.serializeMetadataAndPayload(Commands.ChecksumType.None,
                 metadata, payload);
-        EntryImpl entry = EntryImpl.create(PositionFactory.create(1, 1), metadataAndPayload, 1);
+        EntryImpl entry = EntryImpl.create(PositionFactory.create(1, 1), metadataAndPayload);
         metadataAndPayload.release();
         payload.release();
 

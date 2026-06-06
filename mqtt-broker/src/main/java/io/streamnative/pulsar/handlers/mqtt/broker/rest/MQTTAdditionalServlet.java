@@ -16,6 +16,7 @@ package io.streamnative.pulsar.handlers.mqtt.broker.rest;
 import org.apache.pulsar.broker.PulsarService;
 import org.apache.pulsar.broker.web.plugin.servlet.AdditionalServletWithPulsarService;
 import org.apache.pulsar.common.configuration.PulsarConfiguration;
+import org.eclipse.jetty.servlet.ServletHolder;
 
 /**
  * MQTT additional servlet.
@@ -35,8 +36,8 @@ public class MQTTAdditionalServlet implements AdditionalServletWithPulsarService
     }
 
     @Override
-    public Object getServletInstance() {
-        return new MQTTServiceServlet(pulsarService);
+    public ServletHolder getServletHolder() {
+        return new ServletHolder(new MQTTServiceServlet(pulsarService));
     }
 
     @Override
