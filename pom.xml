@@ -70,7 +70,6 @@
         <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
         <spotbugs-maven-plugin.version>3.1.8</spotbugs-maven-plugin.version>
         <maven-jacoco-plugin.version>0.8.7</maven-jacoco-plugin.version>
-        <opentelemetry.version>1.56.0</opentelemetry.version>
         <validation-api.version>2.0.1.Final</validation-api.version>
         <jersey.version>2.42</jersey.version>
         <swagger-annotations.version>1.6.15</swagger-annotations.version>
@@ -132,7 +131,6 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
-            <version>${opentelemetry.version}</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
