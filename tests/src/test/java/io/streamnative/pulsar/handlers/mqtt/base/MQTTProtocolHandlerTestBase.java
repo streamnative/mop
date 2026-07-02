@@ -278,8 +278,9 @@ public abstract class MQTTProtocolHandlerTestBase {
     }
 
     protected void stopBroker() throws Exception {
-        for (PulsarService pulsarService : pulsarServiceList) {
-            pulsarService.close();
+        for (int i = 0; i < pulsarServiceList.size(); i++) {
+            mockZooKeeper.setSessionId(i + 1);
+            pulsarServiceList.get(i).close();
         }
         pulsarServiceList.clear();
         brokerPortList.clear();
@@ -295,6 +296,7 @@ public abstract class MQTTProtocolHandlerTestBase {
     }
 
     public void stopBroker(int brokerIndex) throws Exception {
+        mockZooKeeper.setSessionId(brokerIndex + 1);
         pulsarServiceList.get(brokerIndex).close();
         pulsarServiceList.remove(brokerIndex);
         brokerPortList.remove(brokerIndex);
@@ -398,6 +400,7 @@ public abstract class MQTTProtocolHandlerTestBase {
                 mqttProxyPort, mqttProxyTlsPort, mqttProxyTlsPskPort, mqttHttpPort);
         ConfigurationUtils.extractFieldToProperties(conf);
         setTLSConf(conf);
+        mockZooKeeper.setSessionId(pulsarServiceList.size() + 1);
         this.pulsarServiceList.add(doStartBroker(conf));
     }
 
@@ -424,7 +427,7 @@ public abstract class MQTTProtocolHandlerTestBase {
 
     public static MockZooKeeper createMockZooKeeper() throws Exception {
         MockZooKeeper zk = MockZooKeeper.newInstance();
-        zk.setSessionId(-1);
+        zk.setSessionId(1);
         List<ACL> dummyAclList = new ArrayList<>(0);
 
         ZkUtils.createFullPathOptimistic(zk, "/ledgers/available/192.168.1.1:" + 5000,
