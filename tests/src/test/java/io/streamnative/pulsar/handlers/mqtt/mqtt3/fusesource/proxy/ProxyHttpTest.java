@@ -23,11 +23,13 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.QoS;
@@ -48,8 +50,8 @@ public class ProxyHttpTest extends MQTTTestBase {
 
     @Test
     public void testGetDeviceList() throws Exception {
-        int index = random.nextInt(mqttProxyPortList.size());
         List<Integer> mqttProxyPortList = getMqttProxyPortList();
+        int index = random.nextInt(mqttProxyPortList.size());
         List<Integer> mqttProxyHttpPortList = getMqttProxyHttpPortList();
         MQTT mqttProducer = new MQTT();
         int port = mqttProxyPortList.get(index);
@@ -62,19 +64,21 @@ public class ProxyHttpTest extends MQTTTestBase {
         Thread.sleep(4000);
         HttpClient httpClient = HttpClientBuilder.create().build();
         final String mopEndPoint = "http://localhost:" + mqttProxyHttpPortList.get(index) + "/admin/devices/list";
-        HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
-        InputStream inputStream = response.getEntity().getContent();
-        InputStreamReader isReader = new InputStreamReader(inputStream);
-        BufferedReader reader = new BufferedReader(isReader);
-        StringBuffer buffer = new StringBuffer();
-        String str;
-        while ((str = reader.readLine()) != null){
-            buffer.append(str);
-        }
-        String ret = buffer.toString();
-        ArrayList deviceList = new Gson().fromJson(ret, ArrayList.class);
-        Assert.assertEquals(deviceList.size(), 1);
-        Assert.assertTrue(deviceList.contains(clientId));
+        Awaitility.await().atMost(30, TimeUnit.SECONDS).untilAsserted(() -> {
+            HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
+            InputStream inputStream = response.getEntity().getContent();
+            InputStreamReader isReader = new InputStreamReader(inputStream);
+            BufferedReader reader = new BufferedReader(isReader);
+            StringBuffer buffer = new StringBuffer();
+            String str;
+            while ((str = reader.readLine()) != null){
+                buffer.append(str);
+            }
+            String ret = buffer.toString();
+            ArrayList deviceList = new Gson().fromJson(ret, ArrayList.class);
+            Assert.assertEquals(deviceList.size(), 1);
+            Assert.assertTrue(deviceList.contains(clientId));
+        });
     }
 
 }
