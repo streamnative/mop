@@ -405,6 +405,7 @@ public abstract class MQTTProtocolHandlerTestBase {
         PulsarService pulsar = spy(new PulsarService(conf));
 
         setupBrokerMocks(pulsar);
+        ensureLoadBalanceLeaderPath();
         pulsar.start();
 
         return pulsar;
@@ -435,6 +436,11 @@ public abstract class MQTTProtocolHandlerTestBase {
             "1\nflat:1".getBytes(StandardCharsets.UTF_8), dummyAclList,
             CreateMode.PERSISTENT);
         return zk;
+    }
+
+    private void ensureLoadBalanceLeaderPath() throws Exception {
+        ZkUtils.createFullPathOptimistic(mockZooKeeper, "/loadbalance/leader",
+                "".getBytes(StandardCharsets.UTF_8), new ArrayList<>(0), CreateMode.PERSISTENT);
     }
 
     public static NonClosableMockBookKeeper createMockBookKeeper(OrderedExecutor executor) throws Exception {
