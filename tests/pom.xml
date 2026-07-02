@@ -84,7 +84,6 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
-            <version>${opentelemetry.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

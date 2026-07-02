@@ -264,6 +264,7 @@ public class MQTTProxyService implements Closeable {
         }
         this.lookupHandler = new PulsarServiceLookupHandler(pulsarService, proxyConfig);
         this.eventService.start();
+        this.webService.start();
     }
 
     @Override
@@ -293,6 +294,11 @@ public class MQTTProxyService implements Closeable {
         this.connectionManager.close();
         if (sslContextRefresher != null) {
             sslContextRefresher.shutdownNow();
+        }
+        try {
+            this.webService.close();
+        } catch (Exception e) {
+            log.error("Failed to close web service.", e);
         }
     }
 }

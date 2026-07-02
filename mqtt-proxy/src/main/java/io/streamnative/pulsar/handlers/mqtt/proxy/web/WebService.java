@@ -32,8 +32,8 @@ import org.apache.pulsar.broker.web.UnrecognizedPropertyExceptionMapper;
 import org.apache.pulsar.broker.web.WebExecutorThreadPool;
 import org.apache.pulsar.common.util.PulsarSslFactory;
 import org.apache.pulsar.jetty.metrics.JettyStatisticsCollector;
-import org.eclipse.jetty.ee8.servlet.ServletContextHandler;
-import org.eclipse.jetty.ee8.servlet.ServletHolder;
+import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.ConnectionFactory;
 import org.eclipse.jetty.server.ForwardedRequestCustomizer;
 import org.eclipse.jetty.server.Handler;
@@ -174,7 +174,7 @@ public class WebService implements AutoCloseable {
         if (attributeMap != null) {
             attributeMap.forEach(servletContextHandler::setAttribute);
         }
-        handlers.add(servletContextHandler.get());
+        handlers.add(servletContextHandler);
     }
 
     public void addStaticResources(String basePath, String resourcePath) {

@@ -70,11 +70,10 @@
         <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
         <spotbugs-maven-plugin.version>3.1.8</spotbugs-maven-plugin.version>
         <maven-jacoco-plugin.version>0.8.7</maven-jacoco-plugin.version>
-        <opentelemetry.version>1.56.0</opentelemetry.version>
         <validation-api.version>2.0.1.Final</validation-api.version>
-        <jersey.version>2.42</jersey.version>
+        <jersey.version>3.1.10</jersey.version>
+        <jetty.ee10.version>12.1.10</jetty.ee10.version>
         <swagger-annotations.version>1.6.15</swagger-annotations.version>
-        <javax.ws.rs.version>2.1.1</javax.ws.rs.version>
         <conscrypt.version>2.5.2</conscrypt.version>
     </properties>
 
@@ -86,6 +85,14 @@
                 <exclusion>
                     <artifactId>netty-codec-http2</artifactId>
                     <groupId>io.netty</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>jetty-ee8-servlet</artifactId>
+                    <groupId>org.eclipse.jetty.ee8</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>javax.servlet-api</artifactId>
+                    <groupId>javax.servlet</groupId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -133,7 +140,6 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
-            <version>${opentelemetry.version}</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
