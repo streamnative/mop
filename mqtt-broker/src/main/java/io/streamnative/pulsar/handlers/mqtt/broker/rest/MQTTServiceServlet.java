@@ -15,16 +15,16 @@ package io.streamnative.pulsar.handlers.mqtt.broker.rest;
 
 import com.google.common.base.Splitter;
 import io.streamnative.pulsar.handlers.mqtt.common.systemtopic.PSKEvent;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -42,7 +42,7 @@ public class MQTTServiceServlet extends HttpServlet {
     // Define transient by spotbugs
     private final transient PulsarService pulsar;
 
-    private static volatile Pair<Object, Method> metricsCollectorRef;
+    private volatile Pair<Object, Method> metricsCollectorRef;
 
     private volatile Object mqttService;
 
@@ -56,7 +56,8 @@ public class MQTTServiceServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         response.setContentType("text/plain");
-        if ("/stats".equals(getRequestPath(request))) {
+        String requestPath = getRequestPath(request);
+        if ("/stats".equals(requestPath)) {
             response.setStatus(HttpStatus.OK_200);
             response.getOutputStream().write(getJsonStats());
         } else {
@@ -125,6 +126,7 @@ public class MQTTServiceServlet extends HttpServlet {
             Pair<Object, Method> metricsCollector = getMetricsCollector();
             return (byte[]) metricsCollector.getRight().invoke(metricsCollector.getLeft());
         } catch (Throwable ex) {
+            log.warn("Failed to get MQTT JSON stats", ex);
             return ex.getMessage().getBytes(StandardCharsets.UTF_8);
         }
     }
@@ -134,13 +136,24 @@ public class MQTTServiceServlet extends HttpServlet {
         if (mqttService == null) {
             synchronized (LOCK) {
                 if (mqttService == null) {
-                    ProtocolHandler protocolHandler = pulsar.getProtocolHandlers().protocol("mqtt");
+                    ProtocolHandler protocolHandler = getProtocolHandler();
                     Method mqttServiceMethod = getMethod(protocolHandler.getClass(), "getMqttService");
                     mqttService = mqttServiceMethod.invoke(protocolHandler);
                 }
             }
         }
         return mqttService;
+    }
+
+    private ProtocolHandler getProtocolHandler() throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+        ProtocolHandler protocolHandler = pulsar.getProtocolHandlers().protocol("mqtt");
+        Method mqttServiceMethod = getOptionalMethod(protocolHandler.getClass(), "getMqttService");
+        if (mqttServiceMethod != null) {
+            return protocolHandler;
+        }
+        Method getHandlerMethod = getMethod(protocolHandler.getClass(), "getHandler");
+        return (ProtocolHandler) getHandlerMethod.invoke(protocolHandler);
     }
 
     private Pair<Object, Method> getMetricsCollector() throws IllegalAccessException, InvocationTargetException,
@@ -160,7 +173,20 @@ public class MQTTServiceServlet extends HttpServlet {
 
     private Method getMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes)
             throws NoSuchMethodException {
-        Method method = clazz.getMethod(methodName, parameterTypes);
+        Method method = getOptionalMethod(clazz, methodName, parameterTypes);
+        if (method == null) {
+            throw new NoSuchMethodException(clazz.getName() + "." + methodName);
+        }
+        return method;
+    }
+
+    private Method getOptionalMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes) {
+        Method method;
+        try {
+            method = clazz.getMethod(methodName, parameterTypes);
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
         method.setAccessible(true);
         return method;
     }
