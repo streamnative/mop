@@ -64,7 +64,7 @@ public class ProxyHttpTest extends MQTTTestBase {
         Thread.sleep(4000);
         HttpClient httpClient = HttpClientBuilder.create().build();
         final String mopEndPoint = "http://localhost:" + mqttProxyHttpPortList.get(index) + "/admin/devices/list";
-        Awaitility.await().atMost(30, TimeUnit.SECONDS).untilAsserted(() -> {
+        Awaitility.await().atMost(30, TimeUnit.SECONDS).ignoreExceptions().untilAsserted(() -> {
             HttpResponse response = httpClient.execute(new HttpGet(mopEndPoint));
             InputStream inputStream = response.getEntity().getContent();
             InputStreamReader isReader = new InputStreamReader(inputStream);
