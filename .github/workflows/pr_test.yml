@@ -43,6 +43,12 @@ jobs:
         with:
           servers: '[{"id": "github", "username": "streamnativebot", "password": "${{ secrets.SNBOT_GITHUB_TOKEN }}"}]'
 
+      - name: Refresh StreamNative BOM cache
+        run: |
+          SN_BOM_VERSION=$(awk -F'[<>]' '/<sn.bom.version>/{print $3; exit}' pom.xml)
+          test -n "$SN_BOM_VERSION"
+          rm -rf "$HOME/.m2/repository/io/streamnative/streamnative-bom/$SN_BOM_VERSION"
+
       - name: License check
         run: mvn license:check
 
@@ -98,6 +104,17 @@ jobs:
           distribution: 'temurin'
           java-version: 17
 
+      - name: Configure Maven Settings
+        uses: s4u/maven-settings-action@v2.7.0
+        with:
+          servers: '[{"id": "github", "username": "streamnativebot", "password": "${{ secrets.SNBOT_GITHUB_TOKEN }}"}]'
+
+      - name: Refresh StreamNative BOM cache
+        run: |
+          SN_BOM_VERSION=$(awk -F'[<>]' '/<sn.bom.version>/{print $3; exit}' pom.xml)
+          test -n "$SN_BOM_VERSION"
+          rm -rf "$HOME/.m2/repository/io/streamnative/streamnative-bom/$SN_BOM_VERSION"
+
       - name: Build with Maven skipTests
         run: mvn clean install -DskipTests
 
@@ -138,6 +155,16 @@ jobs:
           distribution: 'temurin'
           java-version: 17
 
+      - name: Configure Maven Settings
+        uses: s4u/maven-settings-action@v2.7.0
+        with:
+          servers: '[{"id": "github", "username": "streamnativebot", "password": "${{ secrets.SNBOT_GITHUB_TOKEN }}"}]'
+
+      - name: Refresh StreamNative BOM cache
+        run: |
+          SN_BOM_VERSION=$(awk -F'[<>]' '/<sn.bom.version>/{print $3; exit}' pom.xml)
+          test -n "$SN_BOM_VERSION"
+          rm -rf "$HOME/.m2/repository/io/streamnative/streamnative-bom/$SN_BOM_VERSION"
+
       - name: Build with Maven skipTests
         run: mvn clean install -DskipTests
-
