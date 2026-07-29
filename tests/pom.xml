@@ -81,12 +81,6 @@
             <version>${hivemq.mqtt.client.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
-            <version>${opentelemetry.version}</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
