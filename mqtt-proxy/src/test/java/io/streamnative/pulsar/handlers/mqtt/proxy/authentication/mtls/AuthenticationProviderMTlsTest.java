@@ -31,7 +31,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.pulsar.broker.ServiceConfiguration;
 import org.apache.pulsar.broker.authentication.AuthenticationDataCommand;
 import org.apache.pulsar.common.util.ObjectMapperFactory;
-import org.apache.pulsar.common.util.SecurityUtility;
+import org.apache.pulsar.common.util.tls.PemReader;
 import org.apache.pulsar.metadata.api.MetadataStoreConfig;
 import org.apache.pulsar.metadata.impl.LocalMemoryMetadataStore;
 import org.awaitility.Awaitility;
@@ -122,7 +122,7 @@ public class AuthenticationProviderMTlsTest {
         Awaitility.await().until(() -> authenticationProvider.getPoolMap().size() == 1);
 
         X509Certificate[] x509Certificates =
-            SecurityUtility.loadCertificatesFromPemFile(getResourcePath("mtls/client-cert.pem"));
+            PemReader.loadCertificatesFromPemFile(getResourcePath("mtls/client-cert.pem"));
 
         SSLSession sslSession = new MockSSLSession(x509Certificates);
         AuthenticationDataCommand authData = new AuthenticationDataCommand("", LocalAddress.ANY, sslSession);
