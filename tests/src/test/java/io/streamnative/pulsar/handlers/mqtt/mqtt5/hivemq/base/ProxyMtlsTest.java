@@ -50,7 +50,8 @@ import org.apache.pulsar.broker.authentication.utils.AuthTokenUtils;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.impl.auth.AuthenticationToken;
-import org.apache.pulsar.common.util.SecurityUtility;
+import org.apache.pulsar.common.util.tls.JdkSslContexts;
+import org.apache.pulsar.common.util.tls.PemReader;
 import org.awaitility.Awaitility;
 import org.fusesource.mqtt.client.BlockingConnection;
 import org.fusesource.mqtt.client.MQTT;
@@ -146,9 +147,9 @@ public class ProxyMtlsTest extends MQTTTestBase {
         Certificate clientCert = CertificateFactory
                 .getInstance("X.509").generateCertificate(new FileInputStream(clientCertFile));
 
-        PrivateKey privateKey = SecurityUtility.loadPrivateKeyFromPemFile(path + "client.key");
+        PrivateKey privateKey = PemReader.loadPrivateKeyFromPemFile(path + "client.key");
 
-        final SSLContext sslContext = SecurityUtility.createSslContext(true,
+        final SSLContext sslContext = JdkSslContexts.createSslContext(true,
                 new Certificate[]{caCert}, new Certificate[]{clientCert}, privateKey);
 
         return sslContext;

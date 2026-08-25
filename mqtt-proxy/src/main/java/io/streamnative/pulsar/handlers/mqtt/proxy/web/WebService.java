@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ScheduledFuture;
 import lombok.Getter;
 import org.apache.pulsar.broker.web.DynamicSkipUnknownPropertyHandler;
 import org.apache.pulsar.broker.web.GzipHandlerUtil;
@@ -30,7 +29,6 @@ import org.apache.pulsar.broker.web.JettyRequestLogFactory;
 import org.apache.pulsar.broker.web.JsonMapperProvider;
 import org.apache.pulsar.broker.web.UnrecognizedPropertyExceptionMapper;
 import org.apache.pulsar.broker.web.WebExecutorThreadPool;
-import org.apache.pulsar.common.util.PulsarSslFactory;
 import org.apache.pulsar.jetty.metrics.JettyStatisticsCollector;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
@@ -73,8 +71,6 @@ public class WebService implements AutoCloseable {
 
     private final ServerConnector httpConnector;
     private JettyStatisticsCollector jettyStatisticsCollector;
-    private PulsarSslFactory sslFactory;
-    private ScheduledFuture<?> sslContextRefreshTask;
     private final MQTTCommonConfiguration config;
     private final MQTTProxyService proxyService;
 
@@ -259,9 +255,6 @@ public class WebService implements AutoCloseable {
                 jettyStatisticsCollector = null;
             }
             webServiceExecutor.join();
-            if (this.sslContextRefreshTask != null) {
-                this.sslContextRefreshTask.cancel(true);
-            }
             log.info("Web service closed");
         } catch (Exception e) {
             throw new MQTTProxyException(e);
