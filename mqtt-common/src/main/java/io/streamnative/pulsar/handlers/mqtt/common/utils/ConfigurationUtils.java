@@ -16,8 +16,6 @@ package io.streamnative.pulsar.handlers.mqtt.common.utils;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
-import static org.apache.pulsar.common.util.FieldParser.setEmptyValue;
-import static org.apache.pulsar.common.util.FieldParser.value;
 import com.google.common.base.Joiner;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -26,11 +24,14 @@ import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.common.configuration.FieldContext;
@@ -153,6 +154,159 @@ public final class ConfigurationUtils {
                 }
             }
         });
+    }
+
+    private static Object value(String value, Field field) {
+        checkNotNull(field);
+        Type fieldType = field.getGenericType();
+        if (fieldType instanceof ParameterizedType) {
+            Type[] actualTypes = ((ParameterizedType) fieldType).getActualTypeArguments();
+            if (field.getType().equals(List.class)) {
+                return stringToList(value, getRawClass(actualTypes[0], field));
+            } else if (field.getType().equals(Set.class)) {
+                return stringToSet(value, getRawClass(actualTypes[0], field));
+            } else if (field.getType().equals(Map.class)) {
+                return stringToMap(value, getRawClass(actualTypes[0], field), getRawClass(actualTypes[1], field));
+            } else if (field.getType().equals(Optional.class)) {
+                Type typeClazz = actualTypes[0];
+                if (typeClazz instanceof ParameterizedType) {
+                    throw new IllegalArgumentException(format("unsupported non-primitive Optional<%s> for %s",
+                            typeClazz.getClass(), field.getName()));
+                }
+                return Optional.ofNullable(convert(value, getRawClass(typeClazz, field)));
+            }
+            throw new IllegalArgumentException(format("unsupported field-type %s for %s",
+                    field.getType(), field.getName()));
+        }
+        return convert(value, field.getType());
+    }
+
+    private static <T> void setEmptyValue(String value, Field field, T obj)
+            throws IllegalArgumentException, IllegalAccessException {
+        checkNotNull(field);
+        Type fieldType = field.getGenericType();
+        if (fieldType instanceof ParameterizedType) {
+            if (field.getType().equals(List.class)) {
+                field.set(obj, new ArrayList<>());
+            } else if (field.getType().equals(Set.class)) {
+                field.set(obj, new LinkedHashSet<>());
+            } else if (field.getType().equals(Optional.class)) {
+                field.set(obj, Optional.empty());
+            } else {
+                throw new IllegalArgumentException(format("unsupported field-type %s for %s",
+                        field.getType(), field.getName()));
+            }
+        } else if (Number.class.isAssignableFrom(field.getType())) {
+            field.set(obj, null);
+        }
+    }
+
+    private static Object convert(Object value, Class<?> targetType) {
+        checkNotNull(targetType);
+        if (value == null) {
+            return null;
+        }
+        Class<?> wrappedType = wrap(targetType);
+        if (wrappedType.isAssignableFrom(value.getClass())) {
+            return wrappedType.cast(value);
+        }
+        if (wrappedType.isEnum()) {
+            return stringToEnum(value.toString(), wrappedType);
+        }
+        if (wrappedType.equals(Integer.class)) {
+            return stringToInteger(value.toString());
+        } else if (wrappedType.equals(Long.class)) {
+            return Long.valueOf(value.toString().trim());
+        } else if (wrappedType.equals(Double.class)) {
+            return stringToDouble(value.toString());
+        } else if (wrappedType.equals(Float.class)) {
+            return Float.valueOf(value.toString().trim());
+        } else if (wrappedType.equals(Boolean.class)) {
+            return Boolean.valueOf(value.toString());
+        }
+        throw new UnsupportedOperationException(format("Cannot convert from %s to %s. Requested converter does not"
+                + " exist.", value.getClass().getName(), wrappedType.getName()));
+    }
+
+    private static Class<?> getRawClass(Type type, Field field) {
+        if (type instanceof Class) {
+            return (Class<?>) type;
+        }
+        throw new IllegalArgumentException(format("unsupported field-type %s for %s", type, field.getName()));
+    }
+
+    private static Class<?> wrap(Class<?> clazz) {
+        if (clazz.equals(Integer.TYPE)) {
+            return Integer.class;
+        } else if (clazz.equals(Float.TYPE)) {
+            return Float.class;
+        } else if (clazz.equals(Double.TYPE)) {
+            return Double.class;
+        } else if (clazz.equals(Long.TYPE)) {
+            return Long.class;
+        } else if (clazz.equals(Boolean.TYPE)) {
+            return Boolean.class;
+        }
+        return clazz;
+    }
+
+    private static Integer stringToInteger(String value) {
+        String trimmedValue = value.trim();
+        if (StringUtils.isEmpty(trimmedValue)) {
+            return null;
+        }
+        return Integer.valueOf(trimmedValue);
+    }
+
+    private static Double stringToDouble(String value) {
+        String trimmedValue = value.trim();
+        if (StringUtils.isEmpty(trimmedValue)) {
+            return null;
+        }
+        return Double.valueOf(trimmedValue);
+    }
+
+    private static <T> List<T> stringToList(String value, Class<T> type) {
+        if (value == null) {
+            return null;
+        }
+        return Arrays.stream(value.trim().split(LISTENER_DEL))
+                .map(item -> type.cast(convert(item.trim(), type)))
+                .collect(Collectors.toList());
+    }
+
+    private static <T> Set<T> stringToSet(String value, Class<T> type) {
+        if (value == null) {
+            return null;
+        }
+        return Arrays.stream(value.trim().split(LISTENER_DEL))
+                .map(item -> type.cast(convert(item.trim(), type)))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private static <K, V> Map<K, V> stringToMap(String value, Class<K> keyType, Class<V> valueType) {
+        if (value == null) {
+            return null;
+        }
+        return Arrays.stream(value.trim().split(LISTENER_DEL))
+                .map(item -> item.trim().split("=", 2))
+                .peek(parts -> checkArgument(parts.length == 2,
+                        value + " map-value is not in correct format key1=value,key2=value2"))
+                .collect(Collectors.toMap(
+                        parts -> keyType.cast(convert(parts[0].trim(), keyType)),
+                        parts -> valueType.cast(convert(parts[1].trim(), valueType)),
+                        (oldValue, newValue) -> newValue));
+    }
+
+    private static Object stringToEnum(String value, Class<?> enumType) {
+        String trimmedValue = value.trim();
+        for (Object enumConstant : enumType.getEnumConstants()) {
+            Enum<?> enumValue = (Enum<?>) enumConstant;
+            if (enumValue.toString().equals(trimmedValue) || enumValue.name().equals(trimmedValue)) {
+                return enumValue;
+            }
+        }
+        throw new RuntimeException(format("Invalid value '%s' for enum %s", value, enumType));
     }
 
 
