@@ -60,8 +60,8 @@
         <jackson.version>2.14.2</jackson.version>
         <netty.version>4.1.122.Final</netty.version>
         <!-- plugins -->
-        <javac.source>17</javac.source>
-        <javac.target>17</javac.target>
+        <javac.source>21</javac.source>
+        <javac.target>21</javac.target>
         <puppycrawl.checkstyle.version>8.37</puppycrawl.checkstyle.version>
         <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.0.0-M1</maven-surefire-plugin.version>
@@ -69,7 +69,7 @@
         <license-maven-plugin.version>3.0.rc1</license-maven-plugin.version>
         <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
         <spotbugs-maven-plugin.version>3.1.8</spotbugs-maven-plugin.version>
-        <maven-jacoco-plugin.version>0.8.7</maven-jacoco-plugin.version>
+        <maven-jacoco-plugin.version>0.8.11</maven-jacoco-plugin.version>
         <validation-api.version>2.0.1.Final</validation-api.version>
         <jersey.version>3.1.12</jersey.version>
         <jetty.ee10.version>12.1.10</jetty.ee10.version>
