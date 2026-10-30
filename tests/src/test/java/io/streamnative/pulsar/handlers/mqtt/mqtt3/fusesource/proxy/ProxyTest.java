@@ -17,7 +17,7 @@ package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.proxy;
 import static org.mockito.Mockito.verify;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.gson.Gson;
-import com.google.gson.internal.LinkedTreeMap;
+import com.google.gson.JsonObject;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -312,9 +312,9 @@ public class ProxyTest extends MQTTTestBase {
                     buffer.append(str);
                 }
                 String ret = buffer.toString();
-                LinkedTreeMap treeMap = new Gson().fromJson(ret, LinkedTreeMap.class);
-                LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
-                active.set((Double) clients.get("active"));
+                JsonObject stats = new Gson().fromJson(ret, JsonObject.class);
+                JsonObject clients = stats.getAsJsonObject("clients");
+                active.set(clients.get("active").getAsDouble());
                 result.complete(null);
             } catch (Throwable ex) {
                 result.completeExceptionally(ex);
