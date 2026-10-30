@@ -15,7 +15,7 @@ package io.streamnative.pulsar.handlers.mqtt.mqtt3.fusesource.base;
 
 import static org.mockito.Mockito.verify;
 import com.google.gson.Gson;
-import com.google.gson.internal.LinkedTreeMap;
+import com.google.gson.JsonObject;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.EventLoopGroup;
@@ -587,11 +587,11 @@ public class SimpleIntegrationTest extends MQTTTestBase {
             buffer.append(str);
         }
         String result = buffer.toString();
-        LinkedTreeMap treeMap = new Gson().fromJson(result, LinkedTreeMap.class);
-        LinkedTreeMap clients = (LinkedTreeMap) treeMap.get("clients");
+        JsonObject stats = new Gson().fromJson(result, JsonObject.class);
+        JsonObject clients = stats.getAsJsonObject("clients");
         Awaitility.await().untilAsserted(() -> {
-            Assert.assertEquals(clients.get("active"), 1.0);
-            Assert.assertEquals(clients.get("total"), 2.0);
+            Assert.assertEquals(clients.get("active").getAsInt(), 1);
+            Assert.assertEquals(clients.get("total").getAsInt(), 2);
         });
     }
 
